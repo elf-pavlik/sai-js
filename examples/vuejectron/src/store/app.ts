@@ -23,6 +23,27 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function loadProjects(ownerId: string): Promise<void> {
+    if (registrations.value[ownerId]) return;
+    const sai = useSai(coreStore.userId);
+    const data = await sai.getProjects(ownerId);
+    projects.value = { ...projects.value, ...data.projects };
+    registrations.value = { ...registrations.value, ...data.registrations };
+  }
+
+  async function loadTasks(projectId: string): Promise<void> {
+    const sai = useSai(coreStore.userId);
+    const data = await sai.getTasks(projectId);
+    tasks.value = data.tasks;
+  }
+
+  async function loadOneProject(ownerId: string, registrationId: string, projectId: string) {
+    const sai = useSai(coreStore.userId);
+    const project = await sai.getOneProject(ownerId, registrationId, projectId);
+    projects.value[registrationId] = [...projects.value[registrationId].filter((p) => p.id !== project.id), project];
+    loadTasks(project.id);
+  }
+
   // DO NOT AWAIT! (infinite loop)
   async function watchSai(): Promise<void> {
     const sai = useSai(coreStore.userId);
@@ -37,21 +58,8 @@ export const useAppStore = defineStore('app', () => {
         break;
       }
       if (value.type === 'GRANT') loadAgents(true);
+      if (value.type === 'PROJECT') loadOneProject(value.data.owner, value.data.registration, value.data.id);
     }
-  }
-
-  async function loadProjects(ownerId: string): Promise<void> {
-    if (registrations.value[ownerId]) return;
-    const sai = useSai(coreStore.userId);
-    const data = await sai.getProjects(ownerId);
-    projects.value = { ...projects.value, ...data.projects };
-    registrations.value = { ...registrations.value, ...data.registrations };
-  }
-
-  async function loadTasks(projectId: string): Promise<void> {
-    const sai = useSai(coreStore.userId);
-    const data = await sai.getTasks(projectId);
-    tasks.value = data.tasks;
   }
 
   async function updateTask(task: Task) {
@@ -137,6 +145,7 @@ export const useAppStore = defineStore('app', () => {
     watchSai,
     loadAgents,
     loadProjects,
+    loadOneProject,
     loadTasks,
     updateTask,
     deleteTask,

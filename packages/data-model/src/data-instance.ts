@@ -31,6 +31,10 @@ export class DataInstance extends ReadableResource {
     this.draft = draft;
   }
 
+  public fetchData(): Promise<void> {
+    return super.fetchData();
+  }
+
   private async bootstrap(): Promise<void> {
     this.shapeTree = await this.factory.readable.shapeTree(this.dataGrant.registeredShapeTree);
     if (!this.draft) {

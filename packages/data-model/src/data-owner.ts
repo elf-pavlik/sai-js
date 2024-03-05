@@ -15,4 +15,11 @@ export class DataOwner {
       .filter((sourceGrant) => sourceGrant.registeredShapeTree === shapeTree)
       .map((grant) => new ReadableDataRegistrationProxy(grant));
   }
+
+  getRegistration(registrationId: string): ReadableDataRegistrationProxy {
+    return this.issuedGrants
+      .filter((sourceGrant) => sourceGrant.hasDataRegistration === registrationId)
+      .map((grant) => new ReadableDataRegistrationProxy(grant))
+      .pop();
+  }
 }

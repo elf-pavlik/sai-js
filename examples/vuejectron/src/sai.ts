@@ -100,6 +100,26 @@ async function share(resourceId: string) {
   window.location.href = shareUri;
 }
 
+async function getUpdates(project: Project): Promise<void> {
+  const session = await ensureSaiSession();
+  const dataInstance = cache[project.id];
+
+  if (dataInstance.notifications) {
+    const response = await session.fetch(dataInstance.notifications);
+
+    const reader = response.body?.getReader();
+    if (reader) {
+      reader.read().then(function handle(): void {
+        session.streamWriter.write({
+          type: 'PROJECT',
+          data: project
+        });
+        reader.read().then(handle);
+      });
+    }
+  }
+}
+
 async function getAgents(): Promise<Agent[]> {
   const session = await ensureSaiSession();
 
@@ -111,6 +131,12 @@ async function getAgents(): Promise<Agent[]> {
     id: profile.iri,
     label: profile.label ?? 'unknown' // TODO think of a better fallback
   }));
+}
+
+async function getOneProject(ownerId: string, registrationId: string, projectId: string): Promise<Project> {
+  const dataInstance = cache[projectId];
+  await dataInstance.fetchData();
+  return instance2Project(dataInstance, ownerId, registrationId);
 }
 
 async function getProjects(
@@ -136,7 +162,9 @@ async function getProjects(
     for await (const dataInstance of registration.dataInstances) {
       cache[dataInstance.iri] = dataInstance;
       ownerIndex[dataInstance.iri] = ownerId;
-      projects[registration.iri].push(instance2Project(dataInstance, ownerId, registration.iri));
+      const project = instance2Project(dataInstance, ownerId, registration.iri);
+      projects[registration.iri].push(project);
+      getUpdates(project);
     }
   }
   return { projects, registrations };
@@ -274,6 +302,7 @@ export function useSai(userId: string | null) {
     share,
     getAgents,
     getProjects,
+    getOneProject,
     getTasks,
     updateTask,
     deleteTask,

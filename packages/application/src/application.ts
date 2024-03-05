@@ -18,6 +18,8 @@ interface ApplicationDependencies {
 
 export interface SaiEvent {
   type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any;
 }
 
 export class Application {
@@ -31,6 +33,8 @@ export class Application {
 
   private writeableStream: WritableStream<SaiEvent>;
 
+  public streamWriter: WritableStreamDefaultWriter<SaiEvent>;
+
   public stream: ReadableStream<SaiEvent>;
 
   authorizationAgentIri: string;
@@ -42,13 +46,18 @@ export class Application {
   // TODO rename
   hasApplicationRegistration?: ReadableApplicationRegistration;
 
-  constructor(public webId: string, public applicationId: string, dependencies: ApplicationDependencies) {
+  constructor(
+    public webId: string,
+    public applicationId: string,
+    dependencies: ApplicationDependencies
+  ) {
     this.rawFetch = dependencies.fetch;
     this.fetch = fetchWrapper(this.rawFetch);
     this.factory = new ApplicationFactory({ fetch: this.fetch, randomUUID: dependencies.randomUUID });
     this.transformStream = new TransformStream();
     this.stream = this.transformStream.readable;
     this.writeableStream = this.transformStream.writable;
+    this.streamWriter = this.writeableStream.getWriter();
   }
 
   private async bootstrap(): Promise<void> {
@@ -84,7 +93,7 @@ export class Application {
       const data = JSON.parse(evt.data);
       if (data.type === 'Update') {
         await this.buildRegistration();
-        this.writeableStream.getWriter().write({ type: 'GRANT' });
+        this.streamWriter.write({ type: 'GRANT' });
       }
     };
   }

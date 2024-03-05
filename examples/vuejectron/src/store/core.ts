@@ -60,6 +60,7 @@ export const useCoreStore = defineStore('core', () => {
 
   async function restoreOidcSession(to: RouteLocationNormalized): Promise<void> {
     const oidcSession = getDefaultSession();
+    window.oidc = oidcSession;
 
     if (!oidcSession.info.isLoggedIn) {
       const restoreUrl = localStorage.getItem('restorePath');

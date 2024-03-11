@@ -1,8 +1,12 @@
+import { toSparqlUpdate, startTransaction, commitTransaction, createLdoDataset, LdoBase } from '@ldo/ldo';
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { Application, SaiEvent } from '@janeirodigital/interop-application';
-import { ACL, RDFS, buildNamespace } from '@janeirodigital/interop-utils';
+import { ACL, buildNamespace } from '@janeirodigital/interop-utils';
 import type { DataInstance } from '@janeirodigital/interop-data-model';
 import { Agent, Project, Registration, Task, FileInstance, ImageInstance } from '@/models';
+import { ProjectShapeType } from '../ldo/Project$.shapeTypes';
+import { TaskShapeType } from '../ldo/Task$.shapeTypes';
+import type { Task as LdoTask } from '../ldo/Task$.typings';
 
 const cache: { [key: string]: DataInstance } = {};
 const ownerIndex: { [key: string]: string } = {};
@@ -18,9 +22,11 @@ const shapeTrees = {
 };
 
 function instance2Project(instance: DataInstance, owner: string, registration: string): Project {
+  const ldoDataset = createLdoDataset([...instance.dataset]);
+  const ldoProject = ldoDataset.usingType(ProjectShapeType).fromSubject(instance.iri);
   return {
     id: instance.iri,
-    label: instance.getObject(RDFS.label)!.value,
+    label: ldoProject.label,
     owner,
     registration,
     canUpdate: instance.accessMode.includes(ACL.Update.value),
@@ -30,10 +36,10 @@ function instance2Project(instance: DataInstance, owner: string, registration: s
   };
 }
 
-function instance2Task(instance: DataInstance, project: string, owner: string): Task {
+function instance2Task(task: LdoTask, instance: DataInstance, project: string, owner: string): Task {
   return {
     id: instance.iri,
-    label: instance.getObject(RDFS.label)!.value,
+    data: task,
     project,
     owner,
     canUpdate: instance.accessMode.includes(ACL.Update.value),
@@ -151,10 +157,24 @@ async function getTasks(projectId: string): Promise<{ projectId: string; tasks: 
   const tasks = [];
   for await (const dataInstance of project.getChildInstancesIterator(shapeTrees.task)) {
     cache[dataInstance.iri] = dataInstance;
-    tasks.push(instance2Task(dataInstance, projectId, ownerIndex[projectId]));
+    const ldoDataset = createLdoDataset([...dataInstance.dataset]);
+    const ldoTask = ldoDataset.usingType(TaskShapeType).fromSubject(dataInstance.iri);
+    startTransaction(ldoTask);
+    tasks.push(instance2Task(ldoTask, dataInstance, projectId, ownerIndex[projectId]));
   }
 
   return { projectId, tasks };
+}
+
+async function updateLdo(ldo: LdoBase) {
+  const { fetch: authFetch } = getDefaultSession();
+  authFetch(ldo['@id'], {
+    method: 'PATCH',
+    body: await toSparqlUpdate(ldo),
+    headers: {
+      'Content-Type': 'application/sparql-update'
+    }
+  });
 }
 
 async function updateTask(task: Task): Promise<Task> {
@@ -174,10 +194,15 @@ async function updateTask(task: Task): Promise<Task> {
     instance = await project.newChildDataInstance(shapeTrees.task);
     cache[instance.iri] = instance;
   }
+  console.log(task.data);
+  try {
+    commitTransaction(task.data);
+    await updateLdo(task.data);
+  } catch (error) {
+    console.error('error updating task', error);
+  }
 
-  instance.replaceValue(RDFS.label, task.label);
-
-  return instance2Task(instance, project.iri, ownerIndex[project.iri]);
+  return instance2Task(task.data, instance, project.iri, ownerIndex[project.iri]);
 }
 
 async function deleteTask(task: Task): Promise<void> {

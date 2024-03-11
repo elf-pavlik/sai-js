@@ -15,7 +15,7 @@
       <v-list>
         <v-list-item v-for="task in appStore.tasks" :key="task.id">
           <v-card>
-            <v-card-title>{{ task.label }}</v-card-title>
+            <v-card-title>{{ task.data.label }}</v-card-title>
             <v-card-actions>
               <v-btn
                 v-if="task.canUpdate"
@@ -61,7 +61,7 @@
         </v-list-item>
       </v-list>
       <input-dialog
-        :text="selectedTask?.label"
+        :text="selectedTask?.data.label"
         :dialog="dialog"
         @cancel="dialog = false"
         @save="updateTask"
@@ -73,6 +73,7 @@
 </template>
 
 <script lang="ts" setup>
+import { commitTransaction } from '@ldo/ldo'
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { computedAsync } from '@vueuse/core';
@@ -83,6 +84,7 @@ import { useCoreStore } from '@/store/core';
 import { FileInstance, Task } from '@/models';
 
 import InputDialog from '@/components/InputDialog.vue';
+
 
 const download = ref<HTMLAnchorElement>();
 const upload = ref<HTMLInputElement>();
@@ -123,11 +125,12 @@ async function downloadFile(file: FileInstance) {
 
 function updateTask(label: string) {
   if (selectedTask.value) {
-    appStore.updateTask({ ...selectedTask.value, label });
+    selectedTask.value.data.label = label;
+    appStore.updateTask(selectedTask.value);
     selectedTask.value = null;
   } else if (label && appStore.currentProject) {
-      const task = { id: 'DRAFT', label, project: appStore.currentProject.id, owner: appStore.currentProject.owner };
-      appStore.updateTask(task);
+      // const task = { id: 'DRAFT', label, project: appStore.currentProject.id, owner: appStore.currentProject.owner };
+      // appStore.updateTask(task);
     }
   dialog.value = false;
 }
@@ -145,6 +148,7 @@ function newTask() {
 function editTask(task: Task) {
   selectedTask.value = task;
   dialog.value = true;
+  commitTransaction(task.data);
 }
 
 function uploadFile(event: Event) {

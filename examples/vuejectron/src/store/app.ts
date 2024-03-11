@@ -61,13 +61,12 @@ export const useAppStore = defineStore('app', () => {
     if (task.id === 'DRAFT') {
       tasks.value.push(updated);
     } else {
-      const toUpdate = tasks.value.find((t) => t.id === task.id);
-      if (!toUpdate) {
+      const indexToUpdate = tasks.value.findIndex((t) => t.id === task.id);
+      if (indexToUpdate === -1) {
         throw new Error(`task not found: ${task.id}`);
       }
-      toUpdate.label = updated.label;
+      tasks.value[indexToUpdate] = updated;
     }
-    sai.update(updated.id);
   }
 
   function deleteTask(task: Task) {

@@ -73,13 +73,11 @@
 </template>
 
 <script lang="ts" setup>
-import { commitTransaction } from '@ldo/ldo'
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { computedAsync } from '@vueuse/core';
 
 import { useAppStore } from '@/store/app';
-import { useSai } from '@/sai';
 import { useCoreStore } from '@/store/core';
 import { FileInstance, Task } from '@/models';
 
@@ -90,7 +88,6 @@ const download = ref<HTMLAnchorElement>();
 const upload = ref<HTMLInputElement>();
 
 const coreStore = useCoreStore();
-const sai = useSai(coreStore.userId);
 
 const route = useRoute();
 const dialog = ref(false);
@@ -99,7 +96,7 @@ const selectedTask = ref<Task | null>(null);
 
 const appStore = useAppStore();
 
-const imageUrls = computedAsync(async () => Promise.all(appStore.images.map((image) => sai.dataUrl(image.id))));
+const imageUrls = computedAsync(async () => Promise.all(appStore.images.map((image) => appStore.dataUrl(image.id))));
 
 watch(
   () => route.query.project,
@@ -118,15 +115,16 @@ watch(
 async function downloadFile(file: FileInstance) {
   if (download.value) {
     download.value.download = file.filename ?? 'file';
-    download.value.href = await sai.dataUrl(file.id);
+    download.value.href = await appStore.dataUrl(file.id);
     download.value.click();
   }
 }
 
 function updateTask(label: string) {
   if (selectedTask.value) {
-    selectedTask.value.data.label = label;
-    appStore.updateTask(selectedTask.value);
+    const cTask = appStore.changeData(selectedTask.value.data);
+    cTask.label = label;
+    appStore.updateTask(cTask);
     selectedTask.value = null;
   } else if (label && appStore.currentProject) {
       // const task = { id: 'DRAFT', label, project: appStore.currentProject.id, owner: appStore.currentProject.owner };
@@ -148,7 +146,6 @@ function newTask() {
 function editTask(task: Task) {
   selectedTask.value = task;
   dialog.value = true;
-  commitTransaction(task.data);
 }
 
 function uploadFile(event: Event) {

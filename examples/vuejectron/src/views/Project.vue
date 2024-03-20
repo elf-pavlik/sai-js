@@ -15,23 +15,23 @@
       <v-list>
         <v-list-item v-for="task in appStore.tasks[appStore.currentProject['@id']!]" :key="task['@id']">
           <v-card>
-            <v-card-title>{{ task.label }}</v-card-title>
+            <v-card-title>{{ task.value.label }}</v-card-title>
             <v-card-actions>
               <v-btn
-                v-if="appStore.canUpdate(task['@id']!)"
+                v-if="appStore.canUpdate(task.value['@id']!)"
                 size="small"
                 color="surface-variant"
                 variant="text"
                 icon="mdi-square-edit-outline"
-                @click="editTask(task)"
+                @click="editTask(task.value)"
               ></v-btn>
               <v-btn
-                v-if="appStore.canDelete(task['@id']!)"
+                v-if="appStore.canDelete(task.value['@id']!)"
                 size="small"
                 color="surface-variant"
                 variant="text"
                 icon="mdi-delete-outline"
-                @click="deleteTask(task)"
+                @click="deleteTask(task.value)"
               ></v-btn>
             </v-card-actions>
           </v-card>

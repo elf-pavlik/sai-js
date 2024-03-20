@@ -1,9 +1,9 @@
 // Utilities
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { Ref, customRef, ref } from 'vue';
 import { Agent, FileInstance, ImageInstance, Registration } from '@/models';
 import { useCoreStore } from './core';
-import { toSparqlUpdate, LdoBase, startTransaction, commitTransaction, write, createLdoDataset } from '@ldo/ldo';
+import { toSparqlUpdate, LdoBase, startTransaction, commitTransaction, write, createLdoDataset, LdoDataset } from '@ldo/ldo';
 import { DataInstance } from '@janeirodigital/interop-data-model';
 
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
@@ -43,6 +43,22 @@ type ProjectChildInfo = {
   project: ProjectId
 }
 
+export function ldoRef(value: Task, dataset: LdoDataset) {
+  return customRef((track, trigger) => {
+  dataset.on([null, null, null, null], trigger)
+    return {
+      get() {
+        track()
+        return value
+      },
+      set(newValue) {
+        // value = newValue
+        // trigger()
+      }
+    }
+  })
+}
+
 export const useAppStore = defineStore('app', () => {
   const projectInstances: Record<string, ProjectInfo> = {}
   const taskInstances: Record<string, ProjectChildInfo> = {}
@@ -52,7 +68,7 @@ export const useAppStore = defineStore('app', () => {
   const agents = ref<Agent[]>([]);
   const projects = ref<Record<RegistrationId, Project[]>>({});
   const registrations = ref<Record<AgentId, Registration[]>>({});
-  const tasks = ref<Record<ProjectId, Task[]>>({});
+  const tasks = ref<Record<ProjectId, Ref<Task>[]>>({});
   const files = ref<FileInstance[]>([]);
   const images = ref<ImageInstance[]>([]);
   const currentAgent = ref<Agent>();
@@ -132,9 +148,8 @@ export const useAppStore = defineStore('app', () => {
         project: projectId
       }
       const ldoDataset = createLdoDataset([...dataInstance.dataset]);
-      ldoDataset.on([dataInstance.node, null, null, null], console.log)
       const ldoTask = ldoDataset.usingType(TaskShapeType).fromSubject(dataInstance.iri);
-      projectTasks.push(ldoTask);
+      projectTasks.push(ldoRef(ldoTask, ldoDataset));
     }
 
     tasks.value[projectId] = projectTasks
@@ -172,15 +187,15 @@ export const useAppStore = defineStore('app', () => {
     }
 
     if (task['@id'] === 'DRAFT') {
-      tasks.value[info.project].push(task);
+      // tasks.value[info.project].push(task);
     } else {
-      const indexToUpdate = tasks.value[info.project].findIndex((t) => t['@id'] === task['@id']);
+      const indexToUpdate = tasks.value[info.project].findIndex((t) => t.value['@id'] === task['@id']);
       if (indexToUpdate === -1) {
         throw new Error(`task not found: ${task['@id']}`);
       }
-      const same = tasks.value[info.project][indexToUpdate];
-      tasks.value[info.project][indexToUpdate] = null as unknown as Task
-      tasks.value[info.project][indexToUpdate] = same
+      // const same = tasks.value[info.project][indexToUpdate];
+      // tasks.value[info.project][indexToUpdate] = null as unknown as Task
+      // tasks.value[info.project][indexToUpdate] = same
     }
   }
 
@@ -188,7 +203,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession();
     if (!task['@id']) throw task
     const info = getProjectChildInfo(task['@id'])
-    const toDelete = tasks.value[info.project].find((t) => t['@id'] === task['@id']);
+    const toDelete = tasks.value[info.project].find((t) => t.value['@id'] === task['@id']);
     if (!toDelete) {
       throw new Error(`task not found: ${task['@id']}`);
     }

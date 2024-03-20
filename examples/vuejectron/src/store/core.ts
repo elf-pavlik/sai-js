@@ -16,7 +16,6 @@ class OidcError extends Error {
 
 export const useCoreStore = defineStore('core', () => {
   const userId = ref<string | null>(null);
-  const authorizationRedirectUri = ref<string | null>(null);
 
   async function login(oidcIssuer: string) {
     const options = {
@@ -52,7 +51,6 @@ export const useCoreStore = defineStore('core', () => {
 
   return {
     userId,
-    authorizationRedirectUri,
     login,
     handleRedirect,
     restoreOidcSession

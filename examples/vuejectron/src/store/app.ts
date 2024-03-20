@@ -1,10 +1,9 @@
 // Utilities
 import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
-import { Agent, FileInstance, ImageInstance, Project, Registration, Task } from '@/models';;
+import { ref } from 'vue';
+import { Agent, FileInstance, ImageInstance, Registration } from '@/models';
 import { useCoreStore } from './core';
 import { toSparqlUpdate, LdoBase, startTransaction, commitTransaction, write, createLdoDataset } from '@ldo/ldo';
-import { Task as LdoTask } from '../../ldo/Task$.typings';
 import { DataInstance } from '@janeirodigital/interop-data-model';
 
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
@@ -12,8 +11,10 @@ import { Application, SaiEvent } from '@janeirodigital/interop-application';
 import { ACL, RequestError, buildNamespace } from '@janeirodigital/interop-utils';
 import { ProjectShapeType } from '../../ldo/Project$.shapeTypes';
 import { TaskShapeType } from '../../ldo/Task$.shapeTypes';
+import { Task } from '../../ldo/Task$.typings';
+import { Project } from '../../ldo/Project$.typings';
+import { i } from 'vite/dist/node/types.d-jgA8ss1A';
 
-const cache: { [key: string]: DataInstance } = {};
 const ownerIndex: { [key: string]: string } = {};
 
 const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#');
@@ -30,10 +31,25 @@ type RegistrationId = string;
 type AgentId = string;
 type ProjectId = string;
 
+type ProjectInfo = {
+  instance: DataInstance
+  registration: RegistrationId
+  agent: AgentId
+}
+
+type ProjectChildInfo = {
+  instance: DataInstance
+  agent: AgentId
+  project: ProjectId
+}
+
 export const useAppStore = defineStore('app', () => {
+  const projectInstances: Record<string, ProjectInfo> = {}
+  const taskInstances: Record<string, ProjectChildInfo> = {}
+  const imageInstances: Record<string, ProjectChildInfo> = {}
+  const fileInstances: Record<string, ProjectChildInfo> = {}
   const coreStore = useCoreStore();
   const agents = ref<Agent[]>([]);
-  const dataInstances = ref<Record<string, DataInstance>>({});
   const projects = ref<Record<RegistrationId, Project[]>>({});
   const registrations = ref<Record<AgentId, Registration[]>>({});
   const tasks = ref<Record<ProjectId, Task[]>>({});
@@ -41,7 +57,6 @@ export const useAppStore = defineStore('app', () => {
   const images = ref<ImageInstance[]>([]);
   const currentAgent = ref<Agent>();
   const currentProject = ref<Project>();
-  const isAuthorized = ref(false);
   const saiError = ref<string | undefined>();
 
   async function loadAgents(force = false): Promise<void> {
@@ -87,9 +102,15 @@ export const useAppStore = defineStore('app', () => {
       ownerProjects[registration.iri] = [];
       // eslint-disable-next-line no-await-in-loop
       for await (const dataInstance of registration.dataInstances) {
-        cache[dataInstance.iri] = dataInstance;
+        projectInstances[dataInstance.iri] = {
+          instance: dataInstance,
+          agent: ownerId,
+          registration: registration.iri
+        }
         ownerIndex[dataInstance.iri] = ownerId;
-        ownerProjects[registration.iri].push(instance2Project(dataInstance, ownerId, registration.iri));
+        const ldoDataset = createLdoDataset([...dataInstance.dataset]);
+        const ldoProject = ldoDataset.usingType(ProjectShapeType).fromSubject(dataInstance.iri);
+        ownerProjects[registration.iri].push(ldoProject);
       }
     }
 
@@ -99,16 +120,21 @@ export const useAppStore = defineStore('app', () => {
 
   async function loadTasks(projectId: string): Promise<void> {
     await ensureSaiSession();
-    const project = cache[projectId];
+    const project = projectInstances[projectId];
     if (!project) {
       throw new Error(`Project not found for: ${projectId}`);
     }
     const projectTasks = [];
-    for await (const dataInstance of project.getChildInstancesIterator(shapeTrees.task)) {
-      cache[dataInstance.iri] = dataInstance;
+    for await (const dataInstance of project.instance.getChildInstancesIterator(shapeTrees.task)) {
+      taskInstances[dataInstance.iri] = {
+        instance: dataInstance,
+        agent: project.agent,
+        project: projectId
+      }
       const ldoDataset = createLdoDataset([...dataInstance.dataset]);
+      ldoDataset.on([dataInstance.node, null, null, null], console.log)
       const ldoTask = ldoDataset.usingType(TaskShapeType).fromSubject(dataInstance.iri);
-      projectTasks.push(instance2Task(ldoTask, dataInstance, projectId, ownerIndex[projectId]));
+      projectTasks.push(ldoTask);
     }
 
     tasks.value[projectId] = projectTasks
@@ -116,53 +142,61 @@ export const useAppStore = defineStore('app', () => {
 
   async function updateTask(task: Task) {
     await ensureSaiSession();
-    const project = cache[task.project];
+    if (!task['@id']) throw task
+    const info = getProjectChildInfo(task['@id'])
+    const project = projectInstances[info.project];
     if (!project) {
-      throw new Error(`project not found ${task.project}`);
+      throw new Error(`project not found ${info.project}`);
     }
     let instance: DataInstance;
-    if (task.id !== 'DRAFT') {
-      const cached = cache[task.id];
+    if (task['@id'] !== 'DRAFT') {
+      const cached = taskInstances[task['@id']];
       if (!cached) {
-        throw new Error(`Data Instance not found for: ${task.id}`);
+        throw new Error(`Data Instance not found for: ${task['@id']}`);
       }
-      instance = cached;
+      instance = cached.instance;
     } else {
-      instance = await project.newChildDataInstance(shapeTrees.task);
-      cache[instance.iri] = instance;
+      instance = await project.instance.newChildDataInstance(shapeTrees.task);
+      taskInstances[instance.iri] = {
+        instance: instance,
+        agent: project.agent,
+        project: project.instance.iri
+      }
     }
     
     try {
-      commitTransaction(task.data);
-      await updateLdo(task.data);
+      await updateLdo(task);
+      commitTransaction(task)
     } catch (error) {
       console.error('error updating task', error);
     }
 
-    const updated = instance2Task(task.data, instance, project.iri, ownerIndex[project.iri]);
-
-    if (task.id === 'DRAFT') {
-      tasks.value[task.project].push(updated);
+    if (task['@id'] === 'DRAFT') {
+      tasks.value[info.project].push(task);
     } else {
-      const indexToUpdate = tasks.value[task.project].findIndex((t) => t.id === task.id);
+      const indexToUpdate = tasks.value[info.project].findIndex((t) => t['@id'] === task['@id']);
       if (indexToUpdate === -1) {
-        throw new Error(`task not found: ${task.id}`);
+        throw new Error(`task not found: ${task['@id']}`);
       }
-      tasks.value[task.project][indexToUpdate] = updated;
+      const same = tasks.value[info.project][indexToUpdate];
+      tasks.value[info.project][indexToUpdate] = null as unknown as Task
+      tasks.value[info.project][indexToUpdate] = same
     }
   }
 
   async function deleteTask(task: Task) {
     await ensureSaiSession();
-    const toDelete = tasks.value[task.project].find((t) => t.id === task.id);
+    if (!task['@id']) throw task
+    const info = getProjectChildInfo(task['@id'])
+    const toDelete = tasks.value[info.project].find((t) => t['@id'] === task['@id']);
     if (!toDelete) {
-      throw new Error(`task not found: ${task.id}`);
+      throw new Error(`task not found: ${task['@id']}`);
     }
-    tasks.value[task.project].splice(tasks.value[task.project].indexOf(toDelete), 1);
+    tasks.value[info.project].splice(tasks.value[info.project].indexOf(toDelete), 1);
 
-    const instance = cache[task.id];
+    const instance = taskInstances[task['@id']].instance;
     await instance.delete();
-    delete cache[task.id];
+    delete taskInstances[task['@id']];
   }
 
   async function loadFiles(projectId: string): Promise<void> {
@@ -174,24 +208,28 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession();
     let instance: DataInstance;
     if (file.id !== 'DRAFT') {
-      const cached = cache[file.id];
+      const cached = fileInstances[file.id];
       if (!cached) {
         throw new Error(`Data Instance not found for: ${file.id}`);
       }
-      instance = cached;
+      instance = cached.instance;
     } else {
       if (!blob) {
         throw new Error(`image file missing`);
       }
-      const project = cache[file.project];
+      const project = fileInstances[file.project];
       if (!project) {
         throw new Error(`project not found ${file.project}`);
       }
   
-      instance = await project.newChildDataInstance(shapeTrees.file);
+      instance = await project.instance.newChildDataInstance(shapeTrees.file);
       instance.replaceValue(NFO.fileName, blob.name);
       instance.replaceValue(AWOL.type, blob.type);
-      cache[instance.iri] = instance;
+      fileInstances[instance.iri] ={
+        instance,
+        agent: project.agent,
+        project: project.instance.iri
+      }
     }
   
     const updated = instance2File(instance, file.project, file.owner);
@@ -205,7 +243,7 @@ export const useAppStore = defineStore('app', () => {
       }
       toUpdate.filename = updated.filename;
     }
-    update(updated.id, blob);
+    // update(updated.id, blob);
   }
 
   async function loadImages(projectId: string): Promise<void> {
@@ -218,7 +256,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setCurrentProject(registrationId: string, projectId: string) {
-    currentProject.value = projects.value[registrationId]?.find((p) => p.id === projectId);
+    currentProject.value = projects.value[registrationId]?.find((p) => p['@id'] === projectId);
   }
 
   async function shareProject(projectId: string) {
@@ -234,198 +272,177 @@ export const useAppStore = defineStore('app', () => {
     return transactionLdo;
   }
 
-
-function instance2Project(instance: DataInstance, owner: string, registration: string): Project {
-  const ldoDataset = createLdoDataset([...instance.dataset]);
-  const ldoProject = ldoDataset.usingType(ProjectShapeType).fromSubject(instance.iri);
-  return {
-    id: instance.iri,
-    label: ldoProject.label,
-    owner,
-    registration,
-    canUpdate: instance.accessMode.includes(ACL.Update.value),
-    canAddTasks: instance.findChildGrant(shapeTrees.task)?.accessMode.includes(ACL.Create.value),
-    canAddImages: instance.findChildGrant(shapeTrees.image)?.accessMode.includes(ACL.Create.value),
-    canAddFiles: instance.findChildGrant(shapeTrees.file)?.accessMode.includes(ACL.Create.value)
-  };
-}
-
-function instance2Task(task: LdoTask, instance: DataInstance, project: string, owner: string): Task {
-  return {
-    id: instance.iri,
-    data: task,
-    project,
-    owner,
-    canUpdate: instance.accessMode.includes(ACL.Update.value),
-    canDelete: instance.accessMode.includes(ACL.Delete.value)
-  };
-}
-
-function instance2File(instance: DataInstance, project: string, owner: string): FileInstance {
-  return {
-    id: instance.iri,
-    filename: instance.getObject(NFO.fileName)?.value,
-    project,
-    owner,
-    canUpdate: instance.accessMode.includes(ACL.Update.value),
-    canDelete: instance.accessMode.includes(ACL.Delete.value)
-  };
-}
-
-function getAccessModes(task: Task) {
-  const project = cache[task.project];
-  if (!project) {
-    throw new Error(`Project not found for: ${task.project}`);
+  function getProjectChildInfo(id: string): ProjectChildInfo {
+    return taskInstances[id] || imageInstances[id] || fileInstances[id]
+  }
+  
+  function getInfo(id: string): ProjectInfo | ProjectChildInfo {
+    return projectInstances[id] || getProjectChildInfo(id)
   }
 
-  const dataGrant = project.findChildGrant(shapeTrees.task);
-  return {
-    canUpdate: dataGrant.accessMode.includes(ACL.Update.value),
-    canDelete: dataGrant.accessMode.includes(ACL.Delete.value)
-  };
-}
-
-async function authorize() {
-  if (!coreStore.userId) {
-    throw new Error('no user id');
+  function canUpdate(id: string): boolean {
+    const info = getInfo(id)
+    return info.instance.accessMode.includes(ACL.Update.value)
   }
-  window.location.href = await getAuthorizationRedirectUri();
-}
+  
+  function canDelete(id: string): boolean {
+    const info = getInfo(id)
+    return info.instance.accessMode.includes(ACL.Delete.value)
+  }
 
-watch(() => coreStore.userId, async (userId) => {
-  if (!userId) return;
-  try {
-    isAuthorized.value = await checkAuthoriztion();
-  } catch (err) {
-    if (err instanceof RequestError) {
-      saiError.value = err.message;
-      if (err.response) console.error(err.response);
+  function canAddTasks(id: string): boolean {
+    const info = projectInstances[id]
+    return info.instance.findChildGrant(shapeTrees.task)?.accessMode.includes(ACL.Create.value)
+  }
+
+  function canAddImages(id: string): boolean {
+    const info = projectInstances[id]
+    return info.instance.findChildGrant(shapeTrees.image)?.accessMode.includes(ACL.Create.value)
+  }
+
+  function canAddFiles(id: string): boolean {
+    const info = projectInstances[id]
+    return info.instance.findChildGrant(shapeTrees.file)?.accessMode.includes(ACL.Create.value)
+  }
+
+  function getAgentId(id: string): string {
+    return getInfo(id).agent
+  }
+
+  function getRegistrationId(id: string): string {
+    return projectInstances[id].registration
+  }
+
+  function instance2File(instance: DataInstance, project: string, owner: string): FileInstance {
+    return {
+      id: instance.iri,
+      filename: instance.getObject(NFO.fileName)?.value,
+      project,
+      owner,
+    };
+  }
+
+  async function authorize() {
+    if (!coreStore.userId) {
+      throw new Error('no user id');
     }
-  }
-});
-
-let saiSession: Application | undefined;
-
-const authnFetch = getDefaultSession().fetch;
-
-async function ensureSaiSession(): Promise<Application> {
-  if (!coreStore.userId) {
-    throw new Error('no user id');
-  }
-  if (saiSession) return saiSession;
-  const deps = { fetch: authnFetch, randomUUID: crypto.randomUUID.bind(crypto) };
-  saiSession = await Application.build(coreStore.userId, import.meta.env.VITE_APPLICATION_ID, deps);
-  return saiSession;
-}
-
-async function getStream(): Promise<ReadableStream<SaiEvent>> {
-  const session = await ensureSaiSession();
-  return session.stream;
-}
-
-async function checkAuthoriztion(): Promise<boolean> {
-  const session = await ensureSaiSession();
-  return !!session.hasApplicationRegistration?.hasAccessGrant.granted;
-}
-
-async function getAuthorizationRedirectUri(): Promise<string> {
-  const session = await ensureSaiSession();
-  return session.authorizationRedirectUri;
-}
-
-async function share(resourceId: string) {
-  const session = await ensureSaiSession();
-  const shareUri = session.getShareUri(resourceId);
-  if (!shareUri) throw new Error('shareUri is undefined');
-  window.localStorage.setItem('restorePath', `${window.location.pathname}${window.location.search}`);
-  window.location.href = shareUri;
-}
-
-async function getAgents(): Promise<Agent[]> {
-  const session = await ensureSaiSession();
-
-  const profiles = await Promise.all(
-    session.dataOwners.map((owner) => session.factory.readable.webIdProfile(owner.iri))
-  );
-
-  return profiles.map((profile) => ({
-    id: profile.iri,
-    label: profile.label ?? 'unknown' // TODO think of a better fallback
-  }));
-}
-
-async function getTasks(projectId: string): Promise<{ projectId: string; tasks: Task[] }> {
-  await ensureSaiSession();
-  const project = cache[projectId];
-  if (!project) {
-    throw new Error(`Project not found for: ${projectId}`);
-  }
-  const tasks = [];
-  for await (const dataInstance of project.getChildInstancesIterator(shapeTrees.task)) {
-    cache[dataInstance.iri] = dataInstance;
-    const ldoDataset = createLdoDataset([...dataInstance.dataset]);
-    const ldoTask = ldoDataset.usingType(TaskShapeType).fromSubject(dataInstance.iri);
-    tasks.push(instance2Task(ldoTask, dataInstance, projectId, ownerIndex[projectId]));
+    window.location.href = await getAuthorizationRedirectUri();
   }
 
-  return { projectId, tasks };
-}
+  let saiSession: Application | undefined;
 
-async function updateLdo(ldo: LdoBase) {
-  const { fetch: authFetch } = getDefaultSession();
-  authFetch(ldo['@id'], {
-    method: 'PATCH',
-    body: await toSparqlUpdate(ldo),
-    headers: {
-      'Content-Type': 'application/sparql-update'
+  const authnFetch = getDefaultSession().fetch;
+
+  async function ensureSaiSession(): Promise<Application> {
+    if (!coreStore.userId) {
+      throw new Error('no user id');
     }
-  });
-}
-
-async function getFiles(projectId: string): Promise<{ projectId: string; files: FileInstance[] }> {
-  await ensureSaiSession();
-  const project = cache[projectId];
-  if (!project) {
-    throw new Error(`Project not found for: ${projectId}`);
-  }
-  const files = [];
-  for await (const dataInstance of project.getChildInstancesIterator(shapeTrees.file)) {
-    cache[dataInstance.iri] = dataInstance;
-    files.push(instance2File(dataInstance, projectId, ownerIndex[projectId]));
-  }
-
-  return { projectId, files };
-}
-
-async function getImages(projectId: string): Promise<{ projectId: string; images: ImageInstance[] }> {
-  await ensureSaiSession();
-  const project = cache[projectId];
-  if (!project) {
-    throw new Error(`Project not found for: ${projectId}`);
-  }
-  const images = [];
-  for await (const dataInstance of project.getChildInstancesIterator(shapeTrees.image)) {
-    cache[dataInstance.iri] = dataInstance;
-    images.push(instance2File(dataInstance, projectId, ownerIndex[projectId]));
+    if (saiSession) return saiSession;
+    const deps = { fetch: authnFetch, randomUUID: crypto.randomUUID.bind(crypto) };
+    try {
+      saiSession = await Application.build(coreStore.userId, import.meta.env.VITE_APPLICATION_ID, deps);
+    } catch (err) {
+      if (err instanceof RequestError) {
+        saiError.value = err.message;
+        if (err.response) console.error(err.response);
+      }
+      throw err
+    }
+    return saiSession;
   }
 
-  return { projectId, images };
-}
-
-async function update(iri: string, blob?: File) {
-  const instance = cache[iri];
-  if (!instance) {
-    throw new Error(`Instance not found for: ${iri}`);
+  async function getStream(): Promise<ReadableStream<SaiEvent>> {
+    const session = await ensureSaiSession();
+    return session.stream;
   }
-  return instance.update(instance.dataset, blob);
-}
 
-async function dataUrl(url: string): Promise<string> {
-  const { fetch } = getDefaultSession();
-  return fetch(url)
-    .then((response) => response.blob())
-    .then((blb) => URL.createObjectURL(blb));
-}
+  async function checkAuthoriztion(): Promise<boolean> {
+    const session = await ensureSaiSession();
+    return !!session.hasApplicationRegistration?.hasAccessGrant.granted;
+  }
+
+  async function getAuthorizationRedirectUri(): Promise<string> {
+    const session = await ensureSaiSession();
+    return session.authorizationRedirectUri;
+  }
+
+  async function share(resourceId: string) {
+    const session = await ensureSaiSession();
+    const shareUri = session.getShareUri(resourceId);
+    if (!shareUri) throw new Error('shareUri is undefined');
+    window.localStorage.setItem('restorePath', `${window.location.pathname}${window.location.search}`);
+    window.location.href = shareUri;
+  }
+
+  async function getAgents(): Promise<Agent[]> {
+    const session = await ensureSaiSession();
+
+    const profiles = await Promise.all(
+      session.dataOwners.map((owner) => session.factory.readable.webIdProfile(owner.iri))
+    );
+
+    return profiles.map((profile) => ({
+      id: profile.iri,
+      label: profile.label ?? 'unknown' // TODO think of a better fallback
+    }));
+  }
+
+  async function updateLdo(ldo: LdoBase) {
+    const { fetch: authFetch } = getDefaultSession();
+    const sparql = await toSparqlUpdate(ldo)
+    authFetch(ldo['@id'], {
+      method: 'PATCH',
+      body: sparql,
+      headers: {
+        'Content-Type': 'application/sparql-update'
+      }
+    });
+  }
+
+  async function getFiles(projectId: string): Promise<{ projectId: string; files: FileInstance[] }> {
+    await ensureSaiSession();
+    const project = projectInstances[projectId];
+    if (!project) {
+      throw new Error(`Project not found for: ${projectId}`);
+    }
+    const files = [];
+    for await (const instance of project.instance.getChildInstancesIterator(shapeTrees.file)) {
+      fileInstances[instance.iri] = {
+        instance,
+        agent: project.agent,
+        project: project.instance.iri
+      }
+      files.push(instance2File(instance, projectId, ownerIndex[projectId]));
+    }
+
+    return { projectId, files };
+  }
+
+  async function getImages(projectId: string): Promise<{ projectId: string; images: ImageInstance[] }> {
+    await ensureSaiSession();
+    const project = projectInstances[projectId];
+    if (!project) {
+      throw new Error(`Project not found for: ${projectId}`);
+    }
+    const images = [];
+    for await (const instance of project.instance.getChildInstancesIterator(shapeTrees.image)) {
+      imageInstances[instance.iri] = {
+        instance,
+        agent: project.agent,
+        project: project.instance.iri
+      }
+      images.push(instance2File(instance, projectId, ownerIndex[projectId]));
+    }
+
+    return { projectId, images };
+  }
+
+  async function dataUrl(url: string): Promise<string> {
+    const { fetch } = getDefaultSession();
+    return fetch(url)
+      .then((response) => response.blob())
+      .then((blb) => URL.createObjectURL(blb));
+  }
 
 
   return {
@@ -452,10 +469,15 @@ async function dataUrl(url: string): Promise<string> {
     changeData,
     authorize,
     getStream,
-    isAuthorized,
+    saiError,
     getAuthorizationRedirectUri,
+    checkAuthoriztion,
     share,
     dataUrl,
-    update
+    canUpdate,
+    canDelete,
+    canAddTasks,
+    canAddImages,
+    canAddFiles,
   };
 });

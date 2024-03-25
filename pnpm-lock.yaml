@@ -104,6 +104,9 @@ importers:
       '@ldo/ldo':
         specifier: 0.0.1-alpha.23
         version: 0.0.1-alpha.23
+      '@ldo/solid':
+        specifier: 0.0.1-alpha.23
+        version: 0.0.1-alpha.23
       '@mdi/font':
         specifier: 7.3.67
         version: 7.3.67
@@ -2904,7 +2907,7 @@ packages:
     dependencies:
       '@comunica/bus-rdf-parse': 2.8.2
       '@comunica/types': 2.8.2
-      n3: 1.17.1
+      n3: 1.17.2
 
   /@comunica/actor-rdf-parse-rdfxml@2.8.2:
     resolution: {integrity: sha512-5SoYBhrPicqHQKUTK20mYZqILctrIcxjk9R+tdhlAHzWOIT3Usmx87t2/5V8Tf/mr6ld9snQIaYS19QtU8MQYg==}
@@ -3088,7 +3091,7 @@ packages:
     dependencies:
       '@comunica/bus-rdf-serialize': 2.8.2
       '@comunica/types': 2.8.2
-      n3: 1.17.1
+      n3: 1.17.2
     dev: false
 
   /@comunica/actor-rdf-serialize-shaclc@2.8.2:
@@ -4466,7 +4469,7 @@ packages:
     resolution: {integrity: sha512-XSxRXk3bRiSTduUNsiUfNTV9DvIVUKL1i4shUyaskXnUhOkZzGI/yVm5DGmHNfcXmYbYLYW0xADSGz/Nx/bSug==}
     dependencies:
       '@rdfjs/data-model': 1.3.4
-      n3: 1.17.1
+      n3: 1.17.2
       rdf-string: 1.6.3
     dev: false
 
@@ -4479,6 +4482,18 @@ packages:
     transitivePeerDependencies:
       - encoding
     dev: true
+
+  /@ldo/solid@0.0.1-alpha.23:
+    resolution: {integrity: sha512-Ts/geXO8Ulnh9SiZ5X3CP7vkOnFi3z2uuo9MVzVQf2rjB5ZSrqFUn8FFfyTMj5sgi/t/tNKRzOoXWebNgi4AMQ==}
+    dependencies:
+      '@ldo/dataset': 0.0.1-alpha.23
+      '@ldo/ldo': 0.0.1-alpha.23
+      '@ldo/rdf-utils': 0.0.1-alpha.23
+      cross-fetch: 3.1.8
+      http-link-header: 1.1.1
+    transitivePeerDependencies:
+      - encoding
+    dev: false
 
   /@ldo/subscribable-dataset@0.0.1-alpha.23:
     resolution: {integrity: sha512-X0d/8B0uLEfLg4A1NfVZR36xcleBndXd1rR0i2uOrVGDFUowuIMDdmn2UQMND51Qszr6okooUFRaMjV1O5JiAw==}
@@ -9611,6 +9626,7 @@ packages:
     dependencies:
       queue-microtask: 1.2.3
       readable-stream: 4.4.2
+    dev: false
 
   /n3@1.17.2:
     resolution: {integrity: sha512-BxSM52wYFqXrbQQT5WUEzKUn6qpYV+2L4XZLfn3Gblz2kwZ09S+QxC33WNdVEQy2djenFL8SNkrjejEKlvI6+Q==}
@@ -9618,7 +9634,6 @@ packages:
     dependencies:
       queue-microtask: 1.2.3
       readable-stream: 4.4.2
-    dev: false
 
   /nanoid@3.3.6:
     resolution: {integrity: sha512-BGcqMMJuToF7i1rt+2PWSNVnWIkGCU78jBG3RxO/bZlnZPK2Cmi2QaffxGO/2RvWi9sL+FAiRiXMgsyxQ1DIDA==}
@@ -10448,7 +10463,7 @@ packages:
       '@rdfjs/types': 1.1.0
       '@types/n3': 1.16.2
       '@types/readable-stream': 2.3.15
-      n3: 1.17.1
+      n3: 1.17.2
       rdf-string: 1.6.3
       rdf-terms: 1.11.0
       readable-stream: 4.4.2
@@ -10905,13 +10920,13 @@ packages:
     resolution: {integrity: sha512-zyxjIYQH2ghg/wtMvOp+4Nr6aK8j9bqFiVT3w47K8WHPYN+S3Zgnh2ybT+dGgMwo9KjiOoywxhjC7d8Z6GCmfA==}
     dependencies:
       '@rdfjs/types': 1.1.0
-      n3: 1.17.1
+      n3: 1.17.2
 
   /shaclc-write@1.4.2:
     resolution: {integrity: sha512-aejD8fNgTfTINInjlwW7oz4GbmIJmDFJu4Tc3WVhmMH2QV24F+Ey/I/obMP/cQu/LwcfX7O2eu7bI9RUFeDMWw==}
     dependencies:
       '@jeswr/prefixcc': 1.2.1
-      n3: 1.17.1
+      n3: 1.17.2
       rdf-string-ttl: 1.3.2
     transitivePeerDependencies:
       - encoding

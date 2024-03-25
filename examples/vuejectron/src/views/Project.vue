@@ -13,7 +13,7 @@
         ></v-btn>
       </h3>
       <v-list>
-        <v-list-item v-for="task in appStore.tasks[appStore.currentProject['@id']!]" :key="task['@id']">
+        <v-list-item v-for="task in appStore.ldoTasks[appStore.currentProject['@id']!]" :key="task['@id']">
           <v-card>
             <v-card-title>{{ task.label }}</v-card-title>
             <v-card-actions>
@@ -118,16 +118,17 @@ async function downloadFile(file: FileInstance) {
   }
 }
 
-function updateTask(label: string) {
+async function updateTask(label: string) {
+  let cTask: Task
   if (selectedTask.value) {
-    const cTask = appStore.changeData(selectedTask.value);
-    cTask.label = label;
-    appStore.updateTask(cTask);
-    selectedTask.value = null;
-  } else if (label && appStore.currentProject) {
-      // const task = { id: 'DRAFT', label, project: appStore.currentProject.id, owner: appStore.currentProject.owner };
-      // appStore.updateTask(task);
-    }
+    cTask = appStore.changeData(selectedTask.value);
+  } else {
+    const newTask = await appStore.draftTask(appStore.currentProject!['@id']!)
+    cTask = appStore.changeData(newTask);
+  }
+  cTask.label = label;
+  appStore.updateTask(cTask);
+  selectedTask.value = null;
   dialog.value = false;
 }
 

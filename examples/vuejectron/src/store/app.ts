@@ -3,8 +3,9 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { Agent, FileInstance, ImageInstance, Registration } from '@/models';
 import { useCoreStore } from './core';
-import { toSparqlUpdate, LdoBase, startTransaction, commitTransaction, write, createLdoDataset } from '@ldo/ldo';
+import { LdoBase } from '@ldo/ldo';
 import { DataInstance } from '@janeirodigital/interop-data-model';
+import { changeData as ldoChangeData, commitData, createSolidLdoDataset, type SolidLdoDataset } from "@ldo/solid"
 
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser';
 import { Application, SaiEvent } from '@janeirodigital/interop-application';
@@ -13,7 +14,6 @@ import { ProjectShapeType } from '../../ldo/Project$.shapeTypes';
 import { TaskShapeType } from '../../ldo/Task$.shapeTypes';
 import { Task } from '../../ldo/Task$.typings';
 import { Project } from '../../ldo/Project$.typings';
-import { i } from 'vite/dist/node/types.d-jgA8ss1A';
 
 const ownerIndex: { [key: string]: string } = {};
 
@@ -50,7 +50,6 @@ export const useAppStore = defineStore('app', () => {
   const fileInstances: Record<string, ProjectChildInfo> = {}
   const coreStore = useCoreStore();
   const agents = ref<Agent[]>([]);
-  const projects = ref<Record<RegistrationId, Project[]>>({});
   const registrations = ref<Record<AgentId, Registration[]>>({});
   const tasks = ref<Record<ProjectId, Task[]>>({});
   const files = ref<FileInstance[]>([]);
@@ -58,6 +57,10 @@ export const useAppStore = defineStore('app', () => {
   const currentAgent = ref<Agent>();
   const currentProject = ref<Project>();
   const saiError = ref<string | undefined>();
+  
+  let solidLdoDataset: SolidLdoDataset
+  const ldoProjects = ref<Record<RegistrationId, Project[]>>({});
+  const ldoTasks = ref<Record<ProjectId, Task[]>>({});
 
   async function loadAgents(force = false): Promise<void> {
     if (force || !agents.value.length) {
@@ -89,7 +92,7 @@ export const useAppStore = defineStore('app', () => {
     if (!user) {
       throw new Error(`data registration not found for ${ownerId}`);
     }
-    const ownerProjects: Record<string, Project[]> = {};
+    const ldoOwnerProjects: Record<string, Project[]> = {};
     const ownerRegistration: Record<string, Registration[]> = {};
     ownerRegistration[ownerId] = [];
     for (const registration of user.selectRegistrations(shapeTrees.project)) {
@@ -99,7 +102,7 @@ export const useAppStore = defineStore('app', () => {
         owner: ownerId,
         canCreate: registration.grant.accessMode.includes(ACL.Create.value)
       });
-      ownerProjects[registration.iri] = [];
+      ldoOwnerProjects[registration.iri] = [];
       // eslint-disable-next-line no-await-in-loop
       for await (const dataInstance of registration.dataInstances) {
         projectInstances[dataInstance.iri] = {
@@ -108,13 +111,20 @@ export const useAppStore = defineStore('app', () => {
           registration: registration.iri
         }
         ownerIndex[dataInstance.iri] = ownerId;
-        const ldoDataset = createLdoDataset([...dataInstance.dataset]);
-        const ldoProject = ldoDataset.usingType(ProjectShapeType).fromSubject(dataInstance.iri);
-        ownerProjects[registration.iri].push(ldoProject);
+        
+        // @ldo-solid
+        const ldoResource = solidLdoDataset.getResource(dataInstance.iri)
+        const readResult = await ldoResource.read()
+        if (readResult.isError) throw readResult
+
+        const ldoSolidProject = solidLdoDataset
+          .usingType(ProjectShapeType)
+          .fromSubject(dataInstance.iri)
+        ldoOwnerProjects[registration.iri].push(ldoSolidProject);
       }
     }
 
-    projects.value = { ...projects.value, ...ownerProjects };
+    ldoProjects.value = { ...ldoProjects.value, ...ldoOwnerProjects };
     registrations.value = { ...registrations.value, ...ownerRegistration };
   }
 
@@ -124,20 +134,42 @@ export const useAppStore = defineStore('app', () => {
     if (!project) {
       throw new Error(`Project not found for: ${projectId}`);
     }
-    const projectTasks = [];
+    const ldoProjectTasks = [];
     for await (const dataInstance of project.instance.getChildInstancesIterator(shapeTrees.task)) {
       taskInstances[dataInstance.iri] = {
         instance: dataInstance,
         agent: project.agent,
         project: projectId
       }
-      const ldoDataset = createLdoDataset([...dataInstance.dataset]);
-      ldoDataset.on([dataInstance.node, null, null, null], console.log)
-      const ldoTask = ldoDataset.usingType(TaskShapeType).fromSubject(dataInstance.iri);
-      projectTasks.push(ldoTask);
+
+      // @ldo-solid
+      const ldoResource = solidLdoDataset.getResource(dataInstance.iri)
+      const readResult = await ldoResource.read()
+      if (readResult.isError) throw readResult
+
+      const ldoSolidTask = solidLdoDataset
+        .usingType(TaskShapeType)
+        .fromSubject(dataInstance.iri)
+      ldoProjectTasks.push(ldoSolidTask);
     }
 
-    tasks.value[projectId] = projectTasks
+    ldoTasks.value[projectId] = ldoProjectTasks
+  }
+  
+  async function draftTask(projectId: string): Promise<Task> {
+    const projectInfo = projectInstances[projectId]
+    const newTaskInstance = await projectInfo.instance.newChildDataInstance(shapeTrees.task)
+    taskInstances[newTaskInstance.iri] = {
+      instance: newTaskInstance,
+      agent: projectInfo.agent,
+      project: projectInfo.instance.iri
+    }
+    const ldoSolidTask = solidLdoDataset
+      .usingType(TaskShapeType)
+      .fromSubject(newTaskInstance.iri)
+    ldoTasks.value[projectId].push(ldoSolidTask);
+    return ldoSolidTask
+    // return solidLdoDataset.createData(TaskShapeType, newTaskInstance.iri, ldoResource)
   }
 
   async function updateTask(task: Task) {
@@ -148,40 +180,32 @@ export const useAppStore = defineStore('app', () => {
     if (!project) {
       throw new Error(`project not found ${info.project}`);
     }
-    let instance: DataInstance;
-    if (task['@id'] !== 'DRAFT') {
-      const cached = taskInstances[task['@id']];
-      if (!cached) {
-        throw new Error(`Data Instance not found for: ${task['@id']}`);
-      }
-      instance = cached.instance;
-    } else {
-      instance = await project.instance.newChildDataInstance(shapeTrees.task);
-      taskInstances[instance.iri] = {
-        instance: instance,
-        agent: project.agent,
-        project: project.instance.iri
-      }
-    }
-    
-    try {
-      await updateLdo(task);
-      commitTransaction(task)
-    } catch (error) {
-      console.error('error updating task', error);
+    const instance = taskInstances[task['@id']];
+    if (!instance) {
+      throw new Error(`Data Instance not found for: ${task['@id']}`);
     }
 
-    if (task['@id'] === 'DRAFT') {
-      tasks.value[info.project].push(task);
-    } else {
-      const indexToUpdate = tasks.value[info.project].findIndex((t) => t['@id'] === task['@id']);
-      if (indexToUpdate === -1) {
-        throw new Error(`task not found: ${task['@id']}`);
-      }
-      const same = tasks.value[info.project][indexToUpdate];
-      tasks.value[info.project][indexToUpdate] = null as unknown as Task
-      tasks.value[info.project][indexToUpdate] = same
+    const ldoProject = ldoProjects.value[project.registration]
+      .find(p => p['@id'] === project.instance.iri)
+    if (!ldoProject) throw new Error(`ldo project not found: ${project.instance.iri}`)
+    const isDraft = !ldoProject.hasTask?.find(t => t['@id'] === task['@id'])
+    if (isDraft) {
+      // add reference to new task
+      const cProject = changeData(ldoProject)
+      if (!cProject.hasTask) cProject.hasTask = []
+      cProject.hasTask.push({ '@id': task['@id'] })
+      const result = await commitData(cProject)
+      if (result.isError) throw result
     }
+    const result = await commitData(task)
+    if (result.isError) throw result
+
+    const indexToUpdate = ldoTasks.value[info.project].findIndex((t) => t['@id'] === task['@id']);
+    if (indexToUpdate === -1) throw new Error(`task not found: ${task['@id']}`)
+    // trigger effects
+    const same = ldoTasks.value[info.project][indexToUpdate];
+    delete ldoTasks.value[info.project][indexToUpdate]
+    ldoTasks.value[info.project][indexToUpdate] = same
   }
 
   async function deleteTask(task: Task) {
@@ -256,7 +280,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setCurrentProject(registrationId: string, projectId: string) {
-    currentProject.value = projects.value[registrationId]?.find((p) => p['@id'] === projectId);
+    currentProject.value = ldoProjects.value[registrationId]?.find((p) => p['@id'] === projectId);
   }
 
   async function shareProject(projectId: string) {
@@ -265,11 +289,9 @@ export const useAppStore = defineStore('app', () => {
 
 
   function changeData<Type extends LdoBase>(input: Type): Type {
-    const [transactionLdo] = write(input['@id']).usingCopy(
-      input,
-    );
-    startTransaction(transactionLdo);
-    return transactionLdo;
+    const resource = solidLdoDataset.getResource(input['@id']);
+    return ldoChangeData(input, resource);
+
   }
 
   function getProjectChildInfo(id: string): ProjectChildInfo {
@@ -348,6 +370,7 @@ export const useAppStore = defineStore('app', () => {
       }
       throw err
     }
+    solidLdoDataset = createSolidLdoDataset({ fetch: authnFetch})
     return saiSession;
   }
 
@@ -385,18 +408,6 @@ export const useAppStore = defineStore('app', () => {
       id: profile.iri,
       label: profile.label ?? 'unknown' // TODO think of a better fallback
     }));
-  }
-
-  async function updateLdo(ldo: LdoBase) {
-    const { fetch: authFetch } = getDefaultSession();
-    const sparql = await toSparqlUpdate(ldo)
-    authFetch(ldo['@id'], {
-      method: 'PATCH',
-      body: sparql,
-      headers: {
-        'Content-Type': 'application/sparql-update'
-      }
-    });
   }
 
   async function getFiles(projectId: string): Promise<{ projectId: string; files: FileInstance[] }> {
@@ -450,7 +461,6 @@ export const useAppStore = defineStore('app', () => {
     currentAgent,
     currentProject,
     registrations,
-    projects,
     tasks,
     files,
     images,
@@ -479,5 +489,8 @@ export const useAppStore = defineStore('app', () => {
     canAddTasks,
     canAddImages,
     canAddFiles,
+    ldoProjects,
+    ldoTasks,
+    draftTask
   };
 });

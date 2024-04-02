@@ -1,12 +1,12 @@
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 
-<http://localhost:3000/alice/agentRegistry/>
+<https://pod.demo.hackers4peace.net/alice/agentRegistry/>
   interop:hasApplicationRegistration
-    <http://localhost:3000/alice/agentRegistry/test-client/> .
+    <https://pod.demo.hackers4peace.net/alice/agentRegistry/test-client/> .
 
 
-<http://localhost:3000/alice/agentRegistry/>
+<https://pod.demo.hackers4peace.net/alice/agentRegistry/>
   interop:hasSocialAgentRegistration
-    <http://localhost:3000/alice/agentRegistry/acme/> ,
-    <http://localhost:3000/alice/agentRegistry/bob/> ,
-    <http://localhost:3000/alice/agentRegistry/kim/> .
+    <https://pod.demo.hackers4peace.net/alice/agentRegistry/acme/> ,
+    <https://pod.demo.hackers4peace.net/alice/agentRegistry/bob/> ,
+    <https://pod.demo.hackers4peace.net/alice/agentRegistry/kim/> .

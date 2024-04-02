@@ -1,5 +1,5 @@
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 
-<http://localhost:3000/acme/agentRegistry/>
+<https://pod.demo.hackers4peace.net/acme/agentRegistry/>
   interop:hasSocialAgentRegistration
-    <http://localhost:3000/acme/agentRegistry/alice/> .
+    <https://pod.demo.hackers4peace.net/acme/agentRegistry/alice/> .

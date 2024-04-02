@@ -3,10 +3,10 @@
 
 <>
     a foaf:PersonalProfileDocument;
-    foaf:maker <http://localhost:3000/shapetrees/profile/card#me>;
-    foaf:primaryTopic <http://localhost:3000/shapetrees/profile/card#me>.
+    foaf:maker <https://pod.demo.hackers4peace.net/shapetrees/profile/card#me>;
+    foaf:primaryTopic <https://pod.demo.hackers4peace.net/shapetrees/profile/card#me>.
 
-<http://localhost:3000/shapetrees/profile/card#me>
+<https://pod.demo.hackers4peace.net/shapetrees/profile/card#me>
     
-    solid:oidcIssuer <http://localhost:3000/>;
+    solid:oidcIssuer <https://pod.demo.hackers4peace.net/>;
     a foaf:Person.

@@ -6,16 +6,16 @@ PREFIX schema: <https://schema.org/>
 
 <>
     a foaf:PersonalProfileDocument;
-    foaf:maker <http://localhost:3000/acme/profile/card#me>;
-    foaf:primaryTopic <http://localhost:3000/acme/profile/card#me>.
+    foaf:maker <https://pod.demo.hackers4peace.net/acme/profile/card#me>;
+    foaf:primaryTopic <https://pod.demo.hackers4peace.net/acme/profile/card#me>.
 
-<http://localhost:3000/acme/profile/card#me>
+<https://pod.demo.hackers4peace.net/acme/profile/card#me>
     
-    solid:oidcIssuer <http://localhost:3000/>;
+    solid:oidcIssuer <https://pod.demo.hackers4peace.net/>;
     a schema:Organization ;
     rdfs:label "ACME" ;
     interop:hasAuthorizationAgent <http://localhost:4000/agents/aHR0cDovL2xvY2FsaG9zdDozMDAwL2FjbWUvcHJvZmlsZS9jYXJkI21l> ;
     schema:member
-        <http://localhost:3000/alice/profile/card#me> ,
-        <http://localhost:3000/bob/profile/card#me> ,
-        <http://localhost:3000/kim/profile/card#me> .
+        <https://pod.demo.hackers4peace.net/alice/profile/card#me> ,
+        <https://pod.demo.hackers4peace.net/bob/profile/card#me> ,
+        <https://pod.demo.hackers4peace.net/kim/profile/card#me> .

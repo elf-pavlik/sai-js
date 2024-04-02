@@ -1,11 +1,11 @@
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-PREFIX solidtrees: <http://localhost:3000/shapetrees/trees/>
+PREFIX solidtrees: <https://pod.demo.hackers4peace.net/shapetrees/trees/>
 
-<http://localhost:3000/bob-pro/dataRegistry/images/>
+<https://pod.demo.hackers4peace.net/bob-pro/dataRegistry/images/>
   a interop:DataRegistration ;
-  interop:registeredBy <http://localhost:3000/bob/profile/card#me> ;
+  interop:registeredBy <https://pod.demo.hackers4peace.net/bob/profile/card#me> ;
   interop:registeredWith <http://localhost:4000/agents/aHR0cDovL2xvY2FsaG9zdDozMDAwL2JvYi9wcm9maWxlL2NhcmQjbWU=> ;
   interop:registeredAt "2020-04-04T20:15:47.000Z"^^xsd:dateTime ;
   interop:updatedAt "2020-04-04T21:11:33.000Z"^^xsd:dateTime ;

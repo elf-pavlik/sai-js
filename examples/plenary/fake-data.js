@@ -1,29 +1,29 @@
 export default {
   agents: [
-    'http://localhost:3000/acme/profile/card#me',
-    'http://localhost:3000/yoyo/profile/card#me'
+    'https://pod.demo.hackers4peace.net/acme/profile/card#me',
+    'https://pod.demo.hackers4peace.net/yoyo/profile/card#me'
   ],
   pods: {
-    'http://localhost:3000/acme/profile/card#me': [
+    'https://pod.demo.hackers4peace.net/acme/profile/card#me': [
       {
-        id: 'http://localhost:3000/acme-hr/',
+        id: 'https://pod.demo.hackers4peace.net/acme-hr/',
         name: 'HR'
       },
       {
-        id: 'http://localhost:3000/acme-rnd/',
+        id: 'https://pod.demo.hackers4peace.net/acme-rnd/',
         name: 'RnD'
       }
     ],
-    'http://localhost:3000/yoyo/profile/card#me': [
+    'https://pod.demo.hackers4peace.net/yoyo/profile/card#me': [
       {
-        id: 'http://localhost:3000/yoyo-eu/',
+        id: 'https://pod.demo.hackers4peace.net/yoyo-eu/',
         name: 'EU'
       },
     ]
   },
   registrations: {
-    'http://localhost:3000/acme-hr/': 'http://localhost:3000/acme-hr/dataRegistry/events/',
-    'http://localhost:3000/acme-rnd/': 'http://localhost:3000/acme-rnd/dataRegistry/events/',
-    'http://localhost:3000/yoyo-eu/': 'http://localhost:3000/yoyo-eu/dataRegistry/events/'
+    'https://pod.demo.hackers4peace.net/acme-hr/': 'https://pod.demo.hackers4peace.net/acme-hr/dataRegistry/events/',
+    'https://pod.demo.hackers4peace.net/acme-rnd/': 'https://pod.demo.hackers4peace.net/acme-rnd/dataRegistry/events/',
+    'https://pod.demo.hackers4peace.net/yoyo-eu/': 'https://pod.demo.hackers4peace.net/yoyo-eu/dataRegistry/events/'
   }
 }

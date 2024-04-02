@@ -5,13 +5,13 @@ PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 
 <>
     a foaf:PersonalProfileDocument;
-    foaf:maker <http://localhost:3000/zack/profile/card#me>;
-    foaf:primaryTopic <http://localhost:3000/zack/profile/card#me>.
+    foaf:maker <https://pod.demo.hackers4peace.net/zack/profile/card#me>;
+    foaf:primaryTopic <https://pod.demo.hackers4peace.net/zack/profile/card#me>.
 
-<http://localhost:3000/zack/profile/card#me>
+<https://pod.demo.hackers4peace.net/zack/profile/card#me>
     
     a foaf:Person;
     rdfs:label "Zack";
-    solid:oidcIssuer <http://localhost:3000/>;
-    interop:hasRegistrySet <http://localhost:3000/zack/registrySet>;
+    solid:oidcIssuer <https://pod.demo.hackers4peace.net/>;
+    interop:hasRegistrySet <https://pod.demo.hackers4peace.net/zack/registrySet>;
     interop:hasAuthorizationAgent <http://localhost:4000/agents/aHR0cDovL2xvY2FsaG9zdDozMDAwL3lvcmkvcHJvZmlsZS9jYXJkI21l> .

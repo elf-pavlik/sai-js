@@ -1,4 +1,4 @@
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-<http://localhost:3000/bob-pro/dataRegistry/projects/project-boop>
+<https://pod.demo.hackers4peace.net/bob-pro/dataRegistry/projects/project-boop>
   rdfs:label "Project Boop" .

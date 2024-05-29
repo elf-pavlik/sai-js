@@ -65,8 +65,5 @@
     "@types/web-push": "^3.6.1",
     "@types/yargs": "^17.0.28",
     "@solid-notifications/types": "^0.1.2"
-  },
-  "volta": {
-    "node": "20.7.0"
   }
 }

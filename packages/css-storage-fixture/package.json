@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "community-solid-server -c config.json -l warn",
+    "start:sai": "community-solid-server -c sai.json -f ./sub -p 3100",
     "dev": "pnpm run clean && pnpm run start",
     "clean": "pnpm clean:empty-directories && pnpm clean:notification-channels",
     "clean:empty-directories": "find . -type d -empty -delete",
@@ -14,6 +15,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@solid/community-server": "^7.0.1"
+    "@solid/community-server": "^7.1.0",
+    "@janeirodigital/sai-css": "^1.0.0-rc.24"
   }
 }

@@ -29,7 +29,7 @@
     "test": "test"
   },
   "scripts": {
-    "build": "tsc -b .",
+    "build": "pnpm --package=typescript dlx tsc -b .",
     "clean": "rimraf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {

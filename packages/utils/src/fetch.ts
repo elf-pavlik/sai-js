@@ -1,5 +1,6 @@
 import { DatasetCore } from '@rdfjs/types';
-import { serializeTurtle, parseTurtle } from '.';
+import { serializeTurtle } from './turtle-serializer';
+import { parseTurtle } from './turtle-parser';
 
 export interface RdfRequestInit extends RequestInit {
   dataset?: DatasetCore;

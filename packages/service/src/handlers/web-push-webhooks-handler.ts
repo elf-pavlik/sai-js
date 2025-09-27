@@ -10,7 +10,10 @@ import type { SessionManager } from '../session-manager'
 import { decodeWebId } from '../url-templates'
 import { validateContentType } from '../utils/http-validators'
 import 'dotenv/config'
+import crypto from 'node:crypto'
 import { getOneMatchingQuad } from '@janeirodigital/interop-utils'
+import { Temporal } from '../temporal/client'
+import { sendPushNotifications } from '../temporal/workflows/forward-to-push'
 
 export class WebPushWebhooksHandler extends HttpHandler {
   private logger = getLogger()
@@ -54,18 +57,20 @@ export class WebPushWebhooksHandler extends HttpHandler {
     const subscriptions = await this.sessionManager.getWebhookPushSubscription(webId, applicationId)
 
     try {
-      await Promise.all(
-        subscriptions.map((info) => {
-          const sub = {
-            endpoint: info.sendTo,
-            keys: {
-              auth: info.keys.auth,
-              p256dh: info.keys.p256dh,
-            },
-          }
-          return webpush.sendNotification(sub, JSON.stringify(notificationPayload))
-        })
-      )
+      const subs = subscriptions.map((info) => ({
+        endpoint: info.sendTo,
+        keys: {
+          auth: info.keys.auth,
+          p256dh: info.keys.p256dh,
+        },
+      }))
+      const temporal = new Temporal()
+      await temporal.init()
+      await temporal.client.workflow.execute(sendPushNotifications, {
+        taskQueue: 'forward-to-push',
+        args: [subs, notificationPayload],
+        workflowId: crypto.randomUUID(),
+      })
     } catch (error) {
       this.logger.error('WebPushWebhooksHandler::handleAsync', error)
     }

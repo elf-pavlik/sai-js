@@ -18,6 +18,7 @@
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "container": "node dist/componentsMain.js & node dist/workers/forward-to-push.js",
     "start": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem node dist/componentsMain.js",
     "redis:create": "docker run --name sai-redis -p 6379:6379 -d redis:7.2.4",
     "redis:delete": "docker rm -f sai-redis",
@@ -49,6 +50,9 @@
     "@solid-notifications/discovery": "^0.1.2",
     "@solid-notifications/subscription": "^0.1.2",
     "@solid/access-token-verifier": "^2.0.5",
+    "@temporalio/client": "^1.13.0",
+    "@temporalio/common": "^1.13.0",
+    "@temporalio/worker": "^1.13.0",
     "bullmq": "^4.12.4",
     "componentsjs": "^6.3.0",
     "cookie": "^1.0.2",

@@ -1,12 +1,17 @@
 services:
   redis:
     image: redis:7.2.4
+    container_name: redis
     restart: on-failure
     networks:
       - default
   sai:
-    image: node:22-alpine
+    image: node:22-slim
     restart: on-failure
+    container_name: sai
+    depends_on:
+      - temporal
+      - redis
     networks:
       - default
     expose:
@@ -14,7 +19,7 @@ services:
     ports:
       - 9229:9229 # node debugger
     working_dir: /sai/packages/service
-    command: ['node', '--inspect', 'dist/componentsMain.js']
+    command: ['npm', 'run', 'container']
     dns:
       - 172.16.0.253
     volumes:
@@ -30,6 +35,7 @@ services:
       - VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
       - VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
       - PUSH_NOTIFICATION_EMAIL=mailto:example@yourdomain.org
+      - TEMPORAL_ADDRESS=temporal:7233
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true
@@ -40,6 +46,7 @@ services:
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   css:
     image: node:22-alpine
+    container_name: css
     restart: on-failure
     networks:
       - default
@@ -67,6 +74,7 @@ services:
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   ui:
     image: node:22-alpine
+    container_name: ui
     restart: on-failure
     networks:
       - default
@@ -84,6 +92,7 @@ services:
       - traefik.http.services.ui-sai.loadbalancer.server.port=4200
   vuejectron:
     image: node:22-alpine
+    container_name: vuejectron
     restart: on-failure
     networks:
       - default

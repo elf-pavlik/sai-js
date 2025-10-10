@@ -224,6 +224,33 @@ services:
       - traefik.http.routers.temporal-ui.tls=true
       - traefik.http.services.temporal-ui.loadbalancer.server.port=8080
 
+  oxigraph:
+    image: ghcr.io/oxigraph/oxigraph:latest
+    container_name: oxigraph
+    restart: on-failure
+    networks:
+      - default
+    volumes:
+      - ./packages/css-storage-fixture/oxigraph:/data
+    environment:
+      - RUST_LOG=debug
+    expose:
+      - 7878   # internal only
+    command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]
+
+  sparql:
+    image: nginx:alpine
+    container_name: sparql
+    restart: on-failure
+    networks:
+      - default
+    depends_on:
+      - oxigraph
+    ports:
+      - 7878:80
+    volumes:
+      - ./packages/css-storage-fixture/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
+
 networks:
   default:
     name: network.${COMPOSE_PROJECT_NAME}

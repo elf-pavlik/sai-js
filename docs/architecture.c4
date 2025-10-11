@@ -1,0 +1,171 @@
+specification {
+  element system
+  element container
+  element component
+}
+
+model {
+  system h4p {
+    container Auth 'Auth' 'auth.h4p.net' {
+      style {
+        shape rectangle
+        color red
+      }
+      component OIDC 'Solid-OIDC' 'CSS'
+      component SAI 'SAI Agent' 'sai-js'
+      component FedCM 'FedCM IdP' 'liquid.surf'
+    }
+    container Registry 'Registry' 'reg.h4p.net' {
+      style {
+        shape storage
+        color red
+        icon http://www.w3.org/RDF/icons/rdf_flyer.64
+      }
+      component RegistrySet 'Registry Set' {
+        style {
+          color red
+        }
+        component AuthorizationRegistry 'Authorization Registry' {
+          style {
+            color red
+          }
+        }
+        component AgentRegistry 'Agent Registry' {
+          style {
+            shape person
+            color green
+          }
+        }
+        component RoleRegistry 'Role Registry' {
+          style {
+            shape person
+            color green
+          }
+        }
+      }
+      component ACPPolicyEngine 'ACP Policy Engine' {
+        style {
+          color red
+        }
+      }
+      component SPARQLEndpoint 'SPARQL endpoint' {
+        style {
+          color sky
+          icon http://www.w3.org/RDF/icons/rdf_flyer.64
+        }
+      }
+    }
+    container WWW 'WWW' 'www.h4p.net' {
+      style {
+        shape browser
+        color indigo
+        icon https://lit.dev/images/logo.svg
+      }
+    }
+    container Data 'Data' '*.data.h4p.net' {
+      style {
+        shape storage
+        color sky
+      }
+      component DataRegistry 'Data Registry' {
+        style {
+          color sky
+        }
+      }
+      component SaiPolicyEngine 'SAI Policy Engine' {
+        style {
+          color red
+        }
+      }
+      component FilesystemStorage 'Filesystem storage' {
+        style {
+          color sky
+          icon gcp:filestore
+        }
+      }
+    }
+    container WebID 'WebID' '*.h4p.net & id.h4p.net' {
+      style {
+        shape person
+        color green
+      }
+    }
+    container Account 'Account' 'account.h4p.net' {
+      style {
+        shape browser
+        color amber
+        icon tech:vue
+      }
+      component AuthScreen 'Authorization Screen' {
+        style {
+          color: red
+        }
+        this -> Auth
+      }
+      component CredentialManagement 'Credential Management' {
+        style {
+          color: red
+        }
+        this -> Auth
+      }
+      component SocialGraph 'Social Graph' {
+        style {
+          shape person
+          color: green
+        }
+        this -> Auth
+      }
+      component PodManagement 'Pod Management' {
+        style {
+          color sky
+        }
+        this -> Data
+      }
+      component WebIDManagement 'WebID Management' {
+        style {
+          color green
+        }
+        this -> WebID
+      }
+    }
+  }
+
+  Account -> Auth
+  WWW -> Data
+  Data -> Auth
+  Auth -> WebID
+  Auth -> Registry
+  Data -> WebID
+}
+
+views {
+  view index {
+    title 'Landscape'
+    include h4p
+    include h4p.*
+  }
+  view auth of Auth {
+    include Auth
+    include Auth.*
+  }
+  view data of Data {
+    include Data
+    include Data.*
+  }
+  view registry of Registry {
+    include Registry
+    include Registry.*
+  }
+  view account of Account {
+    include Account
+    include Account.*
+    include Data
+    include WebID
+    exclude Data -> WebID
+    include Auth
+    include Auth -> Registry
+    exclude Data -> Auth
+    exclude Auth -> WebID
+  }
+}
+

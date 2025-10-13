@@ -11,9 +11,37 @@ model {
         shape rectangle
         color red
       }
-      component OIDC 'Solid-OIDC' 'CSS'
+      component OP 'Solid-OIDC Provider' 'CSS'
       component SAI 'SAI Agent' 'sai-js'
       component FedCM 'FedCM IdP' 'liquid.surf'
+    }
+    container Temporal 'Temporal server' {
+      style {
+        shape rectangle
+        color sky
+      }
+    }
+    container Quadstore 'Quadstore' 'oxigraph' {
+      style {
+        shape storage
+        color blue
+      }
+    }
+    container Workers 'Temporal workers' {
+      style {
+        shape rectangle
+        color slate
+      }
+      component PushForwarder 'Push notifications forwarder' {
+        style {
+          color blue
+        }
+      }
+      component WebhookSender 'Webhook sender' {
+        style {
+          color blue
+        }
+      }
     }
     container Registry 'Registry' 'reg.h4p.net' {
       style {
@@ -54,6 +82,11 @@ model {
           icon http://www.w3.org/RDF/icons/rdf_flyer.64
         }
       }
+      component RegistrySolidClient 'Solid Client' {
+        style {
+          color slate
+        }
+      }
     }
     container WWW 'WWW' 'www.h4p.net' {
       style {
@@ -81,6 +114,11 @@ model {
         style {
           color sky
           icon gcp:filestore
+        }
+      }
+      component DataSolidClient 'Solid Client' {
+        style {
+          color slate
         }
       }
     }
@@ -136,6 +174,7 @@ model {
   Auth -> WebID
   Auth -> Registry
   Data -> WebID
+  Registry -> Quadstore
 }
 
 views {
@@ -155,6 +194,14 @@ views {
   view registry of Registry {
     include Registry
     include Registry.*
+  }
+  view set of RegistrySet {
+    include RegistrySet
+    include RegistrySet.*
+  }
+  view workers of Workers {
+    include Workers
+    include Workers.*
   }
   view account of Account {
     include Account

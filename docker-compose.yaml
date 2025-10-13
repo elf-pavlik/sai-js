@@ -19,7 +19,7 @@ services:
     ports:
       - 9229:9229 # node debugger
     working_dir: /sai/packages/service
-    command: ['npm', 'run', 'container']
+    command: ["npm", "run", "container"]
     dns:
       - 172.16.0.253
     volumes:
@@ -55,7 +55,7 @@ services:
     expose:
       - 3000
     working_dir: /sai/packages/css-storage-fixture
-    command: ['npm', 'run', 'dev']
+    command: ["npm", "run", "dev"]
     volumes:
       - ./:/sai
       - ${CAROOT}:/mkcert
@@ -81,7 +81,7 @@ services:
     expose:
       - 4200
     working_dir: /sai/ui/authorization
-    command: ['npm', 'run', 'dev']
+    command: ["npm", "run", "dev"]
     volumes:
       - ./:/sai
     labels:
@@ -99,7 +99,7 @@ services:
     expose:
       - 4500
     working_dir: /sai/examples/vuejectron
-    command: ['npm', 'run', 'dev']
+    command: ["npm", "run", "dev"]
     volumes:
       - ./:/sai
     labels:
@@ -114,8 +114,8 @@ services:
     container_name: router
     restart: on-failure
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/conf/traefik.yml:/etc/traefik/traefik.yml
@@ -128,7 +128,7 @@ services:
       - traefik.http.services.router.loadbalancer.server.port=8080
       - traefik.http.routers.router.tls=true
     healthcheck:
-      test: ['CMD-SHELL', 'traefik healthcheck --ping']
+      test: ["CMD-SHELL", "traefik healthcheck --ping"]
       interval: 4s
       timeout: 4s
       retries: 8
@@ -144,12 +144,12 @@ services:
     env_file:
       - .env
     ports:
-      - '53:53/tcp'
-      - '53:53/udp'
+      - "53:53/tcp"
+      - "53:53/udp"
     cap_add:
       - NET_ADMIN
     healthcheck:
-      test: ['CMD-SHELL', 'nslookup localhost 127.0.0.1 || exit 1']
+      test: ["CMD-SHELL", "nslookup localhost 127.0.0.1 || exit 1"]
       interval: 4s
       timeout: 4s
       retries: 8
@@ -231,11 +231,11 @@ services:
     networks:
       - default
     volumes:
-      - ./packages/css-storage-fixture/oxigraph:/data
+      - ./packages/css-storage-fixture/dev/oxigraph:/data
     environment:
       - RUST_LOG=debug
     expose:
-      - 7878   # internal only
+      - 7878 # internal only
     command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]
 
   sparql:

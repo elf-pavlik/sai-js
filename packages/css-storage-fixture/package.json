@@ -5,11 +5,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "community-solid-server -c config.json -l warn -f ./dev",
+    "dev": "community-solid-server -c config.json -l warn -f ./dev/pod",
     "css:test": "community-solid-server -c ../css-test-utils/src/css-config.json -l warn -f ./test -p 3711",
     "clean": "npm run clean:empty-directories && npm run clean:notification-channels && npm run clean:client-credentials",
     "clean:empty-directories": "find . -type d -empty -delete",
-    "clean:notification-channels": "rm -rf ./dev/.internal/notifications/*",
+    "clean:notification-channels": "rm -rf ./dev/pod/.internal/notifications/*",
     "clean:client-credentials": "rm -rf ./test/.internal/accounts/index/clientCredentials/*"
   },
   "author": "",

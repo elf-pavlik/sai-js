@@ -1,0 +1,65 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld"
+  ],
+  "import": ["css:config/http/handler/handlers/storage-description.json"],
+  "@graph": [
+    {
+      "comment": "These are all the handlers a request will go through until it is handled.",
+      "@id": "urn:solid-server:default:HttpHandler",
+      "@type": "SequenceHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:Middleware" },
+        {
+          "@id": "urn:solid-server:default:BaseHttpHandler",
+          "@type": "StatusWaterfallHandler",
+          "handlers": [
+            { "@id": "urn:solid-server:default:FooHandler" },
+            { "@id": "urn:solid-server:default:StaticAssetHandler" },
+            { "@id": "urn:solid-server:default:OidcHandler" },
+            { "@id": "urn:solid-server:default:NotificationHttpHandler" },
+            { "@id": "urn:solid-server:default:StorageDescriptionHandler" },
+            { "@id": "urn:solid-server:default:AuthResourceHttpHandler" },
+            { "@id": "urn:solid-server:default:IdentityProviderHandler" },
+            { "@id": "urn:solid-server:default:LdpHandler" }
+          ]
+        }
+      ]
+    },
+    {
+      "comment": "Foo",
+      "@id": "urn:sai:default:Foo",
+      "@type": "RouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "targetExtractor": { "@id": "urn:solid-server:default:TargetExtractor" },
+      "allowedPathNames": ["^/.foo/.*"],
+      "handler": { "@id": "urn:solid-server:default:FooParsingHandler" }
+    },
+    {
+      "comment": "Handles IDP input parsing.",
+      "@id": "urn:solid-server:default:IdentityProviderParsingHandler",
+      "@type": "ParsingHttpHandler",
+      "requestParser": { "@id": "urn:solid-server:default:RequestParser" },
+      "errorHandler": { "@id": "urn:solid-server:default:ErrorHandler" },
+      "responseWriter": { "@id": "urn:solid-server:default:ResponseWriter" },
+      "operationHandler": {
+        "comment": "Handles IDP input authorization. Permission reader should be set to allow all if no authorization is needed.",
+        "@type": "AuthorizingHttpHandler",
+        "@id": "urn:solid-server:default:IdentityProviderAuthorizingHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "modesExtractor": { "@id": "urn:solid-server:default:ModesExtractor" },
+        "authorizer": { "@id": "urn:solid-server:default:PermissionBasedAuthorizer" },
+        "operationHandler": { "@id": "urn:solid-server:default:IdentityProviderHttpHandler" }
+      }
+    },
+    {
+      "comment": "Handles IDP handler behaviour.",
+      "@id": "urn:solid-server:default:IdentityProviderHttpHandler",
+      "@type": "IdentityProviderHttpHandler",
+      "providerFactory": { "@id": "urn:solid-server:default:IdentityProviderFactory" },
+      "cookieStore": { "@id": "urn:solid-server:default:CookieStore" },
+      "handler": { "@id": "urn:solid-server:default:InteractionHandler" }
+    }
+  ]
+}

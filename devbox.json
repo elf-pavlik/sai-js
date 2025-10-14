@@ -1,9 +1,3 @@
 {
-  "packages": [
-    "nodejs@latest",
-    "mkcert@latest",
-    "openssl@latest",
-    "xh@latest",
-    "grpcurl@latest"
-  ]
+  "packages": ["nodejs@latest", "mkcert@latest", "openssl@latest", "xh@latest", "grpcurl@latest"]
 }

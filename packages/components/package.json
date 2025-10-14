@@ -1,0 +1,31 @@
+{
+  "name": "@janeirodigital/sai-components",
+  "version": "1.0.0-rc.24",
+  "description": "",
+  "lsd:module": "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components",
+  "lsd:components": "dist/components/components.jsonld",
+  "lsd:contexts": {
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld": "dist/components/context.jsonld"
+  },
+  "lsd:importPaths": {
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/": "dist/components/",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/config/": "config/",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/dist/": "dist/"
+  },
+  "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "npm run build:ts && npm run build:components",
+    "build:components": "componentsjs-generator -s dist -c dist/components -r sai -i .componentsignore",
+    "build:ts": "tsc",
+    "clean": "rm -rf dist/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@solid/community-server": "8.0.0-alpha.1",
+    "asynchronous-handlers": "^1.0.2"
+  },
+  "devDependencies": {}
+}

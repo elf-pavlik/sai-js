@@ -62,7 +62,7 @@ services:
     environment:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/config.json
       - CSS_LOGGING_LEVEL=info
-      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev
+      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/pod
       - CSS_BASE_URL=https://pod.docker
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
@@ -71,6 +71,90 @@ services:
       - traefik.http.routers.pod.entrypoints=websecure
       - traefik.http.routers.pod.tls=true
       - traefik.http.services.pod.loadbalancer.server.port=3000
+      - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
+  auth:
+    image: node:22-alpine
+    container_name: auth
+    restart: on-failure
+    networks:
+      - default
+    dns:
+      - 172.16.0.253
+    expose:
+      - 4800
+    working_dir: /sai/packages/css-storage-fixture
+    command: ["npm", "run", "auth"]
+    volumes:
+      - ./:/sai
+      - ${CAROOT}:/mkcert
+    environment:
+      - CSS_CONFIG=/sai/packages/css-storage-fixture/auth.json
+      - CSS_LOGGING_LEVEL=info
+      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/auth
+      - CSS_BASE_URL=https://auth.docker
+      - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.auth.rule=Host(`auth.docker`)
+      - traefik.http.routers.auth.entrypoints=websecure
+      - traefik.http.routers.auth.tls=true
+      - traefik.http.services.auth.loadbalancer.server.port=4800
+      - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
+  registry:
+    image: node:22-alpine
+    container_name: registry
+    restart: on-failure
+    networks:
+      - default
+    dns:
+      - 172.16.0.253
+    expose:
+      - 4600
+    working_dir: /sai/packages/css-storage-fixture
+    command: ["npm", "run", "registry"]
+    volumes:
+      - ./:/sai
+      - ${CAROOT}:/mkcert
+    environment:
+      - CSS_CONFIG=/sai/packages/css-storage-fixture/registry.json
+      - CSS_LOGGING_LEVEL=info
+      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/registry
+      - CSS_BASE_URL=https://reg.docker
+      - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.registry.rule=Host(`reg.docker`)
+      - traefik.http.routers.registry.entrypoints=websecure
+      - traefik.http.routers.registry.tls=true
+      - traefik.http.services.registry.loadbalancer.server.port=4600
+      - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
+  data:
+    image: node:22-alpine
+    container_name: data
+    restart: on-failure
+    networks:
+      - default
+    dns:
+      - 172.16.0.253
+    expose:
+      - 4700
+    working_dir: /sai/packages/css-storage-fixture
+    command: ["npm", "run", "data"]
+    volumes:
+      - ./:/sai
+      - ${CAROOT}:/mkcert
+    environment:
+      - CSS_CONFIG=/sai/packages/css-storage-fixture/data.json
+      - CSS_LOGGING_LEVEL=info
+      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/data
+      - CSS_BASE_URL=https://data.docker
+      - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.data.rule=Host(`data.docker`)
+      - traefik.http.routers.data.entrypoints=websecure
+      - traefik.http.routers.data.tls=true
+      - traefik.http.services.data.loadbalancer.server.port=4700
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   ui:
     image: node:22-alpine

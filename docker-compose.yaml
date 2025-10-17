@@ -335,6 +335,24 @@ services:
     volumes:
       - ./packages/css-storage-fixture/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
 
+  id:
+    image: nginx:alpine
+    container_name: id
+    restart: on-failure
+    networks:
+      - default
+    depends_on:
+      - router
+    volumes:
+      - ./packages/css-storage-fixture/dev/id:/usr/share/nginx/html/id:ro
+      - ./packages/css-storage-fixture/id.nginx.conf:/etc/nginx/nginx.conf:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.id.rule=Host(`id.docker`) || HostRegexp(`^.+\.id\.docker$`)
+      - traefik.http.routers.id.entrypoints=websecure
+      - traefik.http.routers.id.tls=true
+      - traefik.http.services.id.loadbalancer.server.port=80
+
 networks:
   default:
     name: network.${COMPOSE_PROJECT_NAME}

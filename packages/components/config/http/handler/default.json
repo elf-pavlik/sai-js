@@ -1,7 +1,8 @@
 {
   "@context": [
     "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
-    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld"
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld"
   ],
   "import": ["css:config/http/handler/handlers/storage-description.json"],
   "@graph": [
@@ -15,7 +16,7 @@
           "@id": "urn:solid-server:default:BaseHttpHandler",
           "@type": "StatusWaterfallHandler",
           "handlers": [
-            { "@id": "urn:solid-server:default:FooHandler" },
+            { "@id": "urn:sai:default:AuthorizationAgentHandler" },
             { "@id": "urn:solid-server:default:StaticAssetHandler" },
             { "@id": "urn:solid-server:default:OidcHandler" },
             { "@id": "urn:solid-server:default:NotificationHttpHandler" },
@@ -28,38 +29,42 @@
       ]
     },
     {
-      "comment": "Foo",
-      "@id": "urn:sai:default:Foo",
+      "comment": "SAI",
+      "@id": "urn:sai:default:AuthorizationAgentHandler",
       "@type": "RouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "targetExtractor": { "@id": "urn:solid-server:default:TargetExtractor" },
-      "allowedPathNames": ["^/.foo/.*"],
-      "handler": { "@id": "urn:solid-server:default:FooParsingHandler" }
+      "allowedPathNames": ["^/.sai/.*"],
+      "handler": { "@id": "urn:sai:default:AuthorizationAgentParsingHandler" }
     },
     {
-      "comment": "Handles IDP input parsing.",
-      "@id": "urn:solid-server:default:IdentityProviderParsingHandler",
+      "@id": "urn:sai:default:AuthorizationAgentParsingHandler",
       "@type": "ParsingHttpHandler",
       "requestParser": { "@id": "urn:solid-server:default:RequestParser" },
       "errorHandler": { "@id": "urn:solid-server:default:ErrorHandler" },
       "responseWriter": { "@id": "urn:solid-server:default:ResponseWriter" },
       "operationHandler": {
-        "comment": "Handles IDP input authorization. Permission reader should be set to allow all if no authorization is needed.",
-        "@type": "AuthorizingHttpHandler",
-        "@id": "urn:solid-server:default:IdentityProviderAuthorizingHandler",
-        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "modesExtractor": { "@id": "urn:solid-server:default:ModesExtractor" },
-        "authorizer": { "@id": "urn:solid-server:default:PermissionBasedAuthorizer" },
-        "operationHandler": { "@id": "urn:solid-server:default:IdentityProviderHttpHandler" }
+        "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler"
       }
     },
+
     {
-      "comment": "Handles IDP handler behaviour.",
-      "@id": "urn:solid-server:default:IdentityProviderHttpHandler",
-      "@type": "IdentityProviderHttpHandler",
-      "providerFactory": { "@id": "urn:solid-server:default:IdentityProviderFactory" },
-      "cookieStore": { "@id": "urn:solid-server:default:CookieStore" },
-      "handler": { "@id": "urn:solid-server:default:InteractionHandler" }
+      "comment": "Handles reading and writing notification subscriptions and channels.",
+      "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedMethods": ["GET"],
+      "handler": {
+        "comment": "Converts outgoing responses based on the user preferences",
+        "@type": "ConvertingOperationHttpHandler",
+        "converter": { "@id": "urn:solid-server:default:RepresentationConverter" },
+        "operationHandler": {
+          "@id": "urn:solid-server:default:AgentIdHandler",
+          "comment": "Responds with ClientID document",
+          "@type": "AgentIdHandler",
+          "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" }
+        }
+      }
     }
   ]
 }

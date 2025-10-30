@@ -71,6 +71,7 @@
     "@types/body-parser": "^1.19.3",
     "@types/n3": "^1.21.1",
     "@types/web-push": "^3.6.1",
-    "@types/yargs": "^17.0.28"
+    "@types/yargs": "^17.0.28",
+    "componentsjs-generator": "^4.3.0"
   }
 }

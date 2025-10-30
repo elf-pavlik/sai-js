@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "community-solid-server -c config.json -l warn -f ./dev/pod",
-    "auth": "community-solid-server -c auth.json -p 4800 -l warn -f ./dev/auth",
+    "auth": "community-solid-server -c auth.json -p 4800 -l debug -f ./dev/auth",
     "registry": "community-solid-server -c registry.json -p 4600 -l warn -f ./dev/registry -s http://sparql/sparql",
     "data": "community-solid-server -c data.json -p 4700 -l warn -f ./dev/data",
     "css:test": "community-solid-server -c ../css-test-utils/src/css-config.json -l warn -f ./test -p 3711",

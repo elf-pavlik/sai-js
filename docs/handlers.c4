@@ -1,0 +1,141 @@
+specification {
+  element actor {
+    style {
+        color: green
+      }
+  }
+}
+
+model {
+  actor Client
+  component HttpHandler 'SequenceHandler' 'HttpHandler' {
+    component Middleware 'SequenceHandler' 'Middleware'
+    component BaseHttpHandler 'StatusWaterfallHandler' 'BaseHttpHandler' {
+      component OidcHandler 'RouterHandler' 'OidcHandler'
+      component NotificationHttpHandler 'RouterHandler' 'NotificationHttpHandler'
+    }
+  }
+  component NotificationParsingHandler 'ParsingHttpHandler' 'NotificationHandler'
+  NotificationHttpHandler -> NotificationParsingHandler {
+    title: 'handler'
+  }
+
+  component NotificationOperations' StatusWaterfallHandler' 'NotificationOperations' {
+    component NotificationReadWriteHandler 'OperationRouterHandler' 'NotificationReadWriteHandler'
+    component NotificationDeleteHandler 'OperationRouterHandler' 'NotificationDeleteHandler'
+  }
+  component NotificationConverter 'ConvertingOperationHttpHandler'
+  NotificationReadWriteHandler -> NotificationConverter {
+    title: 'handler'
+  }
+
+  component NotificationTypeHandler 'StatusWaterfallHandler' 'NotificationTypeHandler' {
+      component StreamingHTTP2023Router 'OperationRouterHandler' 'StreamingHTTP2023Router'
+      component WebhookRouter 'OperationRouterHandler' 'WebhookRouter'
+  }
+  component WebhookSubscriber 'NotificationSubscriber' 'WebhookSubscriber'
+  WebhookRouter -> WebhookSubscriber {
+      title: 'handler'
+  }
+
+  component RequestParser
+  component ErrorHandler
+  component ResponseWriter
+
+  NotificationParsingHandler -> NotificationOperations {
+    title: 'operationHandler'
+  }
+  NotificationConverter -> NotificationTypeHandler {
+    title: 'operationHandler'
+  }
+  NotificationParsingHandler -> RequestParser {
+    title: 'requestParser'
+  }
+  NotificationParsingHandler -> ErrorHandler {
+    title: 'errorHandler'
+  }
+  NotificationParsingHandler -> ResponseWriter {
+    title: 'responseWriter'
+  }
+}
+
+views {
+  dynamic view handlers {
+    title 'Handlers'
+    Client -> HttpHandler 'GET' {
+      notes'''
+      `/.notifications/WebhookChannel2023/`
+      after middleware waterfalls to NotificationHttpHandler
+      '''
+    }
+    NotificationHttpHandler -> NotificationParsingHandler 'this.handler.handle(input)'
+    NotificationParsingHandler -> RequestParser 'this.requestParser.handleSafe(request)'
+    RequestParser -> NotificationParsingHandler 'return operation' {
+      notes'''
+      ```
+        interface Operation {
+          method: string;
+          target: ResourceIdentifier;
+          preferences: RepresentationPreferences;
+          conditions?: Conditions;
+          body: Representation;
+        }
+      ```
+      '''
+    }
+
+    NotificationParsingHandler -> NotificationOperations 'this.operationHandler.handleSafe({operation, request, response })' {
+      notes'''
+        `GET` - read operation
+        waterfalls to NotificationReadWriteHandler
+      '''
+    }
+    NotificationReadWriteHandler -> NotificationConverter 'this.handler.handle(input)' {
+      notes'''
+        will convert representation in the response based on operation.preferences
+      '''
+    }
+    NotificationConverter -> NotificationTypeHandler 'this.operationHandler.handle(input)' {
+      notes'''
+        `/.notifications/WebhookChannel2023/`
+        waterfalls to WebhookRouter
+      '''
+    }
+    WebhookRouter -> WebhookSubscriber 'this.handler.handle(input)'
+    WebhookSubscriber -> NotificationConverter 'return response' {
+      notes'''
+      `OkResponseDescription`
+      '''
+    }
+    NotificationConverter -> NotificationReadWriteHandler 'return response' {
+      notes'''
+        `Accept: text/turtle` - this preference would result in a corresponding `Content-Type`
+      '''
+    }
+    NotificationReadWriteHandler -> NotificationParsingHandler 'return response'
+    NotificationParsingHandler -> ResponseWriter 'this.responseWriter.handleSafe({ response, result })'
+    ResponseWriter -> Client 'sends response'
+
+    include Client
+    include HttpHandler
+    include HttpHandler.**
+    include NotificationParsingHandler
+    include NotificationParsingHandler.**
+    include NotificationOperations
+    include NotificationOperations.**
+    include NotificationConverter
+    include NotificationConverter.**
+    include NotificationTypeHandler
+    include NotificationTypeHandler.**
+    include WebhookSubscriber
+    include WebhookSubscriber.**
+    include RequestParser
+    include RequestParser.**
+    include ResponseWriter
+    include ResponseWriter.**
+    style NotificationParsingHandler {
+      color: amber
+    }
+  }
+}
+

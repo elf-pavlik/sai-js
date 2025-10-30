@@ -6,7 +6,6 @@
     "@inrupt/base-rollup-config": "^3.2.4",
     "@types/node": "^22.10.10",
     "@vitest/coverage-v8": "^3.0.4",
-    "componentsjs-generator": "^4.3.0",
     "husky": "^9.1.7",
     "jest-rdf": "^2.0.0",
     "likec4": "^1.42.1",
@@ -26,7 +25,7 @@
     "clean": "turbo run clean",
     "dev": "turbo run dev",
     "watch": "./node_modules/.bin/turbowatch turbowatch.ts",
-    "check": "BIOME_BINARY=@biomejs/cli-linux-x64-musl/biome biome check . --write"
+    "check": "biome check . --write"
   },
   "packageManager": "npm@11.3.0",
   "workspaces": ["packages/*", "examples/*", "ui/*", "submodules/*"],

@@ -8,5 +8,5 @@
 
 <http://localhost:3711/vaporcg/profile/card#me>
     
-    solid:oidcIssuer <http://localhost:3711/>;
+    solid:oidcIssuer <http://localhost:3711/>, <http://localhost:6300/>;
     a foaf:Person.

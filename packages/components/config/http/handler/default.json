@@ -62,7 +62,10 @@
           "@id": "urn:solid-server:default:AgentIdHandler",
           "comment": "Responds with ClientID document",
           "@type": "AgentIdHandler",
-          "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" }
+          "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+          "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+          "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
+          "expiration": 60
         }
       }
     }

@@ -25,7 +25,15 @@
   "license": "MIT",
   "dependencies": {
     "@solid/community-server": "8.0.0-alpha.1",
-    "asynchronous-handlers": "^1.0.2"
+    "@uvdsl/solid-oidc-client-browser": "^0.2.1",
+    "asynchronous-handlers": "^1.0.2",
+    "jose": "^6.1.0",
+    "rdf-vocabulary": "^1.0.1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@inrupt/solid-client-authn-core": "^2.5.0",
+    "@janeirodigital/interop-utils": "1.0.0-rc.24",
+    "fs-extra": "^10.1.0",
+    "set-cookie-parser": "^2.7.2"
+  }
 }

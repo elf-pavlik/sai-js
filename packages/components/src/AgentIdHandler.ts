@@ -65,14 +65,16 @@ export class AgentIdHandler extends OperationHttpHandler {
     })
     let info
     if (sai.webId === credentials.agent.webId) {
+      const registration = await sai.findApplicationRegistration(credentials.client.clientId)
       info = {
         agent: credentials.client.clientId,
-        registration: (await sai.findApplicationRegistration(credentials.client.clientId))?.iri,
+        registration: registration?.iri,
       }
-    }
-    info = {
-      agent: credentials.agent.webId,
-      registration: (await sai.findSocialAgentRegistration(credentials.agent.webId))?.iri,
+    } else {
+      info = {
+        agent: credentials.agent.webId,
+        registration: (await sai.findSocialAgentRegistration(credentials.agent.webId))?.iri,
+      }
     }
     const doc = JSON.stringify({ credentials, info })
 

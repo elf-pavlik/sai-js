@@ -44,7 +44,9 @@
       "errorHandler": { "@id": "urn:solid-server:default:ErrorHandler" },
       "responseWriter": { "@id": "urn:solid-server:default:ResponseWriter" },
       "operationHandler": {
-        "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler"
+        "@id": "urn:sai:default:RestRouter",
+        "@type": "StatusWaterfallHandler",
+        "handlers": [{ "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" }]
       }
     },
 
@@ -53,6 +55,7 @@
       "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/agents/.*"],
       "allowedMethods": ["GET"],
       "handler": {
         "comment": "Converts outgoing responses based on the user preferences",

@@ -14,16 +14,18 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 const port = 6300
 const baseUrl = `http://localhost:${port}/`
-const pathPrefix = '.sai/'
+const pathPrefix = '.sai/agents/'
 
 const rootFilePath = '/tmp/AgentIdHandler'
 
 describe('AgentIdHandler', (): void => {
   let app: App
   const indexUrl = joinUrl(baseUrl, '.account/')
-  const webId = 'http://localhost:3711/vaporcg/profile/card#me'
+  const vaporWebId = 'http://localhost:3711/vaporcg/profile/card#me'
   const lukaWebId = 'http://localhost:3711/luka/profile/card#me'
-  const encodedWebId = Buffer.from(lukaWebId).toString('base64url')
+  const clientId = 'http://localhost:3711/solid/inspector/id'
+  const encodedVaporWebId = Buffer.from(vaporWebId).toString('base64url')
+  const encodedLukaWebId = Buffer.from(lukaWebId).toString('base64url')
   const email = 'test@example.com'
   const password = 'password!'
   let controls: {
@@ -50,7 +52,7 @@ describe('AgentIdHandler', (): void => {
     await app.start()
 
     // create accounts
-    const regResult = await register(baseUrl, { email, password, webId })
+    const regResult = await register(baseUrl, { email, password, webId: vaporWebId })
     ;({ controls } = regResult)
   })
 
@@ -59,7 +61,7 @@ describe('AgentIdHandler', (): void => {
   })
 
   test('responds with ClientId Document', async (): Promise<void> => {
-    const url = `${baseUrl}${pathPrefix}${encodedWebId}`
+    const url = `${baseUrl}${pathPrefix}${encodedLukaWebId}`
     const response = await fetch(url)
     const doc = await response.json()
     expect(response.status).toBe(200)
@@ -93,7 +95,7 @@ describe('AgentIdHandler', (): void => {
       const res = await fetch(credentialsUrl, {
         method: 'POST',
         headers: { cookie, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'token', webId }),
+        body: JSON.stringify({ name: clientId, webId: vaporWebId }),
       })
 
       const payload = await res.json()
@@ -121,13 +123,25 @@ describe('AgentIdHandler', (): void => {
 
     test('responds with social agent registry in headers', async (): Promise<void> => {
       const authFetch = buildAuthenticatedFetch(accessToken!, { dpopKey })
-      const url = `${baseUrl}${pathPrefix}${encodedWebId}`
+      const url = `${baseUrl}${pathPrefix}${encodedLukaWebId}`
       const response = await authFetch(url)
       const doc = await response.json()
       expect(response.status).toBe(200)
-      expect(doc.credentials.agent.webId).toBe(webId)
+      expect(doc.credentials.agent.webId).toBe(vaporWebId)
       expect(getAgentRegistrationIri(response.headers.get('Link')!)).toBe(
         'http://localhost:3711/luka/fypm7e/ewyjet/'
+      )
+    })
+
+    test('responds with application registry in headers', async (): Promise<void> => {
+      const authFetch = buildAuthenticatedFetch(accessToken!, { dpopKey })
+      const url = `${baseUrl}${pathPrefix}${encodedVaporWebId}`
+      const response = await authFetch(url)
+      const doc = await response.json()
+      expect(response.status).toBe(200)
+      expect(doc.credentials.agent.webId).toBe(vaporWebId)
+      expect(getAgentRegistrationIri(response.headers.get('Link')!)).toBe(
+        'http://localhost:3711/vaporcg/khp4oz/r8fr2c/'
       )
     })
   })

@@ -1,5 +1,6 @@
 @prefix foaf: <http://xmlns.com/foaf/0.1/>.
 @prefix solid: <http://www.w3.org/ns/solid/terms#>.
+@prefix interop: <http://www.w3.org/ns/solid/interop#>.
 
 <>
     a foaf:PersonalProfileDocument;
@@ -9,4 +10,5 @@
 <http://localhost:3711/vaporcg/profile/card#me>
     
     solid:oidcIssuer <http://localhost:3711/>, <http://localhost:6300/>;
+    interop:hasRegistrySet <http://localhost:3711/vaporcg/clqq3c>;
     a foaf:Person.

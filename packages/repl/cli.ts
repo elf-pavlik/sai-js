@@ -64,12 +64,14 @@ const accountPrompt = Prompt.select({
 enum Actions {
   createDataRegistration = 'createDataRegistration',
   createSocialAgentRegistration = 'createSocialAgentRegistration',
+  createApplicationRegistration = 'createApplicationRegistration',
 }
 
 const selectActionPrompt = Prompt.select({
   message: 'Select action',
   choices: [
     { title: 'Create social agent registration', value: Actions.createSocialAgentRegistration },
+    { title: 'Create application registration', value: Actions.createApplicationRegistration },
     { title: 'Create data registration', value: Actions.createDataRegistration },
   ],
 })
@@ -108,6 +110,15 @@ const createSocialAgentRegistration = (session: AuthorizationAgent) =>
     )
   })
 
+const createApplicationRegistration = (session: AuthorizationAgent) =>
+  Effect.gen(function* () {
+    const clientId = yield* Prompt.text({ message: 'Enter clientId' })
+
+    yield* Effect.promise(async () =>
+      session.registrySet.hasAgentRegistry.addApplicationRegistration(clientId)
+    )
+  })
+
 export const mainPrompt = Effect.gen(function* () {
   const sessionManager = yield* SessionManager
   const session = yield* getSession.pipe(Effect.provideService(SessionManager, sessionManager))
@@ -119,6 +130,9 @@ export const mainPrompt = Effect.gen(function* () {
       break
     case Actions.createSocialAgentRegistration:
       yield* createSocialAgentRegistration(session)
+      break
+    case Actions.createApplicationRegistration:
+      yield* createApplicationRegistration(session)
       break
   }
 })

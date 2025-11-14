@@ -3,9 +3,15 @@ import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import type { CRUDRegistrySet, CRUDRegistrySetData } from '@janeirodigital/interop-data-model'
 import { init } from '@paralleldrive/cuid2'
 
-import { type Account, SolidTestUtils, accounts, createApp } from '@janeirodigital/css-test-utils'
+import {
+  type Account,
+  SolidTestUtils,
+  accounts,
+  createApp,
+  shapeTree,
+} from '@janeirodigital/css-test-utils'
 
-global.shapeTrees = accounts.shapeTree
+global.shapeTrees = shapeTree
 
 global.cuid = init({ length: 6 })
 

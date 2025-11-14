@@ -26,12 +26,20 @@
     "test": "test"
   },
   "scripts": {
-    "repl": "node --import=tsx ./repl.ts"
+    "repl": "tsx ./repl.ts",
+    "cli": "NODE_OPTIONS='--no-deprecation' tsx ./cli.ts",
+    "test": "NODE_ENV=vitest vitest run --coverage"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@effect/cli": "^0.47.1",
+    "@effect/platform-node": "^0.63.1",
+    "@janeirodigital/interop-utils": "^1.0.0-rc.24",
+    "effect": "^3.9.1"
+  },
   "devDependencies": {
-    "@janeirodigital/interop-authorization-agent": "^1.0.0-rc.24",
+    "@effect/platform": "^0.68.1",
     "@janeirodigital/css-test-utils": "^1.0.0-rc.24",
+    "@janeirodigital/interop-authorization-agent": "^1.0.0-rc.24",
     "@janeirodigital/interop-data-model": "^1.0.0-rc.24",
     "@paralleldrive/cuid2": "^2.2.2",
     "tsx": "^4.17.0"

@@ -21,6 +21,8 @@ const password = 'password'
 export const shapeTree = {
   Gadget: `${host}/solid/trees/Gadget`,
   Widget: `${host}/solid/trees/Widget`,
+  Event: `${host}/solid/trees/Event`,
+  Contact: `${host}/solid/trees/Contact`,
 }
 
 export type Application = {

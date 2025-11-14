@@ -4,7 +4,7 @@ import { ReadableResource, type ReadableShapeTree } from '.'
 import type { InteropFactory } from '..'
 
 export class ReadableDataRegistration extends ReadableResource {
-  shapeTree?: ReadableShapeTree
+  shapeTree: ReadableShapeTree
 
   private async bootstrap(): Promise<void> {
     await this.fetchData()

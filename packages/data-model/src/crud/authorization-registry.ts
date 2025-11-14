@@ -5,7 +5,7 @@ import type { AuthorizationAgentFactory, ReadableAccessAuthorization } from '..'
 import type { CRUDData } from './resource'
 
 export class CRUDAuthorizationRegistry extends CRUDContainer {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   async bootstrap(): Promise<void> {
     await this.fetchData()

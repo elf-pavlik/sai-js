@@ -15,9 +15,9 @@ export type CRUDRegistrySetData = {
 }
 
 export class CRUDRegistrySet extends CRUDResource {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
-  data?: CRUDRegistrySetData
+  declare data?: CRUDRegistrySetData
 
   hasAuthorizationRegistry: CRUDAuthorizationRegistry
 

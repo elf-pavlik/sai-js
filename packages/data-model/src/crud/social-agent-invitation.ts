@@ -10,7 +10,7 @@ export type SocialAgentInvitationData = {
 }
 
 export class CRUDSocialAgentInvitation extends CRUDResource {
-  data?: SocialAgentInvitationData
+  declare data?: SocialAgentInvitationData
 
   // TODO: handle missing labels
   get label(): string {

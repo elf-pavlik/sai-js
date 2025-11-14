@@ -26,7 +26,7 @@ type InverseArrayData = {
 export type DataGrantData = StringData & ArrayData & InverseArrayData
 
 export class ImmutableDataGrant extends ImmutableResource {
-  data: DataGrantData
+  declare data: DataGrantData
 
   public constructor(iri: string, factory: AuthorizationAgentFactory, data: DataGrantData) {
     super(iri, factory, data)

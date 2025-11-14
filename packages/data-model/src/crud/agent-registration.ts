@@ -11,9 +11,9 @@ export type AgentRegistrationData = {
 }
 
 export abstract class CRUDAgentRegistration extends Mixin(CRUDContainer, AgentRegistrationGetters) {
-  data?: AgentRegistrationData
+  declare data?: AgentRegistrationData
 
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   accessGrant?: ReadableAccessGrant
 

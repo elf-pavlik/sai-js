@@ -10,10 +10,10 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "skipLibCheck": true,
-    "target": "ES2020",
+    "target": "ESNext",
     "sourceMap": true,
     "declarationMap": true,
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ESNext", "DOM"],
     "allowJs": true,
     "module": "ESNext"
   }

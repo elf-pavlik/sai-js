@@ -2,6 +2,7 @@ import {
   INTEROP,
   RDF,
   SPACE,
+  asyncIterableToArray,
   discoverStorageDescription,
   getOneMatchingQuad,
 } from '@janeirodigital/interop-utils'
@@ -9,14 +10,19 @@ import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { CRUDContainer, type CRUDDataRegistration } from '.'
 import type { AuthorizationAgentFactory } from '..'
-import type { ReadableDataRegistration } from '../readable'
+import type { ReadableDataRegistration, ReadableShapeTree } from '../readable'
 import type { CRUDData } from './resource'
 
 export class CRUDDataRegistry extends CRUDContainer {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   get hasDataRegistration(): string[] {
     return this.getObjectsArray('hasDataRegistration').map((obj) => obj.value)
+  }
+
+  async registeredShapeTrees(): Promise<ReadableShapeTree[]> {
+    const registrations = await asyncIterableToArray(this.registrations)
+    return registrations.map((registration) => registration.shapeTree)
   }
 
   get registrations(): AsyncIterable<ReadableDataRegistration> {

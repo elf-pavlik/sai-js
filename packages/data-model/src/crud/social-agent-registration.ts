@@ -18,7 +18,7 @@ type ClassData = {
 export type SocialAgentRegistrationData = AgentRegistrationData & ClassData
 
 export class CRUDSocialAgentRegistration extends CRUDAgentRegistration {
-  data?: SocialAgentRegistrationData
+  declare data?: SocialAgentRegistrationData
 
   reciprocalRegistration?: CRUDSocialAgentRegistration
 

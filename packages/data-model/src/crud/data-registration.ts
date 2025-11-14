@@ -8,7 +8,7 @@ export type DataRegistrationData = {
 }
 
 export class CRUDDataRegistration extends CRUDContainer {
-  data: DataRegistrationData
+  declare data: DataRegistrationData
 
   public static async build(
     iri: string,

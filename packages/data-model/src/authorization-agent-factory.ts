@@ -71,7 +71,7 @@ interface ImmutableFactory {
 }
 
 export class AuthorizationAgentFactory extends BaseFactory {
-  readable: AuthorizationAgentReadableFactory
+  declare readable: AuthorizationAgentReadableFactory
 
   immutable: ImmutableFactory
 

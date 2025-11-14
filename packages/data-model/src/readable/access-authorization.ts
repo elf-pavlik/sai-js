@@ -47,7 +47,7 @@ function reuseDataGrants(
   return finalGrants
 }
 export class ReadableAccessAuthorization extends ReadableResource {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   async bootstrap(): Promise<void> {
     await this.fetchData()

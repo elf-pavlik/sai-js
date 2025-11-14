@@ -8,7 +8,7 @@ import type {
 import { ReadableResource } from './resource'
 
 export class ReadableAccessDescriptionSet extends ReadableResource {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   public accessNeedDescriptions: ReadableAccessNeedDescription[] = []
 

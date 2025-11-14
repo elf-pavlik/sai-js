@@ -8,7 +8,7 @@ export type CRUDData = { [key: string]: string | string[] }
 export class CRUDResource extends ReadableResource {
   data?: CRUDData
 
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   constructor(iri: string, factory: InteropFactory, data?: CRUDData) {
     super(iri, factory)

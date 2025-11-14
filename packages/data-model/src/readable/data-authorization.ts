@@ -13,7 +13,7 @@ import type {
 } from '..'
 
 export class ReadableDataAuthorization extends ReadableResource {
-  factory: AuthorizationAgentFactory
+  declare factory: AuthorizationAgentFactory
 
   hasInheritingAuthorization: ReadableDataAuthorization[]
 

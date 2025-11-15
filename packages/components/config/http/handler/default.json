@@ -67,10 +67,8 @@
           "@id": "urn:solid-server:default:AgentIdHandler",
           "comment": "Responds with ClientID document and handles agent registration discovery.",
           "@type": "AgentIdHandler",
-          "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
           "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-          "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
-          "expiration": 60
+          "sessionManager": { "@id": "urn:solid-server:default:SessionManager" }
         }
       }
     },
@@ -86,8 +84,17 @@
         "comment": "Frontend RPC API",
         "@type": "ApiHandler",
         "cookieStore": { "@id": "urn:solid-server:default:CookieStore" },
-        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
+        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" },
+        "sessionManager": { "@id": "urn:solid-server:default:SessionManager" }
       }
+    },
+    {
+      "@id": "urn:solid-server:default:SessionManager",
+      "comment": "Manages SAI sessions.",
+      "@type": "SessionManager",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
+      "expiration": 60
     }
   ]
 }

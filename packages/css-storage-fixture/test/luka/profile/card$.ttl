@@ -9,6 +9,6 @@
 
 <http://localhost:3711/luka/profile/card#me>
     
-    solid:oidcIssuer <http://localhost:3711/>, <http://localhost:6300/>;
+    solid:oidcIssuer <http://localhost:3711/>, <http://localhost:6300/>, <http://localhost:4800/>;
     interop:hasRegistrySet <http://localhost:3711/luka/yo73jo>;
     a foaf:Person.

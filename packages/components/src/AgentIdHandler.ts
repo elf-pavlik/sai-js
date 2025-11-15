@@ -7,26 +7,20 @@ import {
 } from '@solid/community-server'
 import type {
   CredentialsExtractor,
-  JwkGenerator,
   OperationHttpHandlerInput,
   ResponseDescription,
 } from '@solid/community-server'
-import { generateKeyPair } from 'jose'
 import { createVocabulary } from 'rdf-vocabulary'
-import { SelfIssuedSession } from './SelfIssuedSession.js'
+import type { SessionManager } from './SessionManager'
 
 const INTEROP = createVocabulary('http://www.w3.org/ns/solid/interop#', 'registeredAgent')
 
 export class AgentIdHandler extends OperationHttpHandler {
-  private readonly issuer: string
   public constructor(
-    baseUrl: string,
     private readonly credentialsExtractor: CredentialsExtractor,
-    private readonly jwkGenerator: JwkGenerator,
-    private readonly expiration: number
+    private readonly sessionManager: SessionManager
   ) {
     super()
-    this.issuer = baseUrl
   }
   public async handle({
     operation,
@@ -40,29 +34,11 @@ export class AgentIdHandler extends OperationHttpHandler {
       return new OkResponseDescription(representation.metadata, representation.data)
     }
 
-    const privateKey = await this.jwkGenerator.getPrivateKey()
-    const publicKey = await this.jwkGenerator.getPublicKey()
-
     const regex = /[^/]+$/
     const agentId = operation.target.path
-    const webid = Buffer.from(agentId.match(regex)[0], 'base64url').toString('utf8')
-    const dpopKeyPair = await generateKeyPair('ES256')
+    const webId = Buffer.from(agentId.match(regex)[0], 'base64url').toString('utf8')
 
-    const oidc = new SelfIssuedSession({
-      webid,
-      clientId: agentId,
-      issuer: this.issuer,
-      expiresIn: this.expiration * 60 * 1000,
-      privateKey,
-      publicKey,
-      dpopKeyPair,
-    })
-    await oidc.login()
-
-    const sai = await AuthorizationAgent.build(webid, agentId, {
-      fetch: oidc.authFetch.bind(oidc),
-      randomUUID: crypto.randomUUID,
-    })
+    const sai = await this.sessionManager.getSession(webId)
     let info
     if (sai.webId === credentials.agent.webId) {
       const registration = await sai.findApplicationRegistration(credentials.client.clientId)

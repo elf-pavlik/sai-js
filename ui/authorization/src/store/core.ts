@@ -28,14 +28,15 @@ export const useCoreStore = defineStore('core', () => {
     { immediate: true }
   )
 
-  async function login(webId: string) {
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/login`, {
+  async function login(email: string, password: string) {
+    const controlsResonse = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`)
+    const { controls } = await controlsResonse.json()
+    const loginResponse = await fetch(controls.password.login, {
       method: 'POST',
-      body: JSON.stringify(webId),
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
     })
-
-    window.location.href = await response.json()
   }
 
   async function getPushSubscription(): Promise<void> {

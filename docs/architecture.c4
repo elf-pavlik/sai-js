@@ -32,12 +32,12 @@ model {
         shape rectangle
         color slate
       }
-      component PushForwarder 'Push notifications forwarder' {
+      component PushSender 'Push notifications sender' {
         style {
           color blue
         }
       }
-      component WebhookSender 'Webhook sender' {
+      component WebhookSender 'Webhook sender' 'webhooks.h4p.net' {
         style {
           color blue
         }
@@ -92,7 +92,7 @@ model {
       style {
         shape browser
         color indigo
-        icon https://lit.dev/images/logo.svg
+        icon tech:nuxt-js
       }
     }
     container Data 'Data' '*.data.h4p.net' {
@@ -138,43 +138,43 @@ model {
         style {
           color: red
         }
-        this -> Auth
       }
       component CredentialManagement 'Credential Management' {
         style {
           color: red
         }
-        this -> Auth
       }
       component SocialGraph 'Social Graph' {
         style {
           shape person
           color: green
         }
-        this -> Auth
       }
       component PodManagement 'Pod Management' {
         style {
           color sky
         }
-        this -> Data
       }
       component WebIDManagement 'WebID Management' {
         style {
           color green
         }
-        this -> WebID
       }
     }
   }
 
   Account -> Auth
   WWW -> Data
-  Data -> Auth
+  Auth -> Data
   Auth -> WebID
   Auth -> Registry
-  Data -> WebID
   Registry -> Quadstore
+  Auth -> Temporal
+  Workers -> Temporal
+  Registry -> Temporal
+  Data -> Temporal
+  WebID -> Temporal
+  Workers -> Auth
 }
 
 views {
@@ -211,8 +211,6 @@ views {
     exclude Data -> WebID
     include Auth
     include Auth -> Registry
-    exclude Data -> Auth
-    exclude Auth -> WebID
   }
 }
 

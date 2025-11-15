@@ -35,7 +35,7 @@ const makeClient = Effect.gen(function* () {
 
   return HttpRpcResolverNoStream.make<UiRpcRouter>(
     client.pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(`${backendBaseUrl}/api`))
+      HttpClient.mapRequest(HttpClientRequest.prependUrl(`${backendBaseUrl}/.sai/api`))
       // HttpClient.tapRequest(Console.log)
     )
   ).pipe(RpcResolver.toClient)

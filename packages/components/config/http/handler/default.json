@@ -46,10 +46,12 @@
       "operationHandler": {
         "@id": "urn:sai:default:RestRouter",
         "@type": "StatusWaterfallHandler",
-        "handlers": [{ "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" }]
+        "handlers": [
+          { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
+          { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" }
+        ]
       }
     },
-
     {
       "comment": "Handles reading and writing notification subscriptions and channels.",
       "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler",
@@ -63,13 +65,28 @@
         "converter": { "@id": "urn:solid-server:default:RepresentationConverter" },
         "operationHandler": {
           "@id": "urn:solid-server:default:AgentIdHandler",
-          "comment": "Responds with ClientID document",
+          "comment": "Responds with ClientID document and handles agent registration discovery.",
           "@type": "AgentIdHandler",
           "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
           "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
           "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
           "expiration": 60
         }
+      }
+    },
+    {
+      "comment": "Handles RPC API for the frontend.",
+      "@id": "urn:sai:default:AuthorizationAgentFrontendApi",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/api$"],
+      "allowedMethods": ["POST"],
+      "handler": {
+        "@id": "urn:solid-server:default:FrontendRPCHandler",
+        "comment": "Frontend RPC API",
+        "@type": "ApiHandler",
+        "cookieStore": { "@id": "urn:solid-server:default:CookieStore" },
+        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
       }
     }
   ]

@@ -1,0 +1,76 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+PREFIX acp: <http://www.w3.org/ns/solid/acp#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+
+GRAPH <https://reg.docker/> {
+  <https://reg.docker/> ldp:contains <https://reg.docker/alice/> .
+}
+
+GRAPH <meta:https://reg.docker/alice/> {
+  <https://reg.docker/alice/>
+    a interop:RegistrySet;
+    interop:hasAgentRegistry <https://reg.docker/alice/agent/>;
+    interop:hasAuthorizationRegistry <https://reg.docker/alice/authorization/>;
+    #interop:hasDataRegistry
+    #  <https://alice-home.data.docker/>,
+    #  <https://alice-work.data.docker/>;
+    interop:registeredBy <https://alice.id.docker>;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
+    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+}
+
+GRAPH <meta:https://reg.docker/alice/authorization/> {
+  <https://reg.docker/alice/authorization/>
+    a interop:AuthorizationRegistry;
+    interop:registeredBy <https://alice.id.docker>;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
+    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/> {
+  <https://reg.docker/alice/agent/>
+    a interop:AgentRegistry;
+    interop:registeredBy <https://alice.id.docker>;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
+    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+}
+
+GRAPH <meta:https://reg.docker/alice/.acr> {
+        <https://reg.docker/alice/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/alice/.acr> {
+  <https://reg.docker/alice/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/alice/>;
+    acp:accessControl <https://reg.docker/alice/.acr#fullOwnerAccess>, <https://reg.docker/alice/.acr#publicReadAccess>;
+    acp:memberAccessControl <https://reg.docker/alice/.acr#fullOwnerAccess>, <https://reg.docker/alice/.acr#publicReadAccess>.
+
+  <https://reg.docker/alice/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://reg.docker/alice/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>
+      ]
+    ].
+}
+

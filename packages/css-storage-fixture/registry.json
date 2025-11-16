@@ -92,15 +92,6 @@
         "accessor": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
         "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" }
       }
-    },
-    {
-      "@id": "urn:sai:RemoveHtml",
-      "@type": "Override",
-      "overrideInstance": { "@id": "urn:solid-server:default:HtmlViewHandler" },
-      "overrideParameters": {
-        "@type": "HtmlViewHandler",
-        "templates": []
-      }
     }
   ]
 }

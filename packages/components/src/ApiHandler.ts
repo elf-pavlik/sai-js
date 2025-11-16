@@ -1,4 +1,5 @@
 import { RpcRouter } from '@effect/rpc'
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { SaiService, router } from '@janeirodigital/sai-api-messages'
 import {
   BasicRepresentation,
@@ -39,7 +40,13 @@ export class ApiHandler extends OperationHttpHandler {
       // TODO: find better error
       throw new InternalServerError('no webId')
     }
-    const session = await this.sessionManager.getSession(webId)
+    let session: AuthorizationAgent
+    try {
+      session = await this.sessionManager.getSession(webId)
+    } catch (err) {
+      console.error(err)
+      throw err
+    }
     const SaiServiceLive = Layer.succeed(
       SaiService,
       // @ts-ignore

@@ -30,8 +30,8 @@ services:
       - BASE_URL=https://sai.docker
       - CLIENT_NAME=Solid Authorization Service
       - PORT=4000
-      - FRONTEND_URL=http://ui.sai.docker/
-      - FRONTEND_AUTHORIZATION_URL=http://ui.sai.docker/authorize
+      - FRONTEND_URL=http://ui.auth.docker/
+      - FRONTEND_AUTHORIZATION_URL=http://ui.auth.docker/authorize
       - VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
       - VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
       - PUSH_NOTIFICATION_EMAIL=mailto:example@yourdomain.org
@@ -170,7 +170,7 @@ services:
       - ./:/sai
     labels:
       - traefik.enable=true
-      - traefik.http.routers.ui-sai.rule=Host(`ui.sai.docker`)
+      - traefik.http.routers.ui-sai.rule=Host(`ui.auth.docker`)
       - traefik.http.routers.ui-sai.entrypoints=websecure
       - traefik.http.routers.ui-sai.tls=true
       - traefik.http.services.ui-sai.loadbalancer.server.port=4200

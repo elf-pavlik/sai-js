@@ -1,5 +1,5 @@
-@prefix foaf: <http://xmlns.com/foaf/0.1/>.
-@prefix solid: <http://www.w3.org/ns/solid/terms#>.
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX solid: <http://www.w3.org/ns/solid/terms#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
@@ -9,9 +9,8 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     foaf:primaryTopic <https://alice.id.docker>.
 
 <https://alice.id.docker>
-
     a foaf:Person;
     rdfs:label "Alice";
     solid:oidcIssuer <https://auth.docker/>;
     interop:hasRegistrySet <https://reg.docker/alice/>;
-    interop:hasAuthorizationAgent <https://auth.docker/.agent/aHR0cHM6Ly9hdXRoLmRvY2tlci8=>.
+    interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI> .

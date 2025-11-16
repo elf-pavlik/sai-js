@@ -1,3 +1,5 @@
+import { RpcRouter } from '@effect/rpc'
+import { SaiService, router } from '@janeirodigital/sai-api-messages'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -5,9 +7,11 @@ import {
   OkResponseDescription,
   OperationHttpHandler,
   SOLID_HTTP,
+  readableToString,
 } from '@solid/community-server'
 import type { CookieStore, WebIdStore } from '@solid/community-server'
 import type { OperationHttpHandlerInput, ResponseDescription } from '@solid/community-server'
+import { Effect, Layer } from 'effect'
 import type { SessionManager } from './SessionManager'
 
 export class ApiHandler extends OperationHttpHandler {
@@ -36,7 +40,22 @@ export class ApiHandler extends OperationHttpHandler {
       throw new InternalServerError('no webId')
     }
     const session = await this.sessionManager.getSession(webId)
-    const doc = JSON.stringify({ accountId, webId, agentId: session.agentId })
+    const SaiServiceLive = Layer.succeed(
+      SaiService,
+      // @ts-ignore
+      SaiService.of({
+        getWebId: () => Effect.succeed(session.webId),
+      })
+    )
+    const rpcHandler = RpcRouter.toHandlerNoStream(router)
+
+    const requestBody = JSON.parse(await readableToString(operation.body.data))
+    const program = Effect.gen(function* () {
+      return yield* rpcHandler(requestBody)
+    }).pipe(Effect.provide(SaiServiceLive))
+    const payload = await Effect.runPromise(program)
+
+    const doc = JSON.stringify(payload)
     const representation = new BasicRepresentation(doc, operation.target, 'application/json')
     return new OkResponseDescription(representation.metadata, representation.data)
   }

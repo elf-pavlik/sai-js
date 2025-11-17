@@ -13,9 +13,9 @@ GRAPH <meta:https://reg.docker/alice/> {
     a interop:RegistrySet;
     interop:hasAgentRegistry <https://reg.docker/alice/agent/>;
     interop:hasAuthorizationRegistry <https://reg.docker/alice/authorization/>;
-    #interop:hasDataRegistry
-    #  <https://alice-home.data.docker/>,
-    #  <https://alice-work.data.docker/>;
+    interop:hasDataRegistry
+      <https://alice-home.data.docker/>,
+      <https://alice-work.data.docker/>;
     interop:registeredBy <https://alice.id.docker>;
     interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
     interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;

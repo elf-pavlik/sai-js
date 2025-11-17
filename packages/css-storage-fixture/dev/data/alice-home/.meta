@@ -1,0 +1,10 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+
+<https://alice-home.data.docker/>
+  a interop:DataRegistry ;
+  interop:hasDataRegistration
+   <https://alice-home.data.docker/dataRegistry/projects/> ,
+   <https://alice-home.data.docker/dataRegistry/tasks/> ,
+   <https://alice-home.data.docker/dataRegistry/images/> ,
+   <https://alice-home.data.docker/dataRegistry/files/> .

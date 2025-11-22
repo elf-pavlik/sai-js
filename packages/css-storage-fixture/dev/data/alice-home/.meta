@@ -1,10 +1,11 @@
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX pim: <http://www.w3.org/ns/pim/space#>
 
 <https://alice-home.data.docker/>
-  a interop:DataRegistry ;
+  a interop:DataRegistry, pim:Storage ;
+  interop:registeredBy <https://alice.id.docker>;
+  interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
   interop:hasDataRegistration
-   <https://alice-home.data.docker/dataRegistry/projects/> ,
-   <https://alice-home.data.docker/dataRegistry/tasks/> ,
-   <https://alice-home.data.docker/dataRegistry/images/> ,
-   <https://alice-home.data.docker/dataRegistry/files/> .
+   <https://alice-home.data.docker/x1n3cm/> ,
+   <https://alice-home.data.docker/pm1oxz/> .

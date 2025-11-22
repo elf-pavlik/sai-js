@@ -26,6 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "@effect/rpc": "^0.44.13",
+    "@janeirodigital/interop-data-model": "^1.0.0-rc.24",
+    "@janeirodigital/sai-api-messages": "1.0.0-rc.24",
     "@janeirodigital/sai-server-interfaces": "^1.0.0-rc.24",
     "@solid/community-server": "8.0.0-alpha.1",
     "@uvdsl/solid-oidc-client-browser": "^0.2.1",

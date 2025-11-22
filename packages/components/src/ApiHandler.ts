@@ -14,6 +14,13 @@ import type { CookieStore, WebIdStore } from '@solid/community-server'
 import type { OperationHttpHandlerInput, ResponseDescription } from '@solid/community-server'
 import { Effect, Layer } from 'effect'
 import type { SessionManager } from './SessionManager'
+import {
+  getApplications,
+  getSocialAgentInvitations,
+  getSocialAgents,
+  getUnregisteredApplication,
+} from './services/AgentRegistry.js'
+import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
 
 export class ApiHandler extends OperationHttpHandler {
   constructor(
@@ -52,6 +59,15 @@ export class ApiHandler extends OperationHttpHandler {
       // @ts-ignore
       SaiService.of({
         getWebId: () => Effect.succeed(session.webId),
+        getDataRegistries: (agentId, lang) =>
+          Effect.promise(() => getDataRegistries(session, agentId, lang)),
+        listDataInstances: (agentId, registrationId) =>
+          Effect.promise(() => listDataInstances(session, agentId, registrationId)),
+        getApplications: () => Effect.promise(() => getApplications(session)),
+        getUnregisteredApplication: (id) =>
+          Effect.promise(() => getUnregisteredApplication(session, id)),
+        getSocialAgents: () => Effect.promise(() => getSocialAgents(session)),
+        getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

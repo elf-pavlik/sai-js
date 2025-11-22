@@ -3,6 +3,8 @@ PREFIX acl: <http://www.w3.org/ns/auth/acl#>
 PREFIX acp: <http://www.w3.org/ns/solid/acp#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 
 GRAPH <https://reg.docker/> {
   <https://reg.docker/> ldp:contains <https://reg.docker/alice/> .
@@ -37,7 +39,46 @@ GRAPH <meta:https://reg.docker/alice/agent/> {
     interop:registeredBy <https://alice.id.docker>;
     interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
     interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
-    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
+    interop:hasApplicationRegistration 
+      <https://reg.docker/alice/agent/cvmsa4/>;
+    interop:hasSocialAgentRegistration
+      <https://reg.docker/alice/agent/cp9g7p/>,
+      <https://reg.docker/alice/agent/vzp6ky/>.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cp9g7p/> {
+  <https://reg.docker/alice/agent/cp9g7p/>
+    a interop:SocialAgentRegistration;
+    interop:registeredAgent <https://acme.id.docker> ;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime ;
+    #interop:reciprocalRegistration <https://reg.docker/acme/agent/bgtrtf/> ;
+    skos:prefLabel "ACME" ;
+    skos:note "A producer of open source gadget. We are collaborating on some software projects" .
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
+  <https://reg.docker/alice/agent/vzp6ky/>
+    a interop:SocialAgentRegistration;
+    interop:registeredAgent <https://bob.id.docker> ;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime ;
+    #interop:reciprocalRegistration <https://reg.docker/bob/agent/jc5gt6/> ;
+    skos:prefLabel "Bob" ;
+    skos:note "A colleague at ACME" .
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
+  <https://reg.docker/alice/agent/cvmsa4/>
+    a interop:Application;
+    interop:registeredAgent <https://acme.data.docker/vuejectron>;
+    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime.
+  <https://acme.data.docker/vuejectron> oidc:client_name "Vuejectron";
+      oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
+      interop:hasAccessNeedGroup <https://acme.pod.docker/projectron/access-needs#need-group-pm>;
+      interop:hasAuthorizationCallbackEndpoint <https://vuejectron.docker>.
 }
 
 GRAPH <meta:https://reg.docker/alice/.acr> {

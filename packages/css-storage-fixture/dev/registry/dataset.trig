@@ -72,12 +72,12 @@ GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
 GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
   <https://reg.docker/alice/agent/cvmsa4/>
     a interop:Application;
-    interop:registeredAgent <https://acme.data.docker/vuejectron>;
+    interop:registeredAgent <https://vuejectron.docker/id>;
     interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
     interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime.
-  <https://acme.data.docker/vuejectron> oidc:client_name "Vuejectron";
+  <https://vuejectron.docker/id> oidc:client_name "Vuejectron";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
-      interop:hasAccessNeedGroup <https://acme.pod.docker/projectron/access-needs#need-group-pm>;
+      interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
       interop:hasAuthorizationCallbackEndpoint <https://vuejectron.docker>.
 }
 

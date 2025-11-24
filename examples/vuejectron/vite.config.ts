@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs'
+import { extname, join } from 'node:path'
+import { URL, fileURLToPath } from 'node:url'
 // Plugins
 import vue from '@vitejs/plugin-vue'
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
-import { URL, fileURLToPath } from 'node:url'
 // Utilities
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -33,6 +35,24 @@ export default defineConfig({
         enabled: true,
       },
     }),
+    {
+      name: 'clean-urls',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url && !extname(req.url)) {
+            const extensions = ['.jsonld', '.ttl']
+            for (const ext of extensions) {
+              const filePath = join(__dirname, 'public', req.url + ext)
+              if (existsSync(filePath)) {
+                req.url += ext
+                break
+              }
+            }
+          }
+          next()
+        })
+      },
+    },
   ],
   define: { 'process.env': {} },
   resolve: {

@@ -3,7 +3,7 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 
 
-<./descriptions-es>
+<>
   a interop:AccessDescriptionSet ;
   interop:usesLanguage "es"^^xsd:language .
 

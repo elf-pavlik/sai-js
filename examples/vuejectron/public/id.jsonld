@@ -4,12 +4,12 @@
     {
       "interop": "http://www.w3.org/ns/solid/interop#"
     }
-  ]  ,
-  "client_id": "https://acme.pod.docker/projectron/vue",
+  ],
+  "client_id": "https://vuejectron.docker/id",
   "client_name": "Vuejectron",
-  "logo_uri": "https://robohash.org/https://vuejectron.example/?set=set3",
+  "logo_uri": "https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3",
   "redirect_uris": ["https://vuejectron.docker/redirect"],
-  "grant_types" : ["refresh_token","authorization_code"],
-  "interop:hasAccessNeedGroup": "https://acme.pod.docker/projectron/access-needs#need-group-pm",
+  "grant_types": ["refresh_token", "authorization_code"],
+  "interop:hasAccessNeedGroup": "https://vuejectron.docker/access-needs#need-group-pm",
   "interop:hasAuthorizationCallbackEndpoint": "https://vuejectron.docker"
 }

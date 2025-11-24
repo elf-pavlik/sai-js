@@ -3,7 +3,7 @@ PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX acl: <http://www.w3.org/ns/auth/acl#>
 PREFIX solidtrees: <https://shapetrees.pod.docker/trees/>
 
-<./access-needs#need-group-pm>
+<#need-group-pm>
   a interop:AccessNeedGroup ;
   interop:accessNecessity interop:accessRequired ;
   interop:accessScenario interop:PersonalAccess ;
@@ -39,7 +39,6 @@ PREFIX solidtrees: <https://shapetrees.pod.docker/trees/>
   interop:accessNecessity interop:AccessOptional ;
   interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete ;
   interop:inheritsFromNeed <#need-project> .
-
 
 <./descriptions-en>
   interop:usesLanguage "en"^^xsd:language .

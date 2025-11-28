@@ -30,4 +30,6 @@ describe('build', () => {
     const applicationRegistration = await ReadableApplicationRegistration.build(snippetIri, factory)
     expect(applicationRegistration.iriForContained()).toMatch(applicationRegistration.iri)
   })
+
+  test.todo('should handle missing access grant')
 })

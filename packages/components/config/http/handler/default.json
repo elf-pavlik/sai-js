@@ -58,7 +58,7 @@
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "allowedPathNames": ["^/.sai/agents/.*"],
-      "allowedMethods": ["GET"],
+      "allowedMethods": ["GET", "HEAD"],
       "handler": {
         "comment": "Converts outgoing responses based on the user preferences",
         "@type": "ConvertingOperationHttpHandler",

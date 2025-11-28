@@ -33,6 +33,7 @@
     "@uvdsl/solid-oidc-client-browser": "^0.2.1",
     "asynchronous-handlers": "^1.0.2",
     "effect": "^3.10.8",
+    "global-logger-factory": "^1.0.0",
     "jose": "^6.1.0",
     "rdf-vocabulary": "^1.0.1"
   },

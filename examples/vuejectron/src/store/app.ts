@@ -17,10 +17,10 @@ import type { Task } from '../../ldo/Task$.typings'
 import { useCoreStore } from './core'
 
 const scopes = {
-  project: 'https://shapetrees.pod.docker/trees/Project',
-  task: 'https://shapetrees.pod.docker/trees/Task',
-  image: 'https://shapetrees.pod.docker/trees/Image',
-  file: 'https://shapetrees.pod.docker/trees/File',
+  project: 'https://shapetrees.data.docker/trees/Project',
+  task: 'https://shapetrees.data.docker/trees/Task',
+  image: 'https://shapetrees.data.docker/trees/Image',
+  file: 'https://shapetrees.data.docker/trees/File',
 }
 
 type AgentId = string

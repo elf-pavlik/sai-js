@@ -71,14 +71,56 @@ GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
 
 GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
   <https://reg.docker/alice/agent/cvmsa4/>
-    a interop:Application;
+    a interop:ApplicationRegistration;
     interop:registeredAgent <https://vuejectron.docker/id>;
     interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime.
+    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
+    interop:hasAccessGrant <https://reg.docker/alice/agent/cvmsa4/y1pp6y>.
   <https://vuejectron.docker/id> oidc:client_name "Vuejectron";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
       interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
       interop:hasAuthorizationCallbackEndpoint <https://vuejectron.docker>.
+}
+GRAPH <https://reg.docker/alice/agent/cvmsa4/> {
+  <https://reg.docker/alice/agent/cvmsa4/>
+    ldp:contains
+      <https://reg.docker/alice/agent/cvmsa4/y1pp6y>,
+      <https://reg.docker/alice/agent/cvmsa4/afiooi>.
+}
+
+GRAPH <https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
+  <https://reg.docker/alice/agent/cvmsa4/y1pp6y>
+    a interop:AccessGrant;
+    interop:granted true;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:grantedBy: <https://alice.id.docker>;
+    interop:grantedWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:grantedAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
+    interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
+    interop:hasDataGrant
+      <https://reg.docker/alice/agent/cvmsa4/afiooi>.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
+        <https://reg.docker/alice/agent/cvmsa4/y1pp6y> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/alice/agent/cvmsa4/afiooi> {
+  <https://reg.docker/alice/agent/cvmsa4/afiooi>
+    a interop:DataGrant;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:grantedBy: <https://alice.id.docker>;
+    interop:grantedWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
+    interop:grantedAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
+    interop:dataOwner <https://alice.id.docker>;
+    interop:registeredShapeTree <https://shapetrees.data.docker/trees/Project>;
+    interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/afiooi> {
+        <https://reg.docker/alice/agent/cvmsa4/afiooi> a ldp:Resource .
 }
 
 GRAPH <meta:https://reg.docker/alice/.acr> {

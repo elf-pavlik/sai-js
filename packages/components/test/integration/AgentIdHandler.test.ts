@@ -144,6 +144,8 @@ describe('AgentIdHandler', (): void => {
         'http://localhost:3711/vaporcg/khp4oz/r8fr2c/'
       )
     })
+
+    test.todo('responds with no Link if no registry was found')
   })
 })
 

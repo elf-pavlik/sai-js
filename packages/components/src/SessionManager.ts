@@ -35,7 +35,7 @@ export class SessionManager {
 
     return AuthorizationAgent.build(webid, agentId, {
       fetch: oidc.authFetch.bind(oidc),
-      randomUUID: crypto.randomUUID,
+      randomUUID: crypto.randomUUID.bind(crypto),
     })
   }
 }

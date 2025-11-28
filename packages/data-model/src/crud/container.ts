@@ -19,11 +19,12 @@ export class CRUDContainer extends CRUDResource {
     const headers: { [key: string]: string } = {
       'Content-Type': 'application/sparql-update',
     }
-    if (create) {
-      headers['If-None-Match'] = '*'
-    } else {
-      headers['If-Match'] = '*'
-    }
+    // FIXME: CSS (auth instance) fails on else
+    // if (create) {
+    //   headers['If-None-Match'] = '*'
+    // } else {
+    //   headers['If-Match'] = '*'
+    // }
     const response = await this.fetch(this.descriptionResourceIri, {
       method: 'PATCH',
       body: sparqlUpdate,

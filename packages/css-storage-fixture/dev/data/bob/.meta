@@ -1,0 +1,10 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX pim: <http://www.w3.org/ns/pim/space#>
+
+<https://bob.data.docker/>
+  a interop:DataRegistry, pim:Storage ;
+  interop:registeredBy <https://bob.id.docker> ;
+  interop:hasDataRegistration
+   <https://bob.data.docker/avn9hv/> ,
+   <https://bob.data.docker/x6hx8e/> .

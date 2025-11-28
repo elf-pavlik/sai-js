@@ -13,6 +13,7 @@ import {
 import type { CookieStore, WebIdStore } from '@solid/community-server'
 import type { OperationHttpHandlerInput, ResponseDescription } from '@solid/community-server'
 import { Effect, Layer } from 'effect'
+import { getLoggerFor } from 'global-logger-factory'
 import type { SessionManager } from './SessionManager'
 import {
   getApplications,
@@ -20,9 +21,11 @@ import {
   getSocialAgents,
   getUnregisteredApplication,
 } from './services/AgentRegistry.js'
+import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
 
 export class ApiHandler extends OperationHttpHandler {
+  protected readonly logger = getLoggerFor(this)
   constructor(
     private readonly cookieStore: CookieStore,
     private readonly webIdStore: WebIdStore,
@@ -68,6 +71,10 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => getUnregisteredApplication(session, id)),
         getSocialAgents: () => Effect.promise(() => getSocialAgents(session)),
         getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
+        getAuthorizationData: (agentId, agentType, lang) =>
+          Effect.promise(() => getDescriptions(session, agentId, agentType, lang)),
+        authorizeApp: (authorization) =>
+          Effect.promise(() => recordAuthorization(session, authorization)),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

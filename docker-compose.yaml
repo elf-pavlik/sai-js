@@ -82,8 +82,22 @@ services:
       - 172.16.0.253
     expose:
       - 4800
+    ports:
+      - "9229:9229"
     working_dir: /sai/packages/css-storage-fixture
     command: ["npm", "run", "auth"]
+    # command:
+    #   - node
+    #   - --inspect=0.0.0.0:9229
+    #   - /sai/node_modules/@solid/community-server/bin/server.js
+    #   - -c
+    #   - auth.json
+    #   - -p
+    #   - "4800"
+    #   - -l
+    #   - debug
+    #   - -f
+    #   - /sai/packages/css-storage-fixture/dev/auth
     volumes:
       - ./:/sai
       - ${CAROOT}:/mkcert

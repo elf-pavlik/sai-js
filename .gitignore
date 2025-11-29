@@ -15,6 +15,9 @@ packages/css-storage-fixture/**/.internal/notifications
 packages/css-storage-fixture/**/.internal/accounts/cookies
 packages/css-storage-fixture/**/.internal/accounts/index/clientCredentials
 
+# oxigraph files
+packages/css-storage-fixture/dev/oxigraph
+
 # OS
 .DS_Store
 

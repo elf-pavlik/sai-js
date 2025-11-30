@@ -5,6 +5,7 @@
     "openssl@latest",
     "xh@latest",
     "grpcurl@latest",
-    "mitmproxy@latest"
+    "mitmproxy@latest",
+    "jaq@latest"
   ]
 }

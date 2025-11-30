@@ -43,3 +43,5 @@ packages/css-storage-fixture/dev/oxigraph
 examples/*/ldo/
 
 traefik/certs/*
+packages/css-storage-fixture/dev/registry/.internal
+packages/css-storage-fixture/dev/data/www/.internal/

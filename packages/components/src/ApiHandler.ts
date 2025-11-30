@@ -14,7 +14,9 @@ import type { CookieStore, WebIdStore } from '@solid/community-server'
 import type { OperationHttpHandlerInput, ResponseDescription } from '@solid/community-server'
 import { Effect, Layer } from 'effect'
 import { getLoggerFor } from 'global-logger-factory'
+import type { PushSubscription } from 'web-push'
 import type { SessionManager } from './SessionManager'
+import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import {
   getApplications,
   getSocialAgentInvitations,
@@ -29,6 +31,7 @@ export class ApiHandler extends OperationHttpHandler {
   constructor(
     private readonly cookieStore: CookieStore,
     private readonly webIdStore: WebIdStore,
+    private readonly uiPushSubscriptionStore: UiPushSubscriptionStore,
     private readonly sessionManager: SessionManager
   ) {
     super()
@@ -75,6 +78,10 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => getDescriptions(session, agentId, agentType, lang)),
         authorizeApp: (authorization) =>
           Effect.promise(() => recordAuthorization(session, authorization)),
+        registerPushSubscription: (subscription: PushSubscription) =>
+          Effect.promise(() =>
+            this.uiPushSubscriptionStore.create(session.webId, accountId, subscription)
+          ),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

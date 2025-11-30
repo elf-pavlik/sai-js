@@ -85,27 +85,22 @@ services:
     ports:
       - "9229:9229"
     working_dir: /sai/packages/css-storage-fixture
-    command: ["npm", "run", "auth"]
-    # command:
-    #   - node
-    #   - --inspect=0.0.0.0:9229
-    #   - /sai/node_modules/@solid/community-server/bin/server.js
-    #   - -c
-    #   - auth.json
-    #   - -p
-    #   - "4800"
-    #   - -l
-    #   - debug
-    #   - -f
-    #   - /sai/packages/css-storage-fixture/dev/auth
+    command:
+      - node
+      - --inspect=0.0.0.0:9229
+      - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/auth.json
-      - CSS_LOGGING_LEVEL=info
+      - CSS_LOGGING_LEVEL=debug
       - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/auth
       - CSS_BASE_URL=https://auth.docker
+      - CSS_PORT=4800
+      - CSS_VAPID_PUBLIC_KEY="BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY"
+      - CSS_VAPID_PRIVATE_KEY="8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA"
+      - CSS_PUSH_SENDER="mailto:example@yourdomain.org"
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true

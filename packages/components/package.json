@@ -35,11 +35,13 @@
     "effect": "^3.10.8",
     "global-logger-factory": "^1.0.0",
     "jose": "^6.1.0",
-    "rdf-vocabulary": "^1.0.1"
+    "rdf-vocabulary": "^1.0.1",
+    "web-push": "^3.6.6"
   },
   "devDependencies": {
     "@inrupt/solid-client-authn-core": "^2.5.0",
     "@janeirodigital/interop-utils": "1.0.0-rc.24",
+    "@types/web-push": "^3.6.1",
     "fs-extra": "^10.1.0",
     "set-cookie-parser": "^2.7.2"
   }

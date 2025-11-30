@@ -8,8 +8,8 @@ const buildApplicationProfile = (registration: CRUDApplicationRegistration) =>
     id: IRI.make(registration.registeredAgent),
     name: registration.name!,
     logo: registration.logo,
-    authorizationDate: registration.registeredAt!.toISOString(),
-    lastUpdateDate: registration.updatedAt?.toISOString(),
+    //authorizationDate: registration.registeredAt!.toISOString(),
+    //lastUpdateDate: registration.updatedAt?.toISOString(),
     accessNeedGroup: registration.accessNeedGroup!,
     callbackEndpoint: registration.hasAuthorizationCallbackEndpoint,
   })

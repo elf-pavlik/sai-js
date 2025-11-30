@@ -25,6 +25,11 @@ import {
 } from './services/AgentRegistry.js'
 import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
+import {
+  getResource,
+  requestAccessUsingApplicationNeeds,
+  shareResource,
+} from './services/ShareResource.js'
 
 export class ApiHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -82,6 +87,11 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() =>
             this.uiPushSubscriptionStore.create(session.webId, accountId, subscription)
           ),
+        getResource: (id, lang) => Effect.promise(() => getResource(session, id, lang)),
+        shareResource: (authorization) =>
+          Effect.promise(() => shareResource(session, authorization)),
+        requestAccessUsingApplicationNeeds: (applicationId, agentId) =>
+          Effect.promise(() => requestAccessUsingApplicationNeeds(session, applicationId, agentId)),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

@@ -39,8 +39,8 @@ export const Application = S.Struct({
   name: S.String,
   logo: S.optional(S.String),
   callbackEndpoint: S.optional(S.String),
-  authorizationDate: S.String, // interop:registeredAt
-  lastUpdateDate: S.optional(S.String), // interop:updatedAt
+  //authorizationDate: S.String, // interop:registeredAt
+  //lastUpdateDate: S.optional(S.String), // interop:updatedAt
   accessNeedGroup: S.String, // interop:hasAccessNeedGroup
 })
 
@@ -139,8 +139,8 @@ export const SocialAgent = S.Struct({
   accessNeedGroup: S.optional(S.String),
   accessRequested: S.Boolean,
   accessGrant: S.optional(S.String),
-  authorizationDate: S.String, // interop:registeredAt TODO: rename to not imply access
-  lastUpdateDate: S.optional(S.String), // interop:updatedAt
+  //authorizationDate: S.String, // interop:registeredAt TODO: rename to not imply access
+  //lastUpdateDate: S.optional(S.String), // interop:updatedAt
 })
 
 export const SocialAgentList = S.Array(SocialAgent)

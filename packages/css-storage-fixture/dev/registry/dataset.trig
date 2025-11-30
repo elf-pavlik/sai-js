@@ -9,7 +9,9 @@ PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 GRAPH <https://reg.docker/> {
   <https://reg.docker/>
     ldp:contains
-      <https://reg.docker/alice/>, <https://reg.docker/bob/> .
+      <https://reg.docker/alice/>,
+      <https://reg.docker/bob/>,
+      <https://reg.docker/kim/> .
 }
 
 GRAPH <meta:https://reg.docker/alice/> {
@@ -19,29 +21,17 @@ GRAPH <meta:https://reg.docker/alice/> {
     interop:hasAuthorizationRegistry <https://reg.docker/alice/authorization/>;
     interop:hasDataRegistry
       <https://alice-home.data.docker/>,
-      <https://alice-work.data.docker/>;
-    interop:registeredBy <https://alice.id.docker>;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
-    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+      <https://alice-work.data.docker/>.
 }
 
 GRAPH <meta:https://reg.docker/alice/authorization/> {
   <https://reg.docker/alice/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource;
-    interop:registeredBy <https://alice.id.docker>;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
-    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+    a interop:AuthorizationRegistry, ldp:Resource.
 }
 
 GRAPH <meta:https://reg.docker/alice/agent/> {
   <https://reg.docker/alice/agent/>
     a interop:AgentRegistry, ldp:Resource;
-    interop:registeredBy <https://alice.id.docker>;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
-    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime;
     interop:hasApplicationRegistration 
       <https://reg.docker/alice/agent/cvmsa4/>;
     interop:hasSocialAgentRegistration
@@ -53,8 +43,6 @@ GRAPH <meta:https://reg.docker/alice/agent/cp9g7p/> {
   <https://reg.docker/alice/agent/cp9g7p/>
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://acme.id.docker> ;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime ;
     #interop:reciprocalRegistration <https://reg.docker/acme/agent/bgtrtf/> ;
     skos:prefLabel "ACME" ;
     skos:note "A producer of open source gadget. We are collaborating on some software projects" .
@@ -64,9 +52,7 @@ GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
   <https://reg.docker/alice/agent/vzp6ky/>
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://bob.id.docker> ;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime ;
-    #interop:reciprocalRegistration <https://reg.docker/bob/agent/jc5gt6/> ;
+    interop:reciprocalRegistration <https://reg.docker/bob/agent/jc5gt6/> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague at ACME" .
 }
@@ -75,8 +61,6 @@ GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
   <https://reg.docker/alice/agent/cvmsa4/>
     a interop:ApplicationRegistration, ldp:Resource;
     interop:registeredAgent <https://vuejectron.docker/id>;
-    interop:registeredWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:registeredAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
     interop:hasAccessGrant <https://reg.docker/alice/agent/cvmsa4/y1pp6y>.
   <https://vuejectron.docker/id> oidc:client_name "Vuejectron";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
@@ -96,9 +80,6 @@ GRAPH <https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
     a interop:AccessGrant;
     interop:granted true;
     interop:grantee <https://vuejectron.docker/id>;
-    interop:grantedBy: <https://alice.id.docker>;
-    interop:grantedWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:grantedAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
     interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
     interop:hasDataGrant
       <https://reg.docker/alice/agent/cvmsa4/afiooi>.
@@ -112,9 +93,6 @@ GRAPH <https://reg.docker/alice/agent/cvmsa4/afiooi> {
   <https://reg.docker/alice/agent/cvmsa4/afiooi>
     a interop:DataGrant;
     interop:grantee <https://vuejectron.docker/id>;
-    interop:grantedBy: <https://alice.id.docker>;
-    interop:grantedWith <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>;
-    interop:grantedAt "2021-01-12T18:14:52.000Z"^^xsd:dateTime;
     interop:dataOwner <https://alice.id.docker>;
     interop:registeredShapeTree <https://shapetrees.data.docker/trees/Project>;
     interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
@@ -134,8 +112,12 @@ GRAPH <https://reg.docker/alice/.acr> {
   <https://reg.docker/alice/.acr#root>
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/alice/>;
-    acp:accessControl <https://reg.docker/alice/.acr#fullOwnerAccess>, <https://reg.docker/alice/.acr#publicReadAccess>;
-    acp:memberAccessControl <https://reg.docker/alice/.acr#fullOwnerAccess>, <https://reg.docker/alice/.acr#publicReadAccess>.
+    acp:accessControl
+      <https://reg.docker/alice/.acr#publicReadAccess>,
+      <https://reg.docker/alice/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/alice/.acr#publicReadAccess>,
+      <https://reg.docker/alice/.acr#fullOwnerAccess>.
 
   <https://reg.docker/alice/.acr#publicReadAccess>
     a acp:AccessControl;
@@ -166,9 +148,7 @@ GRAPH <meta:https://reg.docker/bob/> {
     interop:hasAgentRegistry <https://reg.docker/bob/agent/>;
     interop:hasAuthorizationRegistry <https://reg.docker/bob/authorization/>;
     interop:hasDataRegistry
-      <https://bob.data.docker/>;
-    interop:registeredBy <https://bob.id.docker>;
-    interop:updatedAt "2024-08-21T04:02:52.591Z"^^xsd:dateTime.
+      <https://bob.data.docker/>.
 }
 
 GRAPH <meta:https://reg.docker/bob/authorization/> {
@@ -178,7 +158,18 @@ GRAPH <meta:https://reg.docker/bob/authorization/> {
 
 GRAPH <meta:https://reg.docker/bob/agent/> {
   <https://reg.docker/bob/agent/>
-    a interop:AgentRegistry, ldp:Resource .
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasSocialAgentRegistration
+      <https://reg.docker/bob/agent/jc5gt6/>.
+}
+
+GRAPH <meta:https://reg.docker/bob/agent/jc5gt6/> {
+  <https://reg.docker/bob/agent/jc5gt6/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://alice.id.docker> ;
+    interop:reciprocalRegistration <https://reg.docker/alice/agent/vzp6ky/> ;
+    skos:prefLabel "Alice" ;
+    skos:note "A colleague at ACME" .
 }
 
 GRAPH <meta:https://reg.docker/bob/.acr> {
@@ -189,8 +180,12 @@ GRAPH <https://reg.docker/bob/.acr> {
   <https://reg.docker/bob/.acr#root>
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/bob/>;
-    acp:accessControl <https://reg.docker/bob/.acr#fullOwnerAccess>, <https://reg.docker/bob/.acr#publicReadAccess>;
-    acp:memberAccessControl <https://reg.docker/bob/.acr#fullOwnerAccess>, <https://reg.docker/bob/.acr#publicReadAccess>.
+    acp:accessControl
+      <https://reg.docker/bob/.acr#publicReadAccess>,
+      <https://reg.docker/bob/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/bob/.acr#publicReadAccess>,
+      <https://reg.docker/bob/.acr#fullOwnerAccess>.
 
   <https://reg.docker/bob/.acr#publicReadAccess>
     a acp:AccessControl;
@@ -213,4 +208,21 @@ GRAPH <https://reg.docker/bob/.acr> {
         acp:agent <https://bob.id.docker>
       ]
     ].
+}
+
+GRAPH <meta:https://reg.docker/kim/> {
+  <https://reg.docker/kim/>
+    a interop:RegistrySet, ldp:Resource;
+    interop:hasAgentRegistry <https://reg.docker/kim/agent/>;
+    interop:hasAuthorizationRegistry <https://reg.docker/kim/authorization/>.
+}
+
+GRAPH <meta:https://reg.docker/kim/authorization/> {
+  <https://reg.docker/kim/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://reg.docker/kim/agent/> {
+  <https://reg.docker/kim/agent/>
+    a interop:AgentRegistry, ldp:Resource.
 }

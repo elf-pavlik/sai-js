@@ -48,6 +48,7 @@
         "@type": "StatusWaterfallHandler",
         "handlers": [
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
+          { "@id": "urn:sai:default:InvitationLinkHandler" },
           { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" }
         ]
       }
@@ -70,6 +71,21 @@
           "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
           "sessionManager": { "@id": "urn:sai:default:SessionManager" }
         }
+      }
+    },
+    {
+      "comment": "Handles invitation capability URLs.",
+      "@id": "urn:sai:default:InvitationLinkHandler",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/invitations/.*"],
+      "allowedMethods": ["POST"],
+      "handler": {
+        "@id": "urn:sai:default:InvitationHandler",
+        "comment": "Handles request from another agent accepting an invitation.",
+        "@type": "InvitationHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {

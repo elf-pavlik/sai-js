@@ -18,6 +18,8 @@ import type { PushSubscription } from 'web-push'
 import type { SessionManager } from './SessionManager'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import {
+  acceptInvitation,
+  createInvitation,
   getApplications,
   getSocialAgentInvitations,
   getSocialAgents,
@@ -92,6 +94,10 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => shareResource(session, authorization)),
         requestAccessUsingApplicationNeeds: (applicationId, agentId) =>
           Effect.promise(() => requestAccessUsingApplicationNeeds(session, applicationId, agentId)),
+        createInvitation: (label, note) =>
+          Effect.promise(() => createInvitation(session, { label, note })),
+        acceptInvitation: (capabilityUrl, label, note) =>
+          Effect.promise(() => acceptInvitation(session, { capabilityUrl, label, note })),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

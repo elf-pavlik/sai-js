@@ -6,6 +6,7 @@
     "xh@latest",
     "grpcurl@latest",
     "mitmproxy@latest",
-    "jaq@latest"
+    "jaq@latest",
+    "ducker"
   ]
 }

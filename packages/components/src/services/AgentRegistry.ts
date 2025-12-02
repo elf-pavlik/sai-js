@@ -114,8 +114,9 @@ export async function createInvitation(
   saiSession: AuthorizationAgent,
   base: { label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
+  const encodedWebId = Buffer.from(saiSession.webId).toString('base64url')
   //FIXME: pass base or path prefix
-  const id = `https://auth.docker/.sai/invitation/${randomUUID()}`
+  const id = `https://auth.docker/.sai/invitations/${encodedWebId}.${randomUUID()}`
   const socialAgentInvitation =
     await saiSession.registrySet.hasAgentRegistry.addSocialAgentInvitation(
       id,
@@ -130,7 +131,7 @@ export async function acceptInvitation(
   invitation: { capabilityUrl: string; label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgent>> {
   // discover who issued the invitation
-  const response = await saiSession.fetch.raw(invitation.capabilityUrl, {
+  const response = await saiSession.rawFetch(invitation.capabilityUrl, {
     method: 'POST',
   })
   if (!response.ok) throw new Error('fetching capability url failed')

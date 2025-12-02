@@ -1,0 +1,16 @@
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX solid: <http://www.w3.org/ns/solid/terms#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+<https://id.docker/kim>
+    a foaf:PersonalProfileDocument;
+    foaf:maker <https://kim.id.docker>;
+    foaf:primaryTopic <https://kim.id.docker>.
+
+<https://kim.id.docker>
+    a foaf:Person;
+    rdfs:label "Kim";
+    solid:oidcIssuer <https://auth.docker/>;
+    interop:hasRegistrySet <https://reg.docker/kim/>;
+    interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9raW0uaWQuZG9ja2Vy> .

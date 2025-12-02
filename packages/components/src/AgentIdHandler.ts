@@ -1,4 +1,3 @@
-import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
   BasicRepresentation,
   OkResponseDescription,

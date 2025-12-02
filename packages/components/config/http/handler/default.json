@@ -113,6 +113,11 @@
       "@type": "Variable"
     },
     {
+      "comment": "Encoded private JWK.",
+      "@id": "urn:sai:default:variable:encodedPrivateJwk",
+      "@type": "Variable"
+    },
+    {
       "@id": "urn:solid-server-app-setup:default:CliExtractor",
       "@type": "YargsCliExtractor",
       "parameters": [
@@ -145,6 +150,16 @@
             "type": "string",
             "describe": "IRI denoting push notifications sender (mailto: or https:)."
           }
+        },
+        {
+          "@type": "YargsParameter",
+          "name": "encodedPrivateJwk",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "Base64url encoded private JWK."
+          }
         }
       ]
     },
@@ -172,6 +187,13 @@
             "@type": "KeyExtractor",
             "key": "pushSender"
           }
+        },
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:encodedPrivateJwk",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "encodedPrivateJwk"
+          }
         }
       ]
     },
@@ -189,6 +211,17 @@
       "@id": "urn:solid-server:default:EarlyProcessParallelInitializer",
       "@type": "ParallelHandler",
       "handlers": [{ "@id": "urn:sai:default:UiPushSubscriptionStore" }]
+    },
+    {
+      "@id": "urn:sai:default:OverrideJwkGenerator",
+      "@type": "Override",
+      "overrideInstance": {
+        "@id": "urn:solid-server:default:JwkGenerator"
+      },
+      "overrideParameters": {
+        "@type": "EnvJwkGenerator",
+        "encodedPrivateJwk": { "@id": "urn:sai:default:variable:encodedPrivateJwk" }
+      }
     }
   ]
 }

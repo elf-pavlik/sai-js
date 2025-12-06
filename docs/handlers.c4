@@ -20,7 +20,7 @@ model {
     title: 'handler'
   }
 
-  component NotificationOperations' StatusWaterfallHandler' 'NotificationOperations' {
+  component NotificationOperations 'StatusWaterfallHandler' 'NotificationOperations' {
     component NotificationReadWriteHandler 'OperationRouterHandler' 'NotificationReadWriteHandler'
     component NotificationDeleteHandler 'OperationRouterHandler' 'NotificationDeleteHandler'
   }

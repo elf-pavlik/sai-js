@@ -1,0 +1,69 @@
+specification {
+  element security
+}
+
+model {
+  security ACME {
+    component DelegationIssuance 'DelegationIssuance' {
+    }
+    component WebhookSender 'WebhookSender' {
+    }
+  }
+  security Others {
+    component WebhookReceiver 'WebhookReceiver' {
+    }
+  }
+  security Alice {
+    component WebhookReceiver 'WebhookReceiver' {
+    }
+    component WebhookSender 'WebhookSender' {
+    }
+    component Temporal 'Temporal Server' {
+    }
+    component Worker 'Worker' {
+    }
+    component Registry 'Registry' {
+    }
+  }
+}
+
+views {
+  dynamic view reciprocalUpdate {
+    title: 'Reciprocal registration update'
+
+    include Alice, ACME, Others
+    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Registry, Alice.WebhookSender, Others.WebhookReceiver
+
+    style Alice {
+      color: green
+    }
+
+    style ACME {
+      color: indigo
+    }
+
+    style Others {
+      color: gray
+    }
+
+    ACME.WebhookSender -> Alice.WebhookReceiver 'notify'
+    Alice.WebhookReceiver -> Temporal 'start update delegations workflow'
+    Temporal -> Alice.WebhookReceiver 'OK'
+    Alice.WebhookReceiver -> ACME.WebhookSender 'OK'
+    Temporal -> Worker '(workflow) run update delegations '
+    parallel {
+      Worker -> Temporal '(child workflows) start update grants workflows'
+      Temporal -> Worker 'run update grants workflow'
+      Worker -> DelegationIssuance '(activity) register delegation with resource owner'
+      DelegationIssuance -> Worker 'OK'
+      Worker -> Registry '(activity) update registration'
+      Registry -> Worker 'OK'
+      Worker -> Alice.WebhookSender '(activity) send notifications'
+      Alice.WebhookSender -> Worker 'OK'
+    }
+    parallel {
+      Alice.WebhookSender -> Others.WebhookReceiver 'notify'
+      Others.WebhookReceiver -> Alice.WebhookSender 'OK'
+    }
+  }
+}

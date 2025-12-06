@@ -1,0 +1,37 @@
+model {
+  component FileBackend {
+    component SubscriptionStorage 'KeyValueChannelStorage' 'SubscriptionStorage'
+    component SubscriptionContainerStorage 'ContainerPathStorage' 'SubscriptionContainerStorage'
+    component KeyValueStorage 'MaxKeyLengthStorage' 'KeyValueStorage'
+    component JsonResourceStorage 'JsonResourceStorage' 'JsonResourceStorage'
+    component ResourceStore 'MonitoringStore' 'ResourceStore'
+    component ResourceStore_BinarySlice ''
+
+    component ResourceStore_Converting 'RepresentationConvertingStore' 'ResourceStore_Converting'
+    component LockStorage 'HashEncodingStorage' 'LockStorage'
+    component LockContainerStorage 'ContainerPathStorage' 'LockContainerStorage'
+    component BackendKeyValueStorage 'JsonResourceStorage' 'BackendKeyValueStorage'
+
+    component ResourceStore_Backend 'DataAccessorBasedStore' 'ResourceStore_Backend'
+    component FileDataAccessor 'FileDataAccessor' 'FileDataAccessor'
+
+    SubscriptionStorage -> SubscriptionContainerStorage 'storage'
+    SubscriptionContainerStorage -> KeyValueStorage 'source'
+    KeyValueStorage -> JsonResourceStorage 'source'
+    JsonResourceStorage -> ResourceStore 'source'
+    ResourceStore -> ResourceStore_BinarySlice 'source'
+
+    ResourceStore_Converting -> ResourceStore_Backend 'source'
+
+    LockStorage -> LockContainerStorage 'source'
+    LockContainerStorage -> BackendKeyValueStorage 'source'
+    BackendKeyValueStorage -> ResourceStore_Backend 'source'
+    ResourceStore_Backend -> FileDataAccessor 'accessor'
+  }
+}
+
+views {
+  view file {
+    include FileBackend.*
+  }
+}

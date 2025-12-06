@@ -95,13 +95,13 @@ services:
     environment:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/auth.json
       - CSS_LOGGING_LEVEL=debug
-      - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/auth
-      - CSS_BASE_URL=https://auth.docker
+      - CSS_BASE_URL=https://auth.docker/
       - CSS_PORT=4800
-      - CSS_VAPID_PUBLIC_KEY="BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY"
-      - CSS_VAPID_PRIVATE_KEY="8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA"
-      - CSS_PUSH_SENDER="mailto:example@yourdomain.org"
-      - CSS_ENCODED_PRIVATE_JWK="eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ"
+      - CSS_VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
+      - CSS_VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
+      - CSS_PUSH_SENDER=mailto:example@yourdomain.org
+      - CSS_ENCODED_PRIVATE_JWK=eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
+      - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true
@@ -253,7 +253,7 @@ services:
         ipv4_address: 172.16.0.253
 
   postgresql:
-    container_name: temporal-postgresql
+    container_name: postgresql
     environment:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
@@ -262,6 +262,8 @@ services:
       - default
     ports:
       - 5432:5432
+    expose:
+      - 5432 # internal only
     volumes:
       - /var/lib/postgresql/data
 

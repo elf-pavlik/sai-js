@@ -66,7 +66,7 @@ export class WebPushWebhooksHandler extends HttpHandler {
       }))
       const temporal = new Temporal()
       await temporal.init()
-      await temporal.client.workflow.execute(sendPushNotifications, {
+      await temporal.client.workflow.start(sendPushNotifications, {
         taskQueue: 'forward-to-push',
         args: [subs, notificationPayload],
         workflowId: crypto.randomUUID(),

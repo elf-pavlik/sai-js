@@ -1,5 +1,9 @@
 {
-  "@context": "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld"
+  ],
   "import": [
     "css:config/app/init/static-root.json",
     "css:config/app/main/default.json",
@@ -21,8 +25,8 @@
     "css:config/ldp/metadata-parser/default.json",
     "css:config/ldp/metadata-writer/default.json",
     "css:config/ldp/modes/default.json",
-
-    "css:config/storage/key-value/resource-store.json",
+    "css:config/storage/backend/sparql.json",
+    "sai:config/storage/key-value/postgres.json",
     "css:config/storage/location/pod.json",
     "css:config/storage/middleware/default.json",
     "css:config/util/auxiliary/acr.json",
@@ -31,67 +35,58 @@
     "css:config/util/logging/winston.json",
     "css:config/util/representation-conversion/default.json",
     "css:config/util/resource-locker/memory.json",
-    "css:config/util/variables/default.json",
-
-    "css:config/storage/backend/data-accessors/file.json",
-    "css:config/storage/backend/data-accessors/sparql-endpoint.json"
+    "css:config/util/variables/default.json"
   ],
   "@graph": [
     {
-      "comment": "This store will be used to route internal storage to the file system and all other data to the SPARQL endpoint."
+      "comment": "PostgreSQL connection string.",
+      "@id": "urn:sai:default:variable:postgresConnectionString",
+      "@type": "Variable"
     },
-
     {
-      "@id": "urn:solid-server:default:ResourceStore_Backend",
-      "@type": "RoutingResourceStore",
-      "rule": { "@id": "urn:solid-server:default:RouterRule" }
-    },
-
-    {
-      "comment": "Configure routing to send internal data to file system and all other data to sparql store.",
-      "@id": "urn:solid-server:default:RouterRule",
-      "@type": "RegexRouterRule",
-      "base": { "@id": "urn:solid-server:default:variable:baseUrl" },
-      "rules": [
+      "@id": "urn:solid-server-app-setup:default:CliExtractor",
+      "@type": "YargsCliExtractor",
+      "parameters": [
         {
-          "comment": "Internal storage data",
-          "@type": "RegexRule",
-          "regex": "^/\\.internal/",
-          "store": { "@id": "urn:solid-server:default:FileResourceStore" }
-        },
-        {
-          "comment": "Send everything else to the SPARQL store.",
-          "@type": "RegexRule",
-          "regex": ".*",
-          "store": { "@id": "urn:solid-server:default:SparqlResourceStore" }
+          "@type": "YargsParameter",
+          "name": "postgresConnectionString",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "PostgreSQL connection string."
+          }
         }
       ]
     },
-
     {
-      "@id": "urn:solid-server:default:FileResourceStore",
-      "@type": "DataAccessorBasedStore",
-      "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
-      "auxiliaryStrategy": { "@id": "urn:solid-server:default:AuxiliaryStrategy" },
-      "accessor": { "@id": "urn:solid-server:default:FileDataAccessor" },
-      "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" }
+      "@id": "urn:solid-server-app-setup:default:ShorthandResolver",
+      "@type": "CombinedShorthandResolver",
+      "resolvers": [
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:postgresConnectionString",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "postgresConnectionString"
+          }
+        }
+      ]
     },
     {
-      "@id": "urn:solid-server:default:SparqlResourceStore",
-      "@type": "RepresentationConvertingStore",
-      "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" },
-      "options_inConverter": { "@id": "urn:solid-server:default:RepresentationConverter" },
-      "options_inPreferences_type": {
-        "RepresentationConvertingStore:_options_inPreferences_type_key": "internal/quads",
-        "RepresentationConvertingStore:_options_inPreferences_type_value": 1
-      },
-      "source": {
-        "@type": "DataAccessorBasedStore",
-        "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
-        "auxiliaryStrategy": { "@id": "urn:solid-server:default:AuxiliaryStrategy" },
-        "accessor": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
-        "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" }
-      }
+      "@id": "urn:solid-server:default:PrimaryParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
+      ]
+    },
+    {
+      "@id": "urn:solid-server:default:EarlyProcessParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
+      ]
     }
   ]
 }

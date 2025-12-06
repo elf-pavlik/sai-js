@@ -1,0 +1,23 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": ["css:config/storage/key-value/storages/storages.json"],
+  "@graph": [
+    {
+      "comment": "Internal value storage. No different from urn:solid-server:default:KeyValueStorage, but required to be consistent with other storage solutions.",
+      "@id": "urn:solid-server:default:BackendKeyValueStorage",
+      "@type": "PostgresKeyValueStorage",
+      "connectionString": { "@id": "urn:sai:default:variable:postgresConnectionString" },
+      "tableName": "backend_key_value"
+    },
+    {
+      "comment": "Internal value storage.",
+      "@id": "urn:solid-server:default:KeyValueStorage",
+      "@type": "PostgresKeyValueStorage",
+      "connectionString": { "@id": "urn:sai:default:variable:postgresConnectionString" },
+      "tableName": "key_value"
+    }
+  ]
+}

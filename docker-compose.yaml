@@ -102,6 +102,7 @@ services:
       - CSS_PUSH_SENDER=mailto:example@yourdomain.org
       - CSS_ENCODED_PRIVATE_JWK=eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
       - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
+      - TEMPORAL_ADDRESS=temporal:7233
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true
@@ -120,8 +121,13 @@ services:
       - 172.16.0.253
     expose:
       - 4600
+    ports:
+      - "9230:9230"
     working_dir: /sai/packages/css-storage-fixture
-    command: ["npm", "run", "registry"]
+    command:
+      - node
+      - --inspect=0.0.0.0:9230
+      - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
       - ${CAROOT}:/mkcert
@@ -129,6 +135,8 @@ services:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/registry.json
       - CSS_LOGGING_LEVEL=info
       - CSS_BASE_URL=https://reg.docker
+      - CSS_PORT=4600
+      - CSS_SPARQL_ENDPOINT=http://sparql/sparql
       - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/registry
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
@@ -148,8 +156,13 @@ services:
       - 172.16.0.253
     expose:
       - 4700
+    ports:
+      - "9231:9231"
     working_dir: /sai/packages/css-storage-fixture
-    command: ["npm", "run", "data"]
+    command:
+      - node
+      - --inspect=0.0.0.0:9231
+      - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
       - ${CAROOT}:/mkcert
@@ -158,6 +171,7 @@ services:
       - CSS_LOGGING_LEVEL=info
       - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/data
       - CSS_BASE_URL=https://data.docker
+      - CSS_PORT=4700
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true
@@ -166,6 +180,33 @@ services:
       - traefik.http.routers.data.tls=true
       - traefik.http.services.data.loadbalancer.server.port=4700
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
+  worker:
+    image: node:22-slim
+    container_name: worker
+    restart: on-failure
+    networks:
+      - default
+    dns:
+      - 172.16.0.253
+    ports:
+      - "9235:9235"
+    working_dir: /sai/packages/components
+    command:
+      - node
+      - --inspect=0.0.0.0:9235
+      - /sai/packages/components/dist/workers/main.js
+    volumes:
+      - ./:/sai
+      - ${CAROOT}:/mkcert
+    environment:
+      - CSS_BASE_URL=https://auth.docker/
+      - CSS_ENCODED_PRIVATE_JWK=eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
+      - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
+      - TEMPORAL_ADDRESS=temporal:7233
+      - VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
+      - VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
+      - PUSH_NOTIFICATION_EMAIL=mailto:example@yourdomain.org
+      - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
   ui:
     image: node:22-alpine
     container_name: ui

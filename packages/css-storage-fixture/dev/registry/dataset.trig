@@ -5,6 +5,7 @@ PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
+PREFIX space: <http://www.w3.org/ns/pim/space#>
 
 GRAPH <https://reg.docker/> {
   <https://reg.docker/>
@@ -16,7 +17,7 @@ GRAPH <https://reg.docker/> {
 
 GRAPH <meta:https://reg.docker/alice/> {
   <https://reg.docker/alice/>
-    a interop:RegistrySet, ldp:Resource;
+    a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://reg.docker/alice/agent/>;
     interop:hasAuthorizationRegistry <https://reg.docker/alice/authorization/>;
     interop:hasDataRegistry
@@ -144,7 +145,7 @@ GRAPH <https://reg.docker/alice/.acr> {
 
 GRAPH <meta:https://reg.docker/bob/> {
   <https://reg.docker/bob/>
-    a interop:RegistrySet, ldp:Resource;
+    a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://reg.docker/bob/agent/>;
     interop:hasAuthorizationRegistry <https://reg.docker/bob/authorization/>;
     interop:hasDataRegistry
@@ -212,7 +213,7 @@ GRAPH <https://reg.docker/bob/.acr> {
 
 GRAPH <meta:https://reg.docker/kim/> {
   <https://reg.docker/kim/>
-    a interop:RegistrySet, ldp:Resource;
+    a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://reg.docker/kim/agent/>;
     interop:hasAuthorizationRegistry <https://reg.docker/kim/authorization/>.
 }

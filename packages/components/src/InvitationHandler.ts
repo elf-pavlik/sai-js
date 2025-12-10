@@ -10,13 +10,17 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
+import type { CustomWebIdStore } from './CustomWebIdStore.js'
 import type { SessionManager } from './SessionManager'
+import { Temporal } from './temporal/client.js'
+import { establishReciprocal } from './temporal/workflows/reciprocal.js'
 
 export class InvitationHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
-    private readonly sessionManager: SessionManager
+    private readonly sessionManager: SessionManager,
+    private readonly webIdStore: CustomWebIdStore
   ) {
     super()
   }
@@ -37,8 +41,9 @@ export class InvitationHandler extends OperationHttpHandler {
     const sai = await this.sessionManager.getSession(inviteeId)
 
     const socialAgentInvitation = await sai.findSocialAgentInvitation(capabilityUrl)
-    if (!socialAgentInvitation)
+    if (!socialAgentInvitation) {
       throw new Error(`Social Agent Invitation not found! (capabilityUrl: ${capabilityUrl})`)
+    }
 
     let socialAgentRegistration = await sai.findSocialAgentRegistration(invitedId)
     if (!socialAgentRegistration) {
@@ -49,6 +54,28 @@ export class InvitationHandler extends OperationHttpHandler {
       )
       // create job to discover, add and subscribe to reciprocal registration
       // delay it to make sure the other agent creates it after response from this handler
+      try {
+        const accountId = await this.webIdStore.findAccout(inviteeId)
+        if (!accountId) {
+          throw new Error(`accountId not found (inviteeId: ${inviteeId})`)
+        }
+        const temporal = new Temporal()
+        await temporal.init()
+        await temporal.client.workflow.start(establishReciprocal, {
+          taskQueue: 'reciprocal-registration',
+          args: [
+            {
+              accountId,
+              webId: inviteeId,
+              peerId: invitedId,
+              registrationId: socialAgentRegistration.iri,
+            },
+          ],
+          workflowId: crypto.randomUUID(),
+        })
+      } catch (error) {
+        this.logger.error('InvitationHandler', error)
+      }
     }
 
     // update invitation with agent who accepted it

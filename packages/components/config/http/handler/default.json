@@ -85,7 +85,8 @@
         "comment": "Handles request from another agent accepting an invitation.",
         "@type": "InvitationHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
+        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
       }
     },
     {

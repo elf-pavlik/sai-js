@@ -47,9 +47,10 @@
         "@id": "urn:sai:default:RestRouter",
         "@type": "StatusWaterfallHandler",
         "handlers": [
+          { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" },
+          { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
-          { "@id": "urn:sai:default:InvitationLinkHandler" },
-          { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" }
+          { "@id": "urn:sai:default:InvitationRouter" }
         ]
       }
     },
@@ -75,7 +76,7 @@
     },
     {
       "comment": "Handles invitation capability URLs.",
-      "@id": "urn:sai:default:InvitationLinkHandler",
+      "@id": "urn:sai:default:InvitationRouter",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "allowedPathNames": ["^/.sai/invitations/.*"],
@@ -87,6 +88,21 @@
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
         "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
+      }
+    },
+    {
+      "comment": "Handles webhook notifications from reciprocal registrations.",
+      "@id": "urn:sai:default:ReciprocalWebhookRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/reciprocal-webhook/.*"],
+      "allowedMethods": ["POST"],
+      "handler": {
+        "@id": "urn:sai:default:ReciprocalWebhookHandler",
+        "comment": "Handles webhook notifications for reciprocal registrations.",
+        "@type": "ReciprocalWebhookHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "reciprocalWebhookStore": { "@id": "urn:sai:default:ReciprocalWebhookStore" }
       }
     },
     {

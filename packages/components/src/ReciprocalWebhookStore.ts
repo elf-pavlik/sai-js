@@ -10,9 +10,10 @@ import { getLoggerFor } from 'global-logger-factory'
 
 export const RECIPROCAL_WEBHOOK_STORAGE_TYPE = 'reciprocalWebhook'
 export const RECIPROCAL_WEBHOOK_STORAGE_DESCRIPTION = {
+  accountId: `id:${ACCOUNT_TYPE}`,
   webId: 'string',
   peerId: 'string',
-  accountId: `id:${ACCOUNT_TYPE}`,
+  sendTo: 'string',
   channel: 'string',
 } as const
 
@@ -49,6 +50,7 @@ export class ReciprocalWebhookStore extends Initializer {
       await this.storage.createIndex(RECIPROCAL_WEBHOOK_STORAGE_TYPE, 'accountId')
       await this.storage.createIndex(RECIPROCAL_WEBHOOK_STORAGE_TYPE, 'webId')
       await this.storage.createIndex(RECIPROCAL_WEBHOOK_STORAGE_TYPE, 'peerId')
+      await this.storage.createIndex(RECIPROCAL_WEBHOOK_STORAGE_TYPE, 'sendTo')
       this.initialized = true
     } catch (cause: unknown) {
       throw new InternalServerError(
@@ -58,16 +60,19 @@ export class ReciprocalWebhookStore extends Initializer {
     }
   }
 
-  public async get(
-    id: string
-  ): Promise<
-    { accountId: string; webId: string; peerId: string; channel: NotificationChannel } | undefined
+  public async get(id: string): Promise<
+    | {
+        accountId: string
+        webId: string
+        peerId: string
+        sendTo: string
+        channel: NotificationChannel
+      }
+    | undefined
   > {
     const raw = await this.storage.get(RECIPROCAL_WEBHOOK_STORAGE_TYPE, id)
     return {
-      accountId: raw.accountId,
-      webId: raw.webId,
-      peerId: raw.peerId,
+      ...raw,
       channel: JSON.parse(raw.channel),
     }
   }
@@ -84,6 +89,20 @@ export class ReciprocalWebhookStore extends Initializer {
     )
   }
 
+  public async findBySendTo(sendTo: string): Promise<{
+    id: string
+    webId: string
+    peerId: string
+    sendTo: string
+    channel: NotificationChannel
+  }> {
+    const raw = (await this.storage.find(RECIPROCAL_WEBHOOK_STORAGE_TYPE, { sendTo }))[0]
+    return {
+      ...raw,
+      channel: JSON.parse(raw.channel),
+    }
+  }
+
   public async create(
     accountId: string,
     webId: string,
@@ -94,6 +113,7 @@ export class ReciprocalWebhookStore extends Initializer {
       webId,
       peerId,
       accountId,
+      sendTo: channel.sendTo,
       channel: JSON.stringify(channel),
     })
 

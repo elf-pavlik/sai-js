@@ -38,7 +38,7 @@ function reuseDataGrants(
     } else {
       finalGrants.push(parentGrant)
       // push all children if any
-      if (parentGrant.data.hasInheritingGrant.length) {
+      if (parentGrant.data.hasInheritingGrant?.length) {
         finalGrants.push(...parentGrant.data.hasInheritingGrant)
       }
     }

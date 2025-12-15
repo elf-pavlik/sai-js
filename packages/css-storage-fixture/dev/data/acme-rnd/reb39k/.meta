@@ -3,6 +3,6 @@ PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX solidtrees: <https://shapetrees.data.docker/trees/>
 
-<https://alice-home.data.docker/pm1oxz/>
+<https://acme-rnd.data.docker/reb39k/>
   a interop:DataRegistration ;
-  interop:registeredShapeTree solidtrees:Task .
+  interop:registeredShapeTree solidtrees:Project .

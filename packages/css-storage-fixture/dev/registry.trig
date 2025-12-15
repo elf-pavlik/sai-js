@@ -6,13 +6,119 @@ PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
+PREFIX shapetrees: <https://shapetrees.data.docker/trees/>
 
 GRAPH <https://reg.docker/> {
   <https://reg.docker/>
     ldp:contains
+      <https://reg.docker/acme/>,
       <https://reg.docker/alice/>,
       <https://reg.docker/bob/>,
       <https://reg.docker/kim/> .
+}
+
+GRAPH <meta:https://reg.docker/acme/> {
+  <https://reg.docker/acme/>
+    a interop:RegistrySet, ldp:Resource, space:Storage;
+    interop:hasAgentRegistry <https://reg.docker/acme/agent/>;
+    interop:hasAuthorizationRegistry <https://reg.docker/acme/authorization/>;
+    interop:hasDataRegistry
+      <https://acme-rnd.data.docker/>.
+}
+
+GRAPH <meta:https://reg.docker/acme/authorization/> {
+  <https://reg.docker/acme/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/> {
+  <https://reg.docker/acme/agent/>
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasSocialAgentRegistration
+      <https://reg.docker/acme/agent/je0s7n/>.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/je0s7n/> {
+  <https://reg.docker/acme/agent/je0s7n/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://alice.id.docker> ;
+    interop:reciprocalRegistration <https://reg.docker/alice/agent/cp9g7p/> ;
+    interop:hasAccessGrant <https://reg.docker/acme/agent/je0s7n/gmaqjb> ;
+    skos:prefLabel "Alice" ;
+    skos:note "Chasing white rabits." .
+}
+
+GRAPH <https://reg.docker/acme/agent/je0s7n/> {
+  <https://reg.docker/acme/agent/je0s7n/>
+    ldp:contains
+      <https://reg.docker/acme/agent/je0s7n/gmaqjb>,
+      <https://reg.docker/acme/agent/je0s7n/g4yhtm>.
+}
+
+GRAPH <https://reg.docker/acme/agent/je0s7n/gmaqjb> {
+  <https://reg.docker/acme/agent/je0s7n/gmaqjb>
+    a interop:AccessGrant;
+    interop:granted true;
+    interop:grantee <https://alice.id.docker>;
+    interop:hasDataGrant
+      <https://reg.docker/acme/agent/je0s7n/g4yhtm>.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/je0s7n/gmaqjb> {
+        <https://reg.docker/acme/agent/je0s7n/gmaqjb> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/acme/agent/je0s7n/g4yhtm> {
+  <https://reg.docker/acme/agent/je0s7n/g4yhtm>
+    a interop:DataGrant;
+    interop:grantee <https://alice.id.docker>;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:hasDataRegistration <https://acme-rnd.data.docker/reb39k/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/je0s7n/g4yhtm> {
+        <https://reg.docker/acme/agent/je0s7n/g4yhtm> a ldp:Resource .
+}
+
+GRAPH <meta:https://reg.docker/acme/.acr> {
+        <https://reg.docker/acme/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/acme/.acr> {
+  <https://reg.docker/acme/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/acme/>;
+    acp:accessControl
+      <https://reg.docker/acme/.acr#publicReadAccess>,
+      <https://reg.docker/acme/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/acme/.acr#publicReadAccess>,
+      <https://reg.docker/acme/.acr#fullOwnerAccess>.
+
+  <https://reg.docker/acme/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://reg.docker/acme/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://acme.id.docker>
+      ]
+    ].
 }
 
 GRAPH <meta:https://reg.docker/alice/> {
@@ -27,7 +133,31 @@ GRAPH <meta:https://reg.docker/alice/> {
 
 GRAPH <meta:https://reg.docker/alice/authorization/> {
   <https://reg.docker/alice/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource.
+    a interop:AuthorizationRegistry, ldp:Resource;
+    interop:hasAccessAuthorization <https://reg.docker/alice/authorization/hsyzmp/>.
+}
+
+GRAPH <meta:https://reg.docker/alice/authorization/hsyzmp/> {
+  <https://reg.docker/alice/authorization/hsyzmp/>
+    a interop:AccessAuthorization, ldp:Resource;
+    interop:granted true;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:hasDataAuthorization
+      <https://reg.docker/alice/authorization/hsyzmp/w329t6>.
+}
+
+GRAPH <https://reg.docker/alice/authorization/hsyzmp/w329t6> {
+  <https://reg.docker/alice/authorization/hsyzmp/w329t6>
+    a interop:DataAuthorization;
+    interop:grantedBy <https://alice.id.docker>;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:scopeOfAuthorization interop:All;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://reg.docker/alice/authorization/hsyzmp/w329t6> {
+        <https://reg.docker/alice/authorization/hsyzmp/w329t6> a ldp:Resource .
 }
 
 GRAPH <meta:https://reg.docker/alice/agent/> {
@@ -44,7 +174,7 @@ GRAPH <meta:https://reg.docker/alice/agent/cp9g7p/> {
   <https://reg.docker/alice/agent/cp9g7p/>
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://acme.id.docker> ;
-    #interop:reciprocalRegistration <https://reg.docker/acme/agent/bgtrtf/> ;
+    interop:reciprocalRegistration <https://reg.docker/acme/agent/je0s7n/> ;
     skos:prefLabel "ACME" ;
     skos:note "A producer of open source gadget. We are collaborating on some software projects" .
 }
@@ -95,7 +225,7 @@ GRAPH <https://reg.docker/alice/agent/cvmsa4/afiooi> {
     a interop:DataGrant;
     interop:grantee <https://vuejectron.docker/id>;
     interop:dataOwner <https://alice.id.docker>;
-    interop:registeredShapeTree <https://shapetrees.data.docker/trees/Project>;
+    interop:registeredShapeTree shapetrees:Project;
     interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.

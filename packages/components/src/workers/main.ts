@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { NativeConnection, Worker } from '@temporalio/worker'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
+import * as grantsActivities from '../temporal/activities/grants.js'
 import * as reciprocalActivities from '../temporal/activities/reciprocal.js'
 
 async function run() {
@@ -23,8 +24,15 @@ async function run() {
       activities: reciprocalActivities,
     })
 
-    // Run both workers simultaneously
-    await Promise.all([forward.run(), reciprocal.run()])
+    const grants = await Worker.create({
+      connection,
+      taskQueue: 'update-delegated-grants',
+      workflowsPath: fileURLToPath(new URL('../temporal/workflows/grants.js', import.meta.url)),
+      activities: grantsActivities,
+    })
+
+    // Run all workers simultaneously
+    await Promise.all([forward.run(), reciprocal.run(), grants.run()])
   } finally {
     await connection.close()
   }

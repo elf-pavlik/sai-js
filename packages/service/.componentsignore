@@ -1,9 +1,0 @@
-
-[
-    "IStorage",
-    "ISessionManager",
-    "IQueue",
-    "IWorker",
-    "IProcessor",
-    "Test_base"
-]

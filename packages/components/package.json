@@ -50,6 +50,7 @@
     "@janeirodigital/interop-utils": "1.0.0-rc.24",
     "@solid-notifications/types": "^0.1.2",
     "@types/web-push": "^3.6.1",
+    "componentsjs-generator": "^4.3.0",
     "fs-extra": "^10.1.0",
     "set-cookie-parser": "^2.7.2"
   }

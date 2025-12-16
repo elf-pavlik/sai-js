@@ -87,11 +87,6 @@ Available on https://pod.docker, default demo account is `alice@acme.example` wi
 
 #### Authorization Agent
 
-##### Service
-
-Run from [packages/service](https://github.com/janeirodigital/sai-js/tree/main/packages/service).
-Available on https://sai.docker (API only)
-
 ##### UI
 
 Run from [ui/authorization](https://github.com/janeirodigital/sai-js/tree/main/ui/authorization).

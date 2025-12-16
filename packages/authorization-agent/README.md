@@ -16,11 +16,6 @@ If you plan to use your application in production please ask the specification e
 on the [public chatroom](https://app.gitter.im/#/room/#solid_specification:gitter.im)
 about the stability of the data model.
 
-## Service
-
-An open-source implementation of a full service using this library is also available:
-[sai-impl-service](https://github.com/janeirodigital/sai-impl-service/) (under active development)
-
 ## Creating Authorization Agent instance
 
 Authorization Agent class provides a static `build` method to create instances.

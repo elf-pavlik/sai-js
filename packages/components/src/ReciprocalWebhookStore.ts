@@ -89,18 +89,22 @@ export class ReciprocalWebhookStore extends Initializer {
     )
   }
 
-  public async findBySendTo(sendTo: string): Promise<{
-    id: string
-    webId: string
-    peerId: string
-    sendTo: string
-    channel: NotificationChannel
-  }> {
+  public async findBySendTo(sendTo: string): Promise<
+    | {
+        id: string
+        webId: string
+        peerId: string
+        sendTo: string
+        channel: NotificationChannel
+      }
+    | undefined
+  > {
     const raw = (await this.storage.find(RECIPROCAL_WEBHOOK_STORAGE_TYPE, { sendTo }))[0]
-    return {
-      ...raw,
-      channel: JSON.parse(raw.channel),
-    }
+    if (raw)
+      return {
+        ...raw,
+        channel: JSON.parse(raw.channel),
+      }
   }
 
   public async create(

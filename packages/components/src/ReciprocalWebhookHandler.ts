@@ -1,7 +1,9 @@
 import {
-  BasicRepresentation,
+  BadRequestHttpError,
+  NotFoundHttpError,
   OperationHttpHandler,
   ResponseDescription,
+  readableToString,
 } from '@solid/community-server'
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
@@ -17,26 +19,38 @@ export class ReciprocalWebhookHandler extends OperationHttpHandler {
   ) {
     super()
   }
-  public async handle({
-    operation,
-    request,
-  }: OperationHttpHandlerInput): Promise<ResponseDescription> {
+  public async handle({ operation }: OperationHttpHandlerInput): Promise<ResponseDescription> {
+    const channel = await this.reciprocalWebhookStore.findBySendTo(operation.target.path)
+    if (!channel) {
+      // TODO: unsubscribe
+      throw new NotFoundHttpError()
+    }
+
     // TODO: check if sender matches one from the channel
     //
     // const credentials = await this.credentialsExtractor.handleSafe(request)
-    const channel = await this.reciprocalWebhookStore.findBySendTo(operation.target.path)
-    const temporal = new Temporal()
-    await temporal.init()
-    await temporal.client.workflow.start(updateDelegatedGrants, {
-      taskQueue: 'update-delegated-grants',
-      args: [
-        {
-          webId: channel.webId,
-          peerId: channel.peerId,
-        },
-      ],
-      workflowId: crypto.randomUUID(),
-    })
+
+    // only start workflow on Update
+    let requestBody: { type: string }
+    try {
+      requestBody = JSON.parse(await readableToString(operation.body.data))
+    } catch (err) {
+      throw new BadRequestHttpError(err.message)
+    }
+    if (requestBody.type === 'Update') {
+      const temporal = new Temporal()
+      await temporal.init()
+      await temporal.client.workflow.start(updateDelegatedGrants, {
+        taskQueue: 'update-delegated-grants',
+        args: [
+          {
+            webId: channel.webId,
+            peerId: channel.peerId,
+          },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+    }
     return new ResponseDescription(200)
   }
 }

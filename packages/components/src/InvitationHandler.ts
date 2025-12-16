@@ -71,6 +71,7 @@ export class InvitationHandler extends OperationHttpHandler {
               registrationId: socialAgentRegistration.iri,
             },
           ],
+          startDelay: '15s',
           workflowId: crypto.randomUUID(),
         })
       } catch (error) {

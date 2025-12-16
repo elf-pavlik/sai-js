@@ -27,13 +27,6 @@ The setup is using modified `Makefile` and `docker-compose.yaml` from [docker-sh
 
 Requires node.js 22 or higher
 
-
-### Github packages
-
-- generate a [classic github token](https://github.com/settings/tokens/new) (tick only `read:packages` scope)
-- Modify `~/.npmrc` ([per-user config file](https://docs.npmjs.com/cli/v7/configuring-npm/npmrc#per-user-config-file))
-  and add line `//npm.pkg.github.com/:_authToken=` and the generated token.
-
 ### Local DNS
 
 #### macOS

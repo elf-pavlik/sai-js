@@ -52,31 +52,27 @@ export class InvitationHandler extends OperationHttpHandler {
         socialAgentInvitation.label,
         socialAgentInvitation.note
       )
-      // create job to discover, add and subscribe to reciprocal registration
+      // start workflow to discover, add and subscribe to reciprocal registration
       // delay it to make sure the other agent creates it after response from this handler
-      try {
-        const accountId = await this.webIdStore.findAccout(inviteeId)
-        if (!accountId) {
-          throw new Error(`accountId not found (inviteeId: ${inviteeId})`)
-        }
-        const temporal = new Temporal()
-        await temporal.init()
-        await temporal.client.workflow.start(establishReciprocal, {
-          taskQueue: 'reciprocal-registration',
-          args: [
-            {
-              accountId,
-              webId: inviteeId,
-              peerId: invitedId,
-              registrationId: socialAgentRegistration.iri,
-            },
-          ],
-          startDelay: '15s',
-          workflowId: crypto.randomUUID(),
-        })
-      } catch (error) {
-        this.logger.error('InvitationHandler', error)
+      const accountId = await this.webIdStore.findAccout(inviteeId)
+      if (!accountId) {
+        throw new Error(`accountId not found (inviteeId: ${inviteeId})`)
       }
+      const temporal = new Temporal()
+      await temporal.init()
+      await temporal.client.workflow.start(establishReciprocal, {
+        taskQueue: 'reciprocal-registration',
+        args: [
+          {
+            accountId,
+            webId: inviteeId,
+            peerId: invitedId,
+            registrationId: socialAgentRegistration.iri,
+          },
+        ],
+        startDelay: '10s',
+        workflowId: crypto.randomUUID(),
+      })
     }
 
     // update invitation with agent who accepted it

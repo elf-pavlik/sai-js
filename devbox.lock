@@ -1,61 +1,57 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "ducker": {
-      "resolved": "github:NixOS/nixpkgs/f720de59066162ee879adcc8c79e15c51fe6bfb4?narHash=sha256-mvbFFzVBhVK1FjyPHZGMAKpNiqkr7k%2B%2BxIwy%2Bp%2FNQvA%3D#ducker",
-      "source": "nixpkg"
-    },
-    "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2025-12-02T02:29:13Z",
-      "resolved": "github:NixOS/nixpkgs/f720de59066162ee879adcc8c79e15c51fe6bfb4?lastModified=1764642553&narHash=sha256-mvbFFzVBhVK1FjyPHZGMAKpNiqkr7k%2B%2BxIwy%2Bp%2FNQvA%3D"
-    },
-    "grpcurl@latest": {
-      "last_modified": "2025-11-23T21:50:36Z",
-      "resolved": "github:NixOS/nixpkgs/ee09932cedcef15aaf476f9343d1dea2cb77e261#grpcurl",
+    "ducker@latest": {
+      "last_modified": "2025-12-09T08:49:39Z",
+      "resolved": "github:NixOS/nixpkgs/677fbe97984e7af3175b6c121f3c39ee5c8d62c9#ducker",
       "source": "devbox-search",
-      "version": "1.9.3",
+      "version": "0.5.5",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/4gmld4kaqbmvrnldfj74vvb1z8ng1l1g-grpcurl-1.9.3",
+              "path": "/nix/store/0kbvkxbgdddh15z0xgvhgab3immdjqmv-ducker-0.5.5",
               "default": true
             }
           ],
-          "store_path": "/nix/store/4gmld4kaqbmvrnldfj74vvb1z8ng1l1g-grpcurl-1.9.3"
+          "store_path": "/nix/store/0kbvkxbgdddh15z0xgvhgab3immdjqmv-ducker-0.5.5"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/xhpnw0pljhq4w013dhhwxmyhssbdi6cy-grpcurl-1.9.3",
+              "path": "/nix/store/dir43rh1804j6znjz12zil5nx69946qw-ducker-0.5.5",
               "default": true
             }
           ],
-          "store_path": "/nix/store/xhpnw0pljhq4w013dhhwxmyhssbdi6cy-grpcurl-1.9.3"
+          "store_path": "/nix/store/dir43rh1804j6znjz12zil5nx69946qw-ducker-0.5.5"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/6nm6651kc5m29p4592ji0vswx4c6xdb6-grpcurl-1.9.3",
+              "path": "/nix/store/kws20kj6ik9fwpp8gm1xa9vq0ysgl7nf-ducker-0.5.5",
               "default": true
             }
           ],
-          "store_path": "/nix/store/6nm6651kc5m29p4592ji0vswx4c6xdb6-grpcurl-1.9.3"
+          "store_path": "/nix/store/kws20kj6ik9fwpp8gm1xa9vq0ysgl7nf-ducker-0.5.5"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/0zc1l7dijlqzd0vgd18rx3gr2biq7bkc-grpcurl-1.9.3",
+              "path": "/nix/store/fji3vky8yzcjp7wzjdxacd8ssnfyhwqa-ducker-0.5.5",
               "default": true
             }
           ],
-          "store_path": "/nix/store/0zc1l7dijlqzd0vgd18rx3gr2biq7bkc-grpcurl-1.9.3"
+          "store_path": "/nix/store/fji3vky8yzcjp7wzjdxacd8ssnfyhwqa-ducker-0.5.5"
         }
       }
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2025-12-02T02:29:13Z",
+      "resolved": "github:NixOS/nixpkgs/f720de59066162ee879adcc8c79e15c51fe6bfb4?lastModified=1764642553&narHash=sha256-mvbFFzVBhVK1FjyPHZGMAKpNiqkr7k%2B%2BxIwy%2Bp%2FNQvA%3D"
     },
     "jaq@latest": {
       "last_modified": "2025-11-23T21:50:36Z",

@@ -4,10 +4,20 @@
     "mkcert@latest",
     "openssl@latest",
     "xh@latest",
-    "grpcurl@latest",
     "mitmproxy@latest",
     "jaq@latest",
-    "ducker",
+    "ducker@latest",
     "pgcli@latest"
-  ]
+  ],
+  "shell": {
+    "init_hook": ["export CAROOT=\"$(mkcert -CAROOT)\"", "export SSL_CERT_FILE=$CAROOT/rootCA.pem"],
+    "scripts": {
+      "up": "make up",
+      "down": "make down",
+      "og:seed": "xh POST http://localhost:7878/store Content-Type:application/trig @packages/css-storage-fixture/dev/registry.trig",
+      "og:drop": "xh DELETE http://localhost:7878/store",
+      "pg:seed": "docker compose exec -T postgresql psql -U temporal auth < packages/css-storage-fixture/dev/auth.sql",
+      "pg:dump": "docker compose exec -T postgresql pg_dump --no-owner --no-privileges --if-exists --clean -U temporal auth > packages/css-storage-fixture/dev/auth.sql"
+    }
+  }
 }

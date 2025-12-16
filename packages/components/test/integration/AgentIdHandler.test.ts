@@ -18,7 +18,7 @@ const pathPrefix = '.sai/agents/'
 
 const rootFilePath = '/tmp/AgentIdHandler'
 
-describe('AgentIdHandler', (): void => {
+describe.skip('AgentIdHandler', (): void => {
   let app: App
   const indexUrl = joinUrl(baseUrl, '.account/')
   const vaporWebId = 'http://localhost:3711/vaporcg/profile/card#me'

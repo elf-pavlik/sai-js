@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { SolidTestUtils, accounts } from '@janeirodigital/css-test-utils'
+import { SolidTestUtils, accounts, inspector, shapeTree } from '@janeirodigital/css-test-utils'
 import { DataOwner, ReadableApplicationRegistration } from '@janeirodigital/interop-data-model'
 import { statelessFetch } from '@janeirodigital/interop-test-utils'
 import type { RdfResponse } from '@janeirodigital/interop-utils'
@@ -101,7 +101,7 @@ describe('describe discovery', () => {
 
   const info = {
     id: 'http://localhost:3711/corvax/x7b09z/znmqto/ibc822',
-    scope: accounts.shapeTree.Widget,
+    scope: shapeTree.Widget,
     resourceServer: accounts.luka.data.corvax,
     parent: 'http://localhost:3711/corvax/x7b09z/mt4xs0/lcea5v',
   }
@@ -122,7 +122,7 @@ describe('describe discovery', () => {
   describe('resourceOwners', () => {
     test('should return set of owenrs', async () => {
       const resourceOwners = new Set([accounts.luka.webId, accounts.vaporcg.webId])
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
@@ -133,13 +133,11 @@ describe('describe discovery', () => {
   describe('resourceServers', () => {
     test('should return set of resource servers', async () => {
       const resourceServers = new Set(Object.values(accounts.luka.data))
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
-      expect(app.resourceServers(accounts.luka.webId, accounts.shapeTree.Gadget)).toEqual(
-        resourceServers
-      )
+      expect(app.resourceServers(accounts.luka.webId, shapeTree.Gadget)).toEqual(resourceServers)
     })
   })
 
@@ -149,25 +147,23 @@ describe('describe discovery', () => {
         'http://localhost:3711/corvax/x7b09z/mt4xs0/lcea5v',
         'http://localhost:3711/corvax/x7b09z/mt4xs0/jey14x',
       ])
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
-      expect(await app.resources(accounts.luka.data.corvax, accounts.shapeTree.Gadget)).toEqual(
-        resources
-      )
+      expect(await app.resources(accounts.luka.data.corvax, shapeTree.Gadget)).toEqual(resources)
     })
   })
 
   describe('childInfo', () => {
     test('should return info for a child resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       expect(await app.childInfo(info.id, info.scope, info.parent)).toEqual(info)
     })
@@ -175,13 +171,13 @@ describe('describe discovery', () => {
 
   describe('setChildInfo', () => {
     test('should set child info in the childMap', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       // set child info
       await app.setChildInfo(info.id, info.scope, info.parent)
@@ -193,23 +189,23 @@ describe('describe discovery', () => {
 
   describe('canCreate', () => {
     test('should check if can create new resources in the scope', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
-      expect(await app.canCreate(info.resourceServer, accounts.shapeTree.Gadget)).toEqual(true)
+      expect(await app.canCreate(info.resourceServer, shapeTree.Gadget)).toEqual(true)
     })
   })
 
   describe('canCreateChild', () => {
     test('should check if can create a new child for a resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       expect(app.canCreateChild(info.parent, info.scope)).toBe(true)
     })
@@ -217,13 +213,13 @@ describe('describe discovery', () => {
 
   describe('canUpdate', () => {
     test('should check if can update the resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       expect(await app.canUpdate(info.parent)).toEqual(true)
     })
@@ -231,13 +227,13 @@ describe('describe discovery', () => {
 
   describe('canDelete', () => {
     test('should check if can delete the resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       expect(await app.canDelete(info.parent)).toEqual(true)
     })
@@ -245,11 +241,11 @@ describe('describe discovery', () => {
 
   describe('iriForNew', () => {
     test('should mint correct id for new resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
-      expect(await app.iriForNew(info.resourceServer, accounts.shapeTree.Gadget)).toMatch(
+      expect(await app.iriForNew(info.resourceServer, shapeTree.Gadget)).toMatch(
         'http://localhost:3711/corvax/x7b09z/mt4xs0/'
       )
     })
@@ -257,13 +253,13 @@ describe('describe discovery', () => {
 
   describe('iriForChild', () => {
     test('should mint correct id for new child for a resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       expect(await app.iriForChild(info.parent, info.scope)).toMatch(
         'http://localhost:3711/corvax/x7b09z/znmqto/'
@@ -273,13 +269,13 @@ describe('describe discovery', () => {
 
   describe('findParent', () => {
     test('should find parent resource given a child resource', async () => {
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })
 
       // populate parentMap
-      await app.resources(info.resourceServer, accounts.shapeTree.Gadget)
+      await app.resources(info.resourceServer, shapeTree.Gadget)
 
       // set child info
       await app.setChildInfo(info.id, info.scope, info.parent)
@@ -291,7 +287,7 @@ describe('describe discovery', () => {
   describe('discoverDescription', () => {
     test.skip('should find auxiliary description resource', async () => {
       const id = 'https://alice-work.pod.docker/dataRegistry/images/cat'
-      const app = await Application.build(accounts.luka.webId, accounts.inspector.clientId, {
+      const app = await Application.build(accounts.luka.webId, inspector.clientId, {
         fetch: stu.authFetch,
         randomUUID,
       })

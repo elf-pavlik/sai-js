@@ -14,7 +14,7 @@ const newSnippetIri = 'https://auth.alice.example/afb6a337-40df-4fbe-9b00-5c9c1e
 const data = { beep: 'boop' }
 
 class CRUDTestResource extends CRUDResource {
-  data: { beep: string }
+  declare data: { beep: string }
 
   protected async bootstrap(): Promise<void> {
     if (!this.data) {

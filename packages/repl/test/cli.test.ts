@@ -87,7 +87,8 @@ describe('cli', () => {
       const fiber = yield* Effect.fork(Effect.provide(mainPrompt, SessionManagerMock))
       // select first account
       yield* MockTerminal.inputKey('enter')
-      // select second action
+      // select third action
+      yield* MockTerminal.inputKey('down')
       yield* MockTerminal.inputKey('down')
       yield* MockTerminal.inputKey('enter')
       yield* MockTerminal.inputKey('enter')

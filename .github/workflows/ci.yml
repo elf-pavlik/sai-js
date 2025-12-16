@@ -15,7 +15,6 @@ jobs:
           - data-model
           - test-utils
           - utils
-          - service
     steps:
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4

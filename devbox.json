@@ -7,7 +7,8 @@
     "mitmproxy@latest",
     "jaq@latest",
     "ducker@latest",
-    "pgcli@latest"
+    "pgcli@latest",
+    "github:dagger/nix#packages.x86_64-linux.dagger"
   ],
   "shell": {
     "init_hook": ["export CAROOT=\"$(mkcert -CAROOT)\"", "export SSL_CERT_FILE=$CAROOT/rootCA.pem"],

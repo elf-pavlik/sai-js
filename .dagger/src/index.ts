@@ -1,0 +1,218 @@
+import {
+  type Container,
+  type Directory,
+  type Service,
+  argument,
+  dag,
+  func,
+  object,
+} from '@dagger.io/dagger'
+
+@object()
+export class SaiJs {
+  source: Directory
+
+  constructor(
+    @argument({ defaultPath: '.' })
+    source: Directory
+  ) {
+    this.source = source
+  }
+
+  @func()
+  postgresService(): Service {
+    return dag
+      .container()
+      .from('postgres:18')
+      .withEnvVariable('POSTGRES_USER', 'temporal')
+      .withEnvVariable('POSTGRES_PASSWORD', 'temporal')
+      .withEnvVariable('POSTGRES_DB', 'temporal')
+      .withExposedPort(5432)
+      .asService()
+  }
+
+  @func()
+  oxigraphService(): Service {
+    return (
+      dag
+        .container()
+        .from('ghcr.io/oxigraph/oxigraph:latest')
+        // .withMountedDirectory('/data', this.source.directory('packages/css-storage-fixture/dev/oxigraph'))
+        .withExposedPort(7878)
+        .asService({ args: ['oxigraph', 'serve', '--location', '/data', '--bind', '0.0.0.0:7878'] })
+    )
+  }
+
+  @func()
+  sparqlService(): Service {
+    return dag
+      .container()
+      .from('nginx:alpine')
+      .withServiceBinding('oxigraph', this.oxigraphService())
+      .withMountedFile(
+        '/etc/nginx/nginx.conf',
+        this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
+      )
+      .withExposedPort(80)
+      .asService({ args: ['nginx', '-g', 'daemon off;'] })
+  }
+
+  @func()
+  temporalService(): Service {
+    return dag
+      .container()
+      .from('temporalio/auto-setup:1.29.1')
+      .withServiceBinding('postgresql', this.postgresService())
+      .withMountedFile(
+        '/etc/temporal/development-sql.yaml',
+        this.source.file('temporal/development.yaml')
+      )
+      .withEnvVariable('DB', 'postgres12')
+      .withEnvVariable('DB_PORT', '5432')
+      .withEnvVariable('POSTGRES_USER', 'temporal')
+      .withEnvVariable('POSTGRES_PWD', 'temporal')
+      .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
+      .withEnvVariable('TEMPORAL_ADDRESS', '0.0.0.0:7233')
+      .asService()
+  }
+
+  @func()
+  workerService(): Service {
+    return dag
+      .container()
+      .from('node:22-slim')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('CSS_BASE_URL', 'https://auth')
+      .withEnvVariable(
+        'CSS_VAPID_PUBLIC_KEY',
+        'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY'
+      )
+      .withEnvVariable('CSS_VAPID_PRIVATE_KEY', '8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA')
+      .withEnvVariable('CSS_PUSH_SENDER', 'mailto:example@yourdomain.org')
+      .withEnvVariable(
+        'CSS_ENCODED_PRIVATE_JWK',
+        'eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ'
+      )
+      .withEnvVariable(
+        'CSS_POSTGRES_CONNECTION_STRING',
+        'postgres://temporal:temporal@postgresql:5432/auth'
+      )
+      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+      .withServiceBinding('postgresql', this.postgresService())
+      .withServiceBinding('temporal', this.temporalService())
+      .asService({ args: ['node', '/sai/packages/components/dist/workers/main.js'] })
+  }
+
+  @func()
+  authService(): Service {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/auth.json')
+      .withEnvVariable('CSS_BASE_URL', 'https://auth')
+      .withEnvVariable('CSS_PORT', '443')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable(
+        'CSS_VAPID_PUBLIC_KEY',
+        'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY'
+      )
+      .withEnvVariable('CSS_VAPID_PRIVATE_KEY', '8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA')
+      .withEnvVariable('CSS_PUSH_SENDER', 'mailto:example@yourdomain.org')
+      .withEnvVariable(
+        'CSS_ENCODED_PRIVATE_JWK',
+        'eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ'
+      )
+      .withEnvVariable(
+        'CSS_POSTGRES_CONNECTION_STRING',
+        'postgres://temporal:temporal@postgresql:5432/auth'
+      )
+      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withServiceBinding('postgresql', this.postgresService())
+      .withServiceBinding('temporal', this.temporalService())
+      .withExposedPort(443)
+      .withWorkdir('/sai/packages/css-storage-fixture')
+      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+  }
+
+  @func()
+  registryService(): Service {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
+      .withEnvVariable('CSS_BASE_URL', 'https://registry')
+      .withEnvVariable('CSS_PORT', '443')
+      .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable(
+        'CSS_POSTGRES_CONNECTION_STRING',
+        'postgres://temporal:temporal@postgresql:5432/registry'
+      )
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withExposedPort(443)
+      .withServiceBinding('postgresql', this.postgresService())
+      .withServiceBinding('sparql', this.sparqlService())
+      .withWorkdir('/sai/packages/css-storage-fixture')
+      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+  }
+
+  @func()
+  dataService(): Service {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/data.json')
+      .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/dev/data')
+      .withEnvVariable('CSS_BASE_URL', 'https://data')
+      .withEnvVariable('CSS_PORT', '443')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withExposedPort(443)
+      .withWorkdir('/sai/packages/css-storage-fixture')
+      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+  }
+
+  @func()
+  async test(): Promise<string> {
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+        .withServiceBinding('auth', this.authService())
+        .withServiceBinding('registry', this.registryService())
+        .withServiceBinding('data', this.dataService())
+        // .withServiceBinding('worker', this.workerService())
+        .withWorkdir('/sai/test')
+        .withExec(['npm', 'test'])
+        .stdout()
+    )
+  }
+
+  @func()
+  cli(): Container {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withServiceBinding('postgresql', this.postgresService())
+      .terminal()
+  }
+
+  @func()
+  async ping(): Promise<string> {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withServiceBinding('postgresql', this.postgresService())
+      .withExec(['ping', '-c', '5', 'postgresql'])
+      .stdout()
+  }
+}

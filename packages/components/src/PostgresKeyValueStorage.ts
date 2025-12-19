@@ -38,6 +38,8 @@ export class PostgresKeyValueStorage<T> extends Initializer implements KeyValueS
     url.pathname = '/postgres' // system database
     const adminSql = postgres(url.toString(), { max: 1 })
 
+    await adminSql`SELECT pg_advisory_lock(hashtext(${databaseName}))`
+
     try {
       const result = await adminSql`
         SELECT 1 FROM pg_database WHERE datname = ${databaseName}
@@ -46,7 +48,7 @@ export class PostgresKeyValueStorage<T> extends Initializer implements KeyValueS
         await adminSql`CREATE DATABASE ${adminSql(databaseName)}`
       }
     } finally {
-      await adminSql.end()
+      await adminSql`SELECT pg_advisory_unlock(hashtext(${databaseName}))`
     }
   }
 

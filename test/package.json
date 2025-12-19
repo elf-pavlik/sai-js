@@ -1,0 +1,11 @@
+{
+  "name": "sai-test",
+  "version": "0.1.0",
+  "description": "integration tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "author": "",
+  "license": "MIT"
+}

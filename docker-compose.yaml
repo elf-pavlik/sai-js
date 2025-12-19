@@ -130,9 +130,9 @@ services:
       - CSS_ENCODED_PRIVATE_JWK=eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
       - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
       - TEMPORAL_ADDRESS=temporal:7233
-      - VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
-      - VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
-      - PUSH_NOTIFICATION_EMAIL=mailto:example@yourdomain.org
+      - CSS_VAPID_PUBLIC_KEY=BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY
+      - CSS_VAPID_PRIVATE_KEY=8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA
+      - CSS_PUSH_SENDER=mailto:example@yourdomain.org
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
   ui:
     image: node:22-alpine

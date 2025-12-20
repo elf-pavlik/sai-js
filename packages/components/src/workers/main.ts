@@ -1,11 +1,24 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { NativeConnection, Worker } from '@temporalio/worker'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
 import * as reciprocalActivities from '../temporal/activities/reciprocal.js'
 
+async function connectWithRetry() {
+  while (true) {
+    try {
+      return await NativeConnection.connect({
+        address: process.env.TEMPORAL_ADDRESS,
+      })
+    } catch (err) {
+      console.error('Temporal not ready, retrying...', err.message)
+      await sleep(500)
+    }
+  }
+}
 async function run() {
-  const connection = await NativeConnection.connect({ address: process.env.TEMPORAL_ADDRESS })
+  const connection = await connectWithRetry()
 
   try {
     const forward = await Worker.create({

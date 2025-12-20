@@ -4,7 +4,8 @@
   "description": "integration tests",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "debug": "vitest run --inspect-brk 0.0.0.0:9240 --no-file-parallelism"
   },
   "author": "",
   "license": "MIT"

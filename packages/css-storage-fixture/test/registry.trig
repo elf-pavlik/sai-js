@@ -1,0 +1,398 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+PREFIX acp: <http://www.w3.org/ns/solid/acp#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
+PREFIX space: <http://www.w3.org/ns/pim/space#>
+PREFIX shapetrees: <https://shapetrees.data.docker/trees/>
+
+GRAPH <https://registry/> {
+  <https://registry/>
+    ldp:contains
+      <https://registry/acme/>,
+      <https://registry/alice/>,
+      <https://registry/bob/>,
+      <https://registry/kim/> .
+}
+
+GRAPH <meta:https://registry/acme/> {
+  <https://registry/acme/>
+    a interop:RegistrySet, ldp:Resource, space:Storage;
+    interop:hasAgentRegistry <https://registry/acme/agent/>;
+    interop:hasAuthorizationRegistry <https://registry/acme/authorization/>;
+    interop:hasDataRegistry
+      <https://acme-rnd.data.docker/>.
+}
+
+GRAPH <meta:https://registry/acme/authorization/> {
+  <https://registry/acme/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://registry/acme/agent/> {
+  <https://registry/acme/agent/>
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasSocialAgentRegistration
+      <https://registry/acme/agent/je0s7n/>.
+}
+
+GRAPH <meta:https://registry/acme/agent/je0s7n/> {
+  <https://registry/acme/agent/je0s7n/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://alice.id.docker> ;
+    interop:reciprocalRegistration <https://registry/alice/agent/cp9g7p/> ;
+    interop:hasAccessGrant <https://registry/acme/agent/je0s7n/gmaqjb> ;
+    skos:prefLabel "Alice" ;
+    skos:note "Chasing white rabits." .
+}
+
+GRAPH <https://registry/acme/agent/je0s7n/> {
+  <https://registry/acme/agent/je0s7n/>
+    ldp:contains
+      <https://registry/acme/agent/je0s7n/gmaqjb>,
+      <https://registry/acme/agent/je0s7n/g4yhtm>.
+}
+
+GRAPH <https://registry/acme/agent/je0s7n/gmaqjb> {
+  <https://registry/acme/agent/je0s7n/gmaqjb>
+    a interop:AccessGrant;
+    interop:granted true;
+    interop:grantee <https://alice.id.docker>;
+    interop:hasDataGrant
+      <https://registry/acme/agent/je0s7n/g4yhtm>.
+}
+
+GRAPH <meta:https://registry/acme/agent/je0s7n/gmaqjb> {
+        <https://registry/acme/agent/je0s7n/gmaqjb> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
+  <https://registry/acme/agent/je0s7n/g4yhtm>
+    a interop:DataGrant;
+    interop:grantee <https://alice.id.docker>;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:hasDataRegistration <https://acme-rnd.data.docker/reb39k/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/acme/agent/je0s7n/g4yhtm> {
+        <https://registry/acme/agent/je0s7n/g4yhtm> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/acme/.acr> {
+        <https://registry/acme/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/.acr> {
+  <https://registry/acme/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/acme/>;
+    acp:accessControl
+      <https://registry/acme/.acr#publicReadAccess>,
+      <https://registry/acme/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://registry/acme/.acr#publicReadAccess>,
+      <https://registry/acme/.acr#fullOwnerAccess>.
+
+  <https://registry/acme/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://registry/acme/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://acme.id.docker>
+      ]
+    ].
+}
+
+GRAPH <meta:https://registry/alice/> {
+  <https://registry/alice/>
+    a interop:RegistrySet, ldp:Resource, space:Storage;
+    interop:hasAgentRegistry <https://registry/alice/agent/>;
+    interop:hasAuthorizationRegistry <https://registry/alice/authorization/>;
+    interop:hasDataRegistry
+      <https://alice-home.data.docker/>,
+      <https://alice-work.data.docker/>.
+}
+
+GRAPH <meta:https://registry/alice/authorization/> {
+  <https://registry/alice/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource;
+    interop:hasAccessAuthorization <https://registry/alice/authorization/hsyzmp/>.
+}
+
+GRAPH <meta:https://registry/alice/authorization/hsyzmp/> {
+  <https://registry/alice/authorization/hsyzmp/>
+    a interop:AccessAuthorization, ldp:Resource;
+    interop:granted true;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:hasDataAuthorization
+      <https://registry/alice/authorization/hsyzmp/w329t6>.
+}
+
+GRAPH <https://registry/alice/authorization/hsyzmp/w329t6> {
+  <https://registry/alice/authorization/hsyzmp/w329t6>
+    a interop:DataAuthorization;
+    interop:grantedBy <https://alice.id.docker>;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:scopeOfAuthorization interop:All;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/alice/authorization/hsyzmp/w329t6> {
+        <https://registry/alice/authorization/hsyzmp/w329t6> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/alice/agent/> {
+  <https://registry/alice/agent/>
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasApplicationRegistration 
+      <https://registry/alice/agent/cvmsa4/>;
+    interop:hasSocialAgentRegistration
+      <https://registry/alice/agent/cp9g7p/>,
+      <https://registry/alice/agent/vzp6ky/>.
+}
+
+GRAPH <meta:https://registry/alice/agent/cp9g7p/> {
+  <https://registry/alice/agent/cp9g7p/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://acme.id.docker> ;
+    interop:reciprocalRegistration <https://registry/acme/agent/je0s7n/> ;
+    skos:prefLabel "ACME" ;
+    skos:note "A producer of open source gadget. We are collaborating on some software projects" .
+}
+
+GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
+  <https://registry/alice/agent/vzp6ky/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://bob.id.docker> ;
+    interop:reciprocalRegistration <https://registry/bob/agent/jc5gt6/> ;
+    skos:prefLabel "Bob" ;
+    skos:note "A colleague at ACME" .
+}
+
+GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
+  <https://registry/alice/agent/cvmsa4/>
+    a interop:ApplicationRegistration, ldp:Resource;
+    interop:registeredAgent <https://vuejectron.docker/id>;
+    interop:hasAccessGrant <https://registry/alice/agent/cvmsa4/y1pp6y>.
+  <https://vuejectron.docker/id> oidc:client_name "Vuejectron";
+      oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
+      interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
+      interop:hasAuthorizationCallbackEndpoint <https://vuejectron.docker>.
+}
+
+GRAPH <https://registry/alice/agent/cvmsa4/> {
+  <https://registry/alice/agent/cvmsa4/>
+    ldp:contains
+      <https://registry/alice/agent/cvmsa4/y1pp6y>,
+      <https://registry/alice/agent/cvmsa4/afiooi>.
+}
+
+GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
+  <https://registry/alice/agent/cvmsa4/y1pp6y>
+    a interop:AccessGrant;
+    interop:granted true;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
+    interop:hasDataGrant
+      <https://registry/alice/agent/cvmsa4/afiooi>.
+}
+
+GRAPH <meta:https://registry/alice/agent/cvmsa4/y1pp6y> {
+        <https://registry/alice/agent/cvmsa4/y1pp6y> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
+  <https://registry/alice/agent/cvmsa4/afiooi>
+    a interop:DataGrant;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:dataOwner <https://alice.id.docker>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/alice/agent/cvmsa4/afiooi> {
+        <https://registry/alice/agent/cvmsa4/afiooi> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/alice/.acr> {
+        <https://registry/alice/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/.acr> {
+  <https://registry/alice/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/alice/>;
+    acp:accessControl
+      <https://registry/alice/.acr#publicReadAccess>,
+      <https://registry/alice/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://registry/alice/.acr#publicReadAccess>,
+      <https://registry/alice/.acr#fullOwnerAccess>.
+
+  <https://registry/alice/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://registry/alice/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>
+      ]
+    ].
+}
+
+GRAPH <meta:https://registry/bob/> {
+  <https://registry/bob/>
+    a interop:RegistrySet, ldp:Resource, space:Storage;
+    interop:hasAgentRegistry <https://registry/bob/agent/>;
+    interop:hasAuthorizationRegistry <https://registry/bob/authorization/>;
+    interop:hasDataRegistry
+      <https://bob.data.docker/>.
+}
+
+GRAPH <meta:https://registry/bob/authorization/> {
+  <https://registry/bob/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <meta:https://registry/bob/agent/> {
+  <https://registry/bob/agent/>
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasSocialAgentRegistration
+      <https://registry/bob/agent/jc5gt6/>.
+}
+
+GRAPH <meta:https://registry/bob/agent/jc5gt6/> {
+  <https://registry/bob/agent/jc5gt6/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://alice.id.docker> ;
+    interop:reciprocalRegistration <https://registry/alice/agent/vzp6ky/> ;
+    skos:prefLabel "Alice" ;
+    skos:note "A colleague at ACME" .
+}
+
+GRAPH <meta:https://registry/bob/.acr> {
+        <https://registry/bob/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/bob/.acr> {
+  <https://registry/bob/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/bob/>;
+    acp:accessControl
+      <https://registry/bob/.acr#publicReadAccess>,
+      <https://registry/bob/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://registry/bob/.acr#publicReadAccess>,
+      <https://registry/bob/.acr#fullOwnerAccess>.
+
+  <https://registry/bob/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://registry/bob/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://bob.id.docker>
+      ]
+    ].
+}
+
+GRAPH <meta:https://registry/kim/> {
+  <https://registry/kim/>
+    a interop:RegistrySet, ldp:Resource, space:Storage;
+    interop:hasAgentRegistry <https://registry/kim/agent/>;
+    interop:hasAuthorizationRegistry <https://registry/kim/authorization/>.
+}
+
+GRAPH <meta:https://registry/kim/authorization/> {
+  <https://registry/kim/authorization/>
+    a interop:AuthorizationRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://registry/kim/agent/> {
+  <https://registry/kim/agent/>
+    a interop:AgentRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://registry/kim/.acr> {
+        <https://registry/kim/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/kim/.acr> {
+  <https://registry/kim/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/kim/>;
+    acp:accessControl
+      <https://registry/kim/.acr#publicReadAccess>,
+      <https://registry/kim/.acr#fullOwnerAccess>;
+    acp:memberAccessControl
+      <https://registry/kim/.acr#publicReadAccess>,
+      <https://registry/kim/.acr#fullOwnerAccess>.
+
+  <https://registry/kim/.acr#publicReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent acp:PublicAgent
+      ]
+    ].
+
+  <https://registry/kim/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://kim.id.docker>
+      ]
+    ].
+}
+

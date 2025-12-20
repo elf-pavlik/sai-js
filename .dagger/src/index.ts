@@ -104,6 +104,24 @@ export class SaiJs {
   }
 
   @func()
+  idService(): Service {
+    return dag
+      .container()
+      .from('nginx:alpine')
+      .withMountedDirectory(
+        '/usr/share/nginx/html/id',
+        this.source.directory('packages/css-storage-fixture/test/id')
+      )
+      .withMountedFile(
+        '/etc/nginx/nginx.conf',
+        this.source.file('packages/css-storage-fixture/test/id.nginx.conf')
+      )
+      .withMountedDirectory('/certs', this.source.directory('traefik/certs'))
+      .withExposedPort(443)
+      .asService()
+  }
+
+  @func()
   authService(): Service {
     return dag
       .container()
@@ -180,21 +198,44 @@ export class SaiJs {
   }
 
   @func()
+  seedDatabase(): Container {
+    return dag
+      .container()
+      .from('postgres:16-alpine')
+      .withServiceBinding('postgresql', this.postgresService())
+      .withMountedFile('/seed.sql', this.source.file('packages/css-storage-fixture/test/auth.sql'))
+      .withEnvVariable('PGHOST', 'postgresql')
+      .withEnvVariable('PGUSER', 'temporal')
+      .withEnvVariable('PGDATABASE', 'auth')
+      .withExec(['psql', '-v', 'ON_ERROR_STOP=1', '-f', '/seed.sql'])
+  }
+
+  testBase(): Container {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withServiceBinding('auth', this.authService())
+      .withServiceBinding('registry', this.registryService())
+      .withServiceBinding('data', this.dataService())
+      .withServiceBinding('worker', this.workerService())
+      .withServiceBinding('sparql', this.sparqlService())
+      .withServiceBinding('id', this.idService())
+      .withWorkdir('/sai/test')
+  }
+
+  @func()
   async test(): Promise<string> {
-    return (
-      dag
-        .container()
-        .from('node:24-alpine')
-        .withMountedDirectory('/sai', this.source)
-        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
-        .withServiceBinding('auth', this.authService())
-        .withServiceBinding('registry', this.registryService())
-        .withServiceBinding('data', this.dataService())
-        // .withServiceBinding('worker', this.workerService())
-        .withWorkdir('/sai/test')
-        .withExec(['npm', 'test'])
-        .stdout()
-    )
+    await this.seedDatabase()
+    return this.testBase().withExec(['npm', 'run', 'test']).stdout()
+  }
+
+  @func()
+  debugService(): Service {
+    return this.testBase()
+      .withExposedPort(9240)
+      .asService({ args: ['npm', 'run', 'debug'] })
   }
 
   @func()
@@ -202,7 +243,7 @@ export class SaiJs {
     return dag
       .container()
       .from('node:24-alpine')
-      .withServiceBinding('postgresql', this.postgresService())
+      .withServiceBinding('id', this.idService())
       .terminal()
   }
 
@@ -211,6 +252,7 @@ export class SaiJs {
     return dag
       .container()
       .from('node:24-alpine')
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
       .withServiceBinding('postgresql', this.postgresService())
       .withExec(['ping', '-c', '5', 'postgresql'])
       .stdout()

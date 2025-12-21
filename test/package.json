@@ -2,11 +2,17 @@
   "name": "sai-test",
   "version": "0.1.0",
   "description": "integration tests",
+  "private": true,
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "debug": "vitest run --inspect-brk 0.0.0.0:9240 --no-file-parallelism"
+    "dagger:test": "vitest run",
+    "dagger:debug": "vitest run --inspect-brk 0.0.0.0:9240 --no-file-parallelism"
   },
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@janeirodigital/sai-components": "1.0.0-rc.24",
+    "@janeirodigital/interop-utils": "1.0.0-rc.24"
+  }
 }

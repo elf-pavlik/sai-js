@@ -61,7 +61,7 @@ services:
     environment:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/registry.json
       - CSS_LOGGING_LEVEL=info
-      - CSS_BASE_URL=https://reg.docker
+      - CSS_BASE_URL=https://reg.docker/
       - CSS_PORT=4600
       - CSS_SPARQL_ENDPOINT=http://sparql/sparql
       - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/registry
@@ -97,7 +97,7 @@ services:
       - CSS_CONFIG=/sai/packages/css-storage-fixture/data.json
       - CSS_LOGGING_LEVEL=info
       - CSS_ROOT_FILE_PATH=/sai/packages/css-storage-fixture/dev/data
-      - CSS_BASE_URL=https://data.docker
+      - CSS_BASE_URL=https://data.docker/
       - CSS_PORT=4700
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:

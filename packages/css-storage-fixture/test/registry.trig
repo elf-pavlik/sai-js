@@ -6,7 +6,7 @@ PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
-PREFIX shapetrees: <https://shapetrees.data.docker/trees/>
+PREFIX shapetrees: <https://data/shapetrees/trees/>
 
 GRAPH <https://registry/> {
   <https://registry/>
@@ -22,8 +22,8 @@ GRAPH <meta:https://registry/acme/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/acme/agent/>;
     interop:hasAuthorizationRegistry <https://registry/acme/authorization/>;
-    interop:hasDataRegistry
-      <https://acme-rnd.data.docker/>.
+    #interop:hasDataRegistry
+    #  <https://acme-rnd.data.docker/>.
 }
 
 GRAPH <meta:https://registry/acme/authorization/> {
@@ -41,7 +41,7 @@ GRAPH <meta:https://registry/acme/agent/> {
 GRAPH <meta:https://registry/acme/agent/je0s7n/> {
   <https://registry/acme/agent/je0s7n/>
     a interop:SocialAgentRegistration, ldp:Resource;
-    interop:registeredAgent <https://alice.id.docker> ;
+    interop:registeredAgent <https://id/alice> ;
     interop:reciprocalRegistration <https://registry/alice/agent/cp9g7p/> ;
     interop:hasAccessGrant <https://registry/acme/agent/je0s7n/gmaqjb> ;
     skos:prefLabel "Alice" ;
@@ -59,7 +59,7 @@ GRAPH <https://registry/acme/agent/je0s7n/gmaqjb> {
   <https://registry/acme/agent/je0s7n/gmaqjb>
     a interop:AccessGrant;
     interop:granted true;
-    interop:grantee <https://alice.id.docker>;
+    interop:grantee <https://id/alice>;
     interop:hasDataGrant
       <https://registry/acme/agent/je0s7n/g4yhtm>.
 }
@@ -71,8 +71,8 @@ GRAPH <meta:https://registry/acme/agent/je0s7n/gmaqjb> {
 GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
   <https://registry/acme/agent/je0s7n/g4yhtm>
     a interop:DataGrant;
-    interop:grantee <https://alice.id.docker>;
-    interop:dataOwner <https://acme.id.docker>;
+    interop:grantee <https://id/alice>;
+    interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
     interop:hasDataRegistration <https://acme-rnd.data.docker/reb39k/>;
     interop:scopeOfGrant interop:AllFromRegistry;
@@ -116,7 +116,7 @@ GRAPH <https://registry/acme/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://acme.id.docker>
+        acp:agent <https://id/acme>
       ]
     ].
 }
@@ -126,9 +126,9 @@ GRAPH <meta:https://registry/alice/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/alice/agent/>;
     interop:hasAuthorizationRegistry <https://registry/alice/authorization/>;
-    interop:hasDataRegistry
-      <https://alice-home.data.docker/>,
-      <https://alice-work.data.docker/>.
+    #interop:hasDataRegistry
+    #  <https://alice-home.data.docker/>,
+    #  <https://alice-work.data.docker/>.
 }
 
 GRAPH <meta:https://registry/alice/authorization/> {
@@ -149,7 +149,7 @@ GRAPH <meta:https://registry/alice/authorization/hsyzmp/> {
 GRAPH <https://registry/alice/authorization/hsyzmp/w329t6> {
   <https://registry/alice/authorization/hsyzmp/w329t6>
     a interop:DataAuthorization;
-    interop:grantedBy <https://alice.id.docker>;
+    interop:grantedBy <https://id/alice>;
     interop:grantee <https://vuejectron.docker/id>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:All;
@@ -173,7 +173,7 @@ GRAPH <meta:https://registry/alice/agent/> {
 GRAPH <meta:https://registry/alice/agent/cp9g7p/> {
   <https://registry/alice/agent/cp9g7p/>
     a interop:SocialAgentRegistration, ldp:Resource;
-    interop:registeredAgent <https://acme.id.docker> ;
+    interop:registeredAgent <https://id/acme> ;
     interop:reciprocalRegistration <https://registry/acme/agent/je0s7n/> ;
     skos:prefLabel "ACME" ;
     skos:note "A producer of open source gadget. We are collaborating on some software projects" .
@@ -182,7 +182,7 @@ GRAPH <meta:https://registry/alice/agent/cp9g7p/> {
 GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
   <https://registry/alice/agent/vzp6ky/>
     a interop:SocialAgentRegistration, ldp:Resource;
-    interop:registeredAgent <https://bob.id.docker> ;
+    interop:registeredAgent <https://id/bob> ;
     interop:reciprocalRegistration <https://registry/bob/agent/jc5gt6/> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague at ACME" .
@@ -224,7 +224,7 @@ GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
   <https://registry/alice/agent/cvmsa4/afiooi>
     a interop:DataGrant;
     interop:grantee <https://vuejectron.docker/id>;
-    interop:dataOwner <https://alice.id.docker>;
+    interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
     interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
     interop:scopeOfGrant interop:AllFromRegistry;
@@ -268,7 +268,7 @@ GRAPH <https://registry/alice/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://alice.id.docker>
+        acp:agent <https://id/alice>
       ]
     ].
 }
@@ -278,8 +278,8 @@ GRAPH <meta:https://registry/bob/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/bob/agent/>;
     interop:hasAuthorizationRegistry <https://registry/bob/authorization/>;
-    interop:hasDataRegistry
-      <https://bob.data.docker/>.
+    #interop:hasDataRegistry
+    #  <https://bob.data.docker/>.
 }
 
 GRAPH <meta:https://registry/bob/authorization/> {
@@ -297,7 +297,7 @@ GRAPH <meta:https://registry/bob/agent/> {
 GRAPH <meta:https://registry/bob/agent/jc5gt6/> {
   <https://registry/bob/agent/jc5gt6/>
     a interop:SocialAgentRegistration, ldp:Resource;
-    interop:registeredAgent <https://alice.id.docker> ;
+    interop:registeredAgent <https://id/alice> ;
     interop:reciprocalRegistration <https://registry/alice/agent/vzp6ky/> ;
     skos:prefLabel "Alice" ;
     skos:note "A colleague at ACME" .
@@ -336,7 +336,7 @@ GRAPH <https://registry/bob/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://bob.id.docker>
+        acp:agent <https://id/bob>
       ]
     ].
 }
@@ -391,7 +391,7 @@ GRAPH <https://registry/kim/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://kim.id.docker>
+        acp:agent <https://id/kim>
       ]
     ].
 }

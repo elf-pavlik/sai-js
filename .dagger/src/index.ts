@@ -45,16 +45,19 @@ export class SaiJs {
 
   @func()
   sparqlService(): Service {
-    return dag
-      .container()
-      .from('nginx:alpine')
-      .withServiceBinding('oxigraph', this.oxigraphService())
-      .withMountedFile(
-        '/etc/nginx/nginx.conf',
-        this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
-      )
-      .withExposedPort(80)
-      .asService({ args: ['nginx', '-g', 'daemon off;'] })
+    return (
+      dag
+        .container()
+        .from('nginx:alpine')
+        .withServiceBinding('oxigraph', this.oxigraphService())
+        .withMountedFile(
+          '/etc/nginx/nginx.conf',
+          this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
+        )
+        .withExposedPort(80)
+        // .asService({ args: ['nginx', '-g', 'daemon off;'] })
+        .asService()
+    )
   }
 
   @func()
@@ -82,7 +85,7 @@ export class SaiJs {
       .container()
       .from('node:22-slim')
       .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_BASE_URL', 'https://auth')
+      .withEnvVariable('CSS_BASE_URL', 'https://auth/')
       .withEnvVariable(
         'CSS_VAPID_PUBLIC_KEY',
         'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY'
@@ -128,7 +131,7 @@ export class SaiJs {
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/auth.json')
-      .withEnvVariable('CSS_BASE_URL', 'https://auth')
+      .withEnvVariable('CSS_BASE_URL', 'https://auth/')
       .withEnvVariable('CSS_PORT', '443')
       .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
       .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
@@ -150,9 +153,20 @@ export class SaiJs {
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', this.temporalService())
+      .withServiceBinding('id', this.idService())
+      .withServiceBinding('registry', this.registryService())
+      .withServiceBinding('data', this.dataService())
       .withExposedPort(443)
+      .withExposedPort(9229)
       .withWorkdir('/sai/packages/css-storage-fixture')
-      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+      .asService({
+        args: [
+          'node',
+          '--inspect=0.0.0.0:9229',
+          '/sai/node_modules/@solid/community-server/bin/server.js',
+        ],
+      })
+      .withHostname('auth')
   }
 
   @func()
@@ -162,7 +176,7 @@ export class SaiJs {
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
-      .withEnvVariable('CSS_BASE_URL', 'https://registry')
+      .withEnvVariable('CSS_BASE_URL', 'https://registry/')
       .withEnvVariable('CSS_PORT', '443')
       .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
       .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
@@ -187,7 +201,7 @@ export class SaiJs {
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/data.json')
       .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/dev/data')
-      .withEnvVariable('CSS_BASE_URL', 'https://data')
+      .withEnvVariable('CSS_BASE_URL', 'https://data/')
       .withEnvVariable('CSS_PORT', '443')
       .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
       .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
@@ -216,6 +230,11 @@ export class SaiJs {
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withEnvVariable('CSS_BASE_URL', 'https://auth/')
+      .withEnvVariable(
+        'CSS_ENCODED_PRIVATE_JWK',
+        'eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ'
+      )
       .withServiceBinding('auth', this.authService())
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
@@ -228,14 +247,27 @@ export class SaiJs {
   @func()
   async test(): Promise<string> {
     await this.seedDatabase()
-    return this.testBase().withExec(['npm', 'run', 'test']).stdout()
+    return this.testBase().withExec(['npm', 'run', 'dagger:test']).stdout()
   }
 
   @func()
   debugService(): Service {
     return this.testBase()
       .withExposedPort(9240)
-      .asService({ args: ['npm', 'run', 'debug'] })
+      .asService({ args: ['npm', 'run', 'dagger:debug'] })
+  }
+
+  @func()
+  proxyService(): Service {
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withServiceBinding('debug', this.debugService())
+      .withServiceBinding('auth', this.authService())
+      .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
+      .withExposedPort(9240)
+      .withExposedPort(9229)
+      .asService({ args: ['node', '/proxy.js'] })
   }
 
   @func()

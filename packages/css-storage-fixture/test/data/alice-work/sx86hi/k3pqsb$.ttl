@@ -1,0 +1,5 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX pm: <https://vocab.example/project-management/>
+
+<https://data/alice-work/sx86hi/k3pqsb>
+  rdfs:label "Project A" .

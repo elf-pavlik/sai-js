@@ -1,0 +1,9 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX solidtrees: <https://data/shapetrees/trees/>
+
+<https://data/alice-work/btze4a/>
+  a interop:DataRegistration ;
+  interop:registeredBy <https://id/alice>;
+  interop:registeredShapeTree solidtrees:Task .

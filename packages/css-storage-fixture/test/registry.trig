@@ -22,8 +22,8 @@ GRAPH <meta:https://registry/acme/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/acme/agent/>;
     interop:hasAuthorizationRegistry <https://registry/acme/authorization/>;
-    #interop:hasDataRegistry
-    #  <https://acme-rnd.data.docker/>.
+    interop:hasDataRegistry
+      <https://data/acme-rnd/>.
 }
 
 GRAPH <meta:https://registry/acme/authorization/> {
@@ -74,7 +74,7 @@ GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
     interop:grantee <https://id/alice>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasDataRegistration <https://acme-rnd.data.docker/reb39k/>;
+    interop:hasDataRegistration <https://data/acme-rnd/reb39k/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
 }
@@ -126,9 +126,9 @@ GRAPH <meta:https://registry/alice/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/alice/agent/>;
     interop:hasAuthorizationRegistry <https://registry/alice/authorization/>;
-    #interop:hasDataRegistry
-    #  <https://alice-home.data.docker/>,
-    #  <https://alice-work.data.docker/>.
+    interop:hasDataRegistry
+      <https://data/alice-home/>,
+      <https://data/alice-work/>.
 }
 
 GRAPH <meta:https://registry/alice/authorization/> {
@@ -226,7 +226,7 @@ GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
     interop:grantee <https://vuejectron.docker/id>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasDataRegistration <https://alice-work.data.docker/sx86hi/>;
+    interop:hasDataRegistration <https://data/alice-work/sx86hi/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
 }
@@ -278,8 +278,8 @@ GRAPH <meta:https://registry/bob/> {
     a interop:RegistrySet, ldp:Resource, space:Storage;
     interop:hasAgentRegistry <https://registry/bob/agent/>;
     interop:hasAuthorizationRegistry <https://registry/bob/authorization/>;
-    #interop:hasDataRegistry
-    #  <https://bob.data.docker/>.
+    interop:hasDataRegistry
+      <https://data/bob/>.
 }
 
 GRAPH <meta:https://registry/bob/authorization/> {

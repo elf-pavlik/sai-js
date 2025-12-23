@@ -1,0 +1,10 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX pim: <http://www.w3.org/ns/pim/space#>
+
+<https://data/bob/>
+  a interop:DataRegistry, pim:Storage ;
+  interop:registeredBy <https://id/bob> ;
+  interop:hasDataRegistration
+   <https://data/bob/avn9hv/> ,
+   <https://data/bob/x6hx8e/> .

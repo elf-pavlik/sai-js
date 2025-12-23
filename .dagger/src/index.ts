@@ -157,7 +157,6 @@ export class SaiJs {
       .withServiceBinding('data', this.dataService())
       .withExposedPort(443)
       .withExposedPort(9229)
-      .withWorkdir('/sai/packages/css-storage-fixture')
       .asService({
         args: [
           'node',
@@ -170,30 +169,26 @@ export class SaiJs {
 
   @func()
   registryService(): Service {
-    return (
-      dag
-        .container()
-        .from('node:24-alpine')
-        .withMountedDirectory('/sai', this.source)
-        .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
-        .withEnvVariable('CSS_BASE_URL', 'https://registry/')
-        .withEnvVariable('CSS_PORT', '443')
-        .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
-        .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
-        .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
-        .withEnvVariable(
-          'CSS_POSTGRES_CONNECTION_STRING',
-          'postgres://temporal:temporal@postgresql:5432/registry'
-        )
-        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
-        .withExposedPort(443)
-        .withServiceBinding('postgresql', this.postgresService())
-        .withServiceBinding('sparql', this.sparqlService())
-        // TODO: is it needed?
-        .withWorkdir('/sai/packages/css-storage-fixture')
-        .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
-        .withHostname('registry')
-    )
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
+      .withEnvVariable('CSS_BASE_URL', 'https://registry/')
+      .withEnvVariable('CSS_PORT', '443')
+      .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable(
+        'CSS_POSTGRES_CONNECTION_STRING',
+        'postgres://temporal:temporal@postgresql:5432/registry'
+      )
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+      .withExposedPort(443)
+      .withServiceBinding('postgresql', this.postgresService())
+      .withServiceBinding('sparql', this.sparqlService())
+      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+      .withHostname('registry')
   }
 
   @func()
@@ -203,14 +198,13 @@ export class SaiJs {
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/data.json')
-      .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/dev/data')
+      .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/test/data')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
       .withEnvVariable('CSS_PORT', '443')
       .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
       .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
       .withExposedPort(443)
-      .withWorkdir('/sai/packages/css-storage-fixture')
       .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
       .withHostname('data')
   }

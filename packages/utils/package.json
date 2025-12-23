@@ -45,7 +45,8 @@
   "dependencies": {
     "http-link-header": "^1.1.1",
     "jsonld-streaming-parser": "^3.2.1",
-    "n3": "^1.23.1"
+    "n3": "^1.23.1",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@janeirodigital/css-test-utils": "^1.0.0-rc.24",

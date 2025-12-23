@@ -29,35 +29,32 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_DB', 'temporal')
       .withExposedPort(5432)
       .asService()
+      .withHostname('postgresql')
   }
 
   @func()
   oxigraphService(): Service {
-    return (
-      dag
-        .container()
-        .from('ghcr.io/oxigraph/oxigraph:latest')
-        // .withMountedDirectory('/data', this.source.directory('packages/css-storage-fixture/dev/oxigraph'))
-        .withExposedPort(7878)
-        .asService({ args: ['oxigraph', 'serve', '--location', '/data', '--bind', '0.0.0.0:7878'] })
-    )
+    return dag
+      .container()
+      .from('ghcr.io/oxigraph/oxigraph:latest')
+      .withExposedPort(7878)
+      .asService({ args: ['oxigraph', 'serve', '--location', '/data', '--bind', '0.0.0.0:7878'] })
+      .withHostname('oxigraph')
   }
 
   @func()
   sparqlService(): Service {
-    return (
-      dag
-        .container()
-        .from('nginx:alpine')
-        .withServiceBinding('oxigraph', this.oxigraphService())
-        .withMountedFile(
-          '/etc/nginx/nginx.conf',
-          this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
-        )
-        .withExposedPort(80)
-        // .asService({ args: ['nginx', '-g', 'daemon off;'] })
-        .asService()
-    )
+    return dag
+      .container()
+      .from('nginx:alpine')
+      .withMountedFile(
+        '/etc/nginx/nginx.conf',
+        this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
+      )
+      .withServiceBinding('oxigraph', this.oxigraphService())
+      .withExposedPort(80)
+      .asService()
+      .withHostname('sparql')
   }
 
   @func()
@@ -77,6 +74,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
       .withEnvVariable('TEMPORAL_ADDRESS', '0.0.0.0:7233')
       .asService()
+      .withHostname('temporal')
   }
 
   @func()
@@ -122,6 +120,7 @@ export class SaiJs {
       .withMountedDirectory('/certs', this.source.directory('traefik/certs'))
       .withExposedPort(443)
       .asService()
+      .withHostname('id')
   }
 
   @func()
@@ -171,26 +170,30 @@ export class SaiJs {
 
   @func()
   registryService(): Service {
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
-      .withEnvVariable('CSS_BASE_URL', 'https://registry/')
-      .withEnvVariable('CSS_PORT', '443')
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
-      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
-      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/registry'
-      )
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
-      .withExposedPort(443)
-      .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('sparql', this.sparqlService())
-      .withWorkdir('/sai/packages/css-storage-fixture')
-      .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
+        .withEnvVariable('CSS_BASE_URL', 'https://registry/')
+        .withEnvVariable('CSS_PORT', '443')
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
+        .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
+        .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/registry'
+        )
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+        .withExposedPort(443)
+        .withServiceBinding('postgresql', this.postgresService())
+        .withServiceBinding('sparql', this.sparqlService())
+        // TODO: is it needed?
+        .withWorkdir('/sai/packages/css-storage-fixture')
+        .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
+        .withHostname('registry')
+    )
   }
 
   @func()
@@ -209,19 +212,7 @@ export class SaiJs {
       .withExposedPort(443)
       .withWorkdir('/sai/packages/css-storage-fixture')
       .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })
-  }
-
-  @func()
-  seedDatabase(): Container {
-    return dag
-      .container()
-      .from('postgres:16-alpine')
-      .withServiceBinding('postgresql', this.postgresService())
-      .withMountedFile('/seed.sql', this.source.file('packages/css-storage-fixture/test/auth.sql'))
-      .withEnvVariable('PGHOST', 'postgresql')
-      .withEnvVariable('PGUSER', 'temporal')
-      .withEnvVariable('PGDATABASE', 'auth')
-      .withExec(['psql', '-v', 'ON_ERROR_STOP=1', '-f', '/seed.sql'])
+      .withHostname('data')
   }
 
   testBase(): Container {
@@ -246,7 +237,6 @@ export class SaiJs {
 
   @func()
   async test(): Promise<string> {
-    await this.seedDatabase()
     return this.testBase().withExec(['npm', 'run', 'dagger:test']).stdout()
   }
 

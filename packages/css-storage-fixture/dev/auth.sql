@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 8Qbd54LgUwSpTbczII8uNV4Oqqiy4KrFbQoyDUlPs5jXrNsyGzuatfrLBnDq5Vv
+\restrict jamgpLaaKsmlnz7HHmwcIgjKfCRmbVLR2n5rMSkD4CuRMR17d7gS0qRYxJ6L02W
 
 -- Dumped from database version 16.10 (Debian 16.10-1.pgdg13+1)
 -- Dumped by pg_dump version 16.10 (Debian 16.10-1.pgdg13+1)
@@ -18,23 +18,11 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-ALTER TABLE IF EXISTS ONLY public.key_value DROP CONSTRAINT IF EXISTS key_value_pkey;
-ALTER TABLE IF EXISTS ONLY public.backend_key_value DROP CONSTRAINT IF EXISTS backend_key_value_pkey;
-DROP TABLE IF EXISTS public.key_value;
-DROP TABLE IF EXISTS public.backend_key_value;
+ALTER TABLE ONLY public.key_value DROP CONSTRAINT key_value_pkey;
+DROP TABLE public.key_value;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: backend_key_value; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.backend_key_value (
-    key text NOT NULL,
-    value jsonb NOT NULL
-);
-
 
 --
 -- Name: key_value; Type: TABLE; Schema: public; Owner: -
@@ -44,14 +32,6 @@ CREATE TABLE public.key_value (
     key text NOT NULL,
     value jsonb NOT NULL
 );
-
-
---
--- Data for Name: backend_key_value; Type: TABLE DATA; Schema: public; Owner: -
---
-
-COPY public.backend_key_value (key, value) FROM stdin;
-\.
 
 
 --
@@ -82,14 +62,6 @@ accounts/index/webIdLink/webId/https%3A%2F%2Fkim.id.docker	"[\\"9f942f30-2631-44
 
 
 --
--- Name: backend_key_value backend_key_value_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backend_key_value
-    ADD CONSTRAINT backend_key_value_pkey PRIMARY KEY (key);
-
-
---
 -- Name: key_value key_value_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -101,5 +73,5 @@ ALTER TABLE ONLY public.key_value
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8Qbd54LgUwSpTbczII8uNV4Oqqiy4KrFbQoyDUlPs5jXrNsyGzuatfrLBnDq5Vv
+\unrestrict jamgpLaaKsmlnz7HHmwcIgjKfCRmbVLR2n5rMSkD4CuRMR17d7gS0qRYxJ6L02W
 

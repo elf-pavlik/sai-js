@@ -18,7 +18,7 @@
       "og:seed": "xh POST http://localhost:7878/store Content-Type:application/trig @packages/css-storage-fixture/dev/registry.trig",
       "og:drop": "xh DELETE http://localhost:7878/store",
       "pg:seed": "docker compose exec -T postgresql psql -U temporal auth < packages/css-storage-fixture/dev/auth.sql",
-      "pg:dump": "docker compose exec -T postgresql pg_dump --no-owner --no-privileges --if-exists --clean -U temporal auth > packages/css-storage-fixture/dev/auth.sql"
+      "pg:dump": "docker compose exec -T postgresql pg_dump --no-owner --no-privileges --clean --table=public.key_value --format=plain --disable-dollar-quoting --disable-triggers --inserts -U temporal --dbname=auth > packages/css-storage-fixture/dev/auth.sql"
     }
   }
 }

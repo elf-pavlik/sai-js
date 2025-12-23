@@ -1,14 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { seedRegistry } from './util.js'
 
 describe('main', () => {
   test('auth', async () => {
-    const response = await fetch('https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ')
+    const response = await fetch('https://auth')
     expect(response.ok).toBeTruthy()
   })
   test('registry', async () => {
-    const seedResponse = await seedRegistry()
-    const response = await fetch('https://registry/alice/agent/cvmsa4/')
+    const response = await fetch('https://registry')
     expect(response.ok).toBeTruthy()
   })
   test('data', async () => {

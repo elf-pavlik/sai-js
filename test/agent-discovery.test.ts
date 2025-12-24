@@ -1,7 +1,6 @@
 import { getAgentRegistrationIri } from '@janeirodigital/interop-utils'
 import { buildOidcSession } from '@janeirodigital/sai-components'
-import { beforeAll, describe, expect, test } from 'vitest'
-import { seedAuth, seedRegistry } from './util'
+import { describe, expect, test } from 'vitest'
 
 const baseUrl = process.env.CSS_BASE_URL
 
@@ -14,11 +13,6 @@ const aliceAgentId = `${baseUrl}${pathPrefix}${encodedAliceId}`
 const bobAgentId = `${baseUrl}${pathPrefix}${encodedBobId}`
 
 describe('AgentIdHandler', () => {
-  beforeAll(async () => {
-    await seedAuth()
-    await seedRegistry()
-  })
-
   test('id', async () => {
     const response = await fetch(aliceAgentId)
     const doc = await response.json()
@@ -38,7 +32,7 @@ describe('AgentIdHandler', () => {
     })
     describe('responds with application registry in headers', (): void => {
       test(method, async (): Promise<void> => {
-        const client_id = 'https://vuejectron.docker/id'
+        const client_id = 'https://test-client'
         const session = await buildOidcSession(aliceId, client_id)
         const response = await session.authFetch(aliceAgentId)
         expect(response.status).toBe(200)

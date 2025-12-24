@@ -14,15 +14,27 @@ model {
     }
   }
   security Alice {
-    component WebhookReceiver 'WebhookReceiver' {
+    component WebhookReceiver 'WebhookReceiver' 'Auth' {
     }
     component WebhookSender 'WebhookSender' {
     }
+    component StreamingHTTPSender 'StreamingHTTPSender' 'Registry' {
+    }
     component Temporal 'Temporal Server' {
     }
-    component Worker 'Worker' {
+    component Worker 'Temporal Worker' {
     }
     component Registry 'Registry' {
+    }
+  }
+  security Bob {
+    component WebhookSender 'WebhookSender' 'Registry' {
+    }
+    component Registry 'Registry' {
+    }
+  }
+  security App {
+    component StreamingHTTPReceiver 'StreamingHTTPReceiver' {
     }
   }
 }
@@ -32,7 +44,7 @@ views {
     title: 'Reciprocal registration update'
 
     include Alice, ACME, Others
-    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Registry, Alice.WebhookSender, Others.WebhookReceiver
+    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Alice.Registry, Alice.WebhookSender, Others.WebhookReceiver
 
     style Alice {
       color: green
@@ -56,8 +68,8 @@ views {
       Temporal -> Worker 'run update grants workflow'
       Worker -> DelegationIssuance '(activity) register delegation with resource owner'
       DelegationIssuance -> Worker 'OK'
-      Worker -> Registry '(activity) update registration'
-      Registry -> Worker 'OK'
+      Worker -> Alice.Registry '(activity) update registration'
+      Alice.Registry -> Worker 'OK'
       Worker -> Alice.WebhookSender '(activity) send notifications'
       Alice.WebhookSender -> Worker 'OK'
     }
@@ -65,5 +77,39 @@ views {
       Alice.WebhookSender -> Others.WebhookReceiver 'notify'
       Others.WebhookReceiver -> Alice.WebhookSender 'OK'
     }
+  }
+}
+
+views {
+  dynamic view delegationAfterNotification {
+    title: 'Delegation after notification'
+
+    include Bob, Alice, App
+    include Bob.Registry, Bob.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Alice.Registry, Alice.StreamingHTTPSender, App.StreamingHTTPReceiver
+
+    style Alice {
+      color: green
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    style App {
+      color: gray
+    }
+
+    Bob.WebhookSender -> Alice.WebhookReceiver 'notify'
+    Alice.WebhookReceiver -> Temporal 'start update delegations workflow'
+    Temporal -> Alice.WebhookReceiver 'OK'
+    Alice.WebhookReceiver -> Bob.WebhookSender 'OK'
+    Temporal -> Worker '(workflow) run update delegations'
+    Worker -> Temporal '(child workflows) start update grants workflows'
+    Temporal -> Worker '(workflow) run update grants workflow'
+    Worker -> Bob.Registry 'fetch agent registration'
+    Bob.Registry -> Worker 'SocialAgentRegistration'
+    Worker -> Alice.Registry '(activity) update registration'
+    Alice.Registry -> Worker 'OK'
+    Alice.Registry -> App.StreamingHTTPReceiver 'notify'
   }
 }

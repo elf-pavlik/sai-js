@@ -21,7 +21,16 @@
     "linkedLoginsCount": 1,
     "id": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
     "**uiPushSubscription**": {},
-    "**reciprocalWebhook**": {},
+    "**reciprocalWebhook**": {
+      "cb950007-7b6b-427f-8d8b-f96458bfbba3": {
+        "webId": "https://id/alice",
+        "peerId": "https://id/bob",
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://reg.docker/bob/agent/jc5gt6/\",\"sendTo\":\"https://auth.docker/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b\"}",
+        "id": "cb950007-7b6b-427f-8d8b-f96458bfbba3"
+      }
+    },
     "**password**": {
       "d7c9cb32-9e18-4c9d-8998-491a22edd3f7": {
         "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
@@ -112,5 +121,17 @@
   ],
   "accounts/index/webIdLink/webId/https%3A%2F%2Fid/kim": [
     "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Falice": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/cb950007-7b6b-427f-8d8b-f96458bfbba3": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F26bf5f67-7858-4c18-ab1a-7404ed530c1b": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fbob": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ]
 }

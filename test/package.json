@@ -6,7 +6,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dagger:test": "vitest run",
+    "dagger:test": "vitest run --no-file-parallelism",
     "dagger:debug": "vitest run --inspect-brk 0.0.0.0:9240 --no-file-parallelism"
   },
   "author": "",

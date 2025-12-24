@@ -72,7 +72,8 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_USER', 'temporal')
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
-      .withEnvVariable('TEMPORAL_ADDRESS', '0.0.0.0:7233')
+      .withEnvVariable('BIND_ON_IP', '0.0.0.0')
+      .withExposedPort(7233)
       .asService()
       .withHostname('temporal')
   }
@@ -98,6 +99,7 @@ export class SaiJs {
         'CSS_POSTGRES_CONNECTION_STRING',
         'postgres://temporal:temporal@postgresql:5432/auth'
       )
+      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', this.temporalService())
@@ -255,11 +257,30 @@ export class SaiJs {
   }
 
   @func()
+  tmp(): Container {
+    return dag
+      .container()
+      .from('alpine')
+      .withServiceBinding('temporal', this.temporalService())
+      .terminal()
+  }
+
+  @func()
   cli(): Container {
     return dag
       .container()
-      .from('node:24-alpine')
-      .withServiceBinding('id', this.idService())
+      .from('alpine:3.20')
+      .withServiceBinding('temporal', this.temporalService())
+      .withExec([
+        'sh',
+        '-c',
+        `
+        set -e
+        apk add --no-cache curl ca-certificates
+        curl -L https://github.com/fullstorydev/grpcurl/releases/download/v1.9.1/grpcurl_1.9.1_linux_x86_64.tar.gz \
+          | tar -xz -C /usr/local/bin grpcurl
+        `,
+      ])
       .terminal()
   }
 

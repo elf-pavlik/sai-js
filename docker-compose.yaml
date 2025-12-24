@@ -172,7 +172,7 @@ services:
       - traefik.http.services.vuejectron.loadbalancer.server.port=4500
 
   router:
-    image: traefik:v3.0.4
+    image: traefik:v3.6.5
     container_name: router
     restart: on-failure
     ports:

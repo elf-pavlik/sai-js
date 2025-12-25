@@ -1,40 +1,64 @@
 specification {
   element security
+  relationship overview {
+    tail normal
+  }
+  relationship httpnotify
 }
 
 model {
   security ACME {
-    component DelegationIssuance 'DelegationIssuance' {
+    component DelegationIssuance 'DelegationIssuance' 'auth'{
     }
-    component WebhookSender 'WebhookSender' {
+    component WebhookSender 'WebhookSender' 'auth' {
     }
   }
   security Others {
-    component WebhookReceiver 'WebhookReceiver' {
+    component WebhookReceiver 'WebhookReceiver' 'auth' {
     }
   }
   security Alice {
-    component WebhookReceiver 'WebhookReceiver' 'Auth' {
+    component WebhookReceiver 'WebhookReceiver' 'auth' {
     }
-    component WebhookSender 'WebhookSender' {
+    component WebhookSender 'WebhookSender' 'reg' {
     }
-    component StreamingHTTPSender 'StreamingHTTPSender' 'Registry' {
+    component StreamingHTTPSender 'StreamingHTTPSender' 'reg' {
     }
     component Temporal 'Temporal Server' {
     }
     component Worker 'Temporal Worker' {
     }
-    component Registry 'Registry' {
+    component Registry 'Registry' 'registry' {
+    }
+    component UAS 'User Authorization Server' 'auth' {
+    }
+    component AUI 'Authorization UI' 'ui' {
     }
   }
   security Bob {
-    component WebhookSender 'WebhookSender' 'Registry' {
+    component WebhookSender 'WebhookSender' 'registry' {
     }
-    component Registry 'Registry' {
+    component Registry 'Registry' 'registry' {
+    }
+    component Data 'Data Registry' 'data' {
+    }
+    component UAS 'User Authorization Server' 'auth' {
+    }
+    component AUI 'Authorization UI' 'ui' {
+    }
+  }
+  security Kim {
+    component Registry 'Registry' 'registry' {
+    }
+    component UAS 'User Authorization Server' 'auth' {
+    }
+    component AUI 'Authorization UI' 'ui' {
     }
   }
   security App {
-    component StreamingHTTPReceiver 'StreamingHTTPReceiver' {
+    component StreamingHTTPReceiver 'StreamingHTTPReceiver' 'app' {
+    }
+    component CID 'Controlled Identifier' 'app' {
     }
   }
 }
@@ -78,9 +102,7 @@ views {
       Others.WebhookReceiver -> Alice.WebhookSender 'OK'
     }
   }
-}
 
-views {
   dynamic view delegationAfterNotification {
     title: 'Delegation after notification'
 
@@ -111,5 +133,339 @@ views {
     Worker -> Alice.Registry '(activity) update registration'
     Alice.Registry -> Worker 'OK'
     Alice.Registry -> App.StreamingHTTPReceiver 'notify'
+  }
+
+  dynamic view applicationRegistrationDiscovery {
+    title: 'Application Registration discovery'
+
+    include Alice, App
+    include Alice.UAS, Alice.Registry
+
+    style Alice {
+      color: green
+    }
+
+    style App {
+      color: gray
+    }
+
+    App -> Alice.UAS 'HEAD authorization agent id' {
+        notes'''
+          with credentials
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'Find Application Registration' {
+        notes'''
+          since webid in credentials is the same as authorization agent owner
+          it will search for application registration
+        '''
+    }
+    Alice.Registry -> Alice.UAS 'Application Registration'
+    Alice.UAS -> App 'OK with Link in a header to application registration'
+  }
+
+  dynamic view socialAgentRegistrationDiscovery {
+    title: 'Social Agent Registration discovery'
+
+    include Bob, Alice 
+    include Bob.UAS, Alice.UAS, Alice.Registry
+
+    style Alice {
+      color: green
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    Bob.UAS -> Alice.UAS 'HEAD authorization agent id' {
+        notes'''
+          with credentials
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'Find Social Agent Registration' {
+        notes'''
+          since webid in credentials is different than authorization agent owner
+          it will search for application registration
+        '''
+    }
+    Alice.Registry -> Alice.UAS 'Social Agent Registration'
+    Alice.UAS -> Bob.UAS 'OK with Link in a header to social agent registration'
+  }
+
+  dynamic view old-authorization {
+    title: 'Authorization (old)'
+
+    include Alice, App
+    include Alice.AUI, Alice.UAS, Alice.Registry
+
+    style Alice {
+      color: green
+    }
+
+    style App {
+      color: gray
+    }
+
+    App -> Alice.AUI 'redirect'
+    Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
+        notes'''
+          uses cookie session with User Authorization Server
+        '''
+    }
+    parallel {
+      Alice.UAS -> Alice.Registry 'Create Access Authorization' {
+          notes'''
+            this is not atomic, could fail in between
+            it also creates Access Grant with data grants
+          '''
+      }
+      Alice.Registry -> Alice.UAS 'Created'
+    Alice.UAS -> Alice.Registry '(activity) create agent registration if does not exist'
+    Alice.Registry -> Alice.UAS '201 Created'
+    }
+    Alice.UAS -> Alice.Registry '(activity) create Access Grant' {
+        notes'''
+          durable execution should ensure consistency
+          it will also create data grants
+        '''
+    }
+    Alice.Registry -> Alice.UAS 'Created'
+    Alice.UAS -> Alice.AUI '200 OK'
+    Alice.AUI -> App 'redirect back'
+    App .overview Alice.UAS 'discover application registration' {
+        navigateTo applicationRegistrationDiscovery
+        notes'''
+          It may need to keep trying unless 202 Accepted returned a notifications channel
+        '''
+    }
+    App -> Alice.Registry 'GET Application Registration'
+    Alice.Registry -> App 'Application Registration'
+  }
+
+  dynamic view authorization {
+    title: 'Authorization'
+
+    include Alice, App
+    include Alice.AUI, Alice.UAS, Temporal, Worker, Alice.Registry 
+
+    style Alice {
+      color: green
+    }
+
+    style App {
+      color: gray
+    }
+
+    App -> Alice.AUI 'redirect'
+    Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
+        notes'''
+          uses cookie session with User Authorization Server
+        '''
+    }
+    Alice.UAS -> Temporal '(workflow) start create Access Authorization'
+    Temporal -> Alice.UAS 'ack'
+    Alice.UAS -> Alice.AUI '202 Accepted'
+    Temporal -> Worker 'run create Access Authorization'
+    parallel {
+      Worker -> Alice.Registry '(activity) create Access Authorization' {
+          notes'''
+            durable execution should ensure consistency
+            it will also create data authorizations
+          '''
+      }
+      Alice.Registry -> Worker 'Created'
+    Worker -> Alice.Registry '(activity) create agent registration if does not exist'
+    Alice.Registry -> Worker '201 Created'
+    }
+    Worker -> Alice.Registry '(activity) create Access Grant' {
+        notes'''
+          durable execution should ensure consistency
+          it will also create data grants
+        '''
+    }
+    Alice.Registry -> Worker 'Created'
+    Alice.UAS -> Alice.Registry 'Detect complete'
+    Alice.UAS -> Alice.AUI 'Notify complete'
+    Alice.AUI -> App 'redirect back'
+    App .overview Alice.UAS 'discover application registration' {
+        navigateTo applicationRegistrationDiscovery
+    }
+    App -> Alice.Registry 'GET Application Registration'
+    Alice.Registry -> App 'Application Registration'
+  }
+
+  dynamic view invitation-create {
+    title: 'Create invitation'
+
+    include Kim, App
+    include Kim.AUI, Kim.UAS, Temporal, Worker, Kim.Registry 
+
+    style Kim {
+      color: sky
+    }
+
+    Kim.AUI -> Kim.UAS 'POST (RPC) createInvitation' {
+        notes'''
+          uses cookie session with User Authorization Server
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'create Social Agent Invitation'
+    Kim.Registry -> Kim.UAS '201 Created'
+    Kim.UAS -> Kim.AUI 'OK' {
+        notes'''
+          SocialAgentInvitation in the payload
+        '''
+      }
+  }
+
+  dynamic view invitation-accept-old {
+    title: 'Accept invitation (old)'
+    description: '''
+      Test case: https://sai.js.org/
+    '''
+
+    include Bob, Kim
+    include Bob.AUI, Bob.UAS, Temporal, Worker, Bob.Registry, Kim.AUI, Kim.UAS
+
+    style Kim {
+      color: sky
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    Bob.AUI -> Bob.UAS 'POST (RPC) acceptInvitation' {
+      notes'''
+        uses cookie session with User Authorization Server
+
+        capabilityUrl
+      '''
+    }
+    Bob.UAS -> Kim.UAS 'POST capabilityUrl' {
+      notes'''
+        with credentials
+      '''
+    }
+    Kim.UAS -> Kim.Registry 'find Social Agent Invitation'
+    Kim.Registry -> Kim.UAS 'Social Agent Registration'
+    Kim.UAS -> Kim.Registry 'create Social Agent Registration' {
+      notes'''
+        to keep indepotent check if already exists
+      '''
+    }
+    Kim.Registry -> Kim.UAS '201 Created'
+    Kim.UAS -> Kim.Registry 'update Social Agent Invitation'
+    Kim.Registry -> Kim.UAS 'OK'
+    Kim.UAS -> Kim.UAS 'TODO establish reciprocal (delayed)'
+    Kim.UAS -> Bob.UAS 'WebId'
+    Bob.UAS -> Bob.Registry 'create Social Agent Registration' {
+      notes'''
+        to keep indepotent check if already exists
+      '''
+    }
+    Bob.Registry -> Bob.UAS '201 Created'
+    Bob.UAS -> Bob.UAS 'TODO establish reciprocal (delayed)'
+    Bob.UAS -> Bob.AUI 'OK' {
+      notes'''
+        Social Agent in the payload
+      '''
+    }
+  }
+
+  dynamic view share-resource-old {
+    title: 'Share resource (old)'
+
+    include Bob, Alice, App
+    include App, Bob.AUI, Bob.UAS, Alice.UAS, Alice.Registry
+
+    style Alice {
+      color: green
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    style App {
+      color: gray
+    }
+
+    App -> Bob.AUI 'redirect' {
+      notes'''
+        indicate `resource`
+      '''
+    }
+    Bob.AUI -> Bob.UAS 'POST (RPC) getResource' {
+        notes'''
+          uses cookie session
+        '''
+    }
+    Bob.UAS -> Bob.Data 'GET indicated resource'
+    Bob.Data -> Bob.UAS '200 OK'
+    Bob.UAS -> Bob.Registry 'find social agents with access'
+    Bob.Registry -> Bob.UAS '200 OK - list'
+    Bob.UAS -> Bob.AUI 'OK relevant data'
+    Bob.AUI -> Bob.UAS 'POST (RPC) shareResource' {
+        notes'''
+          uses cookie session
+          includes list of agents and access modes
+        '''
+    }
+    parallel {
+      Bob.UAS -> Bob.Registry 'create authorizations'
+      Bob.Registry -> Bob.UAS '201 Created'
+    }
+    parallel {
+      Bob.UAS -> Bob.Registry 'create grants'
+      Bob.Registry -> Bob.UAS '201 Created'
+    }
+    Bob.UAS -> Bob.AUI 'OK confirmation'
+    Bob.AUI -> App 'redirect back'
+  }
+
+  dynamic view request-access-old {
+    title: 'Request access (old)'
+
+    include Bob, Alice, App
+    include App.CID, Bob.AUI, Bob.UAS, Bob.Registry, Alice.UAS
+
+    style Alice {
+      color: green
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    style App {
+      color: gray
+    }
+
+    Bob.AUI -> Bob.UAS 'POST (RPC) requestAccessUsingApplicationNeeds' {
+      notes'''
+        uses cookie session
+      '''
+    }
+    Bob.UAS -> Bob.Registry 'find social agent registration'
+    Bob.Registry -> Bob.UAS '200 OK'
+    Bob.UAS -> App.CID 'GET identity document' {
+      notes'''
+        To find access need group
+      '''
+    }
+    App.CID -> Bob.UAS '200 OK'
+    Bob.UAS -> Bob.Registry 'add access need group to social agent registration'
+    Bob.Registry -> Bob.UAS '200 OK'
+    Bob.UAS -> Bob.AUI 'OK confirmation'
+    Bob.Registry .overview Alice.UAS 'webhook' {
+    }
+    Alice.UAS .overview Bob.UAS 'authorize' {
+        navigateTo authorization
+        notes'''
+          same flow as authorizing application, minus redirects
+        '''
+    }
   }
 }

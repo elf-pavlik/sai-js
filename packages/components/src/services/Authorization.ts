@@ -279,6 +279,7 @@ export const recordAuthorization = async (
   >
   if (authorization.agentType === AgentType.Application) {
     // we need to ensure that Application Registration exists before generating Access Grant!
+    // TODO: extract
     if (!(await saiSession.findApplicationRegistration(authorization.grantee))) {
       await saiSession.registrySet.hasAgentRegistry.addApplicationRegistration(
         authorization.grantee

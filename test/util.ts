@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises'
 import {
-  AS,
   Postgres,
   RDF,
   getNotificationChannel,
@@ -30,7 +29,6 @@ export async function seedAuth(): Promise<void> {
 }
 
 export async function dropAuth(): Promise<void> {
-  const data = JSON.parse(await readFile('../packages/css-storage-fixture/test/kv.json', 'utf8'))
   const pg = new Postgres(connectionString, 'key_value')
   await pg.dropTable()
 }

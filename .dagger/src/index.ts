@@ -232,23 +232,38 @@ export class SaiJs {
   }
 
   @func()
-  async test(): Promise<string> {
-    return this.testBase().withExec(['npm', 'run', 'dagger:test']).stdout()
+  async test(
+    @argument()
+    testFile?: string
+  ): Promise<string> {
+    const args = ['npm', 'run', 'dagger:test']
+    if (testFile) {
+      args.push(testFile)
+    }
+    return this.testBase().withExec(args).stdout()
   }
 
   @func()
-  debugService(): Service {
-    return this.testBase()
-      .withExposedPort(9240)
-      .asService({ args: ['npm', 'run', 'dagger:debug'] })
+  debugService(
+    @argument()
+    testFile?: string
+  ): Service {
+    const args = ['npm', 'run', 'dagger:debug']
+    if (testFile) {
+      args.push(testFile)
+    }
+    return this.testBase().withExposedPort(9240).asService({ args })
   }
 
   @func()
-  proxyService(): Service {
+  proxyService(
+    @argument()
+    testFile?: string
+  ): Service {
     return dag
       .container()
       .from('node:24-alpine')
-      .withServiceBinding('debug', this.debugService())
+      .withServiceBinding('debug', this.debugService(testFile))
       .withServiceBinding('auth', this.authService())
       .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
       .withExposedPort(9240)

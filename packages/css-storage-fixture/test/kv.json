@@ -133,5 +133,9 @@
   ],
   "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fbob": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ]
+  ],
+  "accounts/cookies/8187358a-2072-4dce-9c76-24caffcc84a4": {
+    "expires": "3026-01-08T18:05:16.680Z",
+    "payload": "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  }
 }

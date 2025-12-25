@@ -5,8 +5,3 @@ beforeAll(async () => {
   await seedAuth()
   await seedRegistry()
 })
-
-afterAll(async () => {
-  await dropAuth()
-  // await dropRegistry()
-})

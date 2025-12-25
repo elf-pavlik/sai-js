@@ -17,6 +17,10 @@ model {
     component WebhookReceiver 'WebhookReceiver' 'auth' {
     }
   }
+  security Common {
+    component Shapetrees 'Shapetrees' 'dir' {
+    }
+  }
   security Alice {
     component WebhookReceiver 'WebhookReceiver' 'auth' {
     }
@@ -29,6 +33,8 @@ model {
     component Worker 'Temporal Worker' {
     }
     component Registry 'Registry' 'registry' {
+    }
+    component Data 'Data Registry' 'data' {
     }
     component UAS 'User Authorization Server' 'auth' {
     }
@@ -57,6 +63,8 @@ model {
   }
   security App {
     component StreamingHTTPReceiver 'StreamingHTTPReceiver' 'app' {
+    }
+    component UI 'App UI' 'app' {
     }
     component CID 'Controlled Identifier' 'app' {
     }
@@ -193,6 +201,46 @@ views {
     Alice.UAS -> Bob.UAS 'OK with Link in a header to social agent registration'
   }
 
+  dynamic view authorization-data-app {
+    title: 'Authorization data (app)'
+
+    include Alice, App, Common
+    include App.CID, App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Common.Shapetrees
+
+    style Alice {
+      color: green
+    }
+
+    style App {
+      color: gray
+    }
+
+    style Common {
+      color: slate
+    }
+
+    App.UI -> Alice.AUI 'redirect'
+    Alice.AUI -> Alice.UAS 'POST (RPC) getAuthorizationData'
+    Alice.UAS -> App.CID 'GET discover access needs'
+    App.CID -> Alice.UAS '200 OK'
+    Alice.UAS -> Alice.Data 'find relevant data registrations'
+    Alice.Data -> Alice.UAS 'list'
+    Alice.UAS -> Alice.Registry 'find relevant grants to relevant data registrations'
+    Alice.Registry -> Alice.UAS 'list'
+    Alice.UAS -> App.CID 'GET access needs descriptions'
+    App.CID -> Alice.UAS '200 OK'
+    Alice.UAS -> Common.Shapetrees 'GET shapetrees descriptions'
+    Common.Shapetrees -> Alice.UAS '200 OK'
+    Alice.UAS -> Alice.AUI 'OK authorization data'
+    Alice.AUI .overview Alice.UAS 'authorize' {
+        navigateTo authorization
+        notes'''
+          after user is done with authorization screen          
+        '''
+    }
+    Alice.AUI -> App.UI 'redirect back'
+  }
+
   dynamic view old-authorization {
     title: 'Authorization (old)'
 
@@ -208,6 +256,13 @@ views {
     }
 
     App -> Alice.AUI 'redirect'
+    Alice.AUI .overview Alice.UAS 'get authorization data' {
+        navigateTo authorization-data-app
+        notes'''
+          needed to render the authorization screen          
+        '''
+    }
+    Alice.AUI -> App.UI 'redirect back'
     Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
         notes'''
           uses cookie session with User Authorization Server
@@ -258,6 +313,12 @@ views {
     }
 
     App -> Alice.AUI 'redirect'
+    Alice.AUI .overview Alice.UAS 'get authorization data' {
+        navigateTo authorization-data-app
+        notes'''
+          needed to render the authorization screen          
+        '''
+    }
     Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
         notes'''
           uses cookie session with User Authorization Server
@@ -374,15 +435,11 @@ views {
     }
   }
 
-  dynamic view share-resource-old {
-    title: 'Share resource (old)'
+  dynamic view share-resource-get-data {
+    title: 'Share resource - get data'
 
-    include Bob, Alice, App
-    include App, Bob.AUI, Bob.UAS, Alice.UAS, Alice.Registry
-
-    style Alice {
-      color: green
-    }
+    include Bob, App
+    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry, Bob.Data
 
     style Bob {
       color: indigo
@@ -392,7 +449,7 @@ views {
       color: gray
     }
 
-    App -> Bob.AUI 'redirect' {
+    App.UI -> Bob.AUI 'redirect' {
       notes'''
         indicate `resource`
       '''
@@ -407,6 +464,33 @@ views {
     Bob.UAS -> Bob.Registry 'find social agents with access'
     Bob.Registry -> Bob.UAS '200 OK - list'
     Bob.UAS -> Bob.AUI 'OK relevant data'
+    Bob.AUI -> Bob.UAS 'share resource' {
+      navigateTo share-resource-old
+    }
+  }
+
+  dynamic view share-resource-old {
+    title: 'Share resource (old)'
+
+    include Bob, Alice, App
+    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry
+
+    style Bob {
+      color: indigo
+    }
+
+    style App {
+      color: gray
+    }
+
+    App.UI -> Bob.AUI 'redirect' {
+      notes'''
+        indicate `resource`
+      '''
+    }
+    Bob.AUI -> Bob.UAS 'get resource data' {
+      navigateTo share-resource-get-data
+    }
     Bob.AUI -> Bob.UAS 'POST (RPC) shareResource' {
         notes'''
           uses cookie session
@@ -422,7 +506,7 @@ views {
       Bob.Registry -> Bob.UAS '201 Created'
     }
     Bob.UAS -> Bob.AUI 'OK confirmation'
-    Bob.AUI -> App 'redirect back'
+    Bob.AUI -> App.UI 'redirect back'
   }
 
   dynamic view request-access-old {

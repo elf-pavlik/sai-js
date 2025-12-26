@@ -1,0 +1,15 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/solid/oidc-context.jsonld",
+    {
+      "interop": "http://www.w3.org/ns/solid/interop#"
+    }
+  ],
+  "client_id": "https://id/test-client",
+  "client_name": "Test client",
+  "logo_uri": "https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3",
+  "redirect_uris": ["https://id/test-client"],
+  "grant_types": ["refresh_token", "authorization_code"],
+  "interop:hasAccessNeedGroup": "https://data/test-client/access-needs#need-group-pm",
+  "interop:hasAuthorizationCallbackEndpoint": "https://id/test-client"
+}

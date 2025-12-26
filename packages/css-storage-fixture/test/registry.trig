@@ -141,7 +141,7 @@ GRAPH <meta:https://registry/alice/authorization/hsyzmp/> {
   <https://registry/alice/authorization/hsyzmp/>
     a interop:AccessAuthorization, ldp:Resource;
     interop:granted true;
-    interop:grantee <https://test-client>;
+    interop:grantee <https://id/test-client>;
     interop:hasDataAuthorization
       <https://registry/alice/authorization/hsyzmp/w329t6>.
 }
@@ -150,7 +150,7 @@ GRAPH <https://registry/alice/authorization/hsyzmp/w329t6> {
   <https://registry/alice/authorization/hsyzmp/w329t6>
     a interop:DataAuthorization;
     interop:grantedBy <https://id/alice>;
-    interop:grantee <https://test-client>;
+    interop:grantee <https://id/test-client>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:All;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
@@ -191,11 +191,11 @@ GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
 GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
   <https://registry/alice/agent/cvmsa4/>
     a interop:ApplicationRegistration, ldp:Resource;
-    interop:registeredAgent <https://test-client>;
+    interop:registeredAgent <https://id/test-client>;
     interop:hasAccessGrant <https://registry/alice/agent/cvmsa4/y1pp6y>.
-  <https://test-client> oidc:client_name "Test client";
+  <https://id/test-client> oidc:client_name "Test client";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
-      interop:hasAccessNeedGroup <https://test-clien/tess-needs#need-group-pm>.
+      interop:hasAccessNeedGroup <https://data/test-client/tess-needs#need-group-pm>.
 }
 
 GRAPH <https://registry/alice/agent/cvmsa4/> {
@@ -209,8 +209,8 @@ GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
   <https://registry/alice/agent/cvmsa4/y1pp6y>
     a interop:AccessGrant;
     interop:granted true;
-    interop:grantee <https://test-client>;
-    interop:hasAccessNeedGroup <https://test-client/access-needs#need-group-pm>;
+    interop:grantee <https://id/test-client>;
+    interop:hasAccessNeedGroup <https://data/test-client/access-needs#need-group-pm>;
     interop:hasDataGrant
       <https://registry/alice/agent/cvmsa4/afiooi>.
 }
@@ -222,7 +222,7 @@ GRAPH <meta:https://registry/alice/agent/cvmsa4/y1pp6y> {
 GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
   <https://registry/alice/agent/cvmsa4/afiooi>
     a interop:DataGrant;
-    interop:grantee <https://test-client>;
+    interop:grantee <https://id/test-client>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
     interop:hasDataRegistration <https://data/alice-work/sx86hi/>;

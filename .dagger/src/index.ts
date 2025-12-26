@@ -273,11 +273,7 @@ export class SaiJs {
 
   @func()
   tmp(): Container {
-    return dag
-      .container()
-      .from('alpine')
-      .withServiceBinding('temporal', this.temporalService())
-      .terminal()
+    return dag.container().from('alpine').withServiceBinding('id', this.idService()).terminal()
   }
 
   @func()

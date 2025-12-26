@@ -245,7 +245,7 @@ views {
     title: 'Authorization (old)'
 
     include Alice, App
-    include Alice.AUI, Alice.UAS, Alice.Registry
+    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry
 
     style Alice {
       color: green
@@ -255,14 +255,13 @@ views {
       color: gray
     }
 
-    App -> Alice.AUI 'redirect'
+    App.UI -> Alice.AUI 'redirect'
     Alice.AUI .overview Alice.UAS 'get authorization data' {
         navigateTo authorization-data-app
         notes'''
           needed to render the authorization screen          
         '''
     }
-    Alice.AUI -> App.UI 'redirect back'
     Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
         notes'''
           uses cookie session with User Authorization Server
@@ -287,15 +286,15 @@ views {
     }
     Alice.Registry -> Alice.UAS 'Created'
     Alice.UAS -> Alice.AUI '200 OK'
-    Alice.AUI -> App 'redirect back'
-    App .overview Alice.UAS 'discover application registration' {
+    Alice.AUI -> App.UI 'redirect back'
+    App.UI .overview Alice.UAS 'discover application registration' {
         navigateTo applicationRegistrationDiscovery
         notes'''
           It may need to keep trying unless 202 Accepted returned a notifications channel
         '''
     }
-    App -> Alice.Registry 'GET Application Registration'
-    Alice.Registry -> App 'Application Registration'
+    App.UI -> Alice.Registry 'GET Application Registration'
+    Alice.Registry -> App.UI 'Application Registration'
   }
 
   dynamic view authorization {

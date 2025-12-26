@@ -53,7 +53,7 @@
   "accounts/index/webIdLink/823e97fa-7436-4cf7-8e84-72aa2ba56f68": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ],
-  "accounts/index/webIdLink/webId/https%3A%2F%2Fid/alice": [
+  "accounts/index/webIdLink/webId/https%3A%2F%2Fid%2Falice": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ],
   "accounts/data/9f942f30-2631-4403-9a1a-300f8faae267": {
@@ -80,14 +80,17 @@
       }
     }
   },
+  "accounts/index/webIdLink/678b68db-3d29-428a-b339-6e3f8b285de9": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/webIdLink/webId/https%3A%2F%2Fid%2Fkim": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
   "accounts/index/password/958d5f04-57df-4cff-a848-06efab13a2b0": [
     "281efdff-8a0a-4f57-b058-250717899fae"
   ],
   "accounts/index/password/email/bob%40yoyodyne.example": [
     "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/webIdLink/678b68db-3d29-428a-b339-6e3f8b285de9": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
   ],
   "accounts/data/281efdff-8a0a-4f57-b058-250717899fae": {
     "linkedLoginsCount": 1,
@@ -116,11 +119,8 @@
   "accounts/index/webIdLink/fcc56d5b-599f-495a-ba09-d23db6c711d2": [
     "281efdff-8a0a-4f57-b058-250717899fae"
   ],
-  "accounts/index/webIdLink/webId/https%3A%2F%2Fid/bob": [
+  "accounts/index/webIdLink/webId/https%3A%2F%2Fid%2Fbob": [
     "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/webIdLink/webId/https%3A%2F%2Fid/kim": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
   ],
   "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Falice": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
@@ -137,5 +137,13 @@
   "accounts/cookies/8187358a-2072-4dce-9c76-24caffcc84a4": {
     "expires": "3026-01-08T18:05:16.680Z",
     "payload": "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  },
+  "accounts/cookies/339642f3-f3ee-42e5-85b9-4b1ab6b27ddc": {
+    "expires": "3026-01-08T18:05:16.680Z",
+    "payload": "281efdff-8a0a-4f57-b058-250717899fae"
+  },
+  "accounts/cookies/17a1f52d-7857-49c0-a784-cc71e0fcbee9": {
+    "expires": "3026-01-08T18:05:16.680Z",
+    "payload": "9f942f30-2631-4403-9a1a-300f8faae267"
   }
 }

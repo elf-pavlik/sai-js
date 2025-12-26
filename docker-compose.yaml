@@ -232,8 +232,6 @@ services:
       - 5432:5432
     expose:
       - 5432 # internal only
-    volumes:
-      - /var/lib/postgresql/data
 
   temporal:
     container_name: temporal
@@ -294,8 +292,6 @@ services:
     restart: on-failure
     networks:
       - default
-    volumes:
-      - ./packages/css-storage-fixture/dev/oxigraph:/data
     environment:
       - RUST_LOG=debug
     expose:

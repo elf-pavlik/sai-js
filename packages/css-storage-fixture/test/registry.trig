@@ -354,7 +354,21 @@ GRAPH <meta:https://registry/kim/authorization/> {
 
 GRAPH <meta:https://registry/kim/agent/> {
   <https://registry/kim/agent/>
-    a interop:AgentRegistry, ldp:Resource.
+    a interop:AgentRegistry, ldp:Resource;
+    interop:hasSocialAgentInvitation
+      <https://registry/kim/agent/zi1nic>.
+}
+
+GRAPH <meta:https://registry/kim/agent/zi1nic> {
+        <https://registry/kim/agent/zi1nic> a ldp:Resource .
+}
+
+GRAPH <https://registry/kim/agent/zi1nic> {
+  <https://registry/kim/agent/zi1nic>
+    a interop:SocialAgentInvitation;
+    interop:hasCapabilityUrl <https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f> ;
+    skos:prefLabel "Bob" ;
+    skos:note "What about Bob?" .
 }
 
 GRAPH <meta:https://registry/kim/.acr> {

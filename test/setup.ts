@@ -1,7 +1,7 @@
-import { afterAll, beforeAll } from 'vitest'
+import { beforeEach } from 'vitest'
 import { dropAuth, seedAuth, seedRegistry } from './util'
 
-beforeAll(async () => {
+beforeEach(async () => {
   await seedAuth()
   await seedRegistry()
 })

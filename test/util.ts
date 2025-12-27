@@ -10,14 +10,22 @@ import {
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
 
 export async function seedRegistry(): Promise<Response> {
+  const dropRes = await dropRegistry()
+  if (!dropRes.ok) throw new Error('dropping registry failed')
   const data = await readFile('../packages/css-storage-fixture/test/registry.trig')
 
-  return await fetch('http://sparql/store', {
+  return fetch('http://sparql/store', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/trig',
     },
     body: data,
+  })
+}
+
+export async function dropRegistry(): Promise<Response> {
+  return fetch('http://sparql/store', {
+    method: 'DELETE',
   })
 }
 

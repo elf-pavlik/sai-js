@@ -213,11 +213,18 @@ export const DeniedAuthorization = S.Struct({
 
 export const Authorization = S.Union(GrantedAuthorization, DeniedAuthorization)
 
-export const AccessAuthorization = S.Struct({
-  id: IRI,
-  callbackEndpoint: S.String,
-  ...GrantedAuthorization.fields,
-})
+export const AccessAuthorization = S.Union(
+  S.Struct({
+    id: IRI,
+    callbackEndpoint: S.String,
+    ...GrantedAuthorization.fields,
+  }),
+  S.Struct({
+    id: IRI,
+    callbackEndpoint: S.String,
+    granted: S.Literal(false),
+  })
+)
 
 export class GetWebId extends S.TaggedRequest<GetWebId>()('GetWebId', {
   failure: S.Never,

@@ -1,4 +1,4 @@
-import { buildOidcSession, buildSessionManager } from '@janeirodigital/sai-components'
+import { buildSessionManager } from '@janeirodigital/sai-components'
 import { describe, expect, test } from 'vitest'
 
 const rpcEndpoint = 'https://auth/.sai/api'

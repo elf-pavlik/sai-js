@@ -119,7 +119,10 @@ export class SaiJs {
         '/etc/nginx/nginx.conf',
         this.source.file('packages/css-storage-fixture/test/id.nginx.conf')
       )
-      .withMountedDirectory('/certs', this.source.directory('traefik/certs'))
+      .withMountedDirectory(
+        '/certs',
+        this.source.directory('packages/css-storage-fixture/test/certs')
+      )
       .withExposedPort(443)
       .asService()
       .withHostname('id')
@@ -134,8 +137,8 @@ export class SaiJs {
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/auth.json')
       .withEnvVariable('CSS_BASE_URL', 'https://auth/')
       .withEnvVariable('CSS_PORT', '443')
-      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
-      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/packages/css-storage-fixture/test/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/packages/css-storage-fixture/test/certs/cert.pem')
       .withEnvVariable(
         'CSS_VAPID_PUBLIC_KEY',
         'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY'
@@ -179,8 +182,8 @@ export class SaiJs {
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
       .withEnvVariable('CSS_PORT', '443')
       .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
-      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
-      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/packages/css-storage-fixture/test/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/packages/css-storage-fixture/test/certs/cert.pem')
       .withEnvVariable(
         'CSS_POSTGRES_CONNECTION_STRING',
         'postgres://temporal:temporal@postgresql:5432/registry'
@@ -203,8 +206,8 @@ export class SaiJs {
       .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/test/data')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
       .withEnvVariable('CSS_PORT', '443')
-      .withEnvVariable('CSS_HTTPS_KEY', '/sai/traefik/certs/key.pem')
-      .withEnvVariable('CSS_HTTPS_CERT', '/sai/traefik/certs/cert.pem')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/packages/css-storage-fixture/test/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/packages/css-storage-fixture/test/certs/cert.pem')
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', '0')
       .withExposedPort(443)
       .asService({ args: ['node', '/sai/node_modules/@solid/community-server/bin/server.js'] })

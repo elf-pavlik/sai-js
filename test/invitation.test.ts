@@ -87,7 +87,7 @@ describe('create invitation', () => {
     expect(value.id).toBe('https://id/kim')
     expect(value).toEqual(expect.objectContaining(acceptData))
 
-    const manager = await buildSessionManager()
+    const manager = buildSessionManager()
     const session = await manager.getSession(bobId)
     const registration = await session.findSocialAgentRegistration(value.id)
     expect(registration).toBeDefined()

@@ -87,7 +87,6 @@ export class ImmutableDataGrant extends ImmutableResource {
     const generatedInverseInherits = otherGrant.getSubjectsArray(INTEROP.inheritsFromGrant)
     const equivalentInverseInherits = this.getSubjectsArray(INTEROP.inheritsFromGrant)
 
-    // TODO(samurex): missing coverage
     // check if same number of inheriting grants
     if (generatedInverseInherits.length !== equivalentInverseInherits.length) return false
 

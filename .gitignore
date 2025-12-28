@@ -4,7 +4,6 @@ yarn.lock
 
 dist/
 dev-dist/
-packages/*/coverage
 tsconfig.tsbuildinfo
 .rollup.cache
 

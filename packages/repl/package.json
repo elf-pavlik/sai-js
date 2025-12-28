@@ -28,7 +28,7 @@
   "scripts": {
     "repl": "tsx ./repl.ts",
     "cli": "NODE_OPTIONS='--no-deprecation' tsx ./cli.ts",
-    "test": "NODE_ENV=vitest vitest run --coverage"
+    "test": "vitest run"
   },
   "dependencies": {
     "@effect/cli": "^0.47.1",

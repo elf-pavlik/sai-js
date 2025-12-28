@@ -38,7 +38,7 @@
   },
   "scripts": {
     "build": "rollup --config rollup.config.mjs",
-    "test": "NODE_ENV=vitest vitest run --coverage",
+    "test": "vitest run",
     "test:debug": "NODE_ENV=vitest vitest --run --inspect-brk --no-file-parallelism",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "publish": "npm run clean && npm run build"

@@ -10,10 +10,8 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
-import { createVocabulary } from 'rdf-vocabulary'
 import type { SessionManager } from './SessionManager'
-
-const INTEROP = createVocabulary('http://www.w3.org/ns/solid/interop#', 'registeredAgent')
+import { INTEROP } from './vocabularies.js'
 
 export class AgentIdHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)

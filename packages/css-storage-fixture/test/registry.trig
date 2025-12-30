@@ -74,6 +74,7 @@ GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
     interop:grantee <https://id/alice>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
+    interop:hasStorage <https://data/acme-rnd/>;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
@@ -225,6 +226,7 @@ GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
     interop:grantee <https://id/test-client>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
+    interop:hasStorage <https://data/alice-work/>;
     interop:hasDataRegistration <https://data/alice-work/sx86hi/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.

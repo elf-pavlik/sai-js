@@ -1,0 +1,41 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld"
+  ],
+  "import": [
+    "css:config/ldp/authorization/readers/auth-manager.json",
+    "css:config/ldp/authorization/readers/auxiliary.json",
+    "css:config/ldp/authorization/readers/ownership.json",
+    "css:config/ldp/authorization/readers/path-based.json",
+    "css:config/ldp/authorization/readers/policy-engine.json",
+    "css:config/ldp/authorization/readers/read-delete.json"
+  ],
+  "@graph": [
+    {
+      "comment": "Caches permissions based on credentials and requested modes. Does not cache the input object itself as that object might be created in different places",
+      "@id": "urn:solid-server:default:PermissionReader",
+      "@type": "CachedHandler",
+      "fields": ["credentials", "requestedModes"],
+      "source": {
+        "@id": "urn:solid-server:default:AuxiliaryReader",
+        "@type": "AuxiliaryReader",
+        "reader": {
+          "@id": "urn:solid-server:default:PathBasedReader",
+          "@type": "PathBasedReader",
+          "defaultReader": {
+            "@id": "urn:solid-server:default:OwnerPermissionReader",
+            "@type": "OwnerPermissionReader",
+            "reader": {
+              "@id": "urn:solid-server:default:ReadDeleteReader",
+              "@type": "ReadDeleteReader",
+              "reader": {
+                "@id": "urn:solid-server:default:PolicyEngineReader"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

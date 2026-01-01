@@ -12,13 +12,10 @@
     "bun@latest"
   ],
   "shell": {
-    "init_hook": [
-      "export CAROOT=\"$(mkcert -CAROOT)\"",
-      "export SSL_CERT_FILE=$CAROOT/rootCA.pem"
-    ],
+    "init_hook": ["export CAROOT=\"$(mkcert -CAROOT)\"", "export SSL_CERT_FILE=$CAROOT/rootCA.pem"],
     "scripts": {
-      "up":      "make up",
-      "down":    "make down",
+      "up": "make up",
+      "down": "make down",
       "og:seed": "xh POST http://localhost:7878/store Content-Type:application/trig @packages/css-storage-fixture/dev/registry.trig",
       "og:drop": "xh DELETE http://localhost:7878/store",
       "pg:seed": "docker compose exec -T postgresql psql -U temporal auth < packages/css-storage-fixture/dev/auth.sql",

@@ -1,12 +1,13 @@
 {
   "@context": [
     "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
-    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld"
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld"
   ],
   "import": [
     "css:config/ldp/authorization/readers/auth-manager.json",
     "css:config/ldp/authorization/readers/auxiliary.json",
-    "css:config/ldp/authorization/readers/ownership.json",
+    "sai:config/ldp/authorization/readers/admin.json",
     "css:config/ldp/authorization/readers/path-based.json",
     "css:config/ldp/authorization/readers/policy-engine.json",
     "css:config/ldp/authorization/readers/read-delete.json"
@@ -24,8 +25,8 @@
           "@id": "urn:solid-server:default:PathBasedReader",
           "@type": "PathBasedReader",
           "defaultReader": {
-            "@id": "urn:solid-server:default:OwnerPermissionReader",
-            "@type": "OwnerPermissionReader",
+            "@id": "urn:sai:default:AdminPermissionReader",
+            "@type": "AdminPermissionReader",
             "reader": {
               "@id": "urn:solid-server:default:ReadDeleteReader",
               "@type": "ReadDeleteReader",

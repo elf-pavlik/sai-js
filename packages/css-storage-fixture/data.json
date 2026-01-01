@@ -43,7 +43,8 @@
       "@id": "urn:sai:policy-engine:AuthorizationManager",
       "@type": "SaiAuthorizationManager",
       "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
-      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
+      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" }
     },
     {
       "@id": "urn:sai:default:OverrideBaseHttpHandler",

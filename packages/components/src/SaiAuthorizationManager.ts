@@ -1,5 +1,6 @@
 import type { DatasetCore, Quad } from '@rdfjs/types'
-import { type IdentifierStrategy, NotFoundHttpError, arrayifyStream } from '@solid/community-server'
+import { NotFoundHttpError, arrayifyStream } from '@solid/community-server'
+import type { IdentifierStrategy, StorageLocationStrategy } from '@solid/community-server'
 import type { AuthorizationManager } from '@solidlab/policy-engine'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
@@ -11,7 +12,8 @@ export class SaiAuthorizationManager implements AuthorizationManager {
 
   public constructor(
     protected readonly identifierStrategy: IdentifierStrategy,
-    private readonly sparqlEndpoint: string
+    private readonly sparqlEndpoint: string,
+    protected readonly storageStrategy: StorageLocationStrategy
   ) {
     this.fetcher = new SparqlEndpointFetcher()
   }
@@ -24,17 +26,14 @@ export class SaiAuthorizationManager implements AuthorizationManager {
   }
 
   public async getAuthorizationData(id: string): Promise<DatasetCore | Quad[] | undefined> {
-    let storageId = id
-    while (this.getParent(storageId)) {
-      storageId = this.getParent(storageId)
-    }
+    const storage = await this.storageStrategy.getStorageIdentifier({ path: id })
 
     try {
       const bindingsStream = await this.fetcher.fetchBindings(
         this.sparqlEndpoint,
         `
         SELECT * WHERE {
-          GRAPH ?g {?s <${INTEROP.hasStorage}> <${storageId}> }
+          GRAPH ?g {?s <${INTEROP.hasStorage}> <${storage.path}> }
         }
       `
       )

@@ -107,7 +107,21 @@
       }
     },
     "**clientCredentials**": {},
-    "**pod**": {},
+    "**pod**": {
+      "3022b7a3-81ff-4572-afeb-931f586dc429": {
+        "baseUrl": "https://data/bob/",
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "id": "3022b7a3-81ff-4572-afeb-931f586dc429",
+        "**owner**": {
+          "2897ea7d-ede2-4cd2-ac98-a3f1467c09a1": {
+            "webId": "https://id/bob",
+            "visible": true,
+            "podId": "3022b7a3-81ff-4572-afeb-931f586dc429",
+            "id": "2897ea7d-ede2-4cd2-ac98-a3f1467c09a1"
+          }
+        }
+      }
+    },
     "**webIdLink**": {
       "fcc56d5b-599f-495a-ba09-d23db6c711d2": {
         "webId": "https://id/bob",
@@ -145,5 +159,14 @@
   "accounts/cookies/17a1f52d-7857-49c0-a784-cc71e0fcbee9": {
     "expires": "3026-01-08T18:05:16.680Z",
     "payload": "9f942f30-2631-4403-9a1a-300f8faae267"
-  }
+  },
+  "accounts/index/owner/2897ea7d-ede2-4cd2-ac98-a3f1467c09a1": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/pod/3022b7a3-81ff-4572-afeb-931f586dc429": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fbob%2F": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ]
 }

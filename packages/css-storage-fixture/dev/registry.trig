@@ -106,6 +106,40 @@ GRAPH <meta:https://reg.docker/acme/agent/je0s7n/wwp4j6> {
         <https://reg.docker/acme/agent/je0s7n/wwp4j6> a ldp:Resource .
 }
 
+GRAPH <https://reg.docker/acme/agent/fqvaym/cshspf> {
+  <https://reg.docker/acme/agent/fqvaym/cshspf>
+    a interop:DataGrant;
+    interop:grantee acp:PublicClient;
+    interop:grantedBy acp:PublicAgent;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Shape;
+    interop:hasStorage <https://shapetrees.data.docker/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:hasDataRegistration <https://shapetrees.data.docker/shapes/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/fqvaym/cshspf> {
+        <https://reg.docker/acme/agent/fqvaym/cshspf> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/acme/agent/fqvaym/vled83> {
+  <https://reg.docker/acme/agent/fqvaym/vled83>
+    a interop:DataGrant;
+    interop:grantee acp:PublicClient;
+    interop:grantedBy acp:PublicAgent;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Tree;
+    interop:hasStorage <https://shapetrees.data.docker/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:hasDataRegistration <https://shapetrees.data.docker/trees/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://reg.docker/acme/agent/fqvaym/vled83> {
+        <https://reg.docker/acme/agent/fqvaym/vled83> a ldp:Resource .
+}
+
 GRAPH <meta:https://reg.docker/acme/.acr> {
         <https://reg.docker/acme/.acr> a ldp:Resource .
 }

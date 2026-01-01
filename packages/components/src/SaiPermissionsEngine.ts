@@ -7,7 +7,7 @@ import type {
   PermissionReport,
   PolicyEngine,
 } from '@solidlab/policy-engine'
-import { PERMISSIONS } from '@solidlab/policy-engine'
+import { ACP, PERMISSIONS } from '@solidlab/policy-engine'
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 import { ACL, INTEROP } from './vocabularies.js'
@@ -36,9 +36,12 @@ export class SaiPermissionsEngine implements PolicyEngine {
     credentials: Credentials,
     permissions?: string[]
   ): Promise<PermissionMap> {
-    // TODO: handle resources with public read
-    if (!credentials.agent || !credentials.client) return {}
-    // TODO: does it need spread or just fix typings
+    if (!credentials.agent || !credentials.client) {
+      credentials.agent = ACP.PublicAgent
+      credentials.client = ACP.PublicClient
+    }
+
+    // TODO: does it need spread or just fix in typings
     const authorizationData = [...(await this.manager.getAuthorizationData(target))]
     const targetType = this.determineTargetType(target)
     let modes: string[] = []
@@ -152,13 +155,16 @@ export class SaiPermissionsEngine implements PolicyEngine {
     agent: string,
     client: string
   ): Promise<string[]> {
-    const grantId = await this.findGrant(
-      data,
-      registrationId,
-      agent,
-      client,
-      INTEROP.AllFromRegistry
-    )
+    let grantId = await this.findGrant(data, registrationId, agent, client, INTEROP.AllFromRegistry)
+    if (!grantId) {
+      grantId = await this.findGrant(
+        data,
+        registrationId,
+        ACP.PublicAgent,
+        ACP.PublicClient,
+        INTEROP.AllFromRegistry
+      )
+    }
     if (!grantId) return []
     return this.getAccessModes(data, grantId)
   }
@@ -169,13 +175,22 @@ export class SaiPermissionsEngine implements PolicyEngine {
     agent: string,
     client: string
   ): Promise<string[]> {
-    const grantId = await this.findGrant(
+    let grantId = await this.findGrant(
       data,
       resourceId,
       agent,
       client,
       INTEROP.SelectedFromRegistry
     )
+    if (!grantId) {
+      grantId = await this.findGrant(
+        data,
+        resourceId,
+        ACP.PublicAgent,
+        ACP.PublicClient,
+        INTEROP.SelectedFromRegistry
+      )
+    }
     if (!grantId) return []
     return this.getAccessModes(data, grantId)
   }

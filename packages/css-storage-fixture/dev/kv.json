@@ -102,7 +102,7 @@
         "id": "3022b7a3-81ff-4572-afeb-931f586dc429",
         "**owner**": {
           "2897ea7d-ede2-4cd2-ac98-a3f1467c09a1": {
-            "webId": "https://id/bob",
+            "webId": "https://bob.id.docker",
             "visible": true,
             "podId": "3022b7a3-81ff-4572-afeb-931f586dc429",
             "id": "2897ea7d-ede2-4cd2-ac98-a3f1467c09a1"

@@ -43,7 +43,7 @@ export class AdminPermissionReader extends PermissionReader {
     }
     const requestedResource = [...input.requestedModes.distinctKeys()][0]
     let result: MultiPermissionMap
-    if (this.requestFromAdmin(input)) {
+    if (await this.requestFromAdmin(input)) {
       result = new IdentifierMap([[requestedResource, allPermissions]])
     } else {
       result = await this.reader.handle({
@@ -58,6 +58,8 @@ export class AdminPermissionReader extends PermissionReader {
     const requestedResource = [...input.requestedModes.distinctKeys()][0]
     const storageId = await this.storageStrategy.getStorageIdentifier(requestedResource)
     const storage = await this.podStore.findByBaseUrl(storageId.path)
+    // TODO: verify after bootstrapping accounts work
+    if (!storage) return false
     const owners = await this.podStore.getOwners(storage.id)
     return owners.some((owner) => owner.webId === input.credentials.agent.webId)
   }

@@ -26,7 +26,7 @@
     "css:config/ldp/metadata-writer/default.json",
     "css:config/ldp/modes/default.json",
     "css:config/storage/backend/file.json",
-    "css:config/storage/key-value/resource-store.json",
+    "sai:config/storage/key-value/postgres.json",
     "css:config/storage/location/pod.json",
     "css:config/storage/middleware/default.json",
     "css:config/util/auxiliary/empty.json",
@@ -56,6 +56,56 @@
           "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
           "overrideTarget":  { "@id": "urn:solid-server:default:AuthResourceHttpHandler" }
         }
+      ]
+    },
+    {
+      "comment": "PostgreSQL connection string.",
+      "@id": "urn:sai:default:variable:postgresConnectionString",
+      "@type": "Variable"
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:CliExtractor",
+      "@type": "YargsCliExtractor",
+      "parameters": [
+        {
+          "@type": "YargsParameter",
+          "name": "postgresConnectionString",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "PostgreSQL connection string."
+          }
+        }
+      ]
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:ShorthandResolver",
+      "@type": "CombinedShorthandResolver",
+      "resolvers": [
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:postgresConnectionString",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "postgresConnectionString"
+          }
+        }
+      ]
+    },
+    {
+      "@id": "urn:solid-server:default:PrimaryParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
+      ]
+    },
+    {
+      "@id": "urn:solid-server:default:EarlyProcessParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
       ]
     }
   ]

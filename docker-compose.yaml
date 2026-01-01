@@ -100,6 +100,7 @@ services:
       - CSS_BASE_URL=https://data.docker/
       - CSS_PORT=4700
       - CSS_SPARQL_ENDPOINT=http://sparql/sparql
+      - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:
       - traefik.enable=true

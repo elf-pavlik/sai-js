@@ -1,45 +1,9 @@
-import { readFile } from 'node:fs/promises'
 import {
-  Postgres,
   RDF,
   getNotificationChannel,
   getOneMatchingQuad,
   parseTurtle,
 } from '@janeirodigital/interop-utils'
-
-const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
-
-export async function seedRegistry(): Promise<Response> {
-  const dropRes = await dropRegistry()
-  if (!dropRes.ok) throw new Error('dropping registry failed')
-  const data = await readFile('../packages/css-storage-fixture/test/registry.trig')
-
-  return fetch('http://sparql/store', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/trig',
-    },
-    body: data,
-  })
-}
-
-export async function dropRegistry(): Promise<Response> {
-  return fetch('http://sparql/store', {
-    method: 'DELETE',
-  })
-}
-
-export async function seedAuth(): Promise<void> {
-  const data = JSON.parse(await readFile('../packages/css-storage-fixture/test/kv.json', 'utf8'))
-  const pg = new Postgres(connectionString, 'key_value')
-  await pg.ensureDatabase()
-  await pg.importFromJson(data)
-}
-
-export async function dropAuth(): Promise<void> {
-  const pg = new Postgres(connectionString, 'key_value')
-  await pg.dropTable()
-}
 
 // TODO: deduplicate with notifications-manager from application package
 export async function receivesNotification(

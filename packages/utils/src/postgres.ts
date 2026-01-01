@@ -32,6 +32,7 @@ export class Postgres {
       }
     } finally {
       await adminSql`SELECT pg_advisory_unlock(hashtext(${databaseName}))`
+      await adminSql.end()
     }
   }
 

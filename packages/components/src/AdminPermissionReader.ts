@@ -61,6 +61,7 @@ export class AdminPermissionReader extends PermissionReader {
     // TODO: verify after bootstrapping accounts work
     if (!storage) return false
     const owners = await this.podStore.getOwners(storage.id)
+    // TODO: check if client is auth agent!
     return owners.some((owner) => owner.webId === input.credentials.agent.webId)
   }
 }

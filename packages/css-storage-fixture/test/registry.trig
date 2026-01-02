@@ -72,6 +72,7 @@ GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
   <https://registry/acme/agent/je0s7n/g4yhtm>
     a interop:DataGrant;
     interop:grantee <https://id/alice>;
+    interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
     interop:hasStorage <https://data/acme-rnd/>;
@@ -82,6 +83,57 @@ GRAPH <https://registry/acme/agent/je0s7n/g4yhtm> {
 
 GRAPH <meta:https://registry/acme/agent/je0s7n/g4yhtm> {
         <https://registry/acme/agent/je0s7n/g4yhtm> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/agent/fqvaym/cshspf> {
+  <https://registry/acme/agent/fqvaym/cshspf>
+    a interop:DataGrant;
+    interop:grantee acp:PublicClient;
+    interop:grantedBy acp:PublicAgent;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Shape;
+    interop:hasStorage <https://data/shapetrees/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:hasDataRegistration <https://data/shapetrees/shapes/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/acme/agent/fqvaym/cshspf> {
+        <https://registry/acme/agent/fqvaym/cshspf> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/agent/fqvaym/vled83> {
+  <https://registry/acme/agent/fqvaym/vled83>
+    a interop:DataGrant;
+    interop:grantee acp:PublicClient;
+    interop:grantedBy acp:PublicAgent;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:Tree;
+    interop:hasStorage <https://data/shapetrees/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:hasDataRegistration <https://data/shapetrees/trees/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/acme/agent/fqvaym/vled83> {
+        <https://registry/acme/agent/fqvaym/vled83> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/agent/fqvaym/wegvwe> {
+  <https://registry/acme/agent/fqvaym/wegvwe>
+    a interop:DataGrant;
+    interop:grantee acp:PublicClient;
+    interop:grantedBy acp:PublicAgent;
+    interop:dataOwner <https://acme.id.docker>;
+    interop:registeredShapeTree shapetrees:TODO;
+    interop:hasStorage <https://data/test-client/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:hasDataRegistration <https://data/test-client/public/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/acme/agent/fqvaym/wegvwe> {
+        <https://registry/acme/agent/fqvaym/wegvwe> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/acme/.acr> {
@@ -196,7 +248,7 @@ GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
     interop:hasAccessGrant <https://registry/alice/agent/cvmsa4/y1pp6y>.
   <https://id/test-client> oidc:client_name "Test client";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
-      interop:hasAccessNeedGroup <https://data/test-client/tess-needs#need-group-pm>.
+      interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm>.
 }
 
 GRAPH <https://registry/alice/agent/cvmsa4/> {
@@ -211,7 +263,7 @@ GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
     a interop:AccessGrant;
     interop:granted true;
     interop:grantee <https://id/test-client>;
-    interop:hasAccessNeedGroup <https://data/test-client/access-needs#need-group-pm>;
+    interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm>;
     interop:hasDataGrant
       <https://registry/alice/agent/cvmsa4/afiooi>.
 }
@@ -224,6 +276,7 @@ GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
   <https://registry/alice/agent/cvmsa4/afiooi>
     a interop:DataGrant;
     interop:grantee <https://id/test-client>;
+    interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
     interop:hasStorage <https://data/alice-work/>;

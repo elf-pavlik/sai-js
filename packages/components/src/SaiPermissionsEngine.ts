@@ -10,6 +10,7 @@ import type {
 import { ACP, PERMISSIONS } from '@solidlab/policy-engine'
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
+import type { SaiAuthorizationManager } from './SaiAuthorizationManager.js'
 import { ACL, INTEROP } from './vocabularies.js'
 
 enum TargetType {
@@ -22,7 +23,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
   private readonly logger = getLoggerFor(this)
   private readonly queryEngine = new QueryEngine()
 
-  constructor(protected readonly manager: AuthorizationManager) {}
+  constructor(protected readonly manager: SaiAuthorizationManager) {}
   /**
    * Returns the granted and denied permissions for the given input.
    *
@@ -43,7 +44,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
 
     // TODO: does it need spread or just fix in typings
     const authorizationData = [...(await this.manager.getAuthorizationData(target))]
-    const targetType = this.determineTargetType(target)
+    const targetType = await this.determineTargetType(target)
     let modes: string[] = []
     switch (targetType) {
       case TargetType.Registry:
@@ -195,17 +196,17 @@ export class SaiPermissionsEngine implements PolicyEngine {
     return this.getAccessModes(data, grantId)
   }
 
-  determineTargetType(id: string): TargetType | undefined {
-    let up = this.manager.getParent(id)
-    if (!up) {
+  async determineTargetType(id: string): Promise<TargetType | undefined> {
+    const storage = await this.manager.getStorage(id)
+    if (id === storage) {
       return TargetType.Registry
     }
-    up = this.manager.getParent(up)
-    if (!up) {
+    const parent = this.manager.getParent(id)
+    if (parent === storage) {
       return TargetType.Registration
     }
-    up = this.manager.getParent(up)
-    if (!up) {
+    const grandParent = this.manager.getParent(parent)
+    if (grandParent === storage) {
       return TargetType.Resource
     }
   }

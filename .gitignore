@@ -8,12 +8,12 @@ tsconfig.tsbuildinfo
 .rollup.cache
 
 # CSS internals
-packages/css-storage-fixture/**/.internal/idp
-packages/css-storage-fixture/**/.internal/locks
-packages/css-storage-fixture/**/.internal/forgot-password
-packages/css-storage-fixture/**/.internal/notifications
-packages/css-storage-fixture/**/.internal/accounts/cookies
-packages/css-storage-fixture/**/.internal/accounts/index/clientCredentials
+packages/css-storage-fixture/test/.internal/idp
+packages/css-storage-fixture/test/.internal/locks
+packages/css-storage-fixture/test/.internal/forgot-password
+packages/css-storage-fixture/test/.internal/notifications
+packages/css-storage-fixture/test/.internal/accounts/cookies
+packages/css-storage-fixture/test/.internal/accounts/index/clientCredentials
 
 # OS
 .DS_Store
@@ -40,5 +40,3 @@ packages/css-storage-fixture/**/.internal/accounts/index/clientCredentials
 examples/*/ldo/
 
 traefik/certs/*
-packages/css-storage-fixture/dev/registry/.internal
-packages/css-storage-fixture/dev/data/www/.internal/

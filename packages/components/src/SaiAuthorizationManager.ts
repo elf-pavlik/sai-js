@@ -25,6 +25,11 @@ export class SaiAuthorizationManager implements AuthorizationManager {
       : this.identifierStrategy.getParentContainer(identifier).path
   }
 
+  public async getStorage(id: string): Promise<string> {
+    const storage = await this.storageStrategy.getStorageIdentifier({ path: id })
+    return storage.path
+  }
+
   public async getAuthorizationData(id: string): Promise<DatasetCore | Quad[] | undefined> {
     const storage = await this.storageStrategy.getStorageIdentifier({ path: id })
 

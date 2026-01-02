@@ -16,8 +16,16 @@ function proxy(listenPort, targetHost, targetPort) {
     })
 }
 
-// Debug service inspector
+// test
 proxy(9240, 'debug', 9240)
 
-// Auth (or other) service inspector
+// auth
 proxy(9229, 'auth', 9229)
+
+// registry
+proxy(9230, 'registry', 9230)
+
+// data node inspect
+proxy(9231, 'data', 9231)
+// data http
+proxy(9250, 'data', 443)

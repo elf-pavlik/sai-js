@@ -45,7 +45,7 @@ describe('request access', () => {
     const session = await manager.getSession(bobId)
     const registration = await session.findSocialAgentRegistration(aliceId)
     expect(registration?.hasAccessNeedGroup).toBe(
-      'https://data/test-client/access-needs#need-group-pm'
+      'https://data/test-client/public/access-needs#need-group-pm'
     )
   })
 })

@@ -10,8 +10,9 @@ describe('main', () => {
     expect(response.ok).toBeTruthy()
   })
   test('data', async () => {
-    const response = await fetch('https://data')
-    expect(response.ok).toBeTruthy()
+    const response = await fetch('https://data/bob/')
+    expect(response.ok).toBeFalsy()
+    expect(response.status).toBe(401)
   })
   test('id', async () => {
     const response = await fetch('https://id/alice')

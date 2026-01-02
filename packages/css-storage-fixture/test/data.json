@@ -1,5 +1,9 @@
 {
-  "@context": "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@janeirodigital/sai-components/^1.0.0/components/context.jsonld"
+  ],
   "import": [
     "css:config/app/init/initialize-root.json",
     "css:config/app/main/default.json",
@@ -16,13 +20,13 @@
     "css:config/identity/ownership/unsafe-no-check.json",
     "css:config/identity/pod/static.json",
     "css:config/ldp/authentication/dpop-bearer.json",
-    "css:config/ldp/authorization/allow-all.json",
+    "sai:config/ldp/authorization/sai.json",
     "css:config/ldp/handler/default.json",
     "css:config/ldp/metadata-parser/default.json",
     "css:config/ldp/metadata-writer/default.json",
     "css:config/ldp/modes/default.json",
     "css:config/storage/backend/file.json",
-    "css:config/storage/key-value/resource-store.json",
+    "sai:config/storage/key-value/postgres.json",
     "css:config/storage/location/pod.json",
     "css:config/storage/middleware/default.json",
     "css:config/util/auxiliary/empty.json",
@@ -33,5 +37,76 @@
     "css:config/util/resource-locker/memory.json",
     "css:config/util/variables/default.json"
   ],
-  "@graph": []
+  "@graph": [
+    {
+      "comment": "Necessary for the policy-engine.",
+      "@id": "urn:sai:policy-engine:AuthorizationManager",
+      "@type": "SaiAuthorizationManager",
+      "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
+      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" }
+    },
+    {
+      "@id": "urn:sai:default:OverrideBaseHttpHandler",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:BaseHttpHandler" },
+      "overrideSteps": [
+        {
+          "@type": "OverrideListRemove",
+          "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
+          "overrideTarget":  { "@id": "urn:solid-server:default:AuthResourceHttpHandler" }
+        }
+      ]
+    },
+    {
+      "comment": "PostgreSQL connection string.",
+      "@id": "urn:sai:default:variable:postgresConnectionString",
+      "@type": "Variable"
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:CliExtractor",
+      "@type": "YargsCliExtractor",
+      "parameters": [
+        {
+          "@type": "YargsParameter",
+          "name": "postgresConnectionString",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "PostgreSQL connection string."
+          }
+        }
+      ]
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:ShorthandResolver",
+      "@type": "CombinedShorthandResolver",
+      "resolvers": [
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:postgresConnectionString",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "postgresConnectionString"
+          }
+        }
+      ]
+    },
+    {
+      "@id": "urn:solid-server:default:PrimaryParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
+      ]
+    },
+    {
+      "@id": "urn:solid-server:default:EarlyProcessParallelInitializer",
+      "@type": "ParallelHandler",
+      "handlers": [
+        { "@id": "urn:solid-server:default:BackendKeyValueStorage" },
+        { "@id": "urn:solid-server:default:KeyValueStorage" }
+      ]
+    }
+  ]
 }

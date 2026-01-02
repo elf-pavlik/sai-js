@@ -41,7 +41,34 @@
       }
     },
     "**clientCredentials**": {},
-    "**pod**": {},
+    "**pod**": {
+      "7971013a-eec7-405a-a829-72c4f75f2393": {
+        "baseUrl": "https://data/alice-work/",
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "id": "7971013a-eec7-405a-a829-72c4f75f2393",
+        "**owner**": {
+          "db2943c6-ee70-4009-b980-3a0ecaa6453a": {
+            "webId": "https://id/alice",
+            "visible": true,
+            "podId": "7971013a-eec7-405a-a829-72c4f75f2393",
+            "id": "db2943c6-ee70-4009-b980-3a0ecaa6453a"
+          }
+        }
+      },
+      "c9c6608d-fa19-4a54-8e6a-47051ba6b0ce": {
+        "baseUrl": "https://data/alice-home/",
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "id": "c9c6608d-fa19-4a54-8e6a-47051ba6b0ce",
+        "**owner**": {
+          "b576d155-3a70-44ef-9d5f-ebe42fdfd43c": {
+            "webId": "https://id/alice",
+            "visible": true,
+            "podId": "c9c6608d-fa19-4a54-8e6a-47051ba6b0ce",
+            "id": "b576d155-3a70-44ef-9d5f-ebe42fdfd43c"
+          }
+        }
+      }
+    },
     "**webIdLink**": {
       "823e97fa-7436-4cf7-8e84-72aa2ba56f68": {
         "webId": "https://id/alice",
@@ -168,5 +195,23 @@
   ],
   "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fbob%2F": [
     "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/owner/db2943c6-ee70-4009-b980-3a0ecaa6453a": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/pod/7971013a-eec7-405a-a829-72c4f75f2393": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Falice-work%2F": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/owner/b576d155-3a70-44ef-9d5f-ebe42fdfd43c": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/pod/c9c6608d-fa19-4a54-8e6a-47051ba6b0ce": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Falice-home%2F": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ]
 }

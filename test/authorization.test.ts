@@ -55,7 +55,7 @@ describe('get authorization data', () => {
     expect(value.accessNeedGroup.needs).toEqual(
       expect.arrayContaining([
         {
-          id: 'https://data/test-client/access-needs#need-project',
+          id: 'https://data/test-client/public/access-needs#need-project',
           label:
             'Access to Projects is essential for Projectron to perform its core function of Project Management.',
           required: true,
@@ -67,9 +67,15 @@ describe('get authorization data', () => {
           ],
           shapeTree: { id: 'https://data/shapetrees/trees/Project', label: 'Projects' },
           children: expect.arrayContaining([
-            expect.objectContaining({ id: 'https://data/test-client/access-needs#need-task' }),
-            expect.objectContaining({ id: 'https://data/test-client/access-needs#need-image' }),
-            expect.objectContaining({ id: 'https://data/test-client/access-needs#need-file' }),
+            expect.objectContaining({
+              id: 'https://data/test-client/public/access-needs#need-task',
+            }),
+            expect.objectContaining({
+              id: 'https://data/test-client/public/access-needs#need-image',
+            }),
+            expect.objectContaining({
+              id: 'https://data/test-client/public/access-needs#need-file',
+            }),
           ]),
         },
       ])
@@ -84,7 +90,7 @@ describe('denied', () => {
   const authorization = {
     grantee: clientId,
     agentType,
-    accessNeedGroup: 'https://data/test-client/access-needs#need-group-pm',
+    accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
     granted: false,
   }
   const payload = [

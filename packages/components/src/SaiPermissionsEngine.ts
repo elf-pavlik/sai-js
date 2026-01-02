@@ -1,7 +1,7 @@
 import { QueryEngine } from '@comunica/query-sparql-rdfjs'
+import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import type {
-  AuthorizationManager,
   Credentials,
   PermissionMap,
   PermissionReport,
@@ -133,15 +133,31 @@ export class SaiPermissionsEngine implements PolicyEngine {
     if (selected) {
       registrationId = this.manager.getParent(id)
     }
+    // check if reqested by User Authorization Server
+    let uasId: string | undefined
+    try {
+      uasId = await discoverAuthorizationAgent(agent, fetchWrapper(fetch))
+    } catch (err) {
+      this.logger.error(`UAS discovery failed for: ${agent}; ${err}`)
+    }
+    const uas = uasId === client
     const store = new Store([...data])
     const grantQuery = `
       SELECT * WHERE {
         ?s 
-          <${INTEROP.scopeOfGrant}> <${scope}> ;
-          <${INTEROP.grantedBy}> <${agent}> ;
-          <${INTEROP.grantee}> <${client}> ;
+          ${
+            uas
+              ? `
+              <${INTEROP.grantee}> <${agent}> ;
+            `
+              : `
+              <${INTEROP.grantedBy}> <${agent}> ;
+              <${INTEROP.grantee}> <${client}> ;
+            `
+          }
+          <${INTEROP.hasDataRegistration}> <${registrationId}> ;
           ${selected ? `<${INTEROP.hasDataInstance}> <${id}> ;` : ''}
-          <${INTEROP.hasDataRegistration}> <${registrationId}> .
+          <${INTEROP.scopeOfGrant}> <${scope}> .
       }
     `
     const grantBindingsStream = await this.queryEngine.queryBindings(grantQuery, {

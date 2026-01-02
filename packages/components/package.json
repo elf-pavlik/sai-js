@@ -28,6 +28,7 @@
     "@comunica/query-sparql-rdfjs": "^4.5.0",
     "@effect/rpc": "^0.44.13",
     "@janeirodigital/interop-data-model": "^1.0.0-rc.24",
+    "@janeirodigital/interop-utils": "^1.0.0-rc.24",
     "@janeirodigital/sai-api-messages": "1.0.0-rc.24",
     "@janeirodigital/sai-server-interfaces": "^1.0.0-rc.24",
     "@solid-notifications/discovery": "^0.1.2",
@@ -50,7 +51,6 @@
   },
   "devDependencies": {
     "@inrupt/solid-client-authn-core": "^2.5.0",
-    "@janeirodigital/interop-utils": "1.0.0-rc.24",
     "@solid-notifications/types": "^0.1.2",
     "@types/web-push": "^3.6.1",
     "componentsjs-generator": "^4.3.0",

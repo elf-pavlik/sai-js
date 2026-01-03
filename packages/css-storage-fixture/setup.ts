@@ -1,5 +1,5 @@
 
-import { seedKeyValue, seedQuadstore, dumpKeyValue, dumpQuadstore, dropKeyValue, dropQuadstore } from '@janeirodigital/interop-utils'
+import { seedKeyValue, seedQuadstore, dumpKeyValue, dumpQuadstore, dropKeyValue, dropQuadstore } from '@janeirodigital/interop-test-utils'
 
 const connectionString = 'postgres://temporal:temporal@localhost:5432/auth'
 const keyValuePath = 'packages/css-storage-fixture/dev/kv.json'

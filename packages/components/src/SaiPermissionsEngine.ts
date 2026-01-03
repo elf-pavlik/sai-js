@@ -37,6 +37,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     credentials: Credentials,
     permissions?: string[]
   ): Promise<PermissionMap> {
+    // TODO: move it into findGrant
     if (!credentials.agent || !credentials.client) {
       credentials.agent = ACP.PublicAgent
       credentials.client = ACP.PublicClient
@@ -81,6 +82,8 @@ export class SaiPermissionsEngine implements PolicyEngine {
     }
     return {
       [PERMISSIONS.Create]: modes.includes(ACL.Create),
+      // TODO: figure out why it is requested on Create
+      [PERMISSIONS.Append]: modes.includes(ACL.Create),
       [PERMISSIONS.Read]: modes.includes(ACL.Read),
       [PERMISSIONS.Modify]: modes.includes(ACL.Update),
       [PERMISSIONS.Delete]: modes.includes(ACL.Delete),

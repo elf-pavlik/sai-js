@@ -31,7 +31,7 @@ export class AdminPermissionReader extends PermissionReader {
   }
 
   public async handle(input: PermissionReaderInput): Promise<MultiPermissionMap> {
-    if (input.requestedModes.size !== 1) {
+    if ([...input.requestedModes.distinctKeys()].length !== 1) {
       this.logger.info([...input.requestedModes].map(([id, mode]) => id.path).join(', '))
       throw new Error('☝ requested permissions for multiple resources')
     }

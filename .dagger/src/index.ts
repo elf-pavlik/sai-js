@@ -296,7 +296,7 @@ export class SaiJs {
       .withExposedPort(9229)
       .withExposedPort(9230)
       .withExposedPort(9231)
-      .withExposedPort(9250)
+      .withExposedPort(443)
       .asService({ args: ['node', '/proxy.js'] })
   }
 

@@ -1,9 +1,0 @@
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-PREFIX pim: <http://www.w3.org/ns/pim/space#>
-
-<https://acme-rnd.data.docker/>
-  a interop:DataRegistry, pim:Storage ;
-  interop:hasDataRegistration
-   <https://acme-rnd.data.docker/reb39k/> ,
-   <https://acme-rnd.data.docker/x0md9s/> .

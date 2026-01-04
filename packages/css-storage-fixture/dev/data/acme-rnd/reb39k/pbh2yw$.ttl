@@ -1,6 +1,0 @@
-
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX pm: <https://vocab.example/project-management/>
-
-<https://acme-rnd.data.docker/reb39k/pbh2yw>
-  rdfs:label "Project X" .

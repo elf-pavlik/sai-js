@@ -1,9 +1,0 @@
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX ldp: <http://www.w3.org/ns/ldp#>
-PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-PREFIX solidtrees: <https://data/shapetrees/trees/>
-
-<https://data/bob/avn9hv/>
-  a interop:DataRegistration ;
-  interop:registeredBy <https://id/bob> ;
-  interop:registeredShapeTree solidtrees:Project .

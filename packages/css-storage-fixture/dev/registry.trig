@@ -1,4 +1,5 @@
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX acl: <http://www.w3.org/ns/auth/acl#>
 PREFIX acp: <http://www.w3.org/ns/solid/acp#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
@@ -455,5 +456,119 @@ GRAPH <https://reg.docker/kim/.acr> {
         acp:agent <https://kim.id.docker>
       ]
     ].
+}
+
+GRAPH <meta:https://alice-work.data.docker/> {
+  <https://alice-work.data.docker/>
+    a interop:DataRegistry, ldp:Resource, space:Storage ;
+    interop:hasDataRegistration
+    <https://alice-work.data.docker/sx86hi/> ,
+    <https://alice-work.data.docker/btze4a/> .
+}
+
+GRAPH <meta:https://alice-work.data.docker/sx86hi/> {
+  <https://alice-work.data.docker/sx86hi/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Project .
+}
+
+GRAPH <https://alice-work.data.docker/sx86hi/> {
+  <https://alice-work.data.docker/sx86hi/>
+    ldp:contains
+      <https://alice-work.data.docker/sx86hi/k3pqsb> .
+}
+
+GRAPH <meta:https://alice-work.data.docker/sx86hi/k3pqsb> {
+  <https://alice-work.data.docker/sx86hi/k3pqsb>
+    a ldp:Resource .
+}
+
+GRAPH <https://alice-work.data.docker/sx86hi/k3pqsb> {
+  <https://alice-work.data.docker/sx86hi/k3pqsb>
+    rdfs:label "Project A" .
+}
+
+GRAPH <meta:https://alice-work.data.docker/btze4a/> {
+  <https://alice-work.data.docker/btze4a/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <meta:https://alice-home.data.docker/> {
+  <https://alice-home.data.docker/>
+    a interop:DataRegistry, ldp:Resource, space:Storage ;
+    interop:hasDataRegistration
+    <https://alice-home.data.docker/x1n3cm/> ,
+    <https://alice-home.data.docker/pm1oxz/> .
+}
+
+GRAPH <meta:https://alice-home.data.docker/x1n3cm/> {
+  <https://alice-home.data.docker/x1n3cm/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Project .
+}
+
+GRAPH <meta:https://alice-home.data.docker/pm1oxz/> {
+  <https://alice-home.data.docker/pm1oxz/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <meta:https://bob.data.docker/> {
+<https://bob.data.docker/>
+  a interop:DataRegistry, ldp:Resource, space:Storage ;
+  interop:registeredBy <https://bob.id.docker> ;
+  interop:hasDataRegistration
+   <https://bob.data.docker/avn9hv/> ,
+   <https://bob.data.docker/x6hx8e/> .
+}
+
+GRAPH <meta:https://bob.data.docker/avn9hv/> {
+  <https://bob.data.docker/avn9hv/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Project .
+}
+
+GRAPH <meta:https://bob.data.docker/x6hx8e/> {
+  <https://bob.data.docker/x6hx8e/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <meta:https://acme-rnd.data.docker/> {
+  <https://acme-rnd.data.docker/>
+    a interop:DataRegistry, ldp:Resource, space:Storage ;
+    interop:hasDataRegistration
+    <https://acme-rnd.data.docker/reb39k/> ,
+    <https://acme-rnd.data.docker/x0md9s/> .
+}
+
+GRAPH <meta:https://acme-rnd.data.docker/reb39k/> {
+  <https://acme-rnd.data.docker/reb39k/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Project .
+}
+
+GRAPH <https://acme-rnd.data.docker/reb39k/> {
+  <https://acme-rnd.data.docker/reb39k/>
+    ldp:contains
+      <https://acme-rnd.data.docker/reb39k/pbh2yw> .
+}
+
+GRAPH <meta:https://acme-rnd.data.docker/reb39k/pbh2yw> {
+  <https://acme-rnd.data.docker/reb39k/pbh2yw>
+    a ldp:Resource .
+}
+
+GRAPH <https://acme-rnd.data.docker/reb39k/pbh2yw> {
+  <https://acme-rnd.data.docker/reb39k/pbh2yw>
+    a shapetrees:Project ;
+    rdfs:label "Project X" .
+}
+
+GRAPH <meta:https://acme-rnd.data.docker/x0md9s/> {
+  <https://acme-rnd.data.docker/x0md9s/>
+    a interop:DataRegistration, ldp:Resource ;
+    interop:registeredShapeTree shapetrees:Task .
 }
 

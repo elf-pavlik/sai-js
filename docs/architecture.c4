@@ -27,6 +27,12 @@ model {
         color blue
       }
     }
+    container KVstore 'KVstore' 'posgresql' {
+      style {
+        shape storage
+        color blue
+      }
+    }
     container Workers 'Temporal workers' {
       style {
         shape rectangle
@@ -110,6 +116,12 @@ model {
           color red
         }
       }
+      component SPARQLEndpoint 'SPARQL endpoint' {
+        style {
+          color sky
+          icon http://www.w3.org/RDF/icons/rdf_flyer.64
+        }
+      }
       component FilesystemStorage 'Filesystem storage' {
         style {
           color sky
@@ -169,6 +181,10 @@ model {
   Auth -> WebID
   Auth -> Registry
   Registry -> Quadstore
+  Data -> Quadstore
+  Auth -> KVstore
+  Registry -> KVstore
+  Data -> KVstore
   Auth -> Temporal
   Workers -> Temporal
   Registry -> Temporal

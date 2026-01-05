@@ -3,6 +3,7 @@ import { createVocabulary } from 'rdf-vocabulary'
 export const INTEROP = createVocabulary(
   'http://www.w3.org/ns/solid/interop#',
   'registeredAgent',
+  'registeredShapeTree',
   'hasStorage',
   'grantee',
   'grantedBy',
@@ -12,7 +13,9 @@ export const INTEROP = createVocabulary(
   'accessMode',
   'scopeOfGrant',
   'AllFromRegistry',
-  'SelectedFromRegistry'
+  'SelectedFromRegistry',
+  'Inherited',
+  'inheritsFromGrant'
 )
 export const ACL = createVocabulary(
   'http://www.w3.org/ns/auth/acl#',

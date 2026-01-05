@@ -1,6 +1,8 @@
 import { QueryEngine } from '@comunica/query-sparql-rdfjs'
+import { ApplicationFactory } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
+import { arrayifyStream } from '@solid/community-server'
 import type {
   Credentials,
   PermissionMap,
@@ -8,6 +10,7 @@ import type {
   PolicyEngine,
 } from '@solidlab/policy-engine'
 import { ACP, PERMISSIONS } from '@solidlab/policy-engine'
+import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 import type { SaiAuthorizationManager } from './SaiAuthorizationManager.js'
@@ -23,7 +26,10 @@ export class SaiPermissionsEngine implements PolicyEngine {
   private readonly logger = getLoggerFor(this)
   private readonly queryEngine = new QueryEngine()
 
-  constructor(protected readonly manager: SaiAuthorizationManager) {}
+  constructor(
+    protected readonly manager: SaiAuthorizationManager,
+    private readonly sparqlEndpoint: string
+  ) {}
   /**
    * Returns the granted and denied permissions for the given input.
    *
@@ -52,7 +58,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
         // TODO: use extra data to check if it is an admin using their UAS
         break
       case TargetType.Registration:
-        modes = await this.findRegistryModes(
+        modes = await this.findRegistrationModes(
           authorizationData,
           target,
           credentials.agent,
@@ -60,7 +66,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
         )
         break
       case TargetType.Resource:
-        // TODO: do we need to check both options?
+        // could happen read on all and write on selected
         {
           const resourceModes = await this.findResourceModes(
             authorizationData,
@@ -68,13 +74,18 @@ export class SaiPermissionsEngine implements PolicyEngine {
             credentials.agent,
             credentials.client
           )
-          const registryModes = await this.findRegistryModes(
+          const registryModes = await this.findRegistrationModes(
             authorizationData,
             this.manager.getParent(target),
             credentials.agent,
             credentials.client
           )
-          modes = [...new Set([...resourceModes, ...registryModes])]
+          const inheritedModes = await this.findInheritedModes(
+            authorizationData,
+            target,
+            credentials
+          )
+          modes = [...new Set([...resourceModes, ...registryModes, ...inheritedModes])]
         }
         break
       default:
@@ -124,6 +135,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
   }
 
+  // Inherited is the same as AllFromRegistry here
   async findGrant(
     data: Quad[],
     id: string,
@@ -167,9 +179,10 @@ export class SaiPermissionsEngine implements PolicyEngine {
       sources: [store],
     })
     const grantBindings = await grantBindingsStream.toArray()
+    // TODO: handle multiple valid grants
     return grantBindings[0]?.get('s')?.value
   }
-  async findRegistryModes(
+  async findRegistrationModes(
     data: Quad[],
     registrationId: string,
     agent: string,
@@ -213,6 +226,106 @@ export class SaiPermissionsEngine implements PolicyEngine {
     }
     if (!grantId) return []
     return this.getAccessModes(data, grantId)
+  }
+
+  async findInheritedModes(
+    data: Quad[],
+    resourceId: string,
+    credentials: Credentials
+  ): Promise<string[]> {
+    const registrationId = this.manager.getParent(resourceId)
+    let grantId = await this.findGrant(
+      data,
+      registrationId,
+      credentials.agent,
+      credentials.client,
+      INTEROP.Inherited
+    )
+    if (!grantId) {
+      grantId = await this.findGrant(
+        data,
+        registrationId,
+        ACP.PublicAgent,
+        ACP.PublicClient,
+        INTEROP.Inherited
+      )
+    }
+    if (!grantId) return []
+    const parentGrantId = await this.findObject(data, grantId, INTEROP.inheritsFromGrant)
+    if (!parentGrantId) throw new Error(`parent not found for Inherited grant: ${grantId}`)
+    // TODO: consider multi parent, and parents of different types
+    const parentResourceId = await this.findParentResource(data, grantId, parentGrantId, resourceId)
+    if (!parentResourceId) return []
+    const parentResourcePermissions = await this.getPermissions(parentResourceId, credentials)
+    if (parentResourcePermissions[PERMISSIONS.Read]) {
+      return this.getAccessModes(data, grantId)
+    }
+    return []
+  }
+
+  async findObject(data: Quad[], subject: string, predicate: string): Promise<string | undefined> {
+    const query = `
+      SELECT * WHERE {
+        <${subject}>
+          <${predicate}> ?o .
+      }
+    `
+    const store = new Store([...data])
+    const bindingsStream = await this.queryEngine.queryBindings(query, {
+      sources: [store],
+    })
+    const bindings = await bindingsStream.toArray()
+    return bindings[0].get('o')?.value
+  }
+
+  async findParentResource(
+    data: Quad[],
+    childGrantId: string,
+    parentGrantId: string,
+    resourceId: string
+  ): Promise<string> {
+    // find predicate
+    const parentShapeTreeId = await this.findObject(
+      data,
+      parentGrantId,
+      INTEROP.registeredShapeTree
+    )
+    if (!parentShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${parentGrantId}`)
+    const childShapeTreeId = await this.findObject(data, childGrantId, INTEROP.registeredShapeTree)
+    if (!childShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${childGrantId}`)
+    const factory = new ApplicationFactory({
+      fetch: fetchWrapper(fetch),
+      randomUUID: crypto.randomUUID,
+    })
+    const shapeTree = await factory.readable.shapeTree(parentShapeTreeId)
+    const shapeTreeReference = shapeTree.references.find(
+      (stRef) => stRef.shapeTree === childShapeTreeId
+    )
+    const predicate = shapeTreeReference.viaPredicate.value
+    const fetcher = new SparqlEndpointFetcher()
+    const bindingsStream = await fetcher.fetchBindings(
+      this.sparqlEndpoint,
+      `
+          SELECT * WHERE {
+            GRAPH ?g {?s <${predicate}> <${resourceId}> }
+          }
+        `
+    )
+    const results = await arrayifyStream<IBindings>(bindingsStream)
+    // TODO: ensure only in proper registration
+    // biome-ignore lint/complexity/useLiteralKeys:
+    const parentId = results[0]?.['s'].value
+    if (!parentId) return
+    // check if in parent registration
+    const parentRegistrationId = await this.findObject(
+      data,
+      parentGrantId,
+      INTEROP.hasDataRegistration
+    )
+    // TODO: not needed if query only in proper registration
+    if (this.manager.getParent(parentId) !== parentRegistrationId)
+      throw new Error(`something fishy - ${parentId} not in ${parentRegistrationId}`)
+    return parentId
   }
 
   async determineTargetType(id: string): Promise<TargetType | undefined> {

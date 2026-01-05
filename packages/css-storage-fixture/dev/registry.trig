@@ -8,6 +8,7 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
 PREFIX shapetrees: <https://shapetrees.data.docker/trees/>
+PREFIX pm: <https://vocab.example/project-management/>
 
 GRAPH <https://reg.docker/> {
   <https://reg.docker/>
@@ -297,6 +298,24 @@ GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/afiooi> {
         <https://reg.docker/alice/agent/cvmsa4/afiooi> a ldp:Resource .
 }
 
+GRAPH <https://reg.docker/alice/agent/cvmsa4/azgyc5> {
+  <https://reg.docker/alice/agent/cvmsa4/azgyc5>
+    a interop:DataGrant;
+    interop:grantee <https://vuejectron.docker/id>;
+    interop:grantedBy <https://alice.id.docker>;
+    interop:dataOwner <https://alice.id.docker>;
+    interop:registeredShapeTree shapetrees:Task;
+    interop:hasStorage <https://alice-work.data.docker/>;
+    interop:hasDataRegistration <https://alice-work.data.docker/btze4a/>;
+    interop:scopeOfGrant interop:Inherited;
+    interop:inheritsFromGrant <https://reg.docker/alice/agent/cvmsa4/afiooi>;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/azgyc5> {
+        <https://reg.docker/alice/agent/cvmsa4/azgyc5> a ldp:Resource .
+}
+
 GRAPH <meta:https://reg.docker/alice/.acr> {
         <https://reg.docker/alice/.acr> a ldp:Resource .
 }
@@ -485,13 +504,25 @@ GRAPH <meta:https://alice-work.data.docker/sx86hi/k3pqsb> {
 
 GRAPH <https://alice-work.data.docker/sx86hi/k3pqsb> {
   <https://alice-work.data.docker/sx86hi/k3pqsb>
-    rdfs:label "Project A" .
+    rdfs:label "Project A" ;
+    pm:hasTask 
+      <https://alice-work.data.docker/btze4a/y48odn> .
 }
 
 GRAPH <meta:https://alice-work.data.docker/btze4a/> {
   <https://alice-work.data.docker/btze4a/>
     a interop:DataRegistration, ldp:Resource ;
     interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <meta:https://alice-work.data.docker/btze4a/y48odn> {
+  <https://alice-work.data.docker/btze4a/y48odn>
+    a ldp:Resource .
+}
+
+GRAPH <https://alice-work.data.docker/btze4a/y48odn> {
+  <https://alice-work.data.docker/btze4a/y48odn>
+    rdfs:label "Task 1" .
 }
 
 GRAPH <meta:https://alice-home.data.docker/> {

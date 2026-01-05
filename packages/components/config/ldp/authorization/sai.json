@@ -9,7 +9,8 @@
     {
       "@id": "urn:solidlab:policy-engine:PolicyEngine",
       "@type": "SaiPermissionsEngine",
-      "manager": { "@id": "urn:sai:policy-engine:AuthorizationManager" }
+      "manager": { "@id": "urn:sai:policy-engine:AuthorizationManager" },
+      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
     }
   ]
 }

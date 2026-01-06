@@ -284,20 +284,22 @@ export class SaiJs {
     @argument()
     testFile?: string
   ): Service {
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withServiceBinding('debug', this.debugService(testFile))
-      .withServiceBinding('auth', this.authService())
-      .withServiceBinding('registry', this.registryService())
-      .withServiceBinding('data', this.dataService())
-      .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
-      .withExposedPort(9240)
-      .withExposedPort(9229)
-      .withExposedPort(9230)
-      .withExposedPort(9231)
-      .withExposedPort(443)
-      .asService({ args: ['node', '/proxy.js'] })
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withServiceBinding('debug', this.debugService(testFile))
+        .withServiceBinding('auth', this.authService())
+        .withServiceBinding('registry', this.registryService())
+        .withServiceBinding('data', this.dataService())
+        .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
+        .withExposedPort(9240)
+        .withExposedPort(9229)
+        .withExposedPort(9230)
+        .withExposedPort(9231)
+        // .withExposedPort(443)
+        .asService({ args: ['node', '/proxy.js'] })
+    )
   }
 
   @func()

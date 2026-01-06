@@ -263,7 +263,8 @@ GRAPH <https://reg.docker/alice/agent/cvmsa4/> {
   <https://reg.docker/alice/agent/cvmsa4/>
     ldp:contains
       <https://reg.docker/alice/agent/cvmsa4/y1pp6y>,
-      <https://reg.docker/alice/agent/cvmsa4/afiooi>.
+      <https://reg.docker/alice/agent/cvmsa4/afiooi>,
+      <https://reg.docker/alice/agent/cvmsa4/azgyc5>.
 }
 
 GRAPH <https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
@@ -274,7 +275,8 @@ GRAPH <https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
     interop:grantedBy <https://alice.id.docker>;
     interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
     interop:hasDataGrant
-      <https://reg.docker/alice/agent/cvmsa4/afiooi>.
+      <https://reg.docker/alice/agent/cvmsa4/afiooi>,
+      <https://reg.docker/alice/agent/cvmsa4/azgyc5>.
 }
 
 GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/y1pp6y> {
@@ -507,6 +509,18 @@ GRAPH <https://alice-work.data.docker/sx86hi/k3pqsb> {
     rdfs:label "Project A" ;
     pm:hasTask 
       <https://alice-work.data.docker/btze4a/y48odn> .
+}
+
+GRAPH <meta:https://alice-work.data.docker/sx86hi/doznys> {
+  <https://alice-work.data.docker/sx86hi/doznys>
+    a ldp:Resource .
+}
+
+GRAPH <https://alice-work.data.docker/sx86hi/doznys> {
+  <https://alice-work.data.docker/sx86hi/doznys>
+    rdfs:label "Project B" ;
+    pm:hasTask 
+      <https://alice-work.data.docker/btze4a/n5sz83> . # new not created yet
 }
 
 GRAPH <meta:https://alice-work.data.docker/btze4a/> {

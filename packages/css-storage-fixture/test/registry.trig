@@ -8,6 +8,7 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
 PREFIX shapetrees: <https://data/shapetrees/trees/>
+PREFIX pm: <https://vocab.example/project-management/>
 
 GRAPH <https://registry/> {
   <https://registry/>
@@ -256,7 +257,8 @@ GRAPH <https://registry/alice/agent/cvmsa4/> {
   <https://registry/alice/agent/cvmsa4/>
     ldp:contains
       <https://registry/alice/agent/cvmsa4/y1pp6y>,
-      <https://registry/alice/agent/cvmsa4/afiooi>.
+      <https://registry/alice/agent/cvmsa4/afiooi>,
+      <https://registry/alice/agent/cvmsa4/azgyc5>.
 }
 
 GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
@@ -266,7 +268,8 @@ GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
     interop:grantee <https://id/test-client>;
     interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm>;
     interop:hasDataGrant
-      <https://registry/alice/agent/cvmsa4/afiooi>.
+      <https://registry/alice/agent/cvmsa4/afiooi>,
+      <https://registry/alice/agent/cvmsa4/azgyc5>.
 }
 
 GRAPH <meta:https://registry/alice/agent/cvmsa4/y1pp6y> {
@@ -289,6 +292,25 @@ GRAPH <https://registry/alice/agent/cvmsa4/afiooi> {
 GRAPH <meta:https://registry/alice/agent/cvmsa4/afiooi> {
         <https://registry/alice/agent/cvmsa4/afiooi> a ldp:Resource .
 }
+
+GRAPH <https://registry/alice/agent/cvmsa4/azgyc5> {
+  <https://registry/alice/agent/cvmsa4/azgyc5>
+    a interop:DataGrant;
+    interop:grantee <https://id/test-client>;
+    interop:grantedBy <https://id/alice>;
+    interop:dataOwner <https://id/alice>;
+    interop:registeredShapeTree shapetrees:Task;
+    interop:hasStorage <https://data/alice-work/>;
+    interop:hasDataRegistration <https://data/alice-work/btze4a/>;
+    interop:scopeOfGrant interop:Inherited;
+    interop:inheritsFromGrant <https://registry/alice/agent/cvmsa4/afiooi>;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/alice/agent/cvmsa4/azgyc5> {
+        <https://registry/alice/agent/cvmsa4/azgyc5> a ldp:Resource .
+}
+
 
 GRAPH <meta:https://registry/alice/.acr> {
         <https://registry/alice/.acr> a ldp:Resource .
@@ -492,13 +514,25 @@ GRAPH <meta:https://data/alice-work/sx86hi/k3pqsb> {
 
 GRAPH <https://data/alice-work/sx86hi/k3pqsb> {
   <https://data/alice-work/sx86hi/k3pqsb>
-    rdfs:label "Project A" .
+    rdfs:label "Project A" ;
+    pm:hasTask
+      <https://data/alice-work/btze4a/y48odn> .
 }
 
 GRAPH <meta:https://data/alice-work/btze4a/> {
   <https://data/alice-work/btze4a/>
     a interop:DataRegistration, ldp:Resource ;
     interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <meta:https://data/alice-work/btze4a/y48odn> {
+  <https://data/alice-work/btze4a/y48odn>
+    a ldp:Resource .
+}
+
+GRAPH <https://alice-work.data.docker/btze4a/y48odn> {
+  <https://alice-work.data.docker/btze4a/y48odn>
+    rdfs:label "Task 1" .
 }
 
 GRAPH <meta:https://data/alice-home/> {

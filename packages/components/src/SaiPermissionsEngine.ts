@@ -43,11 +43,16 @@ export class SaiPermissionsEngine implements PolicyEngine {
     credentials: Credentials,
     permissions?: string[]
   ): Promise<PermissionMap> {
-    // TODO: move it into findGrant
-    if (!credentials.agent || !credentials.client) {
-      credentials.agent = ACP.PublicAgent
-      credentials.client = ACP.PublicClient
+    // check if reqested by User Authorization Server
+    let uasId: string | undefined
+    if (credentials.agent && credentials.client) {
+      try {
+        uasId = await discoverAuthorizationAgent(credentials.agent, fetchWrapper(fetch))
+      } catch (err) {
+        this.logger.error(`UAS discovery failed for: ${credentials.agent}; ${err}`)
+      }
     }
+    const uas = uasId && uasId === credentials.client
 
     // TODO: does it need spread or just fix in typings
     const authorizationData = [...(await this.manager.getAuthorizationData(target))]
@@ -58,12 +63,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
         // TODO: use extra data to check if it is an admin using their UAS
         break
       case TargetType.Registration:
-        modes = await this.findRegistrationModes(
-          authorizationData,
-          target,
-          credentials.agent,
-          credentials.client
-        )
+        modes = await this.findRegistrationModes(authorizationData, target, credentials, uas)
         break
       case TargetType.Resource:
         // could happen read on all and write on selected
@@ -71,19 +71,20 @@ export class SaiPermissionsEngine implements PolicyEngine {
           const resourceModes = await this.findResourceModes(
             authorizationData,
             target,
-            credentials.agent,
-            credentials.client
+            credentials,
+            uas
           )
           const registryModes = await this.findRegistrationModes(
             authorizationData,
             this.manager.getParent(target),
-            credentials.agent,
-            credentials.client
+            credentials,
+            uas
           )
           const inheritedModes = await this.findInheritedModes(
             authorizationData,
             target,
-            credentials
+            credentials,
+            uas
           )
           modes = [...new Set([...resourceModes, ...registryModes, ...inheritedModes])]
         }
@@ -139,23 +140,20 @@ export class SaiPermissionsEngine implements PolicyEngine {
   async findGrant(
     data: Quad[],
     id: string,
-    agent: string,
-    client: string,
-    scope: string
+    credentials: Credentials,
+    scope: string,
+    uas: boolean
   ): Promise<string | undefined> {
     let registrationId = id
     const selected = scope === INTEROP.SelectedFromRegistry
     if (selected) {
       registrationId = this.manager.getParent(id)
     }
-    // check if reqested by User Authorization Server
-    let uasId: string | undefined
-    try {
-      uasId = await discoverAuthorizationAgent(agent, fetchWrapper(fetch))
-    } catch (err) {
-      this.logger.error(`UAS discovery failed for: ${agent}; ${err}`)
+    let { agent, client } = credentials
+    if (!agent || !client) {
+      agent = ACP.PublicAgent
+      client = ACP.PublicClient
     }
-    const uas = uasId === client
     const store = new Store([...data])
     const grantQuery = `
       SELECT * WHERE {
@@ -180,24 +178,24 @@ export class SaiPermissionsEngine implements PolicyEngine {
     })
     const grantBindings = await grantBindingsStream.toArray()
     // TODO: handle multiple valid grants
-    return grantBindings[0]?.get('s')?.value
+    const grantId = grantBindings[0]?.get('s')?.value
+    if (grantId) return grantId
+    // if not found try without credentials
+    if (credentials.agent && credentials.client) return this.findGrant(data, id, {}, scope, false)
   }
   async findRegistrationModes(
     data: Quad[],
     registrationId: string,
-    agent: string,
-    client: string
+    credentials: Credentials,
+    uas: boolean
   ): Promise<string[]> {
-    let grantId = await this.findGrant(data, registrationId, agent, client, INTEROP.AllFromRegistry)
-    if (!grantId) {
-      grantId = await this.findGrant(
-        data,
-        registrationId,
-        ACP.PublicAgent,
-        ACP.PublicClient,
-        INTEROP.AllFromRegistry
-      )
-    }
+    const grantId = await this.findGrant(
+      data,
+      registrationId,
+      credentials,
+      INTEROP.AllFromRegistry,
+      uas
+    )
     if (!grantId) return []
     return this.getAccessModes(data, grantId)
   }
@@ -205,25 +203,16 @@ export class SaiPermissionsEngine implements PolicyEngine {
   async findResourceModes(
     data: Quad[],
     resourceId: string,
-    agent: string,
-    client: string
+    credentials: Credentials,
+    uas: boolean
   ): Promise<string[]> {
-    let grantId = await this.findGrant(
+    const grantId = await this.findGrant(
       data,
       resourceId,
-      agent,
-      client,
-      INTEROP.SelectedFromRegistry
+      credentials,
+      INTEROP.SelectedFromRegistry,
+      uas
     )
-    if (!grantId) {
-      grantId = await this.findGrant(
-        data,
-        resourceId,
-        ACP.PublicAgent,
-        ACP.PublicClient,
-        INTEROP.SelectedFromRegistry
-      )
-    }
     if (!grantId) return []
     return this.getAccessModes(data, grantId)
   }
@@ -231,25 +220,11 @@ export class SaiPermissionsEngine implements PolicyEngine {
   async findInheritedModes(
     data: Quad[],
     resourceId: string,
-    credentials: Credentials
+    credentials: Credentials,
+    uas: boolean
   ): Promise<string[]> {
     const registrationId = this.manager.getParent(resourceId)
-    let grantId = await this.findGrant(
-      data,
-      registrationId,
-      credentials.agent,
-      credentials.client,
-      INTEROP.Inherited
-    )
-    if (!grantId) {
-      grantId = await this.findGrant(
-        data,
-        registrationId,
-        ACP.PublicAgent,
-        ACP.PublicClient,
-        INTEROP.Inherited
-      )
-    }
+    const grantId = await this.findGrant(data, registrationId, credentials, INTEROP.Inherited, uas)
     if (!grantId) return []
     const parentGrantId = await this.findObject(data, grantId, INTEROP.inheritsFromGrant)
     if (!parentGrantId) throw new Error(`parent not found for Inherited grant: ${grantId}`)

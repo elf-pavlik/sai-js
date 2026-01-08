@@ -28,15 +28,55 @@ export const useCoreStore = defineStore('core', () => {
     { immediate: true }
   )
 
-  async function login(email: string, password: string) {
-    const controlsResonse = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`)
-    const { controls } = await controlsResonse.json()
+  function navigateHome() {
+    window.location.href = import.meta.env.VITE_BASE_URL
+  }
+
+  async function signIn(email: string, password: string): Promise<boolean> {
+    const endpoint = `${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`
+    const controlsResponse = await fetch(endpoint)
+    const { controls } = await controlsResponse.json()
     const loginResponse = await fetch(controls.password.login, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password, remember: true }),
+    })
+    return loginResponse.ok
+  }
+
+  async function signUp(email: string, password: string): Promise<boolean> {
+    const endpoint = `${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`
+    let controlsResponse = await fetch(endpoint)
+    let { controls } = await controlsResponse.json()
+    fetch(controls.account.create, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    controlsResponse = await fetch(endpoint, {
+      credentials: 'include',
+    })
+    controls = (await controlsResponse.json()).controls
+    const passwordResponse = await fetch(controls.password.create, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     })
+    return passwordResponse.ok
+  }
+
+  async function signOut(): Promise<boolean> {
+    const controlsResonse = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`, {
+      credentials: 'include',
+    })
+    const { controls } = await controlsResonse.json()
+    console.log(controls)
+    const logoutResponse = await fetch(controls.account.logout, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    return logoutResponse.ok
   }
 
   async function getPushSubscription(): Promise<void> {
@@ -70,7 +110,10 @@ export const useCoreStore = defineStore('core', () => {
     lang,
     availableLanguages,
     pushSubscription,
-    login,
+    signIn,
+    signUp,
+    signOut,
+    navigateHome,
     enableNotifications,
     getPushSubscription,
   }

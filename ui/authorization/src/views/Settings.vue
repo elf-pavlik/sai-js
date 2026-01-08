@@ -1,6 +1,13 @@
 <template>
   <v-list>
     <v-list-item>
+      <v-form @submit.prevent="signOut">
+        <v-btn type="submit" block class="mt-2">
+          {{ $t('sign-out') }}
+        </v-btn>
+      </v-form>
+    </v-list-item>
+    <v-list-item>
       <v-list-item-title>{{ $t('language') }}</v-list-item-title>
       <template #append>
         <v-select
@@ -30,6 +37,10 @@ const languages = computed(() =>
     value: lang,
   }))
 )
+
+async function signOut() {
+  if (await coreStore.signOut()) coreStore.navigateHome()
+}
 </script>
 <style scoped>
   #translation {

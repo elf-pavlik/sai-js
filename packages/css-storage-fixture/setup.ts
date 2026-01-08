@@ -9,13 +9,14 @@ const datasetPath = 'packages/css-storage-fixture/dev/registry.trig'
 
 const pg = new Postgres(connectionString, 'key_value')
 
+await pg.dropTable()
+await dropQuadstore(sparqlEndpoint)
+
 await pg.seedKeyValue(keyValuePath)
 await seedQuadstore(sparqlEndpoint, datasetPath)
 
 // await pg.dumpKeyValue(keyValuePath)
 // await dumpQuadstore(sparqlEndpoint, datasetPath)
 
-// await pg.dropTable()
-// await dropQuadstore(sparqlEndpoint)
 
 process.exit(0)

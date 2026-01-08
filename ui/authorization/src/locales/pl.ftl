@@ -6,10 +6,12 @@ data = Dane
 
 # Authentication
 sign-in = Logowanie
+sign-out = Wyloguj
+email-input =
+  .label = email
+password-input =
+  .label = haslo
 connect-server = Połącz z serwerem
-
-sign-in-input =
-  .label = OIDC serwer
 
 # Dashboard
 enable = Aktywuj

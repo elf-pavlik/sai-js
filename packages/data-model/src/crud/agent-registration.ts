@@ -1,8 +1,10 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, discoverAccessResource, parseTurtle } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { Mixin } from 'ts-mixer'
 import type { AuthorizationAgentFactory, ReadableAccessGrant } from '..'
 import { AgentRegistrationGetters } from '../mixins/agent-registration-getters'
+import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
+import type { AgentAndClient } from '../templates/types'
 import { CRUDContainer } from './container'
 
 export type AgentRegistrationData = {
@@ -41,6 +43,22 @@ export abstract class CRUDAgentRegistration extends Mixin(CRUDContainer, AgentRe
     } else {
       await this.addStatement(quad)
     }
+  }
+
+  async setAcr(owner: AgentAndClient, peer: AgentAndClient): Promise<void> {
+    const acrLocation = await discoverAccessResource(this.iri, this.factory.fetch)
+    const dataset = await parseTurtle(
+      agentRegistrationAcrTemplate({
+        id: this.iri,
+        owner,
+        peer,
+      })
+    )
+    const response = await this.fetch(acrLocation, {
+      method: 'PUT',
+      dataset,
+    })
+    if (!response.ok) throw new Error(await response.text())
   }
 
   get hasAccessGrant(): string | undefined {

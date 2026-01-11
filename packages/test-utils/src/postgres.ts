@@ -71,7 +71,6 @@ export class Postgres {
   }
 
   async seedKeyValue(filePath: string): Promise<void> {
-    await this.dropTable()
     const data = JSON.parse(await readFile(filePath, 'utf8'))
     await this.ensureDatabase()
     await this.importFromJson(data)

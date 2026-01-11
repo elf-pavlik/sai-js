@@ -1,4 +1,4 @@
-import { INTEROP, OIDC, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, OIDC, RDF, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import {
   type CRUDApplicationRegistration,
@@ -145,6 +145,16 @@ export class CRUDAgentRegistry extends CRUDContainer {
     )
     // update itself to store changes
     await this.addStatement(quad)
+    await registration.setAcr(
+      {
+        agent: this.factory.webId,
+        client: this.factory.agentId,
+      },
+      {
+        agent: this.factory.webId,
+        client: registeredAgent,
+      }
+    )
     return registration
   }
 
@@ -175,6 +185,17 @@ export class CRUDAgentRegistry extends CRUDContainer {
     )
     // update itself to store changes
     await this.addStatement(quad)
+    const peerUas = await discoverAuthorizationAgent(registeredAgent, this.factory.fetch)
+    await registration.setAcr(
+      {
+        agent: this.factory.webId,
+        client: this.factory.agentId,
+      },
+      {
+        agent: registeredAgent,
+        client: peerUas,
+      }
+    )
     return registration
   }
 

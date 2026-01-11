@@ -11,6 +11,11 @@ export function getDescriptionResource(linkHeaderText: string): string | undefin
   return links.find((link) => link.rel === 'describedby')?.uri
 }
 
+export function getAcl(linkHeaderText: string): string | undefined {
+  const links = LinkHeader.parse(linkHeaderText).refs
+  return links.find((link) => link.rel === 'acl')?.uri
+}
+
 export function getStorageDescription(linkHeaderText: string): string | undefined {
   const links = LinkHeader.parse(linkHeaderText).refs
   return links.find((link) => link.rel === SOLID.storageDescription.value)?.uri

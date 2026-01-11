@@ -3,6 +3,7 @@ import { DataFactory } from 'n3'
 import type { RdfFetch, WhatwgFetch } from './fetch'
 import { parseJsonld } from './jsonld-parser'
 import {
+  getAcl,
   getAgentRegistrationIri,
   getDescriptionResource,
   getStorageDescription,
@@ -28,6 +29,12 @@ export class AgentRegistrationDiscoveryError extends RequestError {
 export class DescriptionResourceDiscoveryError extends RequestError {
   constructor(public response: Response) {
     super('Discovery: Resource Description - request failed', response)
+  }
+}
+
+export class AccessResourceDiscoveryError extends RequestError {
+  constructor(public response: Response) {
+    super('Discovery: Access Resource - request failed', response)
   }
 }
 
@@ -70,6 +77,17 @@ export async function discoverDescriptionResource(
   const linkHeader = response.headers.get('Link')
   if (!linkHeader) return undefined
   return getDescriptionResource(linkHeader)
+}
+
+export async function discoverAccessResource(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  const response = await fetch(resourceIri, { method: 'HEAD' })
+  if (!response.ok) throw new AccessResourceDiscoveryError(response)
+  const linkHeader = response.headers.get('Link')
+  if (!linkHeader) return undefined
+  return getAcl(linkHeader)
 }
 
 export async function discoverStorageDescription(

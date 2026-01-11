@@ -1,4 +1,4 @@
-import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
+import { Postgres, dropQuadstore, seedQuadstore } from '@janeirodigital/interop-test-utils'
 import { beforeEach } from 'vitest'
 
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'

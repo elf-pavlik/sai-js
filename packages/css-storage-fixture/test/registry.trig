@@ -58,6 +58,46 @@ GRAPH <https://registry/acme/agent/je0s7n/> {
       <https://registry/acme/agent/je0s7n/g4yhtm>.
 }
 
+GRAPH <meta:https://registry/acme/agent/je0s7n/.acr> {
+        <https://registry/acme/agent/je0s7n/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/acme/agent/je0s7n/.acr> {
+  <https://registry/acme/agent/je0s7n/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/acme/agent/je0s7n/>;
+    acp:accessControl
+      <https://registry/acme/agent/je0s7n/.acr#fullOwnerAccess>,
+      <https://registry/acme/agent/je0s7n/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/acme/agent/je0s7n/.acr#fullOwnerAccess>,
+      <https://registry/acme/agent/je0s7n/.acr#peerReadAccess>.
+
+  <https://registry/acme/agent/je0s7n/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/acme>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l>
+      ]
+    ].
+
+  <https://registry/acme/agent/je0s7n/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+}
+
 GRAPH <https://registry/acme/agent/je0s7n/gmaqjb> {
   <https://registry/acme/agent/je0s7n/gmaqjb>
     a interop:AccessGrant;
@@ -93,7 +133,7 @@ GRAPH <https://registry/acme/agent/fqvaym/cshspf> {
     a interop:DataGrant;
     interop:grantee acp:PublicClient;
     interop:grantedBy acp:PublicAgent;
-    interop:dataOwner <https://acme.id.docker>;
+    interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Shape;
     interop:hasStorage <https://data/shapetrees/>;
     interop:scopeOfGrant interop:AllFromRegistry;
@@ -110,7 +150,7 @@ GRAPH <https://registry/acme/agent/fqvaym/vled83> {
     a interop:DataGrant;
     interop:grantee acp:PublicClient;
     interop:grantedBy acp:PublicAgent;
-    interop:dataOwner <https://acme.id.docker>;
+    interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Tree;
     interop:hasStorage <https://data/shapetrees/>;
     interop:scopeOfGrant interop:AllFromRegistry;
@@ -127,7 +167,7 @@ GRAPH <https://registry/acme/agent/fqvaym/wegvwe> {
     a interop:DataGrant;
     interop:grantee acp:PublicClient;
     interop:grantedBy acp:PublicAgent;
-    interop:dataOwner <https://acme.id.docker>;
+    interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:TODO;
     interop:hasStorage <https://data/test-client/>;
     interop:scopeOfGrant interop:AllFromRegistry;
@@ -148,22 +188,9 @@ GRAPH <https://registry/acme/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://registry/acme/>;
     acp:accessControl
-      <https://registry/acme/.acr#publicReadAccess>,
       <https://registry/acme/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://registry/acme/.acr#publicReadAccess>,
       <https://registry/acme/.acr#fullOwnerAccess>.
-
-  <https://registry/acme/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://registry/acme/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -172,7 +199,8 @@ GRAPH <https://registry/acme/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://id/acme>
+        acp:agent <https://id/acme>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l>
       ]
     ].
 }
@@ -235,6 +263,46 @@ GRAPH <meta:https://registry/alice/agent/cp9g7p/> {
     skos:note "A producer of open source gadget. We are collaborating on some software projects" .
 }
 
+GRAPH <meta:https://registry/alice/agent/cp9g7p/.acr> {
+        <https://registry/alice/agent/cp9g7p/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/agent/cp9g7p/.acr> {
+  <https://registry/alice/agent/cp9g7p/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/alice/agent/cp9g7p/>;
+    acp:accessControl
+      <https://registry/alice/agent/cp9g7p/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/cp9g7p/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/alice/agent/cp9g7p/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/cp9g7p/.acr#peerReadAccess>.
+
+  <https://registry/alice/agent/cp9g7p/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+
+  <https://registry/alice/agent/cp9g7p/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/acme>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l>
+      ]
+    ].
+}
+
 GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
   <https://registry/alice/agent/vzp6ky/>
     a interop:SocialAgentRegistration, ldp:Resource;
@@ -242,6 +310,46 @@ GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
     interop:reciprocalRegistration <https://registry/bob/agent/jc5gt6/> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague at ACME" .
+}
+
+GRAPH <meta:https://registry/alice/agent/vzp6ky/.acr> {
+        <https://registry/alice/agent/vzp6ky/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/agent/vzp6ky/.acr> {
+  <https://registry/alice/agent/vzp6ky/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/alice/agent/vzp6ky/>;
+    acp:accessControl
+      <https://registry/alice/agent/vzp6ky/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/vzp6ky/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/alice/agent/vzp6ky/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/vzp6ky/.acr#peerReadAccess>.
+
+  <https://registry/alice/agent/vzp6ky/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+
+  <https://registry/alice/agent/vzp6ky/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/bob>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
@@ -252,6 +360,46 @@ GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
   <https://data/test-client/public/id> oidc:client_name "Test client";
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
       interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm>.
+}
+
+GRAPH <meta:https://registry/alice/agent/cvmsa4/.acr> {
+        <https://registry/alice/agent/cvmsa4/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/agent/cvmsa4/.acr> {
+  <https://registry/alice/agent/cvmsa4/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/alice/agent/cvmsa4/>;
+    acp:accessControl
+      <https://registry/alice/agent/cvmsa4/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/cvmsa4/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/alice/agent/cvmsa4/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/cvmsa4/.acr#peerReadAccess>.
+
+  <https://registry/alice/agent/cvmsa4/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+
+  <https://registry/alice/agent/cvmsa4/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://data/test-client/public/id>
+      ]
+    ].
 }
 
 GRAPH <https://registry/alice/agent/cvmsa4/> {
@@ -322,22 +470,9 @@ GRAPH <https://registry/alice/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://registry/alice/>;
     acp:accessControl
-      <https://registry/alice/.acr#publicReadAccess>,
       <https://registry/alice/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://registry/alice/.acr#publicReadAccess>,
       <https://registry/alice/.acr#fullOwnerAccess>.
-
-  <https://registry/alice/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://registry/alice/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -346,7 +481,8 @@ GRAPH <https://registry/alice/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://id/alice>
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
       ]
     ].
 }
@@ -381,6 +517,46 @@ GRAPH <meta:https://registry/bob/agent/jc5gt6/> {
     skos:note "A colleague at ACME" .
 }
 
+GRAPH <meta:https://registry/bob/agent/jc5gt6/.acr> {
+        <https://registry/bob/agent/jc5gt6/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/bob/agent/jc5gt6/.acr> {
+  <https://registry/bob/agent/jc5gt6/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/bob/agent/jc5gt6/>;
+    acp:accessControl
+      <https://registry/bob/agent/jc5gt6/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/jc5gt6/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/bob/agent/jc5gt6/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/jc5gt6/.acr#peerReadAccess>.
+
+  <https://registry/bob/agent/jc5gt6/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/bob>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+      ]
+    ].
+
+  <https://registry/bob/agent/jc5gt6/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+}
+
 GRAPH <meta:https://registry/bob/.acr> {
         <https://registry/bob/.acr> a ldp:Resource .
 }
@@ -390,22 +566,9 @@ GRAPH <https://registry/bob/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://registry/bob/>;
     acp:accessControl
-      <https://registry/bob/.acr#publicReadAccess>,
       <https://registry/bob/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://registry/bob/.acr#publicReadAccess>,
       <https://registry/bob/.acr#fullOwnerAccess>.
-
-  <https://registry/bob/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://registry/bob/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -414,7 +577,8 @@ GRAPH <https://registry/bob/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://id/bob>
+        acp:agent <https://id/bob>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
       ]
     ].
 }
@@ -459,22 +623,9 @@ GRAPH <https://registry/kim/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://registry/kim/>;
     acp:accessControl
-      <https://registry/kim/.acr#publicReadAccess>,
       <https://registry/kim/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://registry/kim/.acr#publicReadAccess>,
       <https://registry/kim/.acr#fullOwnerAccess>.
-
-  <https://registry/kim/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://registry/kim/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -483,7 +634,8 @@ GRAPH <https://registry/kim/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://id/kim>
+        acp:agent <https://id/kim>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0>
       ]
     ].
 }
@@ -531,8 +683,8 @@ GRAPH <meta:https://data/alice-work/btze4a/y48odn> {
     a ldp:Resource .
 }
 
-GRAPH <https://alice-work.data.docker/btze4a/y48odn> {
-  <https://alice-work.data.docker/btze4a/y48odn>
+GRAPH <https://data/alice-work/btze4a/y48odn> {
+  <https://data/alice-work/btze4a/y48odn>
     rdfs:label "Task 1" .
 }
 
@@ -559,7 +711,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/> {
 GRAPH <meta:https://data/bob/> {
 <https://data/bob/>
   a interop:DataRegistry, ldp:Resource, space:Storage ;
-  interop:registeredBy <https://bob.id.docker> ;
+  interop:registeredBy <https://id/bob> ;
   interop:hasDataRegistration
    <https://data/bob/avn9hv/> ,
    <https://data/bob/x6hx8e/> .
@@ -614,6 +766,13 @@ GRAPH <meta:https://data/acme-rnd/x0md9s/> {
     interop:registeredShapeTree shapetrees:Task .
 }
 
+
+GRAPH <https://id/acme> {
+  <https://id/acme>
+      solid:oidcIssuer <https://auth/>;
+      interop:hasRegistrySet <https://registry/acme/>;
+      interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l> .
+}
 
 GRAPH <https://id/alice> {
   <https://id/alice>

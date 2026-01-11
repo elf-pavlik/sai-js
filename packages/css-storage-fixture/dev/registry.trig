@@ -60,6 +60,46 @@ GRAPH <https://reg.docker/acme/agent/je0s7n/> {
       <https://reg.docker/acme/agent/je0s7n/g4yhtm>.
 }
 
+GRAPH <meta:https://reg.docker/acme/agent/je0s7n/.acr> {
+        <https://reg.docker/acme/agent/je0s7n/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/acme/agent/je0s7n/.acr> {
+  <https://reg.docker/acme/agent/je0s7n/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/acme/agent/je0s7n/>;
+    acp:accessControl
+      <https://reg.docker/acme/agent/je0s7n/.acr#fullOwnerAccess>,
+      <https://reg.docker/acme/agent/je0s7n/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/acme/agent/je0s7n/.acr#fullOwnerAccess>,
+      <https://reg.docker/acme/agent/je0s7n/.acr#peerReadAccess>.
+
+  <https://reg.docker/acme/agent/je0s7n/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://acme.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hY21lLmlkLmRvY2tlcg>
+      ]
+    ].
+
+  <https://reg.docker/acme/agent/je0s7n/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
+      ]
+    ].
+}
+
 GRAPH <https://reg.docker/acme/agent/je0s7n/gmaqjb> {
   <https://reg.docker/acme/agent/je0s7n/gmaqjb>
     a interop:AccessGrant;
@@ -154,22 +194,9 @@ GRAPH <https://reg.docker/acme/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/acme/>;
     acp:accessControl
-      <https://reg.docker/acme/.acr#publicReadAccess>,
       <https://reg.docker/acme/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://reg.docker/acme/.acr#publicReadAccess>,
       <https://reg.docker/acme/.acr#fullOwnerAccess>.
-
-  <https://reg.docker/acme/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://reg.docker/acme/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -178,7 +205,8 @@ GRAPH <https://reg.docker/acme/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://acme.id.docker>
+        acp:agent <https://acme.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hY21lLmlkLmRvY2tlcg>
       ]
     ].
 }
@@ -242,6 +270,46 @@ GRAPH <meta:https://reg.docker/alice/agent/cp9g7p/> {
     skos:note "A producer of open source gadget. We are collaborating on some software projects" .
 }
 
+GRAPH <meta:https://reg.docker/alice/agent/cp9g7p/.acr> {
+        <https://reg.docker/alice/agent/cp9g7p/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/alice/agent/cp9g7p/.acr> {
+  <https://reg.docker/alice/agent/cp9g7p/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/alice/agent/cp9g7p/>;
+    acp:accessControl
+      <https://reg.docker/alice/agent/cp9g7p/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/cp9g7p/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/alice/agent/cp9g7p/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/cp9g7p/.acr#peerReadAccess>.
+
+  <https://reg.docker/alice/agent/cp9g7p/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
+      ]
+    ].
+
+  <https://reg.docker/alice/agent/cp9g7p/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://acme.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hY21lLmlkLmRvY2tlcg>
+      ]
+    ].
+}
+
 GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
   <https://reg.docker/alice/agent/vzp6ky/>
     a interop:SocialAgentRegistration, ldp:Resource;
@@ -249,6 +317,46 @@ GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/> {
     interop:reciprocalRegistration <https://reg.docker/bob/agent/jc5gt6/> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague at ACME" .
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/vzp6ky/.acr> {
+        <https://reg.docker/alice/agent/vzp6ky/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/alice/agent/vzp6ky/.acr> {
+  <https://reg.docker/alice/agent/vzp6ky/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/alice/agent/vzp6ky/>;
+    acp:accessControl
+      <https://reg.docker/alice/agent/vzp6ky/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/vzp6ky/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/alice/agent/vzp6ky/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/vzp6ky/.acr#peerReadAccess>.
+
+  <https://reg.docker/alice/agent/vzp6ky/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
+      ]
+    ].
+
+  <https://reg.docker/alice/agent/vzp6ky/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://bob.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy>
+      ]
+    ].
 }
 
 GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
@@ -260,6 +368,46 @@ GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/> {
       oidc:logo_uri <https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3>;
       interop:hasAccessNeedGroup <https://vuejectron.docker/access-needs#need-group-pm>;
       interop:hasAuthorizationCallbackEndpoint <https://vuejectron.docker>.
+}
+
+GRAPH <meta:https://reg.docker/alice/agent/cvmsa4/.acr> {
+        <https://reg.docker/alice/agent/cvmsa4/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/alice/agent/cvmsa4/.acr> {
+  <https://reg.docker/alice/agent/cvmsa4/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/alice/agent/cvmsa4/>;
+    acp:accessControl
+      <https://reg.docker/alice/agent/cvmsa4/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/cvmsa4/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/alice/agent/cvmsa4/.acr#fullOwnerAccess>,
+      <https://reg.docker/alice/agent/cvmsa4/.acr#peerReadAccess>.
+
+  <https://reg.docker/alice/agent/cvmsa4/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
+      ]
+    ].
+
+  <https://reg.docker/alice/agent/cvmsa4/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://vuejectron.docker/id>
+      ]
+    ].
 }
 
 GRAPH <https://reg.docker/alice/agent/cvmsa4/> {
@@ -330,22 +478,9 @@ GRAPH <https://reg.docker/alice/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/alice/>;
     acp:accessControl
-      <https://reg.docker/alice/.acr#publicReadAccess>,
       <https://reg.docker/alice/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://reg.docker/alice/.acr#publicReadAccess>,
       <https://reg.docker/alice/.acr#fullOwnerAccess>.
-
-  <https://reg.docker/alice/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://reg.docker/alice/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -354,7 +489,8 @@ GRAPH <https://reg.docker/alice/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://alice.id.docker>
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
       ]
     ].
 }
@@ -389,6 +525,46 @@ GRAPH <meta:https://reg.docker/bob/agent/jc5gt6/> {
     skos:note "A colleague at ACME" .
 }
 
+GRAPH <meta:https://reg.docker/bob/agent/jc5gt6/.acr> {
+        <https://reg.docker/bob/agent/jc5gt6/.acr> a ldp:Resource .
+}
+
+GRAPH <https://reg.docker/bob/agent/jc5gt6/.acr> {
+  <https://reg.docker/bob/agent/jc5gt6/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://reg.docker/bob/agent/jc5gt6/>;
+    acp:accessControl
+      <https://reg.docker/bob/agent/jc5gt6/.acr#fullOwnerAccess>,
+      <https://reg.docker/bob/agent/jc5gt6/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://reg.docker/bob/agent/jc5gt6/.acr#fullOwnerAccess>,
+      <https://reg.docker/bob/agent/jc5gt6/.acr#peerReadAccess>.
+
+  <https://reg.docker/bob/agent/jc5gt6/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://bob.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy>
+      ]
+    ].
+
+  <https://reg.docker/bob/agent/jc5gt6/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://alice.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI>
+      ]
+    ].
+}
+
 GRAPH <meta:https://reg.docker/bob/.acr> {
         <https://reg.docker/bob/.acr> a ldp:Resource .
 }
@@ -398,22 +574,9 @@ GRAPH <https://reg.docker/bob/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/bob/>;
     acp:accessControl
-      <https://reg.docker/bob/.acr#publicReadAccess>,
       <https://reg.docker/bob/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://reg.docker/bob/.acr#publicReadAccess>,
       <https://reg.docker/bob/.acr#fullOwnerAccess>.
-
-  <https://reg.docker/bob/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://reg.docker/bob/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -422,7 +585,8 @@ GRAPH <https://reg.docker/bob/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://bob.id.docker>
+        acp:agent <https://bob.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy>
       ]
     ].
 }
@@ -453,22 +617,9 @@ GRAPH <https://reg.docker/kim/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://reg.docker/kim/>;
     acp:accessControl
-      <https://reg.docker/kim/.acr#publicReadAccess>,
       <https://reg.docker/kim/.acr#fullOwnerAccess>;
     acp:memberAccessControl
-      <https://reg.docker/kim/.acr#publicReadAccess>,
       <https://reg.docker/kim/.acr#fullOwnerAccess>.
-
-  <https://reg.docker/kim/.acr#publicReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent
-      ]
-    ].
 
   <https://reg.docker/kim/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -477,7 +628,8 @@ GRAPH <https://reg.docker/kim/.acr> {
       acp:allow acl:Read, acl:Write, acl:Control;
       acp:anyOf [
         a acp:Matcher;
-        acp:agent <https://kim.id.docker>
+        acp:agent <https://kim.id.docker>;
+        acp:client <https://auth.docker/.sai/agents/aHR0cHM6Ly9raW0uaWQuZG9ja2Vy>
       ]
     ].
 }
@@ -618,6 +770,13 @@ GRAPH <meta:https://acme-rnd.data.docker/x0md9s/> {
   <https://acme-rnd.data.docker/x0md9s/>
     a interop:DataRegistration, ldp:Resource ;
     interop:registeredShapeTree shapetrees:Task .
+}
+
+GRAPH <https://id.docker/acme> {
+  <https://acme.id.docker>
+      solid:oidcIssuer <https://auth.docker/>;
+      interop:hasRegistrySet <https://reg.docker/acme/>;
+      interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hY21lLmlkLmRvY2tlcg> .
 }
 
 GRAPH <https://id.docker/alice> {

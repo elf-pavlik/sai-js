@@ -5,10 +5,13 @@ PREFIX acp: <http://www.w3.org/ns/solid/acp#>
 PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX solid: <http://www.w3.org/ns/solid/terms#>
 PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
 PREFIX shapetrees: <https://shapetrees.data.docker/trees/>
 PREFIX pm: <https://vocab.example/project-management/>
+
 
 GRAPH <https://reg.docker/> {
   <https://reg.docker/>
@@ -617,3 +620,21 @@ GRAPH <meta:https://acme-rnd.data.docker/x0md9s/> {
     interop:registeredShapeTree shapetrees:Task .
 }
 
+GRAPH <https://id.docker/alice> {
+  <https://alice.id.docker>
+      solid:oidcIssuer <https://auth.docker/>;
+      interop:hasRegistrySet <https://reg.docker/alice/>;
+      interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI> .
+}
+GRAPH <https://id.docker/bob> {
+  <https://bob.id.docker>
+      solid:oidcIssuer <https://auth.docker/>;
+      interop:hasRegistrySet <https://reg.docker/bob/>;
+      interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy> .
+}
+GRAPH <https://id.docker/kim> {
+  <https://kim.id.docker>
+      solid:oidcIssuer <https://auth.docker/>;
+      interop:hasRegistrySet <https://reg.docker/kim/>;
+      interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9raW0uaWQuZG9ja2Vy> .
+}

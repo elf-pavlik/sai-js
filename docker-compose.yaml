@@ -314,22 +314,31 @@ services:
       - ./packages/css-storage-fixture/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
 
   id:
-    image: nginx:alpine
+    image: node:24-alpine
     container_name: id
     restart: on-failure
     networks:
       - default
     depends_on:
       - router
+      - sparql
     volumes:
-      - ./packages/css-storage-fixture/dev/id:/usr/share/nginx/html/id:ro
-      - ./packages/css-storage-fixture/id.nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./:/sai
+    ports:
+      - "9236:9236"
+    command:
+      - node
+      - --inspect=0.0.0.0:9236
+      - /sai/packages/id/server.ts
+    environment:
+      - CSS_SPARQL_ENDPOINT=http://sparql/sparql
+      - DOMAIN=id.docker
     labels:
       - traefik.enable=true
       - traefik.http.routers.id.rule=Host(`id.docker`) || HostRegexp(`^.+\.id\.docker$`)
       - traefik.http.routers.id.entrypoints=websecure
       - traefik.http.routers.id.tls=true
-      - traefik.http.services.id.loadbalancer.server.port=80
+      - traefik.http.services.id.loadbalancer.server.port=3000
 
 networks:
   default:

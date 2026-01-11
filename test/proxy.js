@@ -27,5 +27,5 @@ proxy(9230, 'registry', 9230)
 
 // data node inspect
 proxy(9231, 'data', 9231)
-// data http
-proxy(443, 'data', 443)
+//  https
+proxy(443, 'id', 443)

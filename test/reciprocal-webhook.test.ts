@@ -9,7 +9,7 @@ import { describe, expect, test } from 'vitest'
 import { receivesNotification } from './util'
 
 const aliceId = 'https://id/alice'
-const clientId = 'https://id/test-client'
+const clientId = 'https://data/test-client/public/id'
 const sendTo = 'https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b'
 
 describe('reciprocal webhook', () => {

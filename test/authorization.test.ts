@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 const rpcEndpoint = 'https://auth/.sai/api'
 // TODO: import
 const agentType = 'http://www.w3.org/ns/solid/interop#Application'
-const clientId = 'https://id/test-client'
+const clientId = 'https://data/test-client/public/id'
 
 describe('get authorization data', () => {
   const aliceId = 'https://id/alice'
@@ -121,7 +121,7 @@ describe('denied', () => {
     expect(_tag).toBe('Success')
     expect(value.granted).toBeFalsy()
     expect(value.id).toMatch('https://registry/bob/authorization/')
-    expect(value.callbackEndpoint).toBe('https://id/test-client')
+    expect(value.callbackEndpoint).toBe('https://data/test-client/public/id')
 
     const manager = buildSessionManager()
     const session = await manager.getSession(bobId)

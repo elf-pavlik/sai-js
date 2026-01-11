@@ -5,11 +5,11 @@
       "interop": "http://www.w3.org/ns/solid/interop#"
     }
   ],
-  "client_id": "https://id/test-client",
+  "client_id": "https://data/test-client/public/id",
   "client_name": "Test client",
   "logo_uri": "https://robohash.org/aHR0cHM6Ly92dWVqZWN0cm9uLmRvY2tlcg?set=set3",
-  "redirect_uris": ["https://id/test-client"],
+  "redirect_uris": ["https://data/test-client/public/id"],
   "grant_types": ["refresh_token", "authorization_code"],
   "interop:hasAccessNeedGroup": "https://data/test-client/public/access-needs#need-group-pm",
-  "interop:hasAuthorizationCallbackEndpoint": "https://id/test-client"
+  "interop:hasAuthorizationCallbackEndpoint": "https://data/test-client/public/id"
 }

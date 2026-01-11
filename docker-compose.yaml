@@ -329,7 +329,7 @@ services:
     command:
       - node
       - --inspect=0.0.0.0:9236
-      - /sai/packages/id/server.ts
+      - /sai/packages/id/http.ts
     environment:
       - CSS_SPARQL_ENDPOINT=http://sparql/sparql
       - DOMAIN=id.docker

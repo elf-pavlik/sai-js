@@ -6,7 +6,7 @@ const rpcEndpoint = 'https://auth/.sai/api'
 const aliceId = 'https://id/alice'
 const bobId = 'https://id/bob'
 const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
-const clientId = 'https://id/test-client'
+const clientId = 'https://data/test-client/public/id'
 
 describe('request access', () => {
   const requestData = {

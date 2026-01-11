@@ -1,4 +1,3 @@
-import { serve } from '@hono/node-server'
 import { write } from '@jeswr/pretty-turtle'
 import { SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { Hono } from 'hono'
@@ -6,6 +5,8 @@ import { cors } from 'hono/cors'
 
 const domain = process.env.DOMAIN
 const sparqlEndpoint = process.env.CSS_SPARQL_ENDPOINT
+
+if (!domain || !sparqlEndpoint) throw new Error('env missing!')
 
 const fetcher = new SparqlEndpointFetcher()
 
@@ -15,7 +16,7 @@ const construct = (graph: string): string => `
   }
 `
 
-const app = new Hono()
+export const app = new Hono()
 app.use(
   cors({
     origin: (origin, c) => origin,
@@ -36,5 +37,3 @@ app.get('/:handle', async (c) => {
   c.header('Content-Type', 'text/turtle')
   return c.body(await write(await triplesStream.toArray()))
 })
-
-serve(app)

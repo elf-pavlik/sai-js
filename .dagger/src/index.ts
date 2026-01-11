@@ -110,21 +110,17 @@ export class SaiJs {
   idService(): Service {
     return dag
       .container()
-      .from('nginx:alpine')
-      .withMountedDirectory(
-        '/usr/share/nginx/html/id',
-        this.source.directory('packages/css-storage-fixture/test/id')
-      )
-      .withMountedFile(
-        '/etc/nginx/nginx.conf',
-        this.source.file('packages/css-storage-fixture/test/id.nginx.conf')
-      )
-      .withMountedDirectory(
-        '/certs',
-        this.source.directory('packages/css-storage-fixture/test/certs')
-      )
+      .from('node:24-alpine')
+      .withMountedDirectory('/sai', this.source)
+      .withEnvVariable('DOMAIN', 'id')
+      .withEnvVariable('CSS_SPARQL_ENDPOINT', 'http://sparql/sparql')
+      .withEnvVariable('CSS_HTTPS_KEY', '/sai/packages/css-storage-fixture/test/certs/key.pem')
+      .withEnvVariable('CSS_HTTPS_CERT', '/sai/packages/css-storage-fixture/test/certs/cert.pem')
       .withExposedPort(443)
-      .asService()
+      .withServiceBinding('sparql', this.sparqlService())
+      .asService({
+        args: ['node', '/sai/packages/id/https.ts'],
+      })
       .withHostname('id')
   }
 
@@ -284,22 +280,20 @@ export class SaiJs {
     @argument()
     testFile?: string
   ): Service {
-    return (
-      dag
-        .container()
-        .from('node:24-alpine')
-        .withServiceBinding('debug', this.debugService(testFile))
-        .withServiceBinding('auth', this.authService())
-        .withServiceBinding('registry', this.registryService())
-        .withServiceBinding('data', this.dataService())
-        .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
-        .withExposedPort(9240)
-        .withExposedPort(9229)
-        .withExposedPort(9230)
-        .withExposedPort(9231)
-        // .withExposedPort(443)
-        .asService({ args: ['node', '/proxy.js'] })
-    )
+    return dag
+      .container()
+      .from('node:24-alpine')
+      .withServiceBinding('debug', this.debugService(testFile))
+      .withServiceBinding('auth', this.authService())
+      .withServiceBinding('registry', this.registryService())
+      .withServiceBinding('data', this.dataService())
+      .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
+      .withExposedPort(9240)
+      .withExposedPort(9229)
+      .withExposedPort(9230)
+      .withExposedPort(9231)
+      .withExposedPort(443)
+      .asService({ args: ['node', '/proxy.js'] })
   }
 
   @func()

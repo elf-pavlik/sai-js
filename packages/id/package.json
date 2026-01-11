@@ -6,9 +6,7 @@
   "author": "",
   "type": "module",
   "main": "server.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "dependencies": {
     "@hono/node-server": "^1.19.8",
     "@jeswr/pretty-turtle": "^1.8.2",

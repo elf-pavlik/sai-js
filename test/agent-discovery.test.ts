@@ -32,7 +32,7 @@ describe('AgentIdHandler', () => {
     })
     describe('responds with application registry in headers', (): void => {
       test(method, async (): Promise<void> => {
-        const client_id = 'https://id/test-client'
+        const client_id = 'https://data/test-client/public/id'
         const session = await buildOidcSession(aliceId, client_id)
         const response = await session.authFetch(aliceAgentId)
         expect(response.status).toBe(200)

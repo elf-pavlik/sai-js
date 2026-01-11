@@ -46,7 +46,7 @@ describe('public resources', () => {
 
   describe('authenticated request (some agent/client)', () => {
     const bobId = 'https://id/bob'
-    const clientId = 'https://id/test-client'
+    const clientId = 'https://data/test-client/public/id'
     let session
     beforeAll(async () => {
       session = await buildOidcSession(bobId, clientId)
@@ -153,7 +153,7 @@ describe('protected resources (scope all, modes all)', () => {
 
     describe('authenticated request (some agent/client)', () => {
       const bobId = 'https://id/bob'
-      const clientId = 'https://id/test-client'
+      const clientId = 'https://data/test-client/public/id'
       let session
       beforeAll(async () => {
         session = await buildOidcSession(bobId, clientId)
@@ -251,7 +251,7 @@ describe('protected resources (scope all, modes all)', () => {
 
     describe('authenticated request (authorized agent / authorized client)', () => {
       const aliceId = 'https://id/alice'
-      const clientId = 'https://id/test-client'
+      const clientId = 'https://data/test-client/public/id'
       let session
       beforeAll(async () => {
         session = await buildOidcSession(aliceId, clientId)
@@ -314,7 +314,7 @@ describe('protected resources (scope inherited, modes all)', () => {
 
     describe('authenticated request (some agent/client)', () => {
       const bobId = 'https://id/bob'
-      const clientId = 'https://id/test-client'
+      const clientId = 'https://data/test-client/public/id'
       let session
       beforeAll(async () => {
         session = await buildOidcSession(bobId, clientId)
@@ -412,7 +412,7 @@ describe('protected resources (scope inherited, modes all)', () => {
 
     describe('authenticated request (authorized agent / authorized client)', () => {
       const aliceId = 'https://id/alice'
-      const clientId = 'https://id/test-client'
+      const clientId = 'https://data/test-client/public/id'
       let session
       beforeAll(async () => {
         session = await buildOidcSession(aliceId, clientId)

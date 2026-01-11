@@ -626,12 +626,14 @@ GRAPH <https://id.docker/alice> {
       interop:hasRegistrySet <https://reg.docker/alice/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI> .
 }
+
 GRAPH <https://id.docker/bob> {
   <https://bob.id.docker>
       solid:oidcIssuer <https://auth.docker/>;
       interop:hasRegistrySet <https://reg.docker/bob/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy> .
 }
+
 GRAPH <https://id.docker/kim> {
   <https://kim.id.docker>
       solid:oidcIssuer <https://auth.docker/>;

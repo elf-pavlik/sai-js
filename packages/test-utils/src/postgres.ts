@@ -11,7 +11,13 @@ export class Postgres {
   ) {}
 
   init(): void {
-    if (!this.sql) this.sql = postgres(this.connectionString)
+    if (!this.sql) {
+      this.sql = postgres(this.connectionString, {
+        connection: {
+          options: '-c client_min_messages=warning',
+        },
+      })
+    }
   }
 
   /** Ensures the database exists. Idempotent. */

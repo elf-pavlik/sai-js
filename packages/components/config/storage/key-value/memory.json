@@ -1,0 +1,10 @@
+{
+  "@context": "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+  "@graph": [
+    {
+      "comment": "Internal value storage. No different from urn:solid-server:default:KeyValueStorage, but required to be consistent with other storage solutions.",
+      "@id": "urn:solid-server:default:BackendKeyValueStorage",
+      "@type": "MemoryMapStorage"
+    }
+  ]
+}

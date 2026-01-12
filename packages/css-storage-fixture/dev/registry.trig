@@ -774,6 +774,7 @@ GRAPH <meta:https://acme-rnd.data.docker/x0md9s/> {
 
 GRAPH <https://id.docker/acme> {
   <https://acme.id.docker>
+      rdfs:label "ACME";
       solid:oidcIssuer <https://auth.docker/>;
       interop:hasRegistrySet <https://reg.docker/acme/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hY21lLmlkLmRvY2tlcg> .
@@ -781,6 +782,7 @@ GRAPH <https://id.docker/acme> {
 
 GRAPH <https://id.docker/alice> {
   <https://alice.id.docker>
+      rdfs:label "Alice";
       solid:oidcIssuer <https://auth.docker/>;
       interop:hasRegistrySet <https://reg.docker/alice/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9hbGljZS5pZC5kb2NrZXI> .
@@ -788,6 +790,7 @@ GRAPH <https://id.docker/alice> {
 
 GRAPH <https://id.docker/bob> {
   <https://bob.id.docker>
+      rdfs:label "Bob";
       solid:oidcIssuer <https://auth.docker/>;
       interop:hasRegistrySet <https://reg.docker/bob/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9ib2IuaWQuZG9ja2Vy> .
@@ -795,6 +798,7 @@ GRAPH <https://id.docker/bob> {
 
 GRAPH <https://id.docker/kim> {
   <https://kim.id.docker>
+      rdfs:label "Kim";
       solid:oidcIssuer <https://auth.docker/>;
       interop:hasRegistrySet <https://reg.docker/kim/>;
       interop:hasAuthorizationAgent <https://auth.docker/.sai/agents/aHR0cHM6Ly9raW0uaWQuZG9ja2Vy> .

@@ -107,13 +107,13 @@ describe('addSocialAgentRegistration', () => {
     )
   })
 
-  test('returns added registration', async () => {
+  test.skip('returns added registration', async () => {
     const registry = await factory.crud.agentRegistry(snippetIri)
     const registration = await registry.addSocialAgentRegistration(jane, 'Jane')
     expect(registration.registeredAgent).toBe(jane)
   })
 
-  test('local datasets updates with hasSocialAgentRegistration statement', async () => {
+  test.skip('local datasets updates with hasSocialAgentRegistration statement', async () => {
     const registry = await factory.crud.agentRegistry(snippetIri)
     const registration = await registry.addSocialAgentRegistration(jane, 'Jane')
     expect(

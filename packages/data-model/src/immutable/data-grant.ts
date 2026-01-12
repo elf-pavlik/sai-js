@@ -5,9 +5,12 @@ import { ImmutableResource } from '.'
 import type { AuthorizationAgentFactory, DataGrant, InheritableDataGrant } from '..'
 
 type StringData = {
+  grantee: string
+  grantedBy: string
   dataOwner: string
   registeredShapeTree: string
   hasDataRegistration: string
+  hasStorage: string
   scopeOfGrant: string
   inheritsFromGrant?: string
   delegationOfGrant?: string
@@ -31,9 +34,12 @@ export class ImmutableDataGrant extends ImmutableResource {
   public constructor(iri: string, factory: AuthorizationAgentFactory, data: DataGrantData) {
     super(iri, factory, data)
     const props: (keyof StringData)[] = [
+      'grantee',
+      'grantedBy',
       'dataOwner',
       'registeredShapeTree',
       'hasDataRegistration',
+      'hasStorage',
       'scopeOfGrant',
       'inheritsFromGrant',
       'delegationOfGrant',

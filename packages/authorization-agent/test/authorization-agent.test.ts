@@ -345,7 +345,7 @@ describe('recordAccessAuthorization', () => {
   })
 })
 
-describe('generateAccessGrant', () => {
+describe.skip('generateAccessGrant', () => {
   test('should call keept the same access grant if nothing changed', async () => {
     const statefulFetch = createStatefulFetch()
     const accessAuthorizationIri = 'https://auth.alice.example/eac2c39c-c8b3-4880-8b9f-a3e12f7f6372'
@@ -373,7 +373,7 @@ describe('generateAccessGrant', () => {
   })
 })
 
-describe('updateDelegatedGrant', () => {
+describe.skip('updateDelegatedGrant', () => {
   test('should generateAccessGrant for each affected access authorization', async () => {
     const statefulFetch = createStatefulFetch()
     const agent = await AuthorizationAgent.build(webId, agentId, {

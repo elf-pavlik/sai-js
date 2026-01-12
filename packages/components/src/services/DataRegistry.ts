@@ -54,7 +54,7 @@ const buildDataRegistryForGrant = async (
   }
   return DataRegistry.make({
     id: IRI.make(registryIri),
-    label: dataGrants[0].storageIri,
+    label: dataGrants[0].hasStorage,
     registrations,
   })
 }

@@ -40,6 +40,11 @@ export abstract class AbstractDataGrant extends ReadableResource {
     return this.getObject('hasDataRegistration').value
   }
 
+  @Memoize()
+  get hasStorage(): string {
+    return this.getObject('hasStorage').value
+  }
+
   public iriForNew(): string {
     // TODO find a way to replace with Container#iri
     return `${this.hasDataRegistration}${this.factory.randomUUID()}`

@@ -93,9 +93,12 @@ export class ReadableDataAuthorization extends ReadableResource {
           return null
         }
         const childData: DataGrantData = {
+          grantee: this.grantee,
+          grantedBy: this.grantedBy,
           dataOwner: childSourceGrant.dataOwner,
           registeredShapeTree: childAuthorization.registeredShapeTree,
           hasDataRegistration: childSourceGrant.hasDataRegistration,
+          hasStorage: childSourceGrant.hasStorage,
           scopeOfGrant: INTEROP.Inherited.value,
           accessMode: childAuthorization.accessMode.filter((mode) =>
             childSourceGrant.accessMode.includes(mode)
@@ -154,11 +157,13 @@ export class ReadableDataAuthorization extends ReadableResource {
             sourceGrant as InheritableDataGrant,
             granteeRegistration
           )
-          // TODO (elf-pavlik) use hasDataInstance if present - add snippet
           const data: DataGrantData = {
+            grantee: this.grantee,
+            grantedBy: this.grantedBy,
             dataOwner: sourceGrant.dataOwner,
             registeredShapeTree: sourceGrant.registeredShapeTree,
             hasDataRegistration: sourceGrant.hasDataRegistration,
+            hasStorage: sourceGrant.hasStorage,
             scopeOfGrant: sourceGrant.scopeOfGrant.value,
             delegationOfGrant: sourceGrant.iri,
             accessMode: this.accessMode.filter((mode) => sourceGrant.accessMode.includes(mode)),
@@ -183,7 +188,8 @@ export class ReadableDataAuthorization extends ReadableResource {
   private generateChildSourceDataGrants(
     parentGrantIri: string,
     dataRegistrations: ReadableDataRegistration[],
-    granteeRegistration: CRUDAgentRegistration
+    granteeRegistration: CRUDAgentRegistration,
+    storageIri: string
   ): ImmutableDataGrant[] {
     return this.hasInheritingAuthorization
       .map((childAuthorization) => {
@@ -197,9 +203,12 @@ export class ReadableDataAuthorization extends ReadableResource {
           return null
         }
         const childData: DataGrantData = {
+          grantee: childAuthorization.grantee,
+          grantedBy: childAuthorization.grantedBy,
           dataOwner: childAuthorization.grantedBy,
           registeredShapeTree: childAuthorization.registeredShapeTree,
           hasDataRegistration: dataRegistration.iri,
+          hasStorage: storageIri,
           scopeOfGrant: INTEROP.Inherited.value,
           accessMode: childAuthorization.accessMode,
           inheritsFromGrant: parentGrantIri,
@@ -250,16 +259,20 @@ export class ReadableDataAuthorization extends ReadableResource {
       const childDataGrants: ImmutableDataGrant[] = this.generateChildSourceDataGrants(
         regularGrantIri,
         dataRegistrations,
-        granteeRegistration
+        granteeRegistration,
+        await dataRegistry.storageIri()
       )
 
       let scopeOfGrant = INTEROP.AllFromRegistry.value
       if (this.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value)
         scopeOfGrant = INTEROP.SelectedFromRegistry.value
       const data: DataGrantData = {
+        grantee: this.grantee,
+        grantedBy: this.grantedBy,
         dataOwner: this.grantedBy,
         registeredShapeTree: this.registeredShapeTree,
         hasDataRegistration: matchingRegistration.iri,
+        hasStorage: await dataRegistry.storageIri(),
         scopeOfGrant,
         accessMode: this.accessMode,
       }

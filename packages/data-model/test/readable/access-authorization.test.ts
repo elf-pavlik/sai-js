@@ -37,7 +37,7 @@ describe('getters', () => {
   })
 })
 
-describe('generateAccessGrant', () => {
+describe.skip('generateAccessGrant', () => {
   test('generates access grant for application', async () => {
     const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'

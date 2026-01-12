@@ -154,7 +154,7 @@ export class AuthorizationAgent {
       for await (const socialAgentRegistration of this.socialAgentRegistrations) {
         const grant =
           socialAgentRegistration?.reciprocalRegistration?.accessGrant?.hasDataGrant.find(
-            (dataGrant) => dataGrant.storageIri === resourceServerId
+            (dataGrant) => dataGrant.hasStorage === resourceServerId
           )
         if (grant) ownerId = socialAgentRegistration.registeredAgent
       }

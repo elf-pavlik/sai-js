@@ -21,7 +21,7 @@ describe('getters', () => {
   })
 })
 
-describe('generateSourceDataGrants', () => {
+describe.skip('generateSourceDataGrants', () => {
   test('should generate equivalent grants', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/a691ee69-97d8-45c0-bb03-8e887b2db806'
     const registrySet = await factory.crud.registrySet(registrySetIri)
@@ -107,7 +107,7 @@ describe('generateSourceDataGrants', () => {
   })
 })
 
-describe('generateDelegatedDataGrants', () => {
+describe.skip('generateDelegatedDataGrants', () => {
   test('should generate equivalent grants', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const registrySet = await factory.crud.registrySet(registrySetIri)

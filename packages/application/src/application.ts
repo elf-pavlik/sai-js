@@ -135,14 +135,14 @@ export class Application {
   public resourceServers(resourceOwner: string, scope: string): Set<string> {
     const dataOwner = this.dataOwners.find((owner) => owner.iri === resourceOwner)
     const grants = dataOwner.issuedGrants.filter((grant) => grant.registeredShapeTree === scope)
-    return new Set(grants.map((grant) => grant.storageIri))
+    return new Set(grants.map((grant) => grant.hasStorage))
   }
 
   private findGrant(storage: string, scope: string): DataGrant {
     return this.dataOwners
       .flatMap((owner) => owner.issuedGrants)
       .find(
-        (dataGrant) => dataGrant.storageIri === storage && dataGrant.registeredShapeTree === scope
+        (dataGrant) => dataGrant.hasStorage === storage && dataGrant.registeredShapeTree === scope
       )
   }
 

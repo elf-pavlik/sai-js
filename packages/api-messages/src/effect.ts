@@ -232,6 +232,18 @@ export class GetWebId extends S.TaggedRequest<GetWebId>()('GetWebId', {
   payload: {},
 }) {}
 
+export class CheckHandle extends S.TaggedRequest<CheckHandle>()('CheckHandle', {
+  failure: S.Never,
+  success: S.Boolean,
+  payload: { handle: S.String },
+}) {}
+
+export class BootstrapAccount extends S.TaggedRequest<BootstrapAccount>()('BootstrapAccount', {
+  failure: S.Never,
+  success: S.String,
+  payload: { handle: S.String },
+}) {}
+
 export class RegisterPushSubscription extends S.TaggedRequest<RegisterPushSubscription>()(
   'RegisterPushSubscription',
   {
@@ -367,6 +379,8 @@ export class SaiService extends Context.Tag('SaiService')<
   SaiService,
   {
     readonly getWebId: () => Effect.Effect<S.Schema.Type<typeof S.String>>
+    readonly checkHandle: (handle: string) => Effect.Effect<S.Schema.Type<typeof S.Boolean>>
+    readonly bootstrapAccount: (handle: string) => Effect.Effect<S.Schema.Type<typeof S.String>>
     readonly registerPushSubscription: (
       subscription: PushSubscription
     ) => Effect.Effect<S.Schema.Type<typeof S.Void>>
@@ -419,6 +433,18 @@ export const router = RpcRouter.make(
     Effect.gen(function* () {
       const saiService = yield* SaiService
       return yield* saiService.getWebId()
+    })
+  ),
+  Rpc.effect(CheckHandle, ({ handle }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.checkHandle(handle)
+    })
+  ),
+  Rpc.effect(BootstrapAccount, ({ handle }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.bootstrapAccount(handle)
     })
   ),
   Rpc.effect(RegisterPushSubscription, ({ subscription }) =>

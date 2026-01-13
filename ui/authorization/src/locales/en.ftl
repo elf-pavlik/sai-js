@@ -7,11 +7,13 @@ data = Data
 # Authentication
 sign-in = Sign In
 sign-out = Sign Out
+create = Create
 email-input =
   .label = email
 password-input =
   .label = password
-connect-server = Connect Server
+handle-input =
+  .label = handle
 
 # Dashboard
 enable = Enable

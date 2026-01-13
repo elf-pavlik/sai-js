@@ -6,6 +6,8 @@ import {
   type AgentType,
   type Authorization,
   AuthorizeApp,
+  BootstrapAccount,
+  CheckHandle,
   CreateInvitation,
   GetAuthoriaztionData,
   GetResource,
@@ -55,6 +57,22 @@ export async function getWebId() {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new GetWebId())
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function checkHandle(handle: string) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new CheckHandle({ handle }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function bootstrapAccount(handle: string) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new BootstrapAccount({ handle }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

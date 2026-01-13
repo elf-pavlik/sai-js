@@ -5,6 +5,8 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { PushSubscription } from 'web-push'
 
+const endpoint = `${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`
+
 function defaultLang(availableLanguages: string[]): string {
   const lang = navigator.language.split('-')[0]
   return availableLanguages.includes(lang) ? lang : 'en'
@@ -33,7 +35,6 @@ export const useCoreStore = defineStore('core', () => {
   }
 
   async function signIn(email: string, password: string): Promise<boolean> {
-    const endpoint = `${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`
     const controlsResponse = await fetch(endpoint)
     const { controls } = await controlsResponse.json()
     const loginResponse = await fetch(controls.password.login, {
@@ -46,16 +47,13 @@ export const useCoreStore = defineStore('core', () => {
   }
 
   async function signUp(email: string, password: string): Promise<boolean> {
-    const endpoint = `${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`
     let controlsResponse = await fetch(endpoint)
     let { controls } = await controlsResponse.json()
-    fetch(controls.account.create, {
+    await fetch(controls.account.create, {
       method: 'POST',
       credentials: 'include',
     })
-    controlsResponse = await fetch(endpoint, {
-      credentials: 'include',
-    })
+    controlsResponse = await fetch(endpoint, { credentials: 'include' })
     controls = (await controlsResponse.json()).controls
     const passwordResponse = await fetch(controls.password.create, {
       method: 'POST',
@@ -67,9 +65,7 @@ export const useCoreStore = defineStore('core', () => {
   }
 
   async function signOut(): Promise<boolean> {
-    const controlsResonse = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/.account/`, {
-      credentials: 'include',
-    })
+    const controlsResonse = await fetch(endpoint)
     const { controls } = await controlsResonse.json()
     console.log(controls)
     const logoutResponse = await fetch(controls.account.logout, {
@@ -77,6 +73,18 @@ export const useCoreStore = defineStore('core', () => {
       credentials: 'include',
     })
     return logoutResponse.ok
+  }
+
+  async function linkWebId(webId: string): Promise<boolean> {
+    const controlsResponse = await fetch(endpoint, { credentials: 'include' })
+    const { controls } = await controlsResponse.json()
+    const loginResponse = await fetch(controls.account.webId, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ webId }),
+    })
+    return loginResponse.ok
   }
 
   async function getPushSubscription(): Promise<void> {
@@ -113,6 +121,7 @@ export const useCoreStore = defineStore('core', () => {
     signIn,
     signUp,
     signOut,
+    linkWebId,
     navigateHome,
     enableNotifications,
     getPushSubscription,

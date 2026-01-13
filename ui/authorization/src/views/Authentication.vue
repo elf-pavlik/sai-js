@@ -1,6 +1,6 @@
 <template>
   <v-main>
-    <v-card>
+    <v-card v-if="step === 'signIn'">
       <v-card-item>
         <v-card-title>
           Sign In
@@ -19,27 +19,86 @@
         </v-card-text>
       </v-card-item>
     </v-card>
+    <v-card v-if="step === 'signUp'">
+      <v-card-item>
+        <v-card-title>
+          Create handle
+        </v-card-title>
+        <v-card-subtitle>
+          It will be used for your ID and Data Pod subdomain.
+        </v-card-subtitle>
+        <v-card-text>
+          <v-form @submit.prevent="signUp">
+            <v-text-field v-bind="$ta('handle-input')" v-model="handle" :error-messages="errors" required />
+            <v-btn type="submit" block class="mt-2" :loading="checking" :disabled="!!errors">
+              {{ $t('create') }}
+            </v-btn>
+          </v-form>
+          <dl>
+            <dt>ID</dt>
+            <dd><v-chip :color="handleAvailable ? 'green' : 'red'" variant="flat">https://<span class="handle">{{handle}}</span>.id.docker</v-chip></dd>
+            <dt>Pod</dt>
+            <dd><v-chip  :color="handleAvailable ? 'green' : 'red'" variant="flat">https://<span class="handle">{{handle}}</span>.data.docker</v-chip></dd>
+          </dl>
+        </v-card-text>
+      </v-card-item>
+    </v-card>
   </v-main>
 </template>
+<style lang="css">
+dl {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: baseline ;
+}
+dt, dd {
+  margin: 0;
+}
+dd {
+  font-size: 1.25rem;
+}
+.handle {
+  font-weight: bold;
+}
+</style>
 
 <script lang="ts" setup>
+import { bootstrapAccount, checkHandle } from '@/effect'
 import { useCoreStore } from '@/store/core'
-import { ref } from 'vue'
+import { computedAsync } from '@vueuse/core'
+import { computed, ref } from 'vue'
 
 const coreStore = useCoreStore()
-
 const email = ref('')
 const password = ref('')
+const handle = ref('')
+const step = ref('signIn')
+const checking = ref(false)
+const handleAvailable = computedAsync(async () => {
+  if (handle.value.length < 3) return false
+  return checkHandle(handle.value)
+})
+const errors = computed(() => {
+  if (handle.value.length < 3) return 'must be at least 3 characters'
+  if (!handleAvailable.value) return 'is already taken'
+})
 
 async function signIn() {
   if (await coreStore.signIn(email.value, password.value)) {
     coreStore.navigateHome()
   } else {
     if (await coreStore.signUp(email.value, password.value)) {
-      coreStore.navigateHome()
+      step.value = 'signUp'
     } else {
       console.log('failed to create account')
     }
   }
+}
+
+async function signUp() {
+  if (await bootstrapAccount(handle.value)) coreStore.navigateHome()
+  // if (await coreStore.linkWebId(webId)) coreStore.navigateHome()
 }
 </script>

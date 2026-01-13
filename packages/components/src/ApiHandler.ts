@@ -17,6 +17,7 @@ import { getLoggerFor } from 'global-logger-factory'
 import type { PushSubscription } from 'web-push'
 import type { SessionManager } from './SessionManager'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
+import { bootstrapAccount, checkHandle } from './services/Account.js'
 import {
   acceptInvitation,
   createInvitation,
@@ -55,23 +56,24 @@ export class ApiHandler extends OperationHttpHandler {
       throw new InternalServerError('no accountId')
     }
     const webIdLinks = await this.webIdStore.findLinks(accountId)
-    const webId = webIdLinks[0].webId
-    if (!webId) {
-      // TODO: find better error
-      throw new InternalServerError('no webId')
-    }
+    const webId = webIdLinks[0]?.webId
     let session: AuthorizationAgent
-    try {
-      session = await this.sessionManager.getSession(webId)
-    } catch (err) {
-      console.error(err)
-      throw err
+    if (webId) {
+      try {
+        session = await this.sessionManager.getSession(webId)
+      } catch (err) {
+        console.error(err)
+        throw err
+      }
     }
     const SaiServiceLive = Layer.succeed(
       SaiService,
       // @ts-ignore
       SaiService.of({
         getWebId: () => Effect.succeed(session.webId),
+        checkHandle: (handle: string) => Effect.promise(() => checkHandle(handle)),
+        bootstrapAccount: (handle: string) =>
+          Effect.promise(() => bootstrapAccount(accountId, handle)),
         getDataRegistries: (agentId, lang) =>
           Effect.promise(() => getDataRegistries(session, agentId, lang)),
         listDataInstances: (agentId, registrationId) =>

@@ -29,6 +29,7 @@ services:
       - CSS_PUSH_SENDER=mailto:example@yourdomain.org
       - CSS_ENCODED_PRIVATE_JWK=eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
       - CSS_POSTGRES_CONNECTION_STRING=postgres://temporal:temporal@postgresql:5432/auth
+      - CSS_SPARQL_ENDPOINT=http://sparql/sparql
       - TEMPORAL_ADDRESS=temporal:7233
       - NODE_EXTRA_CA_CERTS=/mkcert/rootCA.pem
     labels:

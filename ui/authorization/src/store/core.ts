@@ -65,14 +65,39 @@ export const useCoreStore = defineStore('core', () => {
   }
 
   async function signOut(): Promise<boolean> {
-    const controlsResonse = await fetch(endpoint)
-    const { controls } = await controlsResonse.json()
-    console.log(controls)
+    const controlsResponse = await fetch(endpoint, { credentials: 'include' })
+    const { controls } = await controlsResponse.json()
     const logoutResponse = await fetch(controls.account.logout, {
       method: 'POST',
       credentials: 'include',
     })
     return logoutResponse.ok
+  }
+
+  async function getClientInfo(): Promise<string> {
+    const controlsResponse = await fetch(endpoint, { credentials: 'include' })
+    const { controls } = await controlsResponse.json()
+    const clientInfoResponse = await fetch(controls.oidc.consent, { credentials: 'include' })
+    const info = await clientInfoResponse.json()
+    return info.client.client_id
+  }
+
+  async function setWebId(): Promise<boolean> {
+    const controlsResponse = await fetch(endpoint, { credentials: 'include' })
+    const { controls } = await controlsResponse.json()
+    const webIdResponse = await fetch(controls.oidc.webId, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ webId: userId.value }),
+    })
+    const data = await webIdResponse.json()
+    // this is required to update the OIDC interaction
+    const confirmResponse = await fetch(data.location, {
+      credentials: 'include',
+      redirect: 'manual',
+    })
+    return confirmResponse.ok
   }
 
   async function linkWebId(webId: string): Promise<boolean> {
@@ -94,6 +119,20 @@ export const useCoreStore = defineStore('core', () => {
       pushSubscription.value = subscription.toJSON() as PushSubscription
       effect.registerPushSubscription(pushSubscription.value)
     }
+  }
+
+  async function consent(): Promise<string> {
+    const controlsResponse = await fetch(endpoint, { credentials: 'include' })
+    const { controls } = await controlsResponse.json()
+    const webIdResponse = await fetch(controls.oidc.consent, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ remember: true }),
+    })
+    const data = await webIdResponse.json()
+    console.log(data)
+    return data.location
   }
 
   async function enableNotifications() {
@@ -121,6 +160,9 @@ export const useCoreStore = defineStore('core', () => {
     signIn,
     signUp,
     signOut,
+    getClientInfo,
+    setWebId,
+    consent,
     linkWebId,
     navigateHome,
     enableNotifications,

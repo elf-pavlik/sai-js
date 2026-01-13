@@ -1,7 +1,11 @@
 <template>
   <v-main>
+    <AuthenticateApp
+      v-if="registered"
+      :application="registered"
+    />
     <AuthorizeApp
-      v-if="!route.query.resource && appStore.authorizationData
+      v-if="!registered && !route.query.resource && appStore.authorizationData
         && (agent || appStore.application)"
       :application="appStore.application"
       :agent="agent"
@@ -18,26 +22,35 @@
 </template>
 
 <script lang="ts" setup>
+import AuthenticateApp from '@/components/AuthenticateApp.vue'
 import AuthorizeApp from '@/components/AuthorizeApp.vue'
 import ShareResource from '@/components/ShareResource.vue'
 import { useAppStore } from '@/store/app'
+import { useCoreStore } from '@/store/core'
 import { AgentType } from '@janeirodigital/sai-api-messages'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const appStore = useAppStore()
+const coreStore = useCoreStore()
 
 const route = useRoute()
 const clientId = ref<string | null>(null)
 const agentId = ref<string | null>(null)
 const resourceId = ref<string | undefined>()
+const registered = computed(() => appStore.applicationList.find((app) => app.id === clientId.value))
 
 watch(
   () => [route.query.client_id, route.query.resource],
-  ([cId, resource]) => {
+  async ([cId, resource]) => {
     if (route.name !== 'authorization') return
     if (route.query.webid) return
-    if (!cId || Array.isArray(cId)) throw new Error('one client_id is required')
+    if (!cId || Array.isArray(cId)) {
+      clientId.value = await coreStore.getClientInfo()
+      await coreStore.setWebId()
+      await appStore.listApplications()
+      return
+    }
     clientId.value = cId
     if (resource) {
       if (Array.isArray(resource)) throw new Error('only one resource is allowed')

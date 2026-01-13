@@ -734,10 +734,10 @@ function authorize(granted = true) {
 
 watch(
   () => appStore.accessAuthorization,
-  (accessAuthorization) => {
+  async (accessAuthorization) => {
     if (accessAuthorization) {
       if (props.redirect) {
-        window.location.href = accessAuthorization.callbackEndpoint
+        window.location.href = await coreStore.consent()
       } else if (props.authorizationData.agentType === AgentType.SocialAgent) {
         router.push({ name: 'social-agent-list' })
       } else {

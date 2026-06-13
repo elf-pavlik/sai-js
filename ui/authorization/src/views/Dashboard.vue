@@ -27,6 +27,12 @@
       <span>{{ $t('peers') }}</span>
     </v-btn>
 
+    <v-btn :to="{ name: 'role-list' }">
+      <v-icon>mdi-shield-account</v-icon>
+
+      <span>{{ $t('roles') }}</span>
+    </v-btn>
+
     <v-btn :to="{ name: 'data-registry-list', query: { agent: coreStore.userId } }">
       <v-icon>mdi-hexagon-multiple-outline</v-icon>
 

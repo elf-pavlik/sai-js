@@ -145,6 +145,14 @@ export const SocialAgent = S.Struct({
 
 export const SocialAgentList = S.Array(SocialAgent)
 
+export const Role = S.Struct({
+  id: IRI,
+  label: S.String,
+  members: S.Array(IRI),
+})
+
+export const RoleList = S.Array(Role)
+
 export const SocialAgentInvitation = S.Struct({
   id: IRI,
   label: S.String,
@@ -307,6 +315,12 @@ export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentI
   }
 ) {}
 
+export class ListRoles extends S.TaggedRequest<ListRoles>()('ListRoles', {
+  failure: S.Never,
+  success: RoleList,
+  payload: {},
+}) {}
+
 export class ListDataRegistries extends S.TaggedRequest<ListDataRegistries>()(
   'ListDataRegistries',
   {
@@ -395,6 +409,7 @@ export class SaiService extends Context.Tag('SaiService')<
     ) => Effect.Effect<S.Schema.Type<typeof AuthorizationData>>
     readonly getResource: (id: IRI, lang: string) => Effect.Effect<S.Schema.Type<typeof Resource>>
     readonly getSocialAgents: () => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
+    readonly getRoles: () => Effect.Effect<S.Schema.Type<typeof RoleList>>
     readonly getSocialAgentInvitations: () => Effect.Effect<
       S.Schema.Type<typeof SocialAgentInvitationList>
     >
@@ -487,6 +502,12 @@ export const router = RpcRouter.make(
     Effect.gen(function* () {
       const saiService = yield* SaiService
       return yield* saiService.getSocialAgentInvitations()
+    })
+  ),
+  Rpc.effect(ListRoles, () =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.getRoles()
     })
   ),
   Rpc.effect(ListDataRegistries, ({ agentId, lang }) =>

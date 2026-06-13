@@ -17,6 +17,7 @@ import {
   ListApplications,
   ListDataInstances,
   ListDataRegistries,
+  ListRoles,
   ListSocialAgentInvitations,
   ListSocialAgents,
   RegisterPushSubscription,
@@ -122,6 +123,14 @@ export async function listSocialAgents() {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new ListSocialAgents())
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function listRoles() {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new ListRoles())
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

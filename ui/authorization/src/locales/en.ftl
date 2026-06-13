@@ -23,6 +23,7 @@ notifications-alert =
 
 applications = Apps
 peers = Peers
+roles = Roles
 settings = Settings
 
 # Settings

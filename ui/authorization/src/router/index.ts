@@ -26,6 +26,12 @@ const routes = [
               import(/* webpackChunkName: "social-agent-list" */ '@/views/SocialAgentList.vue'),
           },
           {
+            path: '/roles',
+            name: 'role-list',
+            component: () =>
+              import(/* webpackChunkName: "role-list" */ '@/views/RoleList.vue'),
+          },
+          {
             path: '/data-registries',
             name: 'data-registry-list',
             component: () =>

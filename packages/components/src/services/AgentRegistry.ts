@@ -8,6 +8,7 @@ import type {
 import {
   Application,
   IRI,
+  Role,
   SocialAgent,
   SocialAgentInvitation,
   UnregisteredApplication,
@@ -34,6 +35,20 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
     profiles.push(buildSocialAgentProfile(registration))
   }
   return profiles
+}
+
+export const getRoles = async (saiSession: AuthorizationAgent) => {
+  const roles = []
+  for await (const registration of saiSession.roleRegistrations) {
+    roles.push(
+      Role.make({
+        id: IRI.make(registration.iri),
+        label: registration.label,
+        members: registration.members.map((m) => IRI.make(m)),
+      })
+    )
+  }
+  return roles
 }
 
 export const addSocialAgent = async (

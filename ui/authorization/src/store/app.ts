@@ -8,6 +8,7 @@ import type {
   DataInstanceList,
   DataRegistryList,
   Resource,
+  RoleList,
   ShareAuthorization,
   ShareAuthorizationConfirmation,
   SocialAgent,
@@ -30,6 +31,7 @@ export const useAppStore = defineStore('app', () => {
   const authorizationData = ref<S.Schema.Type<typeof AuthorizationData> | null>(null)
   const accessAuthorization = ref<S.Schema.Type<typeof AccessAuthorization> | null>(null)
   const socialAgentList = ref<S.Schema.Type<typeof SocialAgentList>>([])
+  const roleList = ref<S.Schema.Type<typeof RoleList>>([])
   const application = ref<S.Schema.Type<typeof UnregisteredApplication>>()
   const loadedDataInstances = reactive<Record<string, S.Schema.Type<typeof DataInstanceList>>>({})
   const applicationList = ref<S.Schema.Type<typeof ApplicationList>>([])
@@ -70,6 +72,12 @@ export const useAppStore = defineStore('app', () => {
   async function listSocialAgents(force = false) {
     if (!socialAgentList.value.length || force) {
       socialAgentList.value = await effect.listSocialAgents()
+    }
+  }
+
+  async function listRoles(force = false) {
+    if (!roleList.value.length || force) {
+      roleList.value = await effect.listRoles()
     }
   }
 
@@ -125,6 +133,7 @@ export const useAppStore = defineStore('app', () => {
     accessAuthorization,
     loadedDataInstances,
     socialAgentList,
+    roleList,
     application,
     applicationList,
     dataRegistryList,
@@ -137,6 +146,7 @@ export const useAppStore = defineStore('app', () => {
     authorizeApp,
     requestAccess,
     listSocialAgents,
+    listRoles,
     getUnregisteredApplication,
     listApplications,
     listDataRegistries,

@@ -21,6 +21,7 @@ notifications-alert =
 
 applications = Aplikacje
 peers = Znajomi
+roles = Role
 settings = Ustawienia
 
 # Settings

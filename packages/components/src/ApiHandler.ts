@@ -22,6 +22,7 @@ import {
   acceptInvitation,
   createInvitation,
   getApplications,
+  getRoles,
   getSocialAgentInvitations,
   getSocialAgents,
   getUnregisteredApplication,
@@ -85,6 +86,7 @@ export class ApiHandler extends OperationHttpHandler {
         getUnregisteredApplication: (id) =>
           Effect.promise(() => getUnregisteredApplication(session, id)),
         getSocialAgents: () => Effect.promise(() => getSocialAgents(session)),
+        getRoles: () => Effect.promise(() => getRoles(session)),
         getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
         getAuthorizationData: (agentId, agentType, lang) =>
           Effect.promise(() => getDescriptions(session, agentId, agentType, lang)),

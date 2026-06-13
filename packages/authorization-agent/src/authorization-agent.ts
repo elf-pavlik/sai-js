@@ -2,6 +2,8 @@ import {
   type AccessGrantData,
   AuthorizationAgentFactory,
   type CRUDApplicationRegistration,
+  type CRUDRoleRegistration,
+  type CRUDRoleRegistry,
   type CRUDRegistrySet,
   type CRUDSocialAgentInvitation,
   type CRUDSocialAgentRegistration,
@@ -118,6 +120,10 @@ export class AuthorizationAgent {
 
   get socialAgentInvitations(): AsyncIterable<CRUDSocialAgentInvitation> {
     return this.registrySet.hasAgentRegistry.socialAgentInvitations
+  }
+
+  get roleRegistrations(): AsyncIterable<CRUDRoleRegistration> {
+    return this.registrySet.hasRoleRegistry.roleRegistrations
   }
 
   public async findSocialAgentInvitation(

@@ -32,6 +32,7 @@ GRAPH <meta:https://registry/acme/> {
     interop:hasAgentRegistry <https://registry/acme/agent/>;
     interop:hasAuthorizationRegistry <https://registry/acme/authorization/>;
     interop:hasGrantRegistry <https://registry/acme/grant/>;
+    interop:hasRoleRegistry <https://registry/acme/role/>;
     interop:hasDataRegistry
       <https://data/acme-rnd/>,
       <https://data/acme-hr/>.
@@ -156,6 +157,14 @@ GRAPH <https://registry/acme/authorization/v8k3mx/m9k4wr> {
 
 GRAPH <meta:https://registry/acme/authorization/v8k3mx/m9k4wr> {
         <https://registry/acme/authorization/v8k3mx/m9k4wr> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/acme/role/> {
+  <https://registry/acme/role/>
+    a interop:RoleRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/acme/role/> {
 }
 
 GRAPH <meta:https://registry/acme/agent/> {
@@ -544,6 +553,7 @@ GRAPH <meta:https://registry/alice/> {
     interop:hasAgentRegistry <https://registry/alice/agent/>;
     interop:hasAuthorizationRegistry <https://registry/alice/authorization/>;
     interop:hasGrantRegistry <https://registry/alice/grant/>;
+    interop:hasRoleRegistry <https://registry/alice/role/>;
     interop:hasDataRegistry
       <https://data/alice-home/>,
       <https://data/alice-work/>.
@@ -639,6 +649,28 @@ GRAPH <https://registry/alice/authorization/x9k2m5/t5m8kr> {
 
 GRAPH <meta:https://registry/alice/authorization/x9k2m5/t5m8kr> {
         <https://registry/alice/authorization/x9k2m5/t5m8kr> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/alice/role/> {
+  <https://registry/alice/role/>
+    a interop:RoleRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/alice/role/> {
+  <https://registry/alice/role/>
+    ldp:contains
+      <https://registry/alice/role/ps8hc3>.
+}
+
+GRAPH <https://registry/alice/role/ps8hc3> {
+  <https://registry/alice/role/ps8hc3>
+    a interop:RoleRegistration;
+    skos:prefLabel "Corps";
+    interop:hasMember <https://id/acme>.
+}
+
+GRAPH <meta:https://registry/alice/role/ps8hc3> {
+        <https://registry/alice/role/ps8hc3> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/alice/agent/> {
@@ -951,6 +983,7 @@ GRAPH <meta:https://registry/bob/> {
     interop:hasAgentRegistry <https://registry/bob/agent/>;
     interop:hasAuthorizationRegistry <https://registry/bob/authorization/>;
     interop:hasGrantRegistry <https://registry/bob/grant/>;
+    interop:hasRoleRegistry <https://registry/bob/role/>;
     interop:hasDataRegistry
       <https://data/bob/>.
 }
@@ -966,6 +999,14 @@ GRAPH <https://registry/bob/grant/> {
 GRAPH <meta:https://registry/bob/authorization/> {
   <https://registry/bob/authorization/>
     a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <meta:https://registry/bob/role/> {
+  <https://registry/bob/role/>
+    a interop:RoleRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/bob/role/> {
 }
 
 GRAPH <meta:https://registry/bob/agent/> {
@@ -1156,6 +1197,7 @@ GRAPH <meta:https://registry/kim/> {
     interop:hasAgentRegistry <https://registry/kim/agent/>;
     interop:hasAuthorizationRegistry <https://registry/kim/authorization/>;
     interop:hasGrantRegistry <https://registry/kim/grant/>;
+    interop:hasRoleRegistry <https://registry/kim/role/>;
     interop:hasDataRegistry
       <https://data/kim-red/>,
       <https://data/kim-blue/>.
@@ -1175,6 +1217,7 @@ GRAPH <meta:https://registry/yoyo/> {
     interop:hasAgentRegistry <https://registry/yoyo/agent/>;
     interop:hasAuthorizationRegistry <https://registry/yoyo/authorization/>;
     interop:hasGrantRegistry <https://registry/yoyo/grant/>;
+    interop:hasRoleRegistry <https://registry/yoyo/role/>;
     interop:hasDataRegistry
       <https://data/yoyo-eu/>,
       <https://data/yoyo-na/>.
@@ -1243,6 +1286,14 @@ GRAPH <https://registry/yoyo/authorization/r4j9mw/t8p3wr> {
 
 GRAPH <meta:https://registry/yoyo/authorization/r4j9mw/t8p3wr> {
         <https://registry/yoyo/authorization/r4j9mw/t8p3wr> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/yoyo/role/> {
+  <https://registry/yoyo/role/>
+    a interop:RoleRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/role/> {
 }
 
 GRAPH <meta:https://registry/yoyo/agent/> {
@@ -1389,6 +1440,14 @@ GRAPH <meta:https://registry/yoyo/grant/t5m8qr> {
 GRAPH <meta:https://registry/kim/authorization/> {
   <https://registry/kim/authorization/>
     a interop:AuthorizationRegistry, ldp:Resource.
+}
+
+GRAPH <meta:https://registry/kim/role/> {
+  <https://registry/kim/role/>
+    a interop:RoleRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/kim/role/> {
 }
 
 GRAPH <meta:https://registry/kim/agent/> {

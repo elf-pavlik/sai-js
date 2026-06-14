@@ -11,6 +11,7 @@ export class CRUDRoleRegistration extends CRUDResource {
       await this.fetchData()
     } else {
       this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.RoleRegistration))
+      this.datasetFromData()
     }
   }
 
@@ -30,5 +31,21 @@ export class CRUDRoleRegistration extends CRUDResource {
 
   get members(): string[] {
     return this.getObjectsArray(INTEROP.hasMember).map((object) => object.value)
+  }
+
+  protected datasetFromData(): void {
+    if (this.data.label) {
+      this.dataset.add(
+        DataFactory.quad(this.node, SKOS.prefLabel, DataFactory.literal(this.data.label as string))
+      )
+    }
+    const members = this.data.members
+    if (Array.isArray(members)) {
+      for (const member of members) {
+        this.dataset.add(
+          DataFactory.quad(this.node, INTEROP.hasMember, DataFactory.namedNode(member))
+        )
+      }
+    }
   }
 }

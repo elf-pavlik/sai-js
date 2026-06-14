@@ -35,4 +35,32 @@ export class CRUDRoleRegistry extends CRUDContainer {
       },
     }
   }
+
+  public async createRole(label: string, members: string[]): Promise<CRUDRoleRegistration> {
+    const registration = await this.factory.crud.roleRegistration(this.iriForContained(), {
+      label,
+      members,
+    })
+    await registration.update()
+    await this.fetchData()
+    return registration
+  }
+
+  public async updateRole(
+    roleId: string,
+    label: string,
+    members: string[]
+  ): Promise<CRUDRoleRegistration> {
+    const registration = await this.factory.crud.roleRegistration(roleId, { label, members })
+    await registration.update()
+    return registration
+  }
+
+  public async deleteRole(roleId: string): Promise<void> {
+    const { ok } = await this.fetch(roleId, { method: 'DELETE' })
+    if (!ok) {
+      throw new Error('failed to delete role')
+    }
+    await this.fetchData()
+  }
 }

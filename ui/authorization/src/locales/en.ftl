@@ -72,3 +72,15 @@ invitation-note-input =
   .label = Note
 
 required = required
+
+# Roles
+save = Save
+edit = Edit
+delete = Delete
+new-role = New Role
+edit-role = Edit Role
+role-label =
+  .label = Role label
+add-members = Add members
+delete-role = Delete Role
+delete-role-confirm = To confirm, type the role label below:

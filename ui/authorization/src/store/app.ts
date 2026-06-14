@@ -8,6 +8,7 @@ import type {
   DataInstanceList,
   DataRegistryList,
   Resource,
+  Role,
   RoleList,
   ShareAuthorization,
   ShareAuthorizationConfirmation,
@@ -17,8 +18,8 @@ import type {
   SocialAgentList,
   UnregisteredApplication,
 } from '@janeirodigital/sai-api-messages'
-import { IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
+import { IRI } from '@janeirodigital/sai-api-messages'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
@@ -79,6 +80,30 @@ export const useAppStore = defineStore('app', () => {
     if (!roleList.value.length || force) {
       roleList.value = await effect.listRoles()
     }
+  }
+
+  async function createRole(
+    label: string,
+    members: readonly S.Schema.Type<typeof IRI>[]
+  ): Promise<S.Schema.Type<typeof Role>> {
+    const role = await effect.createRole(label, members)
+    listRoles(true)
+    return role
+  }
+
+  async function updateRole(
+    id: S.Schema.Type<typeof IRI>,
+    label: string,
+    members: readonly S.Schema.Type<typeof IRI>[]
+  ): Promise<S.Schema.Type<typeof Role>> {
+    const role = await effect.updateRole(id, label, members)
+    listRoles(true)
+    return role
+  }
+
+  async function deleteRole(id: S.Schema.Type<typeof IRI>): Promise<void> {
+    await effect.deleteRole(id)
+    listRoles(true)
   }
 
   async function listSocialAgentInvitations(force = false) {
@@ -147,6 +172,9 @@ export const useAppStore = defineStore('app', () => {
     requestAccess,
     listSocialAgents,
     listRoles,
+    createRole,
+    updateRole,
+    deleteRole,
     getUnregisteredApplication,
     listApplications,
     listDataRegistries,

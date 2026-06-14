@@ -9,6 +9,8 @@ import {
   BootstrapAccount,
   CheckHandle,
   CreateInvitation,
+  CreateRole,
+  DeleteRole,
   GetAuthoriaztionData,
   GetResource,
   GetUnregisteredApplication,
@@ -25,6 +27,7 @@ import {
   type ShareAuthorization,
   ShareResource,
   type UiRpcRouter,
+  UpdateRole,
 } from '@janeirodigital/sai-api-messages'
 import { Effect, Layer } from 'effect'
 import type * as S from 'effect/Schema'
@@ -205,6 +208,37 @@ export async function authorizeApp(authorization: S.Schema.Type<typeof Authoriza
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new AuthorizeApp({ authorization }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function createRole(
+  label: string,
+  members: readonly S.Schema.Type<typeof IRI>[]
+) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new CreateRole({ label, members }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function updateRole(
+  id: S.Schema.Type<typeof IRI>,
+  label: string,
+  members: readonly S.Schema.Type<typeof IRI>[]
+) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new UpdateRole({ id, label, members }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function deleteRole(id: S.Schema.Type<typeof IRI>) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new DeleteRole({ id }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

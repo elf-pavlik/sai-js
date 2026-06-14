@@ -321,6 +321,33 @@ export class ListRoles extends S.TaggedRequest<ListRoles>()('ListRoles', {
   payload: {},
 }) {}
 
+export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
+  failure: S.Never,
+  success: Role,
+  payload: {
+    label: S.String,
+    members: S.Array(IRI),
+  },
+}) {}
+
+export class UpdateRole extends S.TaggedRequest<UpdateRole>()('UpdateRole', {
+  failure: S.Never,
+  success: Role,
+  payload: {
+    id: IRI,
+    label: S.String,
+    members: S.Array(IRI),
+  },
+}) {}
+
+export class DeleteRole extends S.TaggedRequest<DeleteRole>()('DeleteRole', {
+  failure: S.Never,
+  success: S.Void,
+  payload: {
+    id: IRI,
+  },
+}) {}
+
 export class ListDataRegistries extends S.TaggedRequest<ListDataRegistries>()(
   'ListDataRegistries',
   {
@@ -410,6 +437,16 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly getResource: (id: IRI, lang: string) => Effect.Effect<S.Schema.Type<typeof Resource>>
     readonly getSocialAgents: () => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
     readonly getRoles: () => Effect.Effect<S.Schema.Type<typeof RoleList>>
+    readonly createRole: (
+      label: string,
+      members: readonly S.Schema.Type<typeof IRI>[]
+    ) => Effect.Effect<S.Schema.Type<typeof Role>>
+    readonly updateRole: (
+      id: IRI,
+      label: string,
+      members: readonly S.Schema.Type<typeof IRI>[]
+    ) => Effect.Effect<S.Schema.Type<typeof Role>>
+    readonly deleteRole: (id: IRI) => Effect.Effect<S.Schema.Type<typeof S.Void>>
     readonly getSocialAgentInvitations: () => Effect.Effect<
       S.Schema.Type<typeof SocialAgentInvitationList>
     >
@@ -508,6 +545,24 @@ export const router = RpcRouter.make(
     Effect.gen(function* () {
       const saiService = yield* SaiService
       return yield* saiService.getRoles()
+    })
+  ),
+  Rpc.effect(CreateRole, ({ label, members }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.createRole(label, members)
+    })
+  ),
+  Rpc.effect(UpdateRole, ({ id, label, members }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.updateRole(id, label, members)
+    })
+  ),
+  Rpc.effect(DeleteRole, ({ id }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.deleteRole(id)
     })
   ),
   Rpc.effect(ListDataRegistries, ({ agentId, lang }) =>

@@ -22,11 +22,16 @@ import {
   acceptInvitation,
   createInvitation,
   getApplications,
-  getRoles,
   getSocialAgentInvitations,
   getSocialAgents,
   getUnregisteredApplication,
 } from './services/AgentRegistry.js'
+import {
+  createRole,
+  deleteRole,
+  getRoles,
+  updateRole,
+} from './services/RoleRegistry.js'
 import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
 import {
@@ -87,6 +92,10 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => getUnregisteredApplication(session, id)),
         getSocialAgents: () => Effect.promise(() => getSocialAgents(session)),
         getRoles: () => Effect.promise(() => getRoles(session)),
+        createRole: (label, members) => Effect.promise(() => createRole(session, label, members)),
+        updateRole: (id, label, members) =>
+          Effect.promise(() => updateRole(session, id, label, members)),
+        deleteRole: (id) => Effect.promise(() => deleteRole(session, id)),
         getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
         getAuthorizationData: (agentId, agentType, lang) =>
           Effect.promise(() => getDescriptions(session, agentId, agentType, lang)),

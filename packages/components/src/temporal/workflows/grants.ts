@@ -4,6 +4,7 @@ import type * as activities from '../activities/grants.js'
 
 const {
   findAffectedAuthorizations,
+  getGrantees,
   generateGrants,
   storeDataGrant,
   requestDelegation,
@@ -26,6 +27,20 @@ export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
 export async function createGrantsForAuthorization(
   payload: activities.CreateGrantsInput
 ): Promise<void> {
+  const grantees = await getGrantees(payload)
+  await Promise.all(
+    grantees.map((grantee) =>
+      startChild(createGrantsForAgent, {
+        args: [{ grantee, ...payload }],
+        parentClosePolicy: 'ABANDON',
+      })
+    )
+  )
+}
+
+export async function createGrantsForAgent(
+  payload: activities.CreateGrantsForAgentInput
+): Promise<void> {
   const accessGrantData = await generateGrants(payload)
 
   await Promise.all(accessGrantData.sourceGrants.map((grant) => storeGrantAndAcr(grant)))
@@ -42,7 +57,6 @@ export async function createGrantsForAuthorization(
   }
 
   await storeAccessGrant(finalAccessGrantData)
-
   await setAccessGrant(finalAccessGrantData)
 }
 
@@ -50,7 +64,6 @@ export async function updateDelegatedGrants(
   payload: activities.FindAffectedAuthorizationsInput
 ): Promise<void> {
   const result = await findAffectedAuthorizations(payload)
-  // TODO let resource owner's UAS issue the grants
   await Promise.all(
     result.map((payload) =>
       startChild(updateGrantsForAuthorization, {

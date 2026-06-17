@@ -3,7 +3,6 @@ import {
   AuthorizationAgentFactory,
   type CRUDApplicationRegistration,
   type CRUDRoleRegistration,
-  type CRUDRoleRegistry,
   type CRUDRegistrySet,
   type CRUDSocialAgentInvitation,
   type CRUDSocialAgentRegistration,
@@ -252,16 +251,13 @@ export class AuthorizationAgent {
     )
   }
 
-  public async generateAccessGrant(accessAuthorizationIri: string): Promise<AccessGrantData> {
+  public async generateAccessGrant(
+    accessAuthorizationIri: string,
+    grantee: string
+  ): Promise<AccessGrantData> {
     const accessAuthorization =
       await this.factory.readable.accessAuthorization(accessAuthorizationIri)
-    const agentRegistration = await this.registrySet.hasAgentRegistry.findRegistration(
-      accessAuthorization.grantee
-    )
-    if (!agentRegistration) {
-      throw new Error('agent registration for the grantee does not exist')
-    }
-    return accessAuthorization.generateAccessGrant(this.registrySet, agentRegistration)
+    return accessAuthorization.generateAccessGrant(this.registrySet, grantee)
   }
 
   public async findSocialAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {

@@ -43,11 +43,34 @@ export interface CreateGrantsInput {
   authorizationId: string
 }
 
-export async function generateGrants(payload: CreateGrantsInput): Promise<AccessGrantData> {
+export interface CreateGrantsForAgentInput extends CreateGrantsInput {
+  grantee: string
+}
+
+export async function getGrantees(payload: CreateGrantsInput): Promise<string[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
 
-  return session.generateAccessGrant(payload.authorizationId)
+  const accessAuthorization = await session.factory.readable.accessAuthorization(
+    payload.authorizationId
+  )
+
+  const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
+    accessAuthorization.grantee
+  )
+  if (agentRegistration) return [agentRegistration.registeredAgent]
+
+  if (session.registrySet.hasRoleRegistry.containedIncludes(accessAuthorization.grantee)) {
+    const role = await session.factory.crud.roleRegistration(accessAuthorization.grantee)
+    return role.members
+  }
+  throw new Error('agent or role registration for the grantee does not exist')
+}
+
+export async function generateGrants(payload: CreateGrantsForAgentInput): Promise<AccessGrantData> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+  return session.generateAccessGrant(payload.authorizationId, payload.grantee)
 }
 
 export async function storeDataGrant(payload: FinalDataGrantData): Promise<void> {

@@ -1,4 +1,9 @@
-import { deletePatch, getDescriptionResource, insertPatch } from '@janeirodigital/interop-utils'
+import {
+  deletePatch,
+  getDescriptionResource,
+  insertPatch,
+  LDP,
+} from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { Store } from 'n3'
 import { CRUDResource } from '.'
@@ -11,6 +16,12 @@ export class CRUDContainer extends CRUDResource {
     let containedIri = `${this.iri}${this.factory.randomUUID()}`
     if (container) containedIri += '/'
     return containedIri
+  }
+
+  public containedIncludes(id: string): boolean {
+    return this.getObjectsArray(LDP.contains)
+      .map((node) => node.value)
+      .includes(id)
   }
 
   public async applyPatch(sparqlUpdate: string, create = false): Promise<void> {

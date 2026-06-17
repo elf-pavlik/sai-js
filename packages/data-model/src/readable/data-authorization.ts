@@ -3,7 +3,6 @@ import { Memoize } from 'typescript-memoize'
 import { ReadableResource, type SelectedFromRegistryDataGrant } from '.'
 import type {
   AuthorizationAgentFactory,
-  CRUDAgentRegistration,
   CRUDRegistrySet,
   DataGrantData,
   FinalDataGrantData,
@@ -85,7 +84,8 @@ export class ReadableDataAuthorization extends ReadableResource {
   private generateChildDelegatedGrantData(
     parentGrantIri: string,
     sourceGrant: InheritableDataGrant,
-    registrySet: CRUDRegistrySet
+    registrySet: CRUDRegistrySet,
+    grantee: string
   ): DataGrantData[] {
     return this.hasInheritingAuthorization
       .map((childAuthorization) => {
@@ -98,7 +98,7 @@ export class ReadableDataAuthorization extends ReadableResource {
         }
         const childData: DataGrantData = {
           id: childGrantIri,
-          grantee: this.grantee,
+          grantee: grantee,
           grantedBy: this.grantedBy,
           dataOwner: childSourceGrant.dataOwner,
           registeredShapeTree: childAuthorization.registeredShapeTree,
@@ -118,7 +118,7 @@ export class ReadableDataAuthorization extends ReadableResource {
 
   private async generateDelegatedDataGrants(
     registrySet: CRUDRegistrySet,
-    granteeRegistration: CRUDAgentRegistration
+    grantee: string
   ): Promise<DataGrantData[]> {
     if (this.scopeOfAuthorization === INTEROP.Inherited.value) {
       throw new Error(
@@ -133,7 +133,7 @@ export class ReadableDataAuthorization extends ReadableResource {
         continue
       }
       // don't create delegated data grants for data owned by the grantee (registeredAgent)
-      if (this.grantee === agentRegistration.registeredAgent) {
+      if (grantee === agentRegistration.registeredAgent) {
         continue
       }
       const accessGrantIri = agentRegistration.reciprocalRegistration?.hasAccessGrant
@@ -157,7 +157,8 @@ export class ReadableDataAuthorization extends ReadableResource {
         const childGrantData: DataGrantData[] = this.generateChildDelegatedGrantData(
           regularGrantIri,
           sourceGrant as InheritableDataGrant,
-          registrySet
+          registrySet,
+          grantee
         )
         const scope: string =
           this.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value ||
@@ -166,7 +167,7 @@ export class ReadableDataAuthorization extends ReadableResource {
             : INTEROP.AllFromRegistry.value
         // TODO: handle case if upstream is selected and delegation tries all
         const data: DataGrantData = {
-          grantee: this.grantee,
+          grantee: grantee,
           grantedBy: this.grantedBy,
           dataOwner: sourceGrant.dataOwner,
           registeredShapeTree: sourceGrant.registeredShapeTree,
@@ -198,6 +199,7 @@ export class ReadableDataAuthorization extends ReadableResource {
     parentGrantIri: string,
     dataRegistrations: ReadableDataRegistration[],
     registrySet: CRUDRegistrySet,
+    grantee: string,
     storageIri: string
   ): FinalDataGrantData[] {
     return this.hasInheritingAuthorization
@@ -212,7 +214,7 @@ export class ReadableDataAuthorization extends ReadableResource {
         }
         const childData: FinalDataGrantData = {
           id: childGrantIri,
-          grantee: childAuthorization.grantee,
+          grantee: grantee,
           grantedBy: childAuthorization.grantedBy,
           dataOwner: childAuthorization.grantedBy,
           registeredShapeTree: childAuthorization.registeredShapeTree,
@@ -229,7 +231,7 @@ export class ReadableDataAuthorization extends ReadableResource {
 
   private async generateSourceDataGrants(
     registrySet: CRUDRegistrySet,
-    granteeRegistration: CRUDAgentRegistration
+    grantee: string
   ): Promise<FinalDataGrantData[]> {
     if (this.scopeOfAuthorization === INTEROP.Inherited.value) {
       throw new Error(
@@ -268,6 +270,7 @@ export class ReadableDataAuthorization extends ReadableResource {
         regularGrantIri,
         dataRegistrations,
         registrySet,
+        grantee,
         await dataRegistry.storageIri()
       )
 
@@ -276,7 +279,7 @@ export class ReadableDataAuthorization extends ReadableResource {
         scopeOfGrant = INTEROP.SelectedFromRegistry.value
       const data: FinalDataGrantData = {
         id: regularGrantIri,
-        grantee: this.grantee,
+        grantee: grantee,
         grantedBy: this.grantedBy,
         dataOwner: this.grantedBy,
         registeredShapeTree: this.registeredShapeTree,
@@ -300,7 +303,7 @@ export class ReadableDataAuthorization extends ReadableResource {
 
   public async generateDataGrants(
     registrySet: CRUDRegistrySet,
-    granteeRegistration: CRUDAgentRegistration
+    grantee: string
   ): Promise<SourceAndDelegatedGrants> {
     const dataGrantData: SourceAndDelegatedGrants = {
       source: [],
@@ -314,7 +317,7 @@ export class ReadableDataAuthorization extends ReadableResource {
      * Otherwise only delegated data grants are created
      */
     if (!this.dataOwner || this.dataOwner === this.grantedBy) {
-      dataGrantData.source = await this.generateSourceDataGrants(registrySet, granteeRegistration)
+      dataGrantData.source = await this.generateSourceDataGrants(registrySet, grantee)
     }
 
     // do not create delegated data grants if granted by data owner, source grants will be created instead
@@ -326,10 +329,7 @@ export class ReadableDataAuthorization extends ReadableResource {
      * Otherwise only source data grants are created
      */
     if (!this.dataOwner || this.dataOwner !== this.grantedBy) {
-      dataGrantData.delegated = await this.generateDelegatedDataGrants(
-        registrySet,
-        granteeRegistration
-      )
+      dataGrantData.delegated = await this.generateDelegatedDataGrants(registrySet, grantee)
     }
 
     return dataGrantData

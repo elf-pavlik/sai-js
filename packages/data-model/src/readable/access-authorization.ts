@@ -99,10 +99,15 @@ export class ReadableAccessAuthorization extends ReadableResource {
 
   public async generateAccessGrant(
     registrySet: CRUDRegistrySet,
-    granteeRegistration: CRUDAgentRegistration
+    grantee: string
   ): Promise<AccessGrantData> {
     const sourceGrants: FinalDataGrantData[] = []
     const delegatedGrants: DataGrantData[] = []
+
+    const granteeRegistration = await registrySet.hasAgentRegistry.findRegistration(grantee)
+    if (!granteeRegistration) {
+      throw new Error('agent registration for the grantee does not exist')
+    }
 
     if (this.granted) {
       const regularAuthorizations: ReadableDataAuthorization[] = []
@@ -112,7 +117,7 @@ export class ReadableAccessAuthorization extends ReadableResource {
         }
       }
       for (const dataAuthorization of regularAuthorizations) {
-        const grants = await dataAuthorization.generateDataGrants(registrySet, granteeRegistration)
+        const grants = await dataAuthorization.generateDataGrants(registrySet, grantee)
         sourceGrants.push(...grants.source)
         delegatedGrants.push(...grants.delegated)
       }

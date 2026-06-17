@@ -8,7 +8,7 @@
     "jaq@latest",
     "ducker@latest",
     "pgcli@latest",
-    "github:dagger/nix#packages.x86_64-linux.dagger",
+    "github:dagger/nix/851584fd8093ab942b4aa833cdef53050b27279b#packages.x86_64-linux.dagger",
     "github:dagger/nix#packages.x86_64-linux.container-use",
     "bun@latest",
     "nixos-anywhere@latest",

@@ -127,7 +127,7 @@ export class ReadableAccessAuthorization extends ReadableResource {
       id: granteeRegistration.iriForContained(),
       grantedBy: this.factory.webId,
       grantedWith: this.factory.agentId,
-      grantee: this.grantee,
+      grantee: grantee,
       hasAccessNeedGroup: this.hasAccessNeedGroup,
       sourceGrants,
       delegatedGrants,

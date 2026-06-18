@@ -162,8 +162,8 @@
   </v-container>
 </template>
 <script lang="ts" setup>
-import { IRI } from '@janeirodigital/sai-api-messages'
 import { useAppStore } from '@/store/app'
+import { IRI } from '@janeirodigital/sai-api-messages'
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

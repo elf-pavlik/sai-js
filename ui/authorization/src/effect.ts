@@ -106,10 +106,22 @@ export async function getUnregisteredApplication(id: string) {
   return Effect.runPromise(program)
 }
 
-export async function getAuthoriaztionData(agentId: string, agentType: AgentType, lang: string) {
+export async function getAuthoriaztionData(
+  agentId: string,
+  agentType: AgentType,
+  lang: string,
+  accessNeedGroupIri?: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new GetAuthoriaztionData({ agentId: IRI.make(agentId), agentType, lang }))
+    return yield* client(
+      new GetAuthoriaztionData({
+        agentId: IRI.make(agentId),
+        agentType,
+        lang,
+        ...(accessNeedGroupIri ? { accessNeedGroupIri: IRI.make(accessNeedGroupIri) } : {}),
+      })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -212,10 +224,7 @@ export async function authorizeApp(authorization: S.Schema.Type<typeof Authoriza
   return Effect.runPromise(program)
 }
 
-export async function createRole(
-  label: string,
-  members: readonly S.Schema.Type<typeof IRI>[]
-) {
+export async function createRole(label: string, members: readonly S.Schema.Type<typeof IRI>[]) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new CreateRole({ label, members }))

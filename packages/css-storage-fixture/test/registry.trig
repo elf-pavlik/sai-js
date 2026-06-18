@@ -659,7 +659,8 @@ GRAPH <meta:https://registry/alice/role/> {
 GRAPH <https://registry/alice/role/> {
   <https://registry/alice/role/>
     ldp:contains
-      <https://registry/alice/role/ps8hc3>.
+      <https://registry/alice/role/ps8hc3>,
+      <https://registry/alice/role/xcoq3l>.
 }
 
 GRAPH <https://registry/alice/role/ps8hc3> {
@@ -673,6 +674,17 @@ GRAPH <meta:https://registry/alice/role/ps8hc3> {
         <https://registry/alice/role/ps8hc3> a ldp:Resource .
 }
 
+GRAPH <https://registry/alice/role/xcoq3l> {
+  <https://registry/alice/role/xcoq3l>
+    a interop:RoleRegistration;
+    skos:prefLabel "Chums";
+    interop:hasMember <https://id/kim>.
+}
+
+GRAPH <meta:https://registry/alice/role/xcoq3l> {
+        <https://registry/alice/role/xcoq3l> a ldp:Resource .
+}
+
 GRAPH <meta:https://registry/alice/agent/> {
   <https://registry/alice/agent/>
     a interop:AgentRegistry, ldp:Resource;
@@ -680,7 +692,8 @@ GRAPH <meta:https://registry/alice/agent/> {
       <https://registry/alice/agent/cvmsa4/>;
     interop:hasSocialAgentRegistration
       <https://registry/alice/agent/cp9g7p/>,
-      <https://registry/alice/agent/vzp6ky/>.
+      <https://registry/alice/agent/vzp6ky/>,
+      <https://registry/alice/agent/fpn3ih/>.
 }
 
 GRAPH <meta:https://registry/alice/agent/cp9g7p/> {
@@ -801,6 +814,55 @@ GRAPH <https://registry/alice/agent/vzp6ky/w9n2qx> {
 
 GRAPH <meta:https://registry/alice/agent/vzp6ky/w9n2qx> {
         <https://registry/alice/agent/vzp6ky/w9n2qx> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/alice/agent/fpn3ih/> {
+  <https://registry/alice/agent/fpn3ih/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://id/kim>;
+    interop:reciprocalRegistration <https://registry/kim/agent/plp3a3/>;
+    skos:prefLabel "Kim";
+    skos:note "A friend." .
+}
+
+GRAPH <meta:https://registry/alice/agent/fpn3ih/.acr> {
+        <https://registry/alice/agent/fpn3ih/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/agent/fpn3ih/.acr> {
+  <https://registry/alice/agent/fpn3ih/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/alice/agent/fpn3ih/>;
+    acp:accessControl
+      <https://registry/alice/agent/fpn3ih/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/fpn3ih/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/alice/agent/fpn3ih/.acr#fullOwnerAccess>,
+      <https://registry/alice/agent/fpn3ih/.acr#peerReadAccess>.
+
+  <https://registry/alice/agent/fpn3ih/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
+      ]
+    ].
+
+  <https://registry/alice/agent/fpn3ih/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/kim>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0>
+      ]
+    ].
 }
 
 GRAPH <https://registry/alice/grant/p3m8kr> {
@@ -1454,7 +1516,9 @@ GRAPH <meta:https://registry/kim/agent/> {
   <https://registry/kim/agent/>
     a interop:AgentRegistry, ldp:Resource;
     interop:hasSocialAgentInvitation
-      <https://registry/kim/agent/zi1nic>.
+      <https://registry/kim/agent/zi1nic>;
+    interop:hasSocialAgentRegistration
+      <https://registry/kim/agent/plp3a3/>.
 }
 
 GRAPH <meta:https://registry/kim/agent/zi1nic> {
@@ -1482,7 +1546,7 @@ GRAPH <https://registry/kim/.acr> {
     acp:memberAccessControl
       <https://registry/kim/.acr#fullOwnerAccess>.
 
-  <https://registry/kim/.acr#fullOwnerAccess>
+        <https://registry/kim/.acr#fullOwnerAccess>
     a acp:AccessControl;
     acp:apply [
       a acp:Policy;
@@ -1491,6 +1555,55 @@ GRAPH <https://registry/kim/.acr> {
         a acp:Matcher;
         acp:agent <https://id/kim>;
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0>
+      ]
+    ].
+}
+
+GRAPH <meta:https://registry/kim/agent/plp3a3/> {
+  <https://registry/kim/agent/plp3a3/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://id/alice>;
+    interop:reciprocalRegistration <https://registry/alice/agent/fpn3ih/>;
+    skos:prefLabel "Alice";
+    skos:note "A friend." .
+}
+
+GRAPH <meta:https://registry/kim/agent/plp3a3/.acr> {
+        <https://registry/kim/agent/plp3a3/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/kim/agent/plp3a3/.acr> {
+  <https://registry/kim/agent/plp3a3/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/kim/agent/plp3a3/>;
+    acp:accessControl
+      <https://registry/kim/agent/plp3a3/.acr#fullOwnerAccess>,
+      <https://registry/kim/agent/plp3a3/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/kim/agent/plp3a3/.acr#fullOwnerAccess>,
+      <https://registry/kim/agent/plp3a3/.acr#peerReadAccess>.
+
+  <https://registry/kim/agent/plp3a3/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/kim>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0>
+      ]
+    ].
+
+  <https://registry/kim/agent/plp3a3/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/alice>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
       ]
     ].
 }

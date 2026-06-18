@@ -1,8 +1,8 @@
 import {
+  LDP,
   deletePatch,
   getDescriptionResource,
   insertPatch,
-  LDP,
 } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { Store } from 'n3'

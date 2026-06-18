@@ -9,6 +9,10 @@
     :title="agent.label"
     :subtitle="agent.note"
   />
+  <v-card
+    v-if="role"
+    :title="role.label"
+  />
   <v-alert
     v-if="coreStore.lang !== authorizationData.accessNeedGroup.lang"
     color="info"
@@ -336,6 +340,7 @@ import {
   type DataAuthorization,
   type DataInstanceList,
   IRI,
+  type Role,
   Scopes,
   type SocialAgent,
 } from '@janeirodigital/sai-api-messages'
@@ -353,9 +358,19 @@ const appStore = useAppStore()
 const props = defineProps<{
   application?: Partial<S.Schema.Type<typeof Application>>
   agent?: S.Schema.Type<typeof SocialAgent>
+  role?: S.Schema.Type<typeof Role>
   authorizationData: S.Schema.Type<typeof AuthorizationData>
   redirect: boolean
 }>()
+
+const granteeAgentType = computed(() => {
+  if (props.agent) return AgentType.SocialAgent
+  if (props.role) return AgentType.Role
+  return AgentType.Application
+})
+
+const granteeId = computed(() => props.application?.id ?? props.agent?.id ?? props.role!.id)
+
 // TODO add stepper to support multiple top level access needs
 const accessNeed = computed(() => props.authorizationData.accessNeedGroup.needs[0])
 
@@ -377,8 +392,8 @@ watch(accessNeed, (need) => {
 watch(alternativeLang, (selectedLang) => {
   langLoading.value = true
   appStore.getAuthoriaztion(
-    props.application?.id ?? props.agent!.id,
-    props.application ? AgentType.Application : AgentType.SocialAgent,
+    granteeId.value,
+    granteeAgentType.value,
     selectedLang
   )
 })
@@ -483,7 +498,7 @@ function setScopeForAgents(scope: PropagatingScope): void {
 // TODO: make propagation independent of DOM
 onMounted(() => {
   // set default to current user
-  if (props.agent) {
+  if (props.agent || props.role) {
     topLevelScope.value = 'some'
     setScopeForAgents('none')
     agentsIndex[coreStore.userId!].scope = 'all'
@@ -707,7 +722,7 @@ function authorize(granted = true) {
     let authorization: S.Schema.Type<typeof Authorization>
     const baseAuthorization = {
       grantee: props.authorizationData.id,
-      agentType: props.agent ? AgentType.SocialAgent : AgentType.Application,
+      agentType: granteeAgentType.value,
       accessNeedGroup: props.authorizationData.accessNeedGroup.id,
     } as S.Schema.Type<typeof BaseAuthorization>
     if (granted) {
@@ -740,6 +755,8 @@ watch(
         window.location.href = await coreStore.consent()
       } else if (props.authorizationData.agentType === AgentType.SocialAgent) {
         router.push({ name: 'social-agent-list' })
+      } else if (props.authorizationData.agentType === AgentType.Role) {
+        router.push({ name: 'role-list' })
       } else {
         router.push({ name: 'application-list' })
       }

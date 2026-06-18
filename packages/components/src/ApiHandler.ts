@@ -26,14 +26,9 @@ import {
   getSocialAgents,
   getUnregisteredApplication,
 } from './services/AgentRegistry.js'
-import {
-  createRole,
-  deleteRole,
-  getRoles,
-  updateRole,
-} from './services/RoleRegistry.js'
 import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
+import { createRole, deleteRole, getRoles, updateRole } from './services/RoleRegistry.js'
 import {
   getResource,
   requestAccessUsingApplicationNeeds,
@@ -97,8 +92,10 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => updateRole(session, id, label, members)),
         deleteRole: (id) => Effect.promise(() => deleteRole(session, id)),
         getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
-        getAuthorizationData: (agentId, agentType, lang) =>
-          Effect.promise(() => getDescriptions(session, agentId, agentType, lang)),
+        getAuthorizationData: (agentId, agentType, lang, accessNeedGroupIri) =>
+          Effect.promise(() =>
+            getDescriptions(session, agentId, agentType, lang, accessNeedGroupIri)
+          ),
         authorizeApp: (authorization) =>
           Effect.promise(() => recordAuthorization(session, authorization)),
         registerPushSubscription: (subscription: PushSubscription) =>

@@ -6,9 +6,10 @@
     />
     <AuthorizeApp
       v-if="!registered && !route.query.resource && appStore.authorizationData
-        && (agent || appStore.application)"
+        && (agent || role || appStore.application)"
       :application="appStore.application"
       :agent="agent"
+      :role="role"
       :authorization-data="appStore.authorizationData"
       :redirect="route.query.redirect !== 'false'"
     />
@@ -27,7 +28,7 @@ import AuthorizeApp from '@/components/AuthorizeApp.vue'
 import ShareResource from '@/components/ShareResource.vue'
 import { useAppStore } from '@/store/app'
 import { useCoreStore } from '@/store/core'
-import { AgentType } from '@janeirodigital/sai-api-messages'
+import { AgentType, type Role } from '@janeirodigital/sai-api-messages'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -37,14 +38,16 @@ const coreStore = useCoreStore()
 const route = useRoute()
 const clientId = ref<string | null>(null)
 const agentId = ref<string | null>(null)
+const roleId = ref<string | null>(null)
 const resourceId = ref<string | undefined>()
+const accessNeedGroupIri = ref<string | undefined>()
 const registered = computed(() => appStore.applicationList.find((app) => app.id === clientId.value))
 
 watch(
   () => [route.query.client_id, route.query.resource],
   async ([cId, resource]) => {
     if (route.name !== 'authorization') return
-    if (route.query.webid) return
+    if (route.query.webid || route.query.role) return
     if (!cId || Array.isArray(cId)) {
       clientId.value = await coreStore.getClientInfo()
       await coreStore.setWebId()
@@ -55,6 +58,10 @@ watch(
     if (resource) {
       if (Array.isArray(resource)) throw new Error('only one resource is allowed')
       resourceId.value = resource
+    }
+    const needs = route.query.needs
+    if (needs && !Array.isArray(needs)) {
+      accessNeedGroupIri.value = needs
     }
   },
   { immediate: true }
@@ -67,7 +74,30 @@ watch(
       appStore.listSocialAgents()
       if (Array.isArray(webid)) throw new Error('only one agent is allowed')
       agentId.value = webid
-      appStore.getAuthoriaztion(webid, AgentType.SocialAgent)
+      const needs = route.query.needs
+      if (needs && !Array.isArray(needs)) {
+        accessNeedGroupIri.value = needs
+      }
+      appStore.getAuthoriaztion(webid, AgentType.SocialAgent, undefined, accessNeedGroupIri.value)
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => route.query.role,
+  (roleQueryParam) => {
+    if (roleQueryParam) {
+      appStore.listRoles()
+      if (Array.isArray(roleQueryParam)) throw new Error('only one role is allowed')
+      roleId.value = roleQueryParam
+      const needs = route.query.needs
+      if (needs && !Array.isArray(needs)) {
+        accessNeedGroupIri.value = needs
+      }
+      if (accessNeedGroupIri.value) {
+        appStore.getAuthoriaztion(roleQueryParam, AgentType.Role, undefined, accessNeedGroupIri.value)
+      }
     }
   },
   { immediate: true }
@@ -89,11 +119,12 @@ watch(
   (id) => {
     if (id && !resourceId.value) {
       appStore.getUnregisteredApplication(id)
-      appStore.getAuthoriaztion(id, AgentType.Application)
+      appStore.getAuthoriaztion(id, AgentType.Application, undefined, accessNeedGroupIri.value)
     }
   },
   { immediate: true }
 )
 
 const agent = computed(() => appStore.socialAgentList.find((a) => a.id === agentId.value))
+const role = computed(() => roleId.value ? appStore.roleList.find((r) => r.id === roleId.value) : undefined)
 </script>

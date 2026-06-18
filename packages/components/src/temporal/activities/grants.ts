@@ -91,7 +91,12 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   } catch {}
   let peer
   let client
-  if (uasId) {
+  if (payload.dataOwner === payload.grantedBy) {
+    peer = {
+      agent: payload.grantee,
+      client: uasId,
+    }
+  } else if (uasId) {
     peer = {
       agent: payload.grantedBy,
       client: payload.grantee,
@@ -161,23 +166,18 @@ export async function requestDelegation(payload: { grantData: DataGrantData }): 
 export async function storeAccessGrant(payload: FinalAccessGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.grantedBy)
-
   const accessGrant = session.factory.immutable.accessGrant(payload.id, payload)
-
   return accessGrant.put()
 }
 
 export async function setAccessGrant(payload: FinalAccessGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.grantedBy)
-
   const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
     payload.grantee
   )
-
   if (!agentRegistration) {
     throw new Error('agent registration for the grantee does not exist')
   }
-
   await agentRegistration.setAccessGrant(payload.id)
 }

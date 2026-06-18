@@ -116,22 +116,27 @@ export const getDescriptions = async (
   saiSession: AuthorizationAgent,
   agentIri: string,
   agentType: AgentType,
-  preferredLang: string
+  preferredLang: string,
+  accessNeedGroupIri?: string & Brand<'IRI'>
 ): Promise<S.Schema.Type<typeof AuthorizationData>> => {
-  let accessNeedGroupIri: string
-  if (agentType === AgentType.Application) {
+  let accessNeedGroupIriResolved: string
+  if (accessNeedGroupIri) {
+    accessNeedGroupIriResolved = accessNeedGroupIri
+  } else if (agentType === AgentType.Application) {
     const clientIdDocument = await saiSession.factory.readable.clientIdDocument(agentIri)
     if (!clientIdDocument.hasAccessNeedGroup) return null
-    accessNeedGroupIri = clientIdDocument.hasAccessNeedGroup
+    accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
   } else if (agentType === AgentType.SocialAgent) {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
-    accessNeedGroupIri = socialAgentRegistration.reciprocalRegistration?.hasAccessNeedGroup
-    if (!accessNeedGroupIri) return null
+    accessNeedGroupIriResolved = socialAgentRegistration.reciprocalRegistration?.hasAccessNeedGroup
+    if (!accessNeedGroupIriResolved) return null
+  } else if (agentType === AgentType.Role) {
+    if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')
 
   const accessNeedGroup = await saiSession.factory.readable.accessNeedGroup(
-    accessNeedGroupIri,
+    accessNeedGroupIriResolved,
     preferredLang
   )
 

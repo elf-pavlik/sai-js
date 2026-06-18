@@ -1,6 +1,6 @@
 import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
-import { type CRUDRoleRegistration, CRUDContainer } from '.'
+import { CRUDContainer, type CRUDRoleRegistration } from '.'
 import type { AuthorizationAgentFactory } from '..'
 import type { CRUDData } from './resource'
 

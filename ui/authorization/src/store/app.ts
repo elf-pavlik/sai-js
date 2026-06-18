@@ -18,8 +18,8 @@ import type {
   SocialAgentList,
   UnregisteredApplication,
 } from '@janeirodigital/sai-api-messages'
-import type * as S from 'effect/Schema'
 import { IRI } from '@janeirodigital/sai-api-messages'
+import type * as S from 'effect/Schema'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
@@ -50,9 +50,15 @@ export const useAppStore = defineStore('app', () => {
   async function getAuthoriaztion(
     agentId: string,
     agentType: AgentType,
-    preferredLang = lang.value
+    preferredLang = lang.value,
+    accessNeedGroupIri?: string
   ) {
-    authorizationData.value = await effect.getAuthoriaztionData(agentId, agentType, preferredLang)
+    authorizationData.value = await effect.getAuthoriaztionData(
+      agentId,
+      agentType,
+      preferredLang,
+      accessNeedGroupIri
+    )
   }
 
   // TODO rename list with load
@@ -116,6 +122,7 @@ export const useAppStore = defineStore('app', () => {
     accessAuthorization.value = await effect.authorizeApp(authorization)
     listApplications(true)
     listSocialAgents(true)
+    listRoles(true)
   }
 
   async function requestAccess(applicationId: string, agentId: string) {

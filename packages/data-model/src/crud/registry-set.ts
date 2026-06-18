@@ -5,8 +5,8 @@ import {
   type CRUDAuthorizationRegistry,
   type CRUDDataRegistry,
   type CRUDGrantRegistry,
-  type CRUDRoleRegistry,
   CRUDResource,
+  type CRUDRoleRegistry,
 } from '.'
 import type { AuthorizationAgentFactory } from '..'
 

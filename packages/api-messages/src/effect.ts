@@ -10,6 +10,7 @@ export enum Scopes {
   Inherited = 'Inherited',
   All = 'All',
   AllFromAgent = 'AllFromAgent',
+  AllFromRole = 'AllFromRole',
   AllFromRegistry = 'AllFromRegistry',
   SelectedFromRegistry = 'SelectedFromRegistry',
 }
@@ -23,6 +24,7 @@ export const AccessModes = {
 
 export enum AgentType {
   SocialAgent = 'http://www.w3.org/ns/solid/interop#SocialAgent',
+  Role = 'http://www.w3.org/ns/solid/interop#Role',
   Application = 'http://www.w3.org/ns/solid/interop#Application',
 }
 
@@ -224,12 +226,12 @@ export const Authorization = S.Union(GrantedAuthorization, DeniedAuthorization)
 export const AccessAuthorization = S.Union(
   S.Struct({
     id: IRI,
-    callbackEndpoint: S.String,
+    callbackEndpoint: S.optional(S.String),
     ...GrantedAuthorization.fields,
   }),
   S.Struct({
     id: IRI,
-    callbackEndpoint: S.String,
+    callbackEndpoint: S.optional(S.String),
     granted: S.Literal(false),
   })
 )
@@ -286,7 +288,8 @@ export class GetAuthoriaztionData extends S.TaggedRequest<GetAuthoriaztionData>(
     payload: {
       agentId: IRI,
       agentType: S.Enums(AgentType),
-      lang: S.String, // TODO lang code validation
+      lang: S.String,
+      accessNeedGroupIri: S.optional(IRI),
     },
   }
 ) {}
@@ -432,7 +435,8 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly getAuthorizationData: (
       agentId: IRI,
       agentType: AgentType,
-      lang: string
+      lang: string,
+      accessNeedGroupIri?: IRI
     ) => Effect.Effect<S.Schema.Type<typeof AuthorizationData>>
     readonly getResource: (id: IRI, lang: string) => Effect.Effect<S.Schema.Type<typeof Resource>>
     readonly getSocialAgents: () => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
@@ -517,10 +521,10 @@ export const router = RpcRouter.make(
       return yield* saiService.getUnregisteredApplication(id)
     })
   ),
-  Rpc.effect(GetAuthoriaztionData, ({ agentId, agentType, lang }) =>
+  Rpc.effect(GetAuthoriaztionData, ({ agentId, agentType, lang, accessNeedGroupIri }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getAuthorizationData(agentId, agentType, lang)
+      return yield* saiService.getAuthorizationData(agentId, agentType, lang, accessNeedGroupIri)
     })
   ),
   Rpc.effect(GetResource, ({ id, lang }) =>

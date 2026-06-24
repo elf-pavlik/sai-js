@@ -52,6 +52,12 @@ export class CRUDContainer extends CRUDResource {
     this.dataset.add(quad)
   }
 
+  public async removeStatement(quad: Quad): Promise<void> {
+    const sparqlUpdate = await deletePatch(new Store([quad]))
+    await this.applyPatch(sparqlUpdate)
+    this.dataset.delete(quad)
+  }
+
   public async replaceStatement(whichQuad: Quad, withQuad: Quad): Promise<void> {
     const sparqlUpdate = [
       await deletePatch(new Store([whichQuad])),

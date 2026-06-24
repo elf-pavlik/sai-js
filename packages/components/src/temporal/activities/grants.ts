@@ -23,6 +23,11 @@ export interface UpdateGrantsInput {
   authorizationId: string
 }
 
+export interface UpdateGrantsForAgentsInput {
+  webId: string
+  peers: string[]
+}
+
 export async function findAffectedAuthorizations(
   payload: FindAffectedAuthorizationsInput
 ): Promise<UpdateGrantsInput[]> {
@@ -47,6 +52,11 @@ export interface CreateGrantsForAgentInput extends CreateGrantsInput {
   grantee: string
 }
 
+export interface GetAuthorizationsInput {
+  webId: string
+  peerId: string
+}
+
 export async function getGrantees(payload: CreateGrantsInput): Promise<string[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
@@ -65,6 +75,13 @@ export async function getGrantees(payload: CreateGrantsInput): Promise<string[]>
     return role.members
   }
   throw new Error('agent or role registration for the grantee does not exist')
+}
+
+export async function getAuthorizations(payload: GetAuthorizationsInput): Promise<string[]> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+  const authorizations = await session.findAuthorizationsForAgent(payload.peerId)
+  return authorizations.map((authorization) => authorization.iri)
 }
 
 export async function generateGrants(payload: CreateGrantsForAgentInput): Promise<AccessGrantData> {
@@ -180,4 +197,16 @@ export async function setAccessGrant(payload: FinalAccessGrantData): Promise<voi
     throw new Error('agent registration for the grantee does not exist')
   }
   await agentRegistration.setAccessGrant(payload.id)
+}
+
+export async function unsetAccessGrant(payload: GetAuthorizationsInput): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+  const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
+    payload.peerId
+  )
+  if (!agentRegistration) {
+    throw new Error('agent registration for the peer does not exist')
+  }
+  await agentRegistration.unsetAccessGrant()
 }

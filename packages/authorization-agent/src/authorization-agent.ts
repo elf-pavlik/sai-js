@@ -260,6 +260,23 @@ export class AuthorizationAgent {
     return accessAuthorization.generateAccessGrant(this.registrySet, grantee)
   }
 
+  public async findAuthorizationsForAgent(peerId: string): Promise<ReadableAccessAuthorization[]> {
+    const authorizations: ReadableAccessAuthorization[] = []
+    // TODO: optimize!
+    for await (const accessAuthorization of this.accessAuthorizations) {
+      if (accessAuthorization.grantee === peerId) {
+        authorizations.push(accessAuthorization)
+      } else {
+        for await (const role of this.roleRegistrations) {
+          if (accessAuthorization.grantee === role.iri && role.members.includes(peerId)) {
+            authorizations.push(accessAuthorization)
+          }
+        }
+      }
+    }
+    return authorizations
+  }
+
   public async findSocialAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
     const agentsWithAccess = await this.findAgentsWithAccess(dataInstanceIri)
     const socialAgentsWithAccess: AgentWithAccess[] = []

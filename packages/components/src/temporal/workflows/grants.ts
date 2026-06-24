@@ -5,6 +5,8 @@ import type * as activities from '../activities/grants.js'
 const {
   findAffectedAuthorizations,
   getGrantees,
+  getAuthorizations,
+  unsetAccessGrant,
   generateGrants,
   storeDataGrant,
   requestDelegation,
@@ -22,6 +24,50 @@ async function storeGrantAndAcr(grant: FinalDataGrantData) {
 
 export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
   await Promise.all(payload.map((grant) => storeGrantAndAcr(grant)))
+}
+
+export async function updateGrantsForOneAgent(
+  payload: activities.GetAuthorizationsInput
+): Promise<void> {
+  const authorizations = await getAuthorizations(payload)
+  // TODO change when we remove access grant
+  if (authorizations.length === 0) {
+    await unsetAccessGrant(payload)
+    return
+  }
+  await Promise.all(
+    // TODO generalize grant creation workflow to handle multiple authorizations
+    [authorizations[0]].map((authorizationId) =>
+      startChild(createGrantsForAgent, {
+        args: [
+          {
+            webId: payload.webId,
+            grantee: payload.peerId,
+            authorizationId,
+          },
+        ],
+        parentClosePolicy: 'ABANDON',
+      })
+    )
+  )
+}
+
+export async function updateGrantsForAgents(
+  payload: activities.UpdateGrantsForAgentsInput
+): Promise<void> {
+  await Promise.all(
+    payload.peers.map((peerId) =>
+      startChild(updateGrantsForOneAgent, {
+        args: [
+          {
+            webId: payload.webId,
+            peerId,
+          },
+        ],
+        parentClosePolicy: 'ABANDON',
+      })
+    )
+  )
 }
 
 export async function createGrantsForAuthorization(

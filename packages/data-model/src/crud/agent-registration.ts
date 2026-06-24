@@ -26,6 +26,12 @@ export abstract class CRUDAgentRegistration extends Mixin(CRUDContainer, AgentRe
     }
   }
 
+  async unsetAccessGrant(): Promise<void> {
+    if (!this.accessGrant) return
+    const quad = DataFactory.quad(this.node, INTEROP.hasAccessGrant, this.accessGrant.node)
+    await this.removeStatement(quad)
+  }
+
   async setAccessGrant(accessGrantIri: string): Promise<void> {
     const quad = DataFactory.quad(
       DataFactory.namedNode(this.iri),

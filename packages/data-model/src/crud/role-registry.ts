@@ -1,6 +1,6 @@
 import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
-import { CRUDContainer, type CRUDRoleRegistration } from '.'
+import { CRUDContainer, type CRUDRole } from '.'
 import type { AuthorizationAgentFactory } from '..'
 import type { CRUDData } from './resource'
 
@@ -24,20 +24,20 @@ export class CRUDRoleRegistry extends CRUDContainer {
     return instance
   }
 
-  get roleRegistrations(): AsyncIterable<CRUDRoleRegistration> {
+  get roles(): AsyncIterable<CRUDRole> {
     const iris = this.getObjectsArray(LDP.contains).map((object) => object.value)
     const { factory } = this
     return {
       async *[Symbol.asyncIterator]() {
         for (const iri of iris) {
-          yield factory.crud.roleRegistration(iri)
+          yield factory.crud.role(iri)
         }
       },
     }
   }
 
-  public async createRole(label: string, members: string[]): Promise<CRUDRoleRegistration> {
-    const registration = await this.factory.crud.roleRegistration(this.iriForContained(), {
+  public async createRole(label: string, members: string[]): Promise<CRUDRole> {
+    const registration = await this.factory.crud.role(this.iriForContained(), {
       label,
       members,
     })
@@ -50,8 +50,8 @@ export class CRUDRoleRegistry extends CRUDContainer {
     roleId: string,
     label: string,
     members: string[]
-  ): Promise<CRUDRoleRegistration> {
-    const registration = await this.factory.crud.roleRegistration(roleId, { label, members })
+  ): Promise<CRUDRole> {
+    const registration = await this.factory.crud.role(roleId, { label, members })
     await registration.update()
     return registration
   }

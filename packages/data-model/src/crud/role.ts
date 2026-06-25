@@ -3,14 +3,14 @@ import { DataFactory } from 'n3'
 import { type CRUDData, CRUDResource } from '.'
 import type { AuthorizationAgentFactory } from '..'
 
-export class CRUDRoleRegistration extends CRUDResource {
+export class CRUDRole extends CRUDResource {
   declare factory: AuthorizationAgentFactory
 
   async bootstrap(): Promise<void> {
     if (!this.data) {
       await this.fetchData()
     } else {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.RoleRegistration))
+      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.Role))
       this.datasetFromData()
     }
   }
@@ -19,8 +19,8 @@ export class CRUDRoleRegistration extends CRUDResource {
     iri: string,
     factory: AuthorizationAgentFactory,
     data?: CRUDData
-  ): Promise<CRUDRoleRegistration> {
-    const instance = new CRUDRoleRegistration(iri, factory, data)
+  ): Promise<CRUDRole> {
+    const instance = new CRUDRole(iri, factory, data)
     await instance.bootstrap()
     return instance
   }

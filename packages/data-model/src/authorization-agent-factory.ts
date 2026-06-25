@@ -11,7 +11,7 @@ import {
   CRUDDataRegistry,
   CRUDGrantRegistry,
   CRUDRegistrySet,
-  CRUDRoleRegistration,
+  CRUDRole,
   CRUDRoleRegistry,
   CRUDSocialAgentInvitation,
   CRUDSocialAgentRegistration,
@@ -60,7 +60,7 @@ interface CRUDFactory {
     iri: string,
     data?: SocialAgentInvitationData
   ): Promise<CRUDSocialAgentInvitation>
-  roleRegistration(iri: string, data?: CRUDData): Promise<CRUDRoleRegistration>
+  role(iri: string, data?: CRUDData): Promise<CRUDRole>
   roleRegistry(iri: string, data?: CRUDData): Promise<CRUDRoleRegistry>
   dataRegistry(iri: string, data?: CRUDData): Promise<CRUDDataRegistry>
   dataRegistration(iri: string, data?: DataRegistrationData): Promise<CRUDDataRegistration>
@@ -119,11 +119,11 @@ export class AuthorizationAgentFactory extends BaseFactory {
       ): Promise<CRUDSocialAgentInvitation> {
         return CRUDSocialAgentInvitation.build(iri, factory, data)
       },
-      roleRegistration: async function roleRegistration(
+      role: async function role(
         iri: string,
         data?: CRUDData
-      ): Promise<CRUDRoleRegistration> {
-        return CRUDRoleRegistration.build(iri, factory, data)
+      ): Promise<CRUDRole> {
+        return CRUDRole.build(iri, factory, data)
       },
       roleRegistry: async function roleRegistry(
         iri: string,

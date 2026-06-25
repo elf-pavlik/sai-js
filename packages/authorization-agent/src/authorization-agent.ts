@@ -3,7 +3,7 @@ import {
   AuthorizationAgentFactory,
   type CRUDApplicationRegistration,
   type CRUDRegistrySet,
-  type CRUDRoleRegistration,
+  type CRUDRole,
   type CRUDSocialAgentInvitation,
   type CRUDSocialAgentRegistration,
   type DataGrant,
@@ -121,8 +121,8 @@ export class AuthorizationAgent {
     return this.registrySet.hasAgentRegistry.socialAgentInvitations
   }
 
-  get roleRegistrations(): AsyncIterable<CRUDRoleRegistration> {
-    return this.registrySet.hasRoleRegistry.roleRegistrations
+  get roles(): AsyncIterable<CRUDRole> {
+    return this.registrySet.hasRoleRegistry.roles
   }
 
   public async findSocialAgentInvitation(
@@ -267,7 +267,7 @@ export class AuthorizationAgent {
       if (accessAuthorization.grantee === peerId) {
         authorizations.push(accessAuthorization)
       } else {
-        for await (const role of this.roleRegistrations) {
+        for await (const role of this.roles) {
           if (accessAuthorization.grantee === role.iri && role.members.includes(peerId)) {
             authorizations.push(accessAuthorization)
           }

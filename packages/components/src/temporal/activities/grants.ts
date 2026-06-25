@@ -71,7 +71,7 @@ export async function getGrantees(payload: CreateGrantsInput): Promise<string[]>
   if (agentRegistration) return [agentRegistration.registeredAgent]
 
   if (session.registrySet.hasRoleRegistry.containedIncludes(accessAuthorization.grantee)) {
-    const role = await session.factory.crud.roleRegistration(accessAuthorization.grantee)
+    const role = await session.factory.crud.role(accessAuthorization.grantee)
     return role.members
   }
   throw new Error('agent or role registration for the grantee does not exist')

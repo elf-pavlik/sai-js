@@ -28,7 +28,7 @@ async function executeWorkflow(
 
 export const getRoles = async (saiSession: AuthorizationAgent) => {
   const roles = []
-  for await (const registration of saiSession.roleRegistrations) {
+  for await (const registration of saiSession.roles) {
     roles.push(
       Role.make({
         id: IRI.make(registration.iri),
@@ -56,7 +56,7 @@ export const updateRole = async (
   label: string,
   members: readonly S.Schema.Type<typeof IRI>[]
 ): Promise<S.Schema.Type<typeof Role>> => {
-  const role = await saiSession.factory.crud.roleRegistration(id)
+  const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.updateRole(id, label, [...members])
   // TODO fix IRI type change
   await executeWorkflow(saiSession.webId, role.members, members as unknown as string[])
@@ -67,7 +67,7 @@ export const deleteRole = async (
   saiSession: AuthorizationAgent,
   id: S.Schema.Type<typeof IRI>
 ): Promise<void> => {
-  const role = await saiSession.factory.crud.roleRegistration(id)
+  const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.deleteRole(id)
   // TODO delete authorizations for that role
   await executeWorkflow(saiSession.webId, role.members, [])

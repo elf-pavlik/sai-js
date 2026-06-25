@@ -125,6 +125,15 @@ export class AuthorizationAgent {
     return this.registrySet.hasRoleRegistry.roles
   }
 
+  public async findRole(iri: string): Promise<CRUDRole | undefined> {
+    await this.registrySet.hasRoleRegistry.fetchData()
+    for await (const role of this.roles) {
+      if (role.iri === iri) {
+        return this.factory.crud.role(iri)
+      }
+    }
+  }
+
   public async findSocialAgentInvitation(
     iri: string
   ): Promise<CRUDSocialAgentInvitation | undefined> {

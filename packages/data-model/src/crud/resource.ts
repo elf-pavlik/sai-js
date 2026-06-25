@@ -18,7 +18,7 @@ export class CRUDResource extends ReadableResource {
     }
   }
 
-  protected async fetchData(): Promise<void> {
+  public async fetchData(): Promise<void> {
     if (!this.data) return super.fetchData()
   }
 

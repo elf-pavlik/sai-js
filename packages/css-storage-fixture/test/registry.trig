@@ -578,7 +578,8 @@ GRAPH <meta:https://registry/alice/authorization/> {
     a interop:AuthorizationRegistry, ldp:Resource;
     interop:hasAccessAuthorization 
       <https://registry/alice/authorization/hsyzmp/>,
-      <https://registry/alice/authorization/x9k2m5/>.
+      <https://registry/alice/authorization/x9k2m5/>,
+      <https://registry/alice/authorization/ywn5k5/>.
 }
 
 GRAPH <meta:https://registry/alice/authorization/hsyzmp/> {
@@ -651,6 +652,31 @@ GRAPH <meta:https://registry/alice/authorization/x9k2m5/t5m8kr> {
         <https://registry/alice/authorization/x9k2m5/t5m8kr> a ldp:Resource .
 }
 
+GRAPH <meta:https://registry/alice/authorization/ywn5k5/> {
+  <https://registry/alice/authorization/ywn5k5/>
+    a interop:AccessAuthorization, ldp:Resource;
+    interop:granted true;
+    interop:grantee <https://registry/alice/role/j1g128>;
+    interop:grantedBy <https://id/alice>;
+    interop:hasDataAuthorization
+      <https://registry/alice/authorization/ywn5k5/g08qqa>.
+}
+
+GRAPH <https://registry/alice/authorization/ywn5k5/g08qqa> {
+  <https://registry/alice/authorization/ywn5k5/g08qqa>
+    a interop:DataAuthorization;
+    interop:grantee <https://registry/alice/role/j1g128>;
+    interop:grantedBy <https://id/alice>;
+    interop:dataOwner <https://id/alice>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:scopeOfAuthorization interop:AllFromAgent;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/alice/authorization/ywn5k5/g08qqa> {
+        <https://registry/alice/authorization/ywn5k5/g08qqa> a ldp:Resource .
+}
+
 GRAPH <meta:https://registry/alice/role/> {
   <https://registry/alice/role/>
     a interop:RoleRegistry, ldp:Resource .
@@ -661,7 +687,8 @@ GRAPH <https://registry/alice/role/> {
     ldp:contains
       <https://registry/alice/role/ps8hc3>,
       <https://registry/alice/role/xcoq3l>,
-      <https://registry/alice/role/dyexga>.
+      <https://registry/alice/role/dyexga>,
+      <https://registry/alice/role/j1g128>.
 }
 
 GRAPH <https://registry/alice/role/ps8hc3> {
@@ -694,6 +721,16 @@ GRAPH <https://registry/alice/role/dyexga> {
 
 GRAPH <meta:https://registry/alice/role/dyexga> {
         <https://registry/alice/role/dyexga> a ldp:Resource .
+}
+
+GRAPH <https://registry/alice/role/j1g128> {
+  <https://registry/alice/role/j1g128>
+    a interop:Role;
+    skos:prefLabel "Test".
+}
+
+GRAPH <meta:https://registry/alice/role/j1g128> {
+        <https://registry/alice/role/j1g128> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/alice/agent/> {

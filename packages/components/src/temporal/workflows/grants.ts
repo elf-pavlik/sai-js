@@ -1,5 +1,5 @@
 import type { FinalAccessGrantData, FinalDataGrantData } from '@janeirodigital/interop-data-model'
-import { proxyActivities, startChild } from '@temporalio/workflow'
+import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
 const {
@@ -38,7 +38,7 @@ export async function updateGrantsForOneAgent(
   await Promise.all(
     // TODO generalize grant creation workflow to handle multiple authorizations
     [authorizations[0]].map((authorizationId) =>
-      startChild(createGrantsForAgent, {
+      executeChild(createGrantsForAgent, {
         args: [
           {
             webId: payload.webId,
@@ -46,7 +46,6 @@ export async function updateGrantsForOneAgent(
             authorizationId,
           },
         ],
-        parentClosePolicy: 'ABANDON',
       })
     )
   )
@@ -57,14 +56,13 @@ export async function updateGrantsForAgents(
 ): Promise<void> {
   await Promise.all(
     payload.peers.map((peerId) =>
-      startChild(updateGrantsForOneAgent, {
+      executeChild(updateGrantsForOneAgent, {
         args: [
           {
             webId: payload.webId,
             peerId,
           },
         ],
-        parentClosePolicy: 'ABANDON',
       })
     )
   )
@@ -76,9 +74,8 @@ export async function createGrantsForAuthorization(
   const grantees = await getGrantees(payload)
   await Promise.all(
     grantees.map((grantee) =>
-      startChild(createGrantsForAgent, {
+      executeChild(createGrantsForAgent, {
         args: [{ grantee, ...payload }],
-        parentClosePolicy: 'ABANDON',
       })
     )
   )
@@ -112,9 +109,8 @@ export async function updateDelegatedGrants(
   const result = await findAffectedAuthorizations(payload)
   await Promise.all(
     result.map((payload) =>
-      startChild(updateGrantsForAuthorization, {
+      executeChild(updateGrantsForAuthorization, {
         args: [payload],
-        parentClosePolicy: 'ABANDON',
       })
     )
   )

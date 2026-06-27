@@ -84,224 +84,273 @@
           </template>
         </v-list-item>
       </v-list>
-      <v-expansion-panels
-        id="panel-hell"
-        v-model="panelsOpened"
-        variant="popout"
-      >
-        <v-expansion-panel value="top">
-          <v-expansion-panel-title class="d-flex flex-row">
-            <span class="flex-grow-1">{{ topLevelScope === 'all' ? $t('all-data') : $t('selected-data') }}</span>
-            <v-chip
-              color="agent"
-              label
-            >
-              {{ props.authorizationData.dataOwners.length }}
-            </v-chip>
-            <template #actions>
-              <v-badge
-                color="agent"
-                :content="statsForTopLevel()"
-                :model-value="topLevelScope === 'some'"
-              >
-                <v-checkbox-btn
-                  disabled
-                  :indeterminate="topLevelScope === 'some'"
-                  :model-value="topLevelScope === 'all'"
-                  @click.prevent
-                />
-              </v-badge>
-            </template>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-btn-toggle
-              v-model="topLevelScope"
-              rounded="false"
-              variant="outlined"
-              mandatory
-              class="d-flex flex-row"
-            >
-              <v-btn
-                class="flex-grow-1"
-                icon="mdi-checkbox-blank-outline"
-                value="none"
-              />
-              <v-btn
-                class="flex-grow-1"
-                icon="mdi-minus-box-outline"
-                value="some"
-              />
-              <v-btn
-                class="flex-grow-1"
-                icon="mdi-checkbox-outline"
-                value="all"
-              />
-            </v-btn-toggle>
-            <v-expansion-panels variant="popout">
-              <v-expansion-panel
-                v-for="owner in props.authorizationData.dataOwners"
-                :key="owner.id"
-                :disabled="topLevelScope !== 'some'"
-              >
-                <v-expansion-panel-title class="d-flex flex-row">
-                  <template v-if="owner.id === coreStore.userId">
-                    <v-icon
-                      color="agent"
-                      icon="mdi-account-circle"
-                    />
-                    <span class="label flex-grow-1">Me</span>
-                  </template>
-                  <template v-else>
-                    <v-icon
-                      color="agent"
-                      icon="mdi-account-circle-outline"
-                    />
-                    <span class="label flex-grow-1">{{ owner.label }}</span>
-                  </template>
-                  <v-chip
-                    color="primary"
-                    label
+      <v-tabs v-model="activeTab">
+        <v-tab value="peers">Peers</v-tab>
+        <v-tab value="roles">Roles</v-tab>
+      </v-tabs>
+
+      <v-tabs-window v-model="activeTab">
+        <v-tabs-window-item value="peers">
+          <v-expansion-panels
+            id="panel-hell"
+            v-model="panelsOpened"
+            variant="popout"
+          >
+            <v-expansion-panel value="top">
+              <v-expansion-panel-title class="d-flex flex-row">
+                <span class="flex-grow-1">{{ topLevelScope === 'all' ? $t('all-data') : $t('selected-data') }}</span>
+                <v-chip
+                  color="agent"
+                  label
+                >
+                  {{ props.authorizationData.dataOwners.length }}
+                </v-chip>
+                <template #actions>
+                  <v-badge
+                    color="agent"
+                    :content="statsForTopLevel()"
+                    :model-value="topLevelScope === 'agent'"
                   >
-                    {{ owner.dataRegistrations.length }}
-                  </v-chip>
-                  <template #actions>
-                    <v-badge
-                      color="primary"
-                      :content="statsForAgent(owner.id)"
-                      :model-value="agentsIndex[owner.id].scope === 'some'"
-                    >
-                      <v-checkbox-btn
-                        disabled
-                        :indeterminate="agentsIndex[owner.id].scope === 'some'"
-                        :model-value="agentsIndex[owner.id].scope === 'all'"
-                        @click.prevent
-                      />
-                    </v-badge>
-                  </template>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <v-btn-toggle
-                    :model-value="agentsIndex[owner.id].scope"
-                    rounded="false"
-                    variant="outlined"
-                    mandatory
-                    class="d-flex flex-row"
-                    @update:model-value="agentScopeChanged(owner.id, $event)"
+                    <v-checkbox-btn
+                      disabled
+                      :indeterminate="topLevelScope === 'agent'"
+                      :model-value="topLevelScope === 'all'"
+                      @click.prevent
+                    />
+                  </v-badge>
+                </template>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-btn-toggle
+                  v-model="topLevelScope"
+                  rounded="false"
+                  variant="outlined"
+                  mandatory
+                  class="d-flex flex-row"
+                >
+                  <v-btn
+                    class="flex-grow-1"
+                    icon="mdi-checkbox-blank-outline"
+                    value="none"
+                  />
+                  <v-btn
+                    class="flex-grow-1"
+                    icon="mdi-minus-box-outline"
+                    value="agent"
+                  />
+                  <v-btn
+                    class="flex-grow-1"
+                    icon="mdi-checkbox-outline"
+                    value="all"
+                  />
+                </v-btn-toggle>
+                <v-expansion-panels variant="popout">
+                  <v-expansion-panel
+                    v-for="owner in props.authorizationData.dataOwners"
+                    :key="owner.id"
+                    :disabled="topLevelScope !== 'agent'"
                   >
-                    <v-btn
-                      class="flex-grow-1"
-                      icon="mdi-checkbox-blank-outline"
-                      value="none"
-                    />
-                    <v-btn
-                      class="flex-grow-1"
-                      icon="mdi-minus-box-outline"
-                      value="some"
-                    />
-                    <v-btn
-                      class="flex-grow-1"
-                      icon="mdi-checkbox-outline"
-                      value="all"
-                    />
-                  </v-btn-toggle>
-                  <v-expansion-panels variant="popout">
-                    <v-expansion-panel
-                      v-for="registration in owner.dataRegistrations"
-                      :key="registration.id"
-                      :disabled="agentsIndex[owner.id].scope !== 'some'"
-                    >
-                      <v-expansion-panel-title class="d-flex flex-row">
+                    <v-expansion-panel-title class="d-flex flex-row">
+                      <template v-if="owner.id === coreStore.userId">
                         <v-icon
-                          color="primary"
-                          icon="mdi-hexagon-outline"
+                          color="agent"
+                          icon="mdi-account-circle"
                         />
-                        <span class="label flex-grow-1">{{ registration.label }}</span>
-                        <v-chip
-                          color="secondary"
-                          label
+                        <span class="label flex-grow-1">Me</span>
+                      </template>
+                      <template v-else>
+                        <v-icon
+                          color="agent"
+                          icon="mdi-account-circle-outline"
+                        />
+                        <span class="label flex-grow-1">{{ owner.label }}</span>
+                      </template>
+                      <v-chip
+                        color="primary"
+                        label
+                      >
+                        {{ owner.dataRegistrations.length }}
+                      </v-chip>
+                      <template #actions>
+                        <v-badge
+                          color="primary"
+                          :content="statsForAgent(owner.id)"
+                          :model-value="agentsIndex[owner.id].scope === 'some'"
                         >
-                          {{ registration.count }}
-                        </v-chip>
-                        <template #actions>
-                          <v-badge
-                            color="secondary"
-                            :content="statsForRegistration(registration.id)"
-                            :model-value="registrationsIndex[registration.id].scope === 'some'"
-                          >
-                            <v-checkbox-btn
-                              disabled
-                              :indeterminate="registrationsIndex[registration.id].scope === 'some'"
-                              :model-value="registrationsIndex[registration.id].scope === 'all'"
-                              @click.prevent
+                          <v-checkbox-btn
+                            disabled
+                            :indeterminate="agentsIndex[owner.id].scope === 'some'"
+                            :model-value="agentsIndex[owner.id].scope === 'all'"
+                            @click.prevent
+                          />
+                        </v-badge>
+                      </template>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <v-btn-toggle
+                        :model-value="agentsIndex[owner.id].scope"
+                        rounded="false"
+                        variant="outlined"
+                        mandatory
+                        class="d-flex flex-row"
+                        @update:model-value="agentScopeChanged(owner.id, $event)"
+                      >
+                        <v-btn
+                          class="flex-grow-1"
+                          icon="mdi-checkbox-blank-outline"
+                          value="none"
+                        />
+                        <v-btn
+                          class="flex-grow-1"
+                          icon="mdi-minus-box-outline"
+                          value="some"
+                        />
+                        <v-btn
+                          class="flex-grow-1"
+                          icon="mdi-checkbox-outline"
+                          value="all"
+                        />
+                      </v-btn-toggle>
+                      <v-expansion-panels variant="popout">
+                        <v-expansion-panel
+                          v-for="registration in owner.dataRegistrations"
+                          :key="registration.id"
+                          :disabled="agentsIndex[owner.id].scope !== 'some'"
+                        >
+                          <v-expansion-panel-title class="d-flex flex-row">
+                            <v-icon
+                              color="primary"
+                              icon="mdi-hexagon-outline"
                             />
-                          </v-badge>
-                        </template>
-                      </v-expansion-panel-title>
-                      <v-expansion-panel-text>
-                        <v-btn-toggle
-                          :model-value="registrationsIndex[registration.id].scope"
-                          rounded="false"
-                          variant="outlined"
-                          mandatory
-                          class="d-flex flex-row"
-                          @update:model-value="registrationScopeChanged(owner.id, registration.id, $event)"
-                        >
-                          <v-btn
-                            class="flex-grow-1"
-                            icon="mdi-checkbox-blank-outline"
-                            value="none"
-                          />
-                          <v-btn
-                            class="flex-grow-1"
-                            icon="mdi-minus-box-outline"
-                            value="some"
-                          />
-                          <v-btn
-                            class="flex-grow-1"
-                            icon="mdi-checkbox-outline"
-                            value="all"
-                          />
-                        </v-btn-toggle>
-                        <template v-if="registrationsIndex[registration.id].scope === 'some'">
-                          <v-list v-if="appStore.loadedDataInstances[registration.id]">
-                            <v-list-item
-                              v-for="dataInstance of appStore.loadedDataInstances[registration.id]"
-                              :key="dataInstance.id"
-                              :disabled="registrationsIndex[registration.id].scope !== 'some'"
-                              @click="toggleOneInstance(dataInstance.id)"
+                            <span class="label flex-grow-1">{{ registration.label }}</span>
+                            <v-chip
+                              color="secondary"
+                              label
                             >
-                              <v-list-item-title>
-                                <v-icon
-                                  color="secondary"
-                                  icon="mdi-star-three-points-outline"
+                              {{ registration.count }}
+                            </v-chip>
+                            <template #actions>
+                              <v-badge
+                                color="secondary"
+                                :content="statsForRegistration(registration.id)"
+                                :model-value="registrationsIndex[registration.id].scope === 'some'"
+                              >
+                                <v-checkbox-btn
+                                  disabled
+                                  :indeterminate="registrationsIndex[registration.id].scope === 'some'"
+                                  :model-value="registrationsIndex[registration.id].scope === 'all'"
+                                  @click.prevent
                                 />
-                                {{ dataInstance.label }}
-                              </v-list-item-title>
-                              <template #append>
-                                <v-list-item-action v-if="dataInstancesIndex[dataInstance.id]">
-                                  <v-checkbox-btn
-                                    v-model="dataInstancesIndex[dataInstance.id].selected"
-                                    :disabled="registrationsIndex[registration.id].scope !== 'some'"
-                                    @click.prevent
-                                  />
-                                </v-list-item-action>
-                              </template>
-                            </v-list-item>
-                          </v-list>
-                          <v-skeleton-loader
-                            v-else
-                            type="list-item@2"
-                          />
-                        </template>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
-                  </v-expansion-panels>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+                              </v-badge>
+                            </template>
+                          </v-expansion-panel-title>
+                          <v-expansion-panel-text>
+                            <v-btn-toggle
+                              :model-value="registrationsIndex[registration.id].scope"
+                              rounded="false"
+                              variant="outlined"
+                              mandatory
+                              class="d-flex flex-row"
+                              @update:model-value="registrationScopeChanged(owner.id, registration.id, $event)"
+                            >
+                              <v-btn
+                                class="flex-grow-1"
+                                icon="mdi-checkbox-blank-outline"
+                                value="none"
+                              />
+                              <v-btn
+                                class="flex-grow-1"
+                                icon="mdi-minus-box-outline"
+                                value="some"
+                              />
+                              <v-btn
+                                class="flex-grow-1"
+                                icon="mdi-checkbox-outline"
+                                value="all"
+                              />
+                            </v-btn-toggle>
+                            <template v-if="registrationsIndex[registration.id].scope === 'some'">
+                              <v-list v-if="appStore.loadedDataInstances[registration.id]">
+                                <v-list-item
+                                  v-for="dataInstance of appStore.loadedDataInstances[registration.id]"
+                                  :key="dataInstance.id"
+                                  :disabled="registrationsIndex[registration.id].scope !== 'some'"
+                                  @click="toggleOneInstance(dataInstance.id)"
+                                >
+                                  <v-list-item-title>
+                                    <v-icon
+                                      color="secondary"
+                                      icon="mdi-star-three-points-outline"
+                                    />
+                                    {{ dataInstance.label }}
+                                  </v-list-item-title>
+                                  <template #append>
+                                    <v-list-item-action v-if="dataInstancesIndex[dataInstance.id]">
+                                      <v-checkbox-btn
+                                        v-model="dataInstancesIndex[dataInstance.id].selected"
+                                        :disabled="registrationsIndex[registration.id].scope !== 'some'"
+                                        @click.prevent
+                                      />
+                                    </v-list-item-action>
+                                  </template>
+                                </v-list-item>
+                              </v-list>
+                              <v-skeleton-loader
+                                v-else
+                                type="list-item@2"
+                              />
+                            </template>
+                          </v-expansion-panel-text>
+                        </v-expansion-panel>
+                      </v-expansion-panels>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-tabs-window-item>
+        <v-tabs-window-item value="roles">
+          <v-expansion-panels variant="popout">
+            <v-expansion-panel>
+              <v-expansion-panel-title class="d-flex flex-row">
+                <span class="flex-grow-1">Roles</span>
+                <v-chip
+                  color="agent"
+                  label
+                >
+                  {{ appStore.roleList.length }}
+                </v-chip>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-list>
+                  <v-list-item
+                    v-for="role in appStore.roleList"
+                    :key="role.id"
+                    @click="toggleRole(role.id)"
+                  >
+                    <v-list-item-title>
+                      <v-icon
+                        color="agent"
+                        icon="mdi-account-group-outline"
+                      />
+                      {{ role.label }}
+                    </v-list-item-title>
+                    <template #append>
+                      <v-list-item-action>
+                        <v-checkbox-btn
+                          :model-value="rolesIndex[role.id]?.selected ?? false"
+                          @click.prevent
+                        />
+                      </v-list-item-action>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-tabs-window-item>
+      </v-tabs-window>
     </v-card-text>
     <div class="px-2 d-flex justify-space-between">
       <v-btn
@@ -318,7 +367,7 @@
         variant="flat"
         size="large"
         :loading="loadingAuthorize"
-        :disabled="loadingDeny || statsForTopLevel() === 0"
+        :disabled="loadingDeny || (activeTab === 'peers' && statsForTopLevel() === 0) || (activeTab === 'roles' && statsForRoles() === 0)"
         @click="authorize()"
       >
         {{ $t('authorize') }}
@@ -400,6 +449,7 @@ watch(alternativeLang, (selectedLang) => {
 
 type PropagatingScope = 'none' | 'all'
 type Scope = PropagatingScope | 'some'
+type TopLevelScope = PropagatingScope | 'agent'
 
 interface Agent {
   id: string
@@ -486,8 +536,10 @@ function findRegistrationDataInstances(registrationId: string): SelectableDataIn
   )
 }
 
+const activeTab = ref<'peers' | 'roles'>('peers')
+
 const panelsOpened = ref<string[]>([])
-const topLevelScope = ref<Scope>('all')
+const topLevelScope = ref<TopLevelScope>('all')
 
 function setScopeForAgents(scope: PropagatingScope): void {
   for (const agent of Object.values(agentsIndex)) {
@@ -497,9 +549,10 @@ function setScopeForAgents(scope: PropagatingScope): void {
 
 // TODO: make propagation independent of DOM
 onMounted(() => {
+  initRolesIndex()
   // set default to current user
   if (props.agent || props.role) {
-    topLevelScope.value = 'some'
+    topLevelScope.value = 'agent'
     setScopeForAgents('none')
     agentsIndex[coreStore.userId!].scope = 'all'
     panelsOpened.value = ['top']
@@ -507,7 +560,7 @@ onMounted(() => {
 })
 
 watch(topLevelScope, (newScope) => {
-  if (newScope !== 'some') {
+  if (newScope !== 'agent') {
     setScopeForAgents(newScope)
   }
 })
@@ -603,6 +656,27 @@ function statsForTopLevel(): number {
   return agents.filter((agent) => statsForAgent(agent.id)).length
 }
 
+interface SelectableRole {
+  id: string
+  selected: boolean
+}
+
+const rolesIndex = reactive<Record<string, SelectableRole>>({})
+
+function initRolesIndex(): void {
+  for (const role of appStore.roleList) {
+    rolesIndex[role.id] = { id: role.id, selected: false }
+  }
+}
+
+function toggleRole(roleId: string): void {
+  rolesIndex[roleId].selected = !rolesIndex[roleId].selected
+}
+
+function statsForRoles(): number {
+  return Object.values(rolesIndex).filter((r) => r.selected).length
+}
+
 const loadingAuthorize = ref(false)
 const loadingDeny = ref(false)
 const selection = reactive({
@@ -667,7 +741,17 @@ function createDataAuthorizations(
       ...accessNeedAuthorization,
       scope: Scopes.All,
     } as S.Schema.Type<typeof DataAuthorization>)
-  } else if (topLevelScope.value === 'some') {
+  } else if (activeTab.value === 'roles') {
+    for (const role of Object.values(rolesIndex)) {
+      if (role.selected) {
+        dataAuthorizations.push({
+          ...accessNeedAuthorization,
+          scope: Scopes.AllFromRole,
+          dataOwner: role.id,
+        } as S.Schema.Type<typeof DataAuthorization>)
+      }
+    }
+  } else if (topLevelScope.value === 'agent') {
     for (const agent of Object.values(agentsIndex)) {
       const agentAuthorization = {
         ...accessNeedAuthorization,
@@ -713,7 +797,10 @@ function createDataAuthorizations(
 
 function authorize(granted = true) {
   // UI also disables the authorize button
-  if (granted && topLevelScope.value === 'none') {
+  if (granted && activeTab.value === 'roles' && statsForRoles() === 0) {
+    throw new Error('Use granted = false if no data is being shared')
+  }
+  if (granted && activeTab.value === 'peers' && topLevelScope.value === 'none') {
     throw new Error('Use granted = false if no data is being shared')
   }
   loadingAuthorize.value = granted

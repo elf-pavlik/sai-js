@@ -108,17 +108,14 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   } catch {}
   let peer
   let client
-  if (payload.dataOwner === payload.grantedBy) {
+  if (uasId) {
+    // grantee is a social agent - only their UAS has access
     peer = {
       agent: payload.grantee,
       client: uasId,
     }
-  } else if (uasId) {
-    peer = {
-      agent: payload.grantedBy,
-      client: payload.grantee,
-    }
-  } else {
+  } else if (payload.grantedBy !== payload.dataOwner) {
+    // grantee is an application - used by the grantedBy
     peer = {
       agent: payload.grantedBy,
       client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
@@ -127,6 +124,9 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
       agent: payload.grantedBy,
       client: payload.grantee,
     }
+  } else {
+    // incorrect case!
+    throw payload
   }
   const headResponse = await session.rawFetch(payload.id, {
     method: 'HEAD',

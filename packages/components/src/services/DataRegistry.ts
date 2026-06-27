@@ -37,8 +37,11 @@ const buildDataRegistryForGrant = async (
   descriptionsLang: string,
   saiSession: AuthorizationAgent
 ) => {
+  const seen = new Set<string>()
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for (const dataGrant of dataGrants) {
+    if (seen.has(dataGrant.hasDataRegistration)) continue
+    seen.add(dataGrant.hasDataRegistration)
     const shapeTree = await saiSession.factory.readable.shapeTree(
       dataGrant.registeredShapeTree,
       descriptionsLang
@@ -59,6 +62,24 @@ const buildDataRegistryForGrant = async (
   })
 }
 
+async function findDataGrantIndex(
+  saiSession: AuthorizationAgent,
+  agentId: string
+): Promise<Record<string, DataGrant[]>> {
+  const dataGrantIndex: Record<string, DataGrant[]> = {}
+  for await (const registration of saiSession.socialAgentRegistrations) {
+    if (!registration.reciprocalRegistration?.accessGrant) continue
+    for (const dataGrant of registration.reciprocalRegistration.accessGrant.hasDataGrant) {
+      if (dataGrant.dataOwner !== agentId) continue
+      if (!dataGrantIndex[dataGrant.dataRegistryIri]) {
+        dataGrantIndex[dataGrant.dataRegistryIri] = []
+      }
+      dataGrantIndex[dataGrant.dataRegistryIri].push(dataGrant)
+    }
+  }
+  return dataGrantIndex
+}
+
 export const getDataRegistries = async (
   saiSession: AuthorizationAgent,
   agentId: string,
@@ -71,24 +92,25 @@ export const getDataRegistries = async (
       )
     )
   }
-  const socialAgentRegistration = (await saiSession.findSocialAgentRegistration(agentId))
-    .reciprocalRegistration
-  if (!socialAgentRegistration) {
+  const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
+  let dataGrantIndex: Record<string, DataGrant[]>
+  if (socialAgentRegistration?.reciprocalRegistration?.accessGrant) {
+    dataGrantIndex = socialAgentRegistration.reciprocalRegistration.accessGrant.hasDataGrant.reduce(
+      (acc, dataGrant) => {
+        if (!acc[dataGrant.dataRegistryIri]) {
+          acc[dataGrant.dataRegistryIri] = [] as DataGrant[]
+        }
+        acc[dataGrant.dataRegistryIri].push(dataGrant)
+        return acc
+      },
+      {} as Record<string, DataGrant[]>
+    )
+  } else {
+    dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
+  }
+  if (!Object.keys(dataGrantIndex).length) {
     throw new Error(`missing social agent registration: ${agentId}`)
   }
-  if (!socialAgentRegistration.accessGrant) {
-    return []
-  }
-  const dataGrantIndex = socialAgentRegistration.accessGrant.hasDataGrant.reduce(
-    (acc, dataGrant) => {
-      if (!acc[dataGrant.dataRegistryIri]) {
-        acc[dataGrant.dataRegistryIri] = [] as DataGrant[]
-      }
-      acc[dataGrant.dataRegistryIri].push(dataGrant)
-      return acc
-    },
-    {} as Record<string, DataGrant[]>
-  )
   return Promise.all(
     Object.entries(dataGrantIndex).map(([registryIri, dataGrants]) =>
       buildDataRegistryForGrant(registryIri, dataGrants, descriptionsLang, saiSession)
@@ -114,19 +136,25 @@ export const listDataInstances = async (
       )
     }
   } else {
-    const socialAgentRegistration = (await saiSession.findSocialAgentRegistration(agentId))
-      .reciprocalRegistration
-    if (!socialAgentRegistration) {
+    const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
+    let dataGrants: DataGrant[]
+    if (socialAgentRegistration?.reciprocalRegistration?.accessGrant) {
+      dataGrants = socialAgentRegistration.reciprocalRegistration.accessGrant.hasDataGrant
+    } else {
+      const dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
+      dataGrants = Object.values(dataGrantIndex).flat()
+    }
+    if (!dataGrants.length) {
       throw new Error(`missing social agent registration: ${agentId}`)
     }
-    if (!socialAgentRegistration.accessGrant) {
-      throw new Error(`missing access grant for social agent: ${agentId}`)
-    }
-    for (const dataGrant of socialAgentRegistration.accessGrant.hasDataGrant) {
+    const seenInstances = new Set<string>()
+    for (const dataGrant of dataGrants) {
       if (dataGrant.hasDataRegistration === registrationId) {
         // TODO: optimize not to create crud data instances
 
         for await (const instance of dataGrant.getDataInstanceIterator()) {
+          if (seenInstances.has(instance.iri)) continue
+          seenInstances.add(instance.iri)
           const dataInstance = await saiSession.factory.readable.dataInstance(instance.iri)
           dataInstances.push(
             DataInstance.make({

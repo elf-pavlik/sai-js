@@ -32,6 +32,31 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
   for await (const registration of saiSession.socialAgentRegistrations) {
     profiles.push(buildSocialAgentProfile(registration))
   }
+
+  const seenIds = new Set(profiles.map((p) => p.id))
+  for await (const registration of saiSession.socialAgentRegistrations) {
+    if (!registration.reciprocalRegistration?.accessGrant) continue
+    for (const dataGrant of registration.reciprocalRegistration.accessGrant.hasDataGrant) {
+      const ownerIri = IRI.make(dataGrant.dataOwner)
+      if (seenIds.has(ownerIri)) continue
+      seenIds.add(ownerIri)
+      let label = dataGrant.dataOwner
+      try {
+        const profile = await saiSession.factory.readable.webIdProfile(ownerIri)
+        if (profile.label) label = profile.label
+      } catch {
+        /* fallback to IRI */
+      }
+      profiles.push(
+        SocialAgent.make({
+          id: ownerIri,
+          label,
+          accessRequested: false,
+        })
+      )
+    }
+  }
+
   return profiles
 }
 

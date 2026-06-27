@@ -70,3 +70,17 @@ invitation-note-input =
   .label = Opis
 
 required = Pole wymagane
+
+# Roles
+save = Zapisz
+edit = Edytuj
+delete = Usuń
+new-role = Nowa rola
+edit-role = Edytuj rolę
+role-label =
+  .label = Etykieta roli
+add-members = Dodaj członków
+delete-role = Usuń rolę
+delete-role-confirm = Aby potwierdzić, wpisz etykietę roli poniżej:
+grant-access = Nadaj dostęp
+select-application = Wybierz aplikację

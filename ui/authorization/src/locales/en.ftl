@@ -84,3 +84,5 @@ role-label =
 add-members = Add members
 delete-role = Delete Role
 delete-role-confirm = To confirm, type the role label below:
+grant-access = Grant Access
+select-application = Select Application

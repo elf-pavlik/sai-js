@@ -91,6 +91,14 @@
           >
             {{ $t('delete') }}
           </v-btn>
+          <v-spacer />
+          <v-btn
+            prepend-icon="mdi-security"
+            color="primary"
+            @click="grantDialog = true"
+          >
+            {{ $t('grant-access') }}
+          </v-btn>
         </template>
         <template v-else>
           <v-btn
@@ -159,12 +167,30 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <v-dialog v-model="grantDialog">
+      <v-card>
+        <v-card-title>{{ $t('select-application') }}</v-card-title>
+        <v-card-text>
+          <v-list>
+            <v-list-item
+              v-for="application in appStore.applicationList"
+              :key="application.id"
+              :prepend-avatar="application.logo"
+              :title="application.name"
+              @click="grantAccess(application)"
+            />
+          </v-list>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 <script lang="ts" setup>
 import { useAppStore } from '@/store/app'
 import { IRI } from '@janeirodigital/sai-api-messages'
-import { computed, reactive, ref } from 'vue'
+import type { Application } from '@janeirodigital/sai-api-messages'
+import type * as S from 'effect/Schema'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const appStore = useAppStore()
@@ -185,6 +211,7 @@ const markedForDelete = reactive(new Set<IRI>())
 const newMembers = reactive(new Set<IRI>())
 const confirmDelete = ref(false)
 const confirmLabel = ref('')
+const grantDialog = ref(false)
 
 const availableAgents = computed(() =>
   appStore.socialAgentList.filter(
@@ -198,6 +225,20 @@ const dirty = computed(() => {
   if (newMembers.size > 0) return true
   return false
 })
+
+onMounted(() => {
+  if (action.value === 'view') {
+    appStore.listApplications()
+  }
+})
+
+function grantAccess(application: S.Schema.Type<typeof Application>) {
+  grantDialog.value = false
+  router.push({
+    name: 'authorization',
+    query: { role: roleId.value, needs: application.accessNeedGroup, redirect: 'false' },
+  })
+}
 
 function agentLabel(webId: string): string {
   const agent = appStore.socialAgentList.find((a) => a.id === webId)

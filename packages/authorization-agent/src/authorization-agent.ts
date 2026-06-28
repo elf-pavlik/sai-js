@@ -302,7 +302,7 @@ export class AuthorizationAgent {
 
   public async findAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
     const dataInstance = await this.factory.readable.dataInstance(dataInstanceIri)
-    const shapeTree = dataInstance.dataRegistration.registeredShapeTree
+    const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
     for await (const accessAuthorization of this.accessAuthorizations) {
       const dataAuthorization = (
@@ -324,13 +324,13 @@ export class AuthorizationAgent {
           }
           break
         case INTEROP.AllFromRegistry.value:
-          if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration.iri) {
+          if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.iri) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           }
           break
         case INTEROP.SelectedFromRegistry.value:
           if (
-            dataAuthorization.hasDataRegistration === dataInstance.dataRegistration.iri &&
+            dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.iri &&
             dataAuthorization.hasDataInstance.includes(dataInstanceIri)
           ) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
@@ -352,10 +352,10 @@ export class AuthorizationAgent {
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
       grantee: agent,
-      registeredShapeTree: dataInstance.dataRegistration.registeredShapeTree,
+      registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
       scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
       dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
-      hasDataRegistration: dataInstance.dataRegistration.iri,
+      hasDataRegistration: dataInstance.dataRegistration!.iri,
       accessMode: details.accessMode,
       hasDataInstance: [dataInstance.iri],
       children: await Promise.all(
@@ -366,7 +366,7 @@ export class AuthorizationAgent {
           dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
           hasDataRegistration: (
             await this.findDataRegistration(
-              registryOfRegistration(dataInstance.dataRegistration.iri),
+              registryOfRegistration(dataInstance.dataRegistration!.iri),
               child.shapeTree
             )
           ).iri,

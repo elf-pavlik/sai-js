@@ -1,5 +1,5 @@
 import { SHAPETREES, buildNamespace, getDescriptionResource } from '@janeirodigital/interop-utils'
-import type { InteropFactory, ReadableDataRegistration } from '..'
+import type { InteropFactory, ReadableDataRegistration, ReadableShapeTree } from '..'
 import { ReadableResource } from './resource'
 
 interface ChildInfo {
@@ -11,20 +11,27 @@ interface ChildInfo {
 }
 
 export class ReadableDataInstance extends ReadableResource {
-  dataRegistration: ReadableDataRegistration
+  dataRegistration?: ReadableDataRegistration
 
   children: ChildInfo[]
+
+  private _shapeTree?: ReadableShapeTree
 
   constructor(
     public iri: string,
     public factory: InteropFactory,
+    public shapeTreeIri?: string,
     public descriptionLang?: string
   ) {
     super(iri, factory)
   }
 
   private async bootstrap(): Promise<void> {
-    await this.buildDataRegistration()
+    if (this.shapeTreeIri) {
+      this._shapeTree = await this.factory.readable.shapeTree(this.shapeTreeIri, this.descriptionLang)
+    } else {
+      await this.buildDataRegistration()
+    }
     if (!this.isBlob) {
       await this.fetchData()
     } else {
@@ -34,7 +41,7 @@ export class ReadableDataInstance extends ReadableResource {
     }
 
     if (this.descriptionLang) {
-      await this.dataRegistration?.shapeTree?.getDescription(this.descriptionLang)
+      await (this._shapeTree ?? this.dataRegistration?.shapeTree)?.getDescription(this.descriptionLang)
       this.children = await this.buildChildrenInfo()
     }
   }
@@ -47,16 +54,18 @@ export class ReadableDataInstance extends ReadableResource {
   public static async build(
     iri: string,
     factory: InteropFactory,
+    shapeTreeIri?: string,
     descriptionLang?: string
   ): Promise<ReadableDataInstance> {
-    const instance = new ReadableDataInstance(iri, factory, descriptionLang)
+    const instance = new ReadableDataInstance(iri, factory, shapeTreeIri, descriptionLang)
     await instance.bootstrap()
     return instance
   }
 
   get label(): string | undefined {
     let label
-    const predicate = this.dataRegistration?.shapeTree?.describesInstance
+    const shapeTree = this._shapeTree ?? this.dataRegistration?.shapeTree
+    const predicate = shapeTree?.describesInstance
     if (predicate) {
       label = this.getObject(predicate)?.value
     }
@@ -65,20 +74,23 @@ export class ReadableDataInstance extends ReadableResource {
   }
 
   get shapeTree(): { iri: string; label: string } {
+    const shapeTree = this._shapeTree ?? this.dataRegistration!.shapeTree!
     return {
-      iri: this.dataRegistration!.shapeTree!.iri,
-      label: this.dataRegistration!.shapeTree!.descriptions[this.descriptionLang]!.label,
+      iri: shapeTree.iri,
+      label: shapeTree.descriptions[this.descriptionLang]!.label,
     }
   }
 
   // TODO: extract as mixin from other data instance
   get isBlob(): boolean {
-    return this.dataRegistration.shapeTree?.expectsType.value === SHAPETREES.NonRDFResource.value
+    const shapeTree = this._shapeTree ?? this.dataRegistration?.shapeTree
+    return shapeTree?.expectsType.value === SHAPETREES.NonRDFResource.value
   }
 
   async buildChildrenInfo(): Promise<ChildInfo[]> {
+    const shapeTree = this._shapeTree ?? this.dataRegistration!.shapeTree!
     return Promise.all(
-      this.dataRegistration!.shapeTree!.references.map(async (reference) => {
+      shapeTree.references.map(async (reference) => {
         const childTree = await this.factory.readable.shapeTree(
           reference.shapeTree,
           this.descriptionLang

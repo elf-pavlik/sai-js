@@ -13,7 +13,7 @@ import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
-  const resource = await saiSession.factory.readable.dataInstance(iri, lang)
+  const resource = await saiSession.factory.readable.dataInstance(iri, undefined, lang)
   if (!resource) throw new Error(`Resource not found: ${iri}`)
   return Resource.make({
     id: IRI.make(resource.iri),

@@ -108,9 +108,6 @@ export const getDataRegistries = async (
   } else {
     dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
   }
-  if (!Object.keys(dataGrantIndex).length) {
-    throw new Error(`missing social agent registration: ${agentId}`)
-  }
   return Promise.all(
     Object.entries(dataGrantIndex).map(([registryIri, dataGrants]) =>
       buildDataRegistryForGrant(registryIri, dataGrants, descriptionsLang, saiSession)
@@ -155,7 +152,10 @@ export const listDataInstances = async (
         for await (const instance of dataGrant.getDataInstanceIterator()) {
           if (seenInstances.has(instance.iri)) continue
           seenInstances.add(instance.iri)
-          const dataInstance = await saiSession.factory.readable.dataInstance(instance.iri)
+          const dataInstance = await saiSession.factory.readable.dataInstance(
+            instance.iri,
+            dataGrant.registeredShapeTree
+          )
           dataInstances.push(
             DataInstance.make({
               id: IRI.make(dataInstance.iri),

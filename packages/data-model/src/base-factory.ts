@@ -25,7 +25,7 @@ interface Cache {
 }
 
 export interface BaseReadableFactory {
-  dataInstance(iri: string, descriptionLang?: string): Promise<ReadableDataInstance>
+  dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
   accessGrant(iri: string): Promise<ReadableAccessGrant>
   applicationRegistration(iri: string): Promise<ReadableApplicationRegistration>
   dataRegistration(iri: string): Promise<ReadableDataRegistration>
@@ -59,9 +59,10 @@ export class BaseFactory {
     return {
       dataInstance: async function dataInstance(
         iri: string,
+        shapeTreeIri?: string,
         descriptionLang?: string
       ): Promise<ReadableDataInstance> {
-        return ReadableDataInstance.build(iri, factory, descriptionLang)
+        return ReadableDataInstance.build(iri, factory, shapeTreeIri, descriptionLang)
       },
       accessGrant: async function accessGrant(iri: string): Promise<ReadableAccessGrant> {
         return ReadableAccessGrant.build(iri, factory)

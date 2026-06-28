@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises'
-import { Readable } from 'node:stream'
 import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
 import { S3mini } from 's3mini'
 import { afterAll, beforeAll, beforeEach } from 'vitest'

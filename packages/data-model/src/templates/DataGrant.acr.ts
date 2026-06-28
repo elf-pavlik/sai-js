@@ -43,15 +43,23 @@ export const dataGrantTemplate = ({
     acp:apply [
       a acp:Policy;
       acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent <${peer.agent}>;
-        acp:client <${peer.client}>
-      ]
+      acp:anyOf
+      ${
+        peer
+          ? `
+        [
+          a acp:Matcher;
+          acp:agent <${peer.agent}>;
+          acp:client <${peer.client}>
+        ]
+      `
+          : ''
+      }
+      ${peer && client ? ',' : ''}
       ${
         client
           ? `
-        ,[
+        [
           a acp:Matcher;
           acp:agent <${client.agent}>;
           acp:client <${client.client}>

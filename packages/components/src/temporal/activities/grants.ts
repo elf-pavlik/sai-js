@@ -109,25 +109,30 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   let peer
   let client
   if (uasId) {
+    // no self granting at this moment!
+    if (payload.grantee === payload.dataOwner) throw payload
+
     // grantee is a social agent - only their UAS has access
     peer = {
       agent: payload.grantee,
       client: uasId,
     }
-  } else if (payload.grantedBy !== payload.dataOwner) {
+  } else {
     // grantee is an application - used by the grantedBy
-    peer = {
-      agent: payload.grantedBy,
-      client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
-    }
     client = {
       agent: payload.grantedBy,
       client: payload.grantee,
     }
-  } else {
-    // incorrect case!
-    throw payload
+    // if grantedBy is a peer also their UAS has access
+    // eg. ACME to Alice, then Alice to Kim
+    if (payload.grantedBy !== payload.dataOwner) {
+      peer = {
+        agent: payload.grantedBy,
+        client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
+      }
+    }
   }
+  if (!peer && !client) throw new Error('peer or client are required')
   const headResponse = await session.rawFetch(payload.id, {
     method: 'HEAD',
   })

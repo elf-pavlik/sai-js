@@ -31,6 +31,10 @@ const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec
 const CSS_S3_REGION = 'garage'
 const CSS_PORT = '443'
 
+type LogLevel = 'error' | 'warn' | 'info' | 'verbose' | 'debug' | 'silly'
+
+const CSS_LOG_LEVEL: LogLevel = 'warn'
+
 const NIX_IMAGE = 'nixos/nix'
 const SKOPEO_IMAGE = 'quay.io/skopeo/stable:latest'
 const IMAGE_SUFFIX = '-image'
@@ -136,6 +140,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_USER', 'temporal')
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
+      .withEnvVariable('LOG_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('BIND_ON_IP', '0.0.0.0')
       .withExposedPort(7233)
       .asService()
@@ -198,6 +203,7 @@ export class SaiJs {
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/auth.json')
       .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
       .withEnvVariable('CSS_AUTHORIZATION_ENDPOINT', 'https://ui.auth/authorize')
+      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
@@ -241,6 +247,7 @@ export class SaiJs {
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
+      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)
       .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
@@ -273,6 +280,7 @@ export class SaiJs {
       .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/data.json')
       .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/test/data')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
+      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)

@@ -4,3 +4,9 @@ limit.maxIDLength:
 system.forceSearchAttributesCacheRefreshOnRead:
   - value: true # Dev setup only. Please don't turn this on in production.
     constraints: {}
+history.defaultActivityRetryPolicy:
+  - value:
+      initialInterval: 1s
+      backoffCoefficient: 2.0
+      maximumInterval: 100s
+      maximumAttempts: 1

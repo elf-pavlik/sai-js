@@ -23,7 +23,11 @@ async function storeGrantAndAcr(grant: FinalDataGrantData) {
 }
 
 export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
-  await Promise.all(payload.map((grant) => storeGrantAndAcr(grant)))
+  // TODO same race condition as in createGrantsForAgent — change back to
+  // Promise.all after the CSS SPARQL backend dcterms:modified bug is fixed
+  for (const grant of payload) {
+    await storeGrantAndAcr(grant)
+  }
 }
 
 export async function updateGrantsForOneAgent(
@@ -86,7 +90,13 @@ export async function createGrantsForAgent(
 ): Promise<void> {
   const accessGrantData = await generateGrants(payload)
 
-  await Promise.all(accessGrantData.sourceGrants.map((grant) => storeGrantAndAcr(grant)))
+  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
+  // multiple resources are PUT concurrently in the same container,
+  // causing "Multiple results for http://purl.org/dc/terms/modified".
+  // Change back to Promise.all after the CSS bug is fixed.
+  for (const grant of accessGrantData.sourceGrants) {
+    await storeGrantAndAcr(grant)
+  }
 
   const delegatedGrantIds = await Promise.all(
     // if grant has inheriting it delegation will return a flat array with all the ids

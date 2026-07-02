@@ -245,10 +245,6 @@
       "last_modified": "2026-06-14T16:21:05Z",
       "resolved": "github:NixOS/nixpkgs/9eac87a12312b8f60dd52e1c6e1a265f6fc7f5fc?lastModified=1781454065&narHash=sha256-d2xfDjnfRuf%2FxYGdu9VVRHiav%2F2w5hDL%2F5cw2TuVAXw%3D"
     },
-    "github:dagger/nix#packages.x86_64-linux.container-use": {
-      "last_modified": "2026-06-11T20:27:33Z",
-      "resolved": "github:dagger/nix/a851a67032dfcb7669cd060d6330d4d8af53a9da?lastModified=1781209653&narHash=sha256-E8GUw7fmRLO96NBSr434tk1fgL13JqHCqM%2Bc4ZgLb4o%3D#packages.x86_64-linux.container-use"
-    },
     "github:dagger/nix/851584fd8093ab942b4aa833cdef53050b27279b#packages.x86_64-linux.dagger": {
       "last_modified": "1970-01-01T00:00:00Z",
       "resolved": "github:dagger/nix/851584fd8093ab942b4aa833cdef53050b27279b#packages.x86_64-linux.dagger"

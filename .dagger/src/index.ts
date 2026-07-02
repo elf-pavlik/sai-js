@@ -31,6 +31,10 @@ const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec
 const CSS_S3_REGION = 'garage'
 const CSS_PORT = '443'
 
+const POSTGRESQL_VERSION = "16"
+const TEMPORAL_VERSION = "1.31.0"
+const TEMPORAL_ADMINTOOLS_VERSION = "1.31.0"
+
 type LogLevel = 'error' | 'warn' | 'info' | 'verbose' | 'debug' | 'silly'
 
 const CSS_LOG_LEVEL: LogLevel = 'warn'
@@ -126,29 +130,92 @@ export class SaiJs {
   }
 
   @func()
-  temporalService(): Service {
-    return dag
+  async temporalService(): Promise<Service> {
+    const scripts = this.source.directory('temporal/scripts')
+    const dynamicConfig = this.source.directory('temporal/dynamicconfig')
+    const pgData = dag.cacheVolume('temporal-pg-data')
+
+    const pg = dag
       .container()
-      .from('temporalio/auto-setup:1.29.1')
-      .withServiceBinding('postgresql', this.postgresService())
-      .withMountedFile(
-        '/etc/temporal/development-sql.yaml',
-        this.source.file('temporal/development.yaml')
-      )
+      .from(`postgres:${POSTGRESQL_VERSION}`)
+      .withEnvVariable('POSTGRES_PASSWORD', 'temporal')
+      .withEnvVariable('POSTGRES_USER', 'temporal')
+      .withMountedCache('/var/lib/postgresql/data', pgData)
+      .withExposedPort(5432)
+      .withEntrypoint([
+        '/bin/sh',
+        '-c',
+        'pg_resetwal -f /var/lib/postgresql/data 2>/dev/null; ' +
+          'exec docker-entrypoint.sh postgres',
+      ])
+      .asService({ useEntrypoint: true })
+
+    await dag
+      .container()
+      .from(`postgres:${POSTGRESQL_VERSION}`)
+      .withServiceBinding('postgresql', pg)
+      .withEntrypoint([])
+      .withExec([
+        '/bin/sh',
+        '-c',
+        'for i in $(seq 60); do pg_isready -U temporal -h postgresql && exit 0; done; exit 1',
+      ])
+      .sync()
+
+    await dag
+      .container()
+      .from(`temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}`)
+      .withServiceBinding('postgresql', pg)
+      .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
+      .withEnvVariable('POSTGRES_USER', 'temporal')
+      .withEnvVariable('SQL_PASSWORD', 'temporal')
+      .withEnvVariable('DB_PORT', '5432')
+      .withDirectory('/scripts', scripts)
+      .withExec(['/bin/sh', '/scripts/setup-postgres.sh'])
+      .sync()
+
+    const temporal = dag
+      .container()
+      .from(`temporalio/server:${TEMPORAL_VERSION}`)
+      .withServiceBinding('postgresql', pg)
       .withEnvVariable('DB', 'postgres12')
       .withEnvVariable('DB_PORT', '5432')
       .withEnvVariable('POSTGRES_USER', 'temporal')
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
-      .withEnvVariable('LOG_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('BIND_ON_IP', '0.0.0.0')
+      .withEnvVariable(
+        'DYNAMIC_CONFIG_FILE_PATH',
+        'config/dynamicconfig/development-sql.yaml',
+      )
+      .withDirectory('/etc/temporal/config/dynamicconfig', dynamicConfig)
       .withExposedPort(7233)
-      .asService()
-      .withHostname('temporal')
+      .withEntrypoint([
+        '/bin/sh',
+        '-c',
+        'while ! nc -z postgresql 5432 2>/dev/null; do sleep 1; done && ' +
+          'sleep 2 && ' +
+          'unset OTEL_EXPORTER_OTLP_TRACES_PROTOCOL && ' +
+          'exec /etc/temporal/entrypoint.sh start',
+      ])
+      .asService({ useEntrypoint: true })
+
+    await dag
+      .container()
+      .from(`temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}`)
+      .withServiceBinding('temporal', temporal)
+      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+      .withEnvVariable('DEFAULT_NAMESPACE', 'default')
+      .withDirectory('/scripts', scripts)
+      .withExec(['/bin/sh', '/scripts/create-namespace.sh'])
+      .sync()
+
+    return temporal
   }
 
   @func()
-  workerService(): Service {
+  async workerService(): Promise<Service> {
+    const temporal = await this.temporalService()
     return dag
       .container()
       .from('node:24-slim')
@@ -167,7 +234,7 @@ export class SaiJs {
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('temporal', this.temporalService())
+      .withServiceBinding('temporal', temporal)
       .withExposedPort(9235)
       .asService({
         args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],
@@ -195,7 +262,8 @@ export class SaiJs {
   }
 
   @func()
-  authService(): Service {
+  async authService(): Promise<Service> {
+    const temporal = await this.temporalService()
     return dag
       .container()
       .from('node:24-alpine')
@@ -223,7 +291,7 @@ export class SaiJs {
       .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('temporal', this.temporalService())
+      .withServiceBinding('temporal', temporal)
       .withServiceBinding('id', this.idService())
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
@@ -309,7 +377,9 @@ export class SaiJs {
       .withHostname('data')
   }
 
-  testBase(): Container {
+  async testBase(): Promise<Container> {
+    const auth = await this.authService()
+    const worker = await this.workerService()
     return dag
       .container()
       .from('node:24-alpine')
@@ -319,10 +389,10 @@ export class SaiJs {
       .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
-      .withServiceBinding('auth', this.authService())
+      .withServiceBinding('auth', auth)
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
-      .withServiceBinding('worker', this.workerService())
+      .withServiceBinding('worker', worker)
       .withServiceBinding('sparql', this.sparqlService())
       .withServiceBinding('id', this.idService())
       .withServiceBinding('garage', this.garageService())
@@ -338,34 +408,37 @@ export class SaiJs {
     if (testFile) {
       args.push(testFile)
     }
-    return this.testBase().withExec(args).stdout()
+    return (await this.testBase()).withExec(args).stdout()
   }
 
   @func()
-  debugService(
+  async debugService(
     @argument()
     testFile?: string
-  ): Service {
+  ): Promise<Service> {
     const args = ['npm', 'run', 'dagger:debug']
     if (testFile) {
       args.push(testFile)
     }
-    return this.testBase().withExposedPort(9240).asService({ args })
+    return (await this.testBase()).withExposedPort(9240).asService({ args })
   }
 
   @func()
-  proxyService(
+  async proxyService(
     @argument()
     testFile?: string
-  ): Service {
+  ): Promise<Service> {
+    const debug = await this.debugService(testFile)
+    const auth = await this.authService()
+    const worker = await this.workerService()
     return dag
       .container()
       .from('node:24-alpine')
-      .withServiceBinding('debug', this.debugService(testFile))
-      .withServiceBinding('auth', this.authService())
+      .withServiceBinding('debug', debug)
+      .withServiceBinding('auth', auth)
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
-      .withServiceBinding('worker', this.workerService())
+      .withServiceBinding('worker', worker)
       .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
       .withExposedPort(9240)
       .withExposedPort(9229)
@@ -382,11 +455,12 @@ export class SaiJs {
   }
 
   @func()
-  cli(): Container {
+  async cli(): Promise<Container> {
+    const temporal = await this.temporalService()
     return dag
       .container()
       .from('alpine:3.20')
-      .withServiceBinding('temporal', this.temporalService())
+      .withServiceBinding('temporal', temporal)
       .withExec([
         'sh',
         '-c',

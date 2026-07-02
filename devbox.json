@@ -9,7 +9,6 @@
     "ducker@latest",
     "pgcli@latest",
     "github:dagger/nix/851584fd8093ab942b4aa833cdef53050b27279b#packages.x86_64-linux.dagger",
-    "github:dagger/nix#packages.x86_64-linux.container-use",
     "bun@latest",
     "nixos-anywhere@latest",
     "nix-prefetch-docker@latest",
@@ -22,11 +21,13 @@
     "garage@latest",
     "oxigraph@latest"
   ],
+  "env": {
+    "_EXPERIMENTAL_DAGGER_RUNNER_HOST": "docker-container://dagger-engine-v0.20.6"
+  },
   "shell": {
     "init_hook": [
       "export CAROOT=\"$(mkcert -CAROOT)\"",
       "export SSL_CERT_FILE=$CAROOT/rootCA.pem",
-      "alias cu='container-use'",
       "alias jq='jaq'"
     ],
     "scripts": {

@@ -23,7 +23,7 @@ export interface UpdateGrantsInput {
   authorizationId: string
 }
 
-export interface UpdateGrantsForAgentsInput {
+export interface ProcessRoleMembershipChangeInput {
   webId: string
   peers: string[]
 }

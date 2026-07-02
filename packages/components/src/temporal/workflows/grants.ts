@@ -55,8 +55,8 @@ export async function updateGrantsForOneAgent(
   )
 }
 
-export async function updateGrantsForAgents(
-  payload: activities.UpdateGrantsForAgentsInput
+export async function processRoleMembershipChange(
+  payload: activities.ProcessRoleMembershipChangeInput
 ): Promise<void> {
   await Promise.all(
     payload.peers.map((peerId) =>

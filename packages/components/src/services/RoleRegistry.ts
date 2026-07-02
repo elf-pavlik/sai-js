@@ -1,7 +1,7 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import { Temporal } from '../temporal/client.js'
-import { updateGrantsForAgents } from '../temporal/workflows/grants.js'
+import { processRoleMembershipChange } from '../temporal/workflows/grants.js'
 import type * as S from 'effect/Schema'
 
 async function executeWorkflow(
@@ -14,7 +14,7 @@ async function executeWorkflow(
   const affected = [...before.symmetricDifference(after)]
   const temporal = new Temporal()
   await temporal.init()
-  await temporal.client.workflow.execute(updateGrantsForAgents, {
+  await temporal.client.workflow.execute(processRoleMembershipChange, {
     taskQueue: 'create-grants',
     args: [
       {

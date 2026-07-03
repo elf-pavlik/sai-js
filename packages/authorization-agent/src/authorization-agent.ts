@@ -93,10 +93,6 @@ export class AuthorizationAgent {
     })
   }
 
-  get accessAuthorizations(): AsyncIterable<ReadableAccessAuthorization> {
-    return this.registrySet.hasAuthorizationRegistry.accessAuthorizations
-  }
-
   get applicationRegistrations(): AsyncIterable<CRUDApplicationRegistration> {
     return this.registrySet.hasAgentRegistry.applicationRegistrations
   }
@@ -272,7 +268,8 @@ export class AuthorizationAgent {
   public async findAuthorizationsForAgent(peerId: string): Promise<ReadableAccessAuthorization[]> {
     const authorizations: ReadableAccessAuthorization[] = []
     // TODO: optimize!
-    for await (const accessAuthorization of this.accessAuthorizations) {
+    const iterator = await this.registrySet.hasAuthorizationRegistry.accessAuthorizations()
+    for await (const accessAuthorization of iterator) {
       if (accessAuthorization.grantee === peerId) {
         authorizations.push(accessAuthorization)
       } else {
@@ -304,7 +301,8 @@ export class AuthorizationAgent {
     const dataInstance = await this.factory.readable.dataInstance(dataInstanceIri)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
-    for await (const accessAuthorization of this.accessAuthorizations) {
+    const iterator = await this.registrySet.hasAuthorizationRegistry.accessAuthorizations()
+    for await (const accessAuthorization of iterator) {
       const dataAuthorization = (
         await asyncIterableToArray<ReadableDataAuthorization>(
           accessAuthorization.dataAuthorizations

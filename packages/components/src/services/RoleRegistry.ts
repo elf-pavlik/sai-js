@@ -6,6 +6,7 @@ import type * as S from 'effect/Schema'
 
 async function executeWorkflow(
   webId: string,
+  roleId: string,
   beforePeers: string[],
   afterPeers: string[]
 ): Promise<void> {
@@ -19,6 +20,7 @@ async function executeWorkflow(
     args: [
       {
         webId,
+        roleId,
         peers: affected,
       },
     ],
@@ -59,7 +61,7 @@ export const updateRole = async (
   const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.updateRole(id, label, [...members])
   // TODO fix IRI type change
-  await executeWorkflow(saiSession.webId, role.members, members as unknown as string[])
+  await executeWorkflow(saiSession.webId, id, role.members, members as unknown as string[])
   return Role.make({ id, label, members: [...members] })
 }
 
@@ -70,5 +72,5 @@ export const deleteRole = async (
   const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.deleteRole(id)
   // TODO delete authorizations for that role
-  await executeWorkflow(saiSession.webId, role.members, [])
+  await executeWorkflow(saiSession.webId, id, role.members, [])
 }

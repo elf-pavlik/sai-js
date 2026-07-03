@@ -3,7 +3,8 @@ interface DataGrantAcrData {
   id: string
   resource: string
   owner: AgentAndClient
-  peer: AgentAndClient
+  grantor?: AgentAndClient
+  peer?: AgentAndClient
   client?: AgentAndClient
 }
 
@@ -11,6 +12,7 @@ export const dataGrantTemplate = ({
   id,
   resource,
   owner,
+  grantor,
   peer,
   client,
 }: DataGrantAcrData): string => `
@@ -37,6 +39,25 @@ export const dataGrantTemplate = ({
         acp:client <${owner.client}>
       ]
     ].
+
+    ${
+      grantor
+        ? `
+      <${id}.acr#fullOwnerAccess>
+        a acp:AccessControl;
+        acp:apply [
+          a acp:Policy;
+          acp:allow acl:Read, acl:Write;
+          acp:anyOf [
+            a acp:Matcher;
+            acp:agent <${grantor.agent}>;
+            acp:client <${grantor.client}>
+          ]
+        ].
+      `
+        : ''
+    }
+
 
   <${id}.acr#peerReadAccess>
     a acp:AccessControl;

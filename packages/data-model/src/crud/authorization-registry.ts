@@ -24,7 +24,8 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
     return instance
   }
 
-  get accessAuthorizations(): AsyncIterable<ReadableAccessAuthorization> {
+  public async accessAuthorizations(): Promise<AsyncIterable<ReadableAccessAuthorization>> {
+    await this.fetchData()
     const accessAuthorizationPattern = [
       DataFactory.namedNode(this.iri),
       INTEROP.hasAccessAuthorization,
@@ -43,7 +44,7 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
   }
 
   async findAuthorization(agentIri: string): Promise<ReadableAccessAuthorization | undefined> {
-    for await (const authorization of this.accessAuthorizations) {
+    for await (const authorization of await this.accessAuthorizations()) {
       if (authorization.grantee === agentIri) {
         return authorization
       }
@@ -77,15 +78,19 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
 
   // match dataOwner on data authorizations - scope All will have no dataOwner but we want it to also match
   async findAuthorizationsDelegatingFromOwner(
-    dataOwner: string
+    dataOwner: string,
+    roleId: string
   ): Promise<ReadableAccessAuthorization[]> {
     const matching: ReadableAccessAuthorization[] = []
-    for await (const accessAuthorization of this.accessAuthorizations) {
+    for await (const accessAuthorization of await this.accessAuthorizations()) {
       let matches = false
       // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
       if (accessAuthorization.grantee !== dataOwner) {
         for await (const dataAuthorization of accessAuthorization.dataAuthorizations) {
-          if (!dataAuthorization.dataOwner || dataAuthorization.dataOwner === dataOwner) {
+          if (dataAuthorization.dataOwner === dataOwner) {
+            matches = true
+          }
+          if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
             matches = true
           }
         }

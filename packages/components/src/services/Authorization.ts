@@ -220,13 +220,15 @@ function buildDataAuthorizations(
       scopeOfAuthorization: INTEROP[dataAuthorization.scope].value,
       accessMode: accessNeed!.accessMode,
     }
-    if (saiReady.scopeOfAuthorization === INTEROP.AllFromAgent.value) {
+    if (
+      saiReady.scopeOfAuthorization !== INTEROP.All.value &&
+      saiReady.scopeOfAuthorization !== INTEROP.Inherited.value
+    ) {
       saiReady.dataOwner = dataAuthorization.dataOwner
-    } else if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry.value) {
-      saiReady.dataOwner = dataAuthorization.dataOwner
+    }
+    if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry.value) {
       saiReady.hasDataRegistration = dataAuthorization.dataRegistration
     } else if (saiReady.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value) {
-      saiReady.dataOwner = dataAuthorization.dataOwner
       saiReady.hasDataRegistration = dataAuthorization.dataRegistration
       saiReady.hasDataInstance = dataAuthorization.dataInstances as unknown as string[]
     }
@@ -243,13 +245,15 @@ function buildDataAuthorizations(
   }
   return parents.map((parentDataAuthorization) => {
     // add children for each parent
-    const inheritingDataAuthorizations = children.filter((childDataAuthorization) => {
-      const accessNeed = accessNeedGroup.accessNeeds
-        .flatMap((need) => [need, ...(need.children ?? [])])
-        .find((need) => need.iri === childDataAuthorization.satisfiesAccessNeed)!
+    const inheritingDataAuthorizations = children
+      .filter((childDataAuthorization) => {
+        const accessNeed = accessNeedGroup.accessNeeds
+          .flatMap((need) => [need, ...(need.children ?? [])])
+          .find((need) => need.iri === childDataAuthorization.satisfiesAccessNeed)!
 
-      return accessNeed.inheritsFromNeed === parentDataAuthorization.satisfiesAccessNeed
-    })
+        return accessNeed.inheritsFromNeed === parentDataAuthorization.satisfiesAccessNeed
+      })
+      .map((child) => ({ ...child, dataOwner: parentDataAuthorization.dataOwner }))
     if (inheritingDataAuthorizations.length) {
       return { ...parentDataAuthorization, children: inheritingDataAuthorizations }
     }

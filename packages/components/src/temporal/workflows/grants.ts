@@ -70,6 +70,15 @@ export async function processRoleMembershipChange(
       })
     )
   )
+  const data = { webId: payload.webId, peerId: payload.roleId, roleId: payload.roleId }
+  const authorizations = await findAffectedAuthorizations(data)
+  await Promise.all(
+    authorizations.map((input) =>
+      executeChild(updateGrantsForAuthorization, {
+        args: [input],
+      })
+    )
+  )
 }
 
 export async function createGrantsForAuthorization(

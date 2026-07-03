@@ -16,6 +16,7 @@ import { buildSessionManager } from '../../builders/sessionManager.js'
 export interface FindAffectedAuthorizationsInput {
   webId: string
   peerId: string
+  roleId?: string
 }
 
 export interface UpdateGrantsInput {
@@ -25,6 +26,7 @@ export interface UpdateGrantsInput {
 
 export interface ProcessRoleMembershipChangeInput {
   webId: string
+  roleId: string
   peers: string[]
 }
 
@@ -35,7 +37,8 @@ export async function findAffectedAuthorizations(
   const session = await manager.getSession(payload.webId)
   const affectedAuthorizations =
     await session.registrySet.hasAuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
-      payload.peerId
+      payload.peerId,
+      payload.roleId
     )
   return affectedAuthorizations.map((authorization) => ({
     webId: payload.webId,
@@ -98,6 +101,12 @@ export async function storeDataGrant(payload: FinalDataGrantData): Promise<void>
   return grant.put()
 }
 
+/*
+ * 1. owner grants to a peer
+ * 2. owner grants to an application
+ * 3. grantor grants to a peer (delegation)
+ * 4. grantor grants to an application (delegation)
+ */
 export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
@@ -106,8 +115,17 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   try {
     uasId = await discoverAuthorizationAgent(payload.grantee, fetchWrapper(fetch))
   } catch {}
+  let grantor
   let peer
   let client
+  // if grantedBy is a peer also their UAS has write access
+  // eg. ACME to Alice, then Alice to Kim
+  if (payload.grantedBy !== payload.dataOwner) {
+    grantor = {
+      agent: payload.grantedBy,
+      client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
+    }
+  }
   if (uasId) {
     // no self granting at this moment!
     if (payload.grantee === payload.dataOwner) throw payload
@@ -123,14 +141,6 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
       agent: payload.grantedBy,
       client: payload.grantee,
     }
-    // if grantedBy is a peer also their UAS has access
-    // eg. ACME to Alice, then Alice to Kim
-    if (payload.grantedBy !== payload.dataOwner) {
-      peer = {
-        agent: payload.grantedBy,
-        client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
-      }
-    }
   }
   if (!peer && !client) throw new Error('peer or client are required')
   const headResponse = await session.rawFetch(payload.id, {
@@ -144,6 +154,7 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
       agent: session.webId,
       client: session.agentId,
     },
+    grantor,
     peer,
     client,
   }).replaceAll('\n', '')

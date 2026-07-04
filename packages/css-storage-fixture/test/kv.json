@@ -416,5 +416,90 @@
   ],
   "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fyoyo-na%2F": [
     "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/password/4fbb04ad-5455-46c0-a7a1-7fcf765332db": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/password/email/dan%40yoyodyne.example": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/data/9f137c45-2889-430b-8fb0-e1f41312dc09": {
+    "linkedLoginsCount": 1,
+    "id": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+    "**uiPushSubscription**": {},
+    "**reciprocalWebhook**": {},
+    "**password**": {
+      "4fbb04ad-5455-46c0-a7a1-7fcf765332db": {
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "email": "dan@yoyodyne.example",
+        "password": "$2b$10$lhqm/yiyPZfpc1SjXBCPneugEwn/LHDIPr9QRVIjvmJoJyAkyqV.G",
+        "verified": true,
+        "id": "4fbb04ad-5455-46c0-a7a1-7fcf765332db"
+      }
+    },
+    "**clientCredentials**": {},
+    "**pod**": {
+      "ca8cd593-4777-4d82-8dc8-d8e50b454aba": {
+        "baseUrl": "https://data/dan-east/",
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "id": "ca8cd593-4777-4d82-8dc8-d8e50b454aba",
+        "**owner**": {
+          "fd85353f-e2be-4bef-9c40-36fe9c6660ce": {
+            "webId": "https://id/dan",
+            "visible": true,
+            "podId": "ca8cd593-4777-4d82-8dc8-d8e50b454aba",
+            "id": "fd85353f-e2be-4bef-9c40-36fe9c6660ce"
+          }
+        }
+      },
+      "105eddb8-4bbc-49f2-961d-4144719e8292": {
+        "baseUrl": "https://data/dan-west/",
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "id": "105eddb8-4bbc-49f2-961d-4144719e8292",
+        "**owner**": {
+          "7173335e-9138-4561-8cd6-c913e7b27f35": {
+            "webId": "https://id/dan",
+            "visible": true,
+            "podId": "105eddb8-4bbc-49f2-961d-4144719e8292",
+            "id": "7173335e-9138-4561-8cd6-c913e7b27f35"
+          }
+        }
+      }
+    },
+    "**webIdLink**": {
+      "d4f7120b-f3ec-4b53-b695-93509282dd39": {
+        "webId": "https://id/dan",
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "id": "d4f7120b-f3ec-4b53-b695-93509282dd39"
+      }
+    }
+  },
+  "accounts/index/webIdLink/d4f7120b-f3ec-4b53-b695-93509282dd39": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/webIdLink/webId/https%3A%2F%2Fid%2Fdan": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/cookies/4f8fe6e4-4a5a-4318-93f6-d8645778fc28": {
+    "expires": "3026-01-08T18:05:16.680Z",
+    "payload": "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  },
+  "accounts/index/owner/fd85353f-e2be-4bef-9c40-36fe9c6660ce": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/pod/ca8cd593-4777-4d82-8dc8-d8e50b454aba": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fdan-east%2F": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/owner/7173335e-9138-4561-8cd6-c913e7b27f35": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/pod/105eddb8-4bbc-49f2-961d-4144719e8292": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fdan-west%2F": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
   ]
 }

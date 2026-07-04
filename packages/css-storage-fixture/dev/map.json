@@ -4,7 +4,8 @@
     "https://id/yoyo": "https://yoyo.id.docker",
     "https://id/alice": "https://alice.id.docker",
     "https://id/bob": "https://bob.id.docker",
-    "https://id/kim": "https://kim.id.docker"
+    "https://id/kim": "https://kim.id.docker",
+    "https://id/dan": "https://dan.id.docker"
   },
   "prefixes": {
     "https://auth/": "https://auth.docker/",
@@ -34,6 +35,10 @@
     "https://test-client": "https://vuejectron.docker",
     "https://data/test-client/public/id": "https://vuejectron.docker/id",
     "https://data/test-client/": "https://vuejectron.data.docker/",
-    "meta:https://data/test-client/": "meta:https://vuejectron.data.docker/"
+    "meta:https://data/test-client/": "meta:https://vuejectron.data.docker/",
+    "https://data/dan-east/": "https://dan-east.data.docker/",
+    "meta:https://data/dan-east/": "meta:https://dan-east.data.docker/",
+    "https://data/dan-west/": "https://dan-west.data.docker/",
+    "meta:https://data/dan-west/": "meta:https://dan-west.data.docker/"
   }
 }

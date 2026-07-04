@@ -7,6 +7,7 @@ const agents = [
   'https://id/kim',
   'https://id/acme',
   'https://id/yoyo',
+  'https://id/dan',
 ]
 
 describe('agents', () => {

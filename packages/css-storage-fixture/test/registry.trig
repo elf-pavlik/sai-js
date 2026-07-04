@@ -23,7 +23,8 @@ GRAPH <https://registry/> {
       <https://registry/acme/>,
       <https://registry/alice/>,
       <https://registry/bob/>,
-      <https://registry/kim/> .
+      <https://registry/kim/> ,
+      <https://registry/dan/>.
 }
 
 GRAPH <meta:https://registry/acme/> {
@@ -1108,7 +1109,34 @@ GRAPH <https://registry/bob/grant/> {
 
 GRAPH <meta:https://registry/bob/authorization/> {
   <https://registry/bob/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource .
+    a interop:AuthorizationRegistry, ldp:Resource;
+    interop:hasAccessAuthorization
+      <https://registry/bob/authorization/c8m7w3/>.
+}
+
+GRAPH <meta:https://registry/bob/authorization/c8m7w3/> {
+  <https://registry/bob/authorization/c8m7w3/>
+    a interop:AccessAuthorization, ldp:Resource;
+    interop:granted true;
+    interop:grantee <https://registry/bob/role/v7emok>;
+    interop:grantedBy <https://id/bob>;
+    interop:hasDataAuthorization
+      <https://registry/bob/authorization/c8m7w3/t1u13z>.
+}
+
+GRAPH <https://registry/bob/authorization/c8m7w3/t1u13z> {
+  <https://registry/bob/authorization/c8m7w3/t1u13z>
+    a interop:DataAuthorization;
+    interop:grantee <https://registry/bob/role/v7emok>;
+    interop:grantedBy <https://id/bob>;
+    interop:dataOwner <https://registry/bob/role/t6nwde>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:scopeOfAuthorization interop:AllFromAgent;
+    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+}
+
+GRAPH <meta:https://registry/bob/authorization/c8m7w3/t1u13z> {
+        <https://registry/bob/authorization/c8m7w3/t1u13z> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/bob/role/> {
@@ -1117,15 +1145,43 @@ GRAPH <meta:https://registry/bob/role/> {
 }
 
 GRAPH <https://registry/bob/role/> {
+  <https://registry/bob/role/>
+    ldp:contains
+      <https://registry/bob/role/t6nwde>,
+      <https://registry/bob/role/v7emok>.
+}
+
+GRAPH <https://registry/bob/role/t6nwde> {
+  <https://registry/bob/role/t6nwde>
+    a interop:Role;
+    skos:prefLabel "Biz";
+    interop:hasMember <https://id/yoyo>.
+}
+
+GRAPH <meta:https://registry/bob/role/t6nwde> {
+        <https://registry/bob/role/t6nwde> a ldp:Resource .
+}
+
+GRAPH <https://registry/bob/role/v7emok> {
+  <https://registry/bob/role/v7emok>
+    a interop:Role;
+    skos:prefLabel "Whiz".
+}
+
+GRAPH <meta:https://registry/bob/role/v7emok> {
+        <https://registry/bob/role/v7emok> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/bob/agent/> {
   <https://registry/bob/agent/>
     a interop:AgentRegistry, ldp:Resource;
+    interop:hasApplicationRegistration
+      <https://registry/bob/agent/p9xnub/>;
     interop:hasSocialAgentRegistration
       <https://registry/bob/agent/jc5gt6/>,
       <https://registry/bob/agent/x7n2qv/>,
-      <https://registry/bob/agent/n4m8qx/>.
+      <https://registry/bob/agent/n4m8qx/>,
+      <https://registry/bob/agent/n78inc/>.
 }
 
 GRAPH <meta:https://registry/bob/agent/jc5gt6/> {
@@ -1271,6 +1327,107 @@ GRAPH <https://registry/bob/agent/n4m8qx/.acr> {
         a acp:Matcher;
         acp:agent <https://id/yoyo>;
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+}
+
+GRAPH <meta:https://registry/bob/agent/n78inc/> {
+  <https://registry/bob/agent/n78inc/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://id/dan> ;
+    interop:reciprocalRegistration <https://registry/dan/agent/moi15b/> ;
+    skos:prefLabel "Dan" ;
+    skos:note "A friend." .
+}
+
+GRAPH <meta:https://registry/bob/agent/p9xnub/> {
+  <https://registry/bob/agent/p9xnub/>
+    a interop:ApplicationRegistration, ldp:Resource;
+    interop:registeredAgent <https://data/test-client/public/id>.
+  <https://data/test-client/public/id> oidc:client_name "Test client";
+      interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm> ;
+      interop:hasAuthorizationCallbackEndpoint <https://test-client> .
+}
+
+GRAPH <meta:https://registry/bob/agent/p9xnub/.acr> {
+        <https://registry/bob/agent/p9xnub/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/bob/agent/p9xnub/.acr> {
+  <https://registry/bob/agent/p9xnub/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/bob/agent/p9xnub/>;
+    acp:accessControl
+      <https://registry/bob/agent/p9xnub/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/p9xnub/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/bob/agent/p9xnub/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/p9xnub/.acr#peerReadAccess>.
+
+  <https://registry/bob/agent/p9xnub/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/bob>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+      ]
+    ].
+
+  <https://registry/bob/agent/p9xnub/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/bob>;
+        acp:client <https://data/test-client/public/id>
+      ]
+    ].
+}
+
+ GRAPH <https://registry/bob/agent/p9xnub/> {
+}
+
+GRAPH <meta:https://registry/bob/agent/n78inc/.acr> {
+        <https://registry/bob/agent/n78inc/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/bob/agent/n78inc/.acr> {
+  <https://registry/bob/agent/n78inc/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/bob/agent/n78inc/>;
+    acp:accessControl
+      <https://registry/bob/agent/n78inc/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/n78inc/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/bob/agent/n78inc/.acr#fullOwnerAccess>,
+      <https://registry/bob/agent/n78inc/.acr#peerReadAccess>.
+
+  <https://registry/bob/agent/n78inc/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/bob>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+      ]
+    ].
+
+  <https://registry/bob/agent/n78inc/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
       ]
     ].
 }
@@ -3927,3 +4084,136 @@ GRAPH <https://registry/alice/grant/azgyc5.acr> {
       ]
     ].
 }
+
+  GRAPH <meta:https://registry/dan/> {
+    <https://registry/dan/>
+      a interop:RegistrySet, ldp:Resource, space:Storage;
+      interop:hasAgentRegistry <https://registry/dan/agent/>;
+      interop:hasRoleRegistry <https://registry/dan/role/>;
+      interop:hasAuthorizationRegistry <https://registry/dan/authorization/>;
+      interop:hasGrantRegistry <https://registry/dan/grant/>;
+      interop:hasDataRegistry
+        <https://data/dan-east/>,
+        <https://data/dan-west/>.
+  }
+
+  GRAPH <meta:https://registry/dan/authorization/> {
+    <https://registry/dan/authorization/>
+      a interop:AuthorizationRegistry, ldp:Resource.
+  }
+
+  GRAPH <meta:https://registry/dan/grant/> {
+    <https://registry/dan/grant/>
+      a interop:GrantRegistry, ldp:Resource.
+  }
+
+  GRAPH <meta:https://registry/dan/agent/> {
+    <https://registry/dan/agent/>
+      a interop:AgentRegistry, ldp:Resource;
+      interop:hasSocialAgentRegistration
+        <https://registry/dan/agent/moi15b/>.
+  }
+
+  GRAPH <meta:https://registry/dan/role/> {
+    <https://registry/dan/role/>
+      a interop:RoleRegistry, ldp:Resource.
+  }
+
+  GRAPH <meta:https://registry/dan/agent/moi15b/> {
+    <https://registry/dan/agent/moi15b/>
+      a interop:SocialAgentRegistration, ldp:Resource;
+      interop:registeredAgent <https://id/bob> ;
+      interop:reciprocalRegistration <https://registry/bob/agent/n78inc/> ;
+      skos:prefLabel "Bob" ;
+      skos:note "A friend." .
+  }
+
+  GRAPH <meta:https://registry/dan/agent/moi15b/.acr> {
+          <https://registry/dan/agent/moi15b/.acr> a ldp:Resource .
+  }
+
+  GRAPH <https://registry/dan/agent/moi15b/.acr> {
+    <https://registry/dan/agent/moi15b/.acr#root>
+      a acp:AccessControlResource;
+      acp:resource <https://registry/dan/agent/moi15b/>;
+      acp:accessControl
+        <https://registry/dan/agent/moi15b/.acr#fullOwnerAccess>,
+        <https://registry/dan/agent/moi15b/.acr#peerReadAccess>;
+      acp:memberAccessControl
+        <https://registry/dan/agent/moi15b/.acr#fullOwnerAccess>,
+        <https://registry/dan/agent/moi15b/.acr#peerReadAccess>.
+
+    <https://registry/dan/agent/moi15b/.acr#fullOwnerAccess>
+      a acp:AccessControl;
+      acp:apply [
+        a acp:Policy;
+        acp:allow acl:Read, acl:Write, acl:Control;
+        acp:anyOf [
+          a acp:Matcher;
+          acp:agent <https://id/dan>;
+          acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+        ]
+      ].
+
+    <https://registry/dan/agent/moi15b/.acr#peerReadAccess>
+      a acp:AccessControl;
+      acp:apply [
+        a acp:Policy;
+        acp:allow acl:Read;
+        acp:anyOf [
+          a acp:Matcher;
+          acp:agent <https://id/bob>;
+          acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+        ]
+      ].
+  }
+
+  GRAPH <meta:https://registry/dan/.acr> {
+          <https://registry/dan/.acr> a ldp:Resource .
+  }
+
+  GRAPH <https://registry/dan/.acr> {
+    <https://registry/dan/.acr#root>
+      a acp:AccessControlResource;
+      acp:resource <https://registry/dan/>;
+      acp:accessControl
+        <https://registry/dan/.acr#fullOwnerAccess>;
+      acp:memberAccessControl
+        <https://registry/dan/.acr#fullOwnerAccess>.
+
+    <https://registry/dan/.acr#fullOwnerAccess>
+      a acp:AccessControl;
+      acp:apply [
+        a acp:Policy;
+        acp:allow acl:Read, acl:Write, acl:Control;
+        acp:anyOf [
+          a acp:Matcher;
+          acp:agent <https://id/dan>;
+          acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+        ]
+      ].
+  }
+
+
+  GRAPH <meta:https://data/dan-east/> {
+    <https://data/dan-east/>
+      a interop:DataRegistry, ldp:Resource, space:Storage .
+  }
+
+  GRAPH <meta:https://data/dan-west/> {
+    <https://data/dan-west/>
+      a interop:DataRegistry, ldp:Resource, space:Storage .
+  }
+
+GRAPH <https://registry/dan/grant/> {
+}
+
+GRAPH <https://registry/dan/role/> {
+}
+
+  GRAPH <https://id/dan> {
+    <https://id/dan>
+        solid:oidcIssuer <https://auth/>;
+        interop:hasDelegationIssuanceEndpoint <https://auth/.sai/grants/aHR0cHM6Ly9pZC9kYW4>;
+        interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4> .
+  }

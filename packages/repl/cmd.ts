@@ -6,6 +6,7 @@ import * as Runtime from '@effect/platform-node/NodeRuntime'
 import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
 import { Console, Effect, Option } from 'effect'
 import { exportJWK, generateKeyPair } from 'jose'
+import { addUserCommand } from './add-user.js'
 
 const datasetSourcePath = fileURLToPath(
   new URL('../css-storage-fixture/test/registry.trig', import.meta.url)
@@ -214,7 +215,7 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
 
 const cliCommand = Command.make('interop').pipe(
   Command.withDescription('SAI Interop CLI tool'),
-  Command.withSubcommands([genJwkCommand, generateRegistryCommand, seedEnvCommand])
+  Command.withSubcommands([genJwkCommand, generateRegistryCommand, seedEnvCommand, addUserCommand])
 )
 
 const cli = Command.run(cliCommand, {

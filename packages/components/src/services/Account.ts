@@ -3,6 +3,7 @@ import {
   registrySetTemplate,
   webIdTemplate,
 } from '@janeirodigital/interop-data-model'
+import { cssKv } from '@janeirodigital/interop-utils'
 import postgres from 'postgres'
 import { agentId, issuanceUrl } from '../util/uriTemplates.js'
 
@@ -23,7 +24,7 @@ export class AccountService {
   }
 
   async checkHandle(handle: string): Promise<boolean> {
-    const webIdLinkKey = `accounts/index/webIdLink/webId/https%3A%2F%2F${handle}.id.docker`
+    const webIdLinkKey = cssKv.webIdLinkByWebId(`https://${handle}.${this.idOrigin}`)
     const result = await this.sql`
       SELECT EXISTS(
         SELECT 1 FROM ${this.sql(this.tableName)}
@@ -52,7 +53,7 @@ export class AccountService {
       body: trigDataset,
     })
     if (!response.ok) throw new Error('failed POSTing dataset to the quadstore')
-    const key = `accounts/data/${accountId}`
+    const key = cssKv.accountData(accountId)
     const rows = await this
       .sql`SELECT value FROM ${this.sql(this.tableName)} WHERE key = ${String(key)}`
     if (rows.length === 0) return undefined
@@ -87,11 +88,11 @@ export class AccountService {
     // TODO: separate update from instert
     const record = {
       [key]: accountData,
-      [`accounts/index/webIdLink/${ids.webId}`]: [accountId],
-      [`accounts/index/webIdLink/webId/${encodeURIComponent(webId)}`]: [accountId],
-      [`accounts/index/owner/${ids.owner}`]: [accountId],
-      [`accounts/index/pod/${ids.pod}`]: [accountId],
-      [`accounts/index/pod/baseUrl/${encodeURIComponent(dataRegistry)}`]: [accountId],
+      [cssKv.webIdLink(ids.webId)]: [accountId],
+      [cssKv.webIdLinkByWebId(webId)]: [accountId],
+      [cssKv.owner(ids.owner)]: [accountId],
+      [cssKv.pod(ids.pod)]: [accountId],
+      [cssKv.podByBaseUrl(dataRegistry)]: [accountId],
     }
     const entries = Object.entries(record).map(([key, value]) => ({
       key,

@@ -16,6 +16,11 @@ export abstract class AbstractDataGrant extends ReadableResource {
   abstract getDataInstanceIterator(): AsyncIterable<DataInstance>
 
   @Memoize()
+  get grantedBy(): string {
+    return this.getObject('grantedBy').value
+  }
+
+  @Memoize()
   get dataOwner(): string {
     return this.getObject('dataOwner').value
   }

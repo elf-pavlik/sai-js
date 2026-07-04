@@ -4,39 +4,43 @@ import { describe, expect, test } from 'vitest'
 const rpcEndpoint = 'https://auth/.sai/api'
 
 async function verifyAccessGrant(
-  kimId: string,
-  aliceId: string,
-  projectShapeTree: string,
+  granteeId: string,
+  grantedById: string,
+  dataOwnerId: string,
+  shapeTree: string,
   expectGrant: boolean
 ) {
   const manager = buildSessionManager()
-  const kimSession = await manager.getSession(kimId)
+  const granteeSession = await manager.getSession(granteeId)
 
-  const kimRegForAlice = await kimSession.findSocialAgentRegistration(aliceId)
-  expect(kimRegForAlice).toBeDefined()
-  expect(kimRegForAlice!.registeredAgent).toBe(aliceId)
+  const granteeRegForGrantedBy = await granteeSession.findSocialAgentRegistration(grantedById)
+  expect(granteeRegForGrantedBy).toBeDefined()
+  expect(granteeRegForGrantedBy!.registeredAgent).toBe(grantedById)
 
-  const aliceRegForKim = kimRegForAlice!.reciprocalRegistration
-  expect(aliceRegForKim).toBeDefined()
-  expect(aliceRegForKim!.registeredAgent).toBe(kimId)
+  const grantedByRegForGrantee = granteeRegForGrantedBy!.reciprocalRegistration
+  expect(grantedByRegForGrantee).toBeDefined()
+  expect(grantedByRegForGrantee!.registeredAgent).toBe(granteeId)
 
-  const accessGrant = aliceRegForKim!.accessGrant
+  const accessGrant = grantedByRegForGrantee!.accessGrant
+
+  const dataGrant = accessGrant?.hasDataGrant.find(
+    (grant) =>
+      grant.registeredShapeTree === shapeTree &&
+      grant.grantedBy === grantedById &&
+      grant.dataOwner === dataOwnerId
+  )
 
   if (expectGrant) {
     expect(accessGrant).toBeDefined()
     expect(accessGrant!.granted).toBe(true)
-    expect(accessGrant!.grantedBy).toBe(aliceId)
+    expect(accessGrant!.grantedBy).toBe(grantedById)
+    expect(accessGrant!.grantee).toBe(granteeId)
 
-    const projectGrant = accessGrant!.hasDataGrant.find(
-      (grant) => grant.registeredShapeTree === projectShapeTree
-    )
-    expect(projectGrant).toBeDefined()
-    expect(projectGrant!.scopeOfGrant.value).toBe(
-      'http://www.w3.org/ns/solid/interop#AllFromRegistry'
-    )
-    expect(projectGrant!.dataOwner).toBe(aliceId)
+    expect(dataGrant).toBeDefined()
+    expect(dataGrant!.scopeOfGrant.value).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
+    expect(dataGrant!.dataOwner).toBe(dataOwnerId)
   } else {
-    expect(accessGrant).toBeUndefined()
+    expect(dataGrant).toBeUndefined()
   }
 }
 
@@ -73,8 +77,13 @@ describe('role-based access', () => {
   const aliceCookie = 'css-account=8187358a-2072-4dce-9c76-24caffcc84a4'
   const kimId = 'https://id/kim'
   const bobId = 'https://id/bob'
+  const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
+  const danId = 'https://id/dan'
+  const yoyoId = 'https://id/yoyo'
   const roleId = 'https://registry/alice/role/j1g128'
   const chumsRoleId = 'https://registry/alice/role/xcoq3l'
+  const whizRoleId = 'https://registry/bob/role/v7emok'
+  const bizRoleId = 'https://registry/bob/role/t6nwde'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
 
   test('create role test role', async () => {
@@ -137,6 +146,64 @@ describe('role-based access', () => {
     expect(role!.members).toEqual([bobId])
   })
 
+  test('bob creates role-based authorization', async () => {
+    const body = await rpcCall(
+      rpcPayload({
+        _tag: 'AuthorizeApp',
+        authorization: {
+          grantee: 'https://registry/bob/role/v7emok',
+          agentType: 'http://www.w3.org/ns/solid/interop#Role',
+          accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
+          dataAuthorizations: [
+            {
+              accessNeed: 'https://data/test-client/public/access-needs#need-project',
+              scope: 'AllFromRole',
+              dataOwner: 'https://registry/bob/role/t6nwde',
+            },
+            {
+              accessNeed: 'https://data/test-client/public/access-needs#need-task',
+              scope: 'Inherited',
+            },
+          ],
+          granted: true,
+        },
+      }),
+      bobCookie
+    )
+    expect(body.granted).toBe(true)
+    expect(body.id).toMatch('https://registry/bob/authorization/')
+
+    const manager = buildSessionManager()
+    const bobSession = await manager.getSession(bobId)
+
+    const initialRole = await bobSession.findRole(whizRoleId)
+    const initialMembers = initialRole?.members ?? []
+
+    await rpcCall(
+      rpcPayload({
+        _tag: 'UpdateRole',
+        id: whizRoleId,
+        label: initialRole?.label ?? 'Whiz',
+        members: [...initialMembers, danId],
+      }),
+      bobCookie
+    )
+
+    await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
+
+    await rpcCall(
+      rpcPayload({
+        _tag: 'UpdateRole',
+        id: bizRoleId,
+        label: 'Biz',
+        members: [],
+      }),
+      bobCookie
+    )
+
+    await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
+  })
+
   test('grant is created when kim is added to role and revoked when removed', async () => {
     await rpcCall(
       rpcPayload({
@@ -148,7 +215,7 @@ describe('role-based access', () => {
       aliceCookie
     )
 
-    await verifyAccessGrant(kimId, aliceId, projectShapeTree, true)
+    await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, true)
 
     await rpcCall(
       rpcPayload({
@@ -160,6 +227,6 @@ describe('role-based access', () => {
       aliceCookie
     )
 
-    await verifyAccessGrant(kimId, aliceId, projectShapeTree, false)
+    await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, false)
   })
 })

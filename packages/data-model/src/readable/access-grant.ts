@@ -19,6 +19,11 @@ export class ReadableAccessGrant extends ReadableResource {
   }
 
   @Memoize()
+  get grantee(): string {
+    return this.getObject('grantee').value
+  }
+
+  @Memoize()
   get grantedBy(): string {
     return this.getObject('grantedBy').value
   }

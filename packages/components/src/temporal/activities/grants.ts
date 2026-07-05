@@ -3,9 +3,11 @@ import {
   type DataGrantData,
   type FinalAccessGrantData,
   type FinalDataGrantData,
+  type ReadableDataAuthorization,
   dataGrantTemplate,
 } from '@janeirodigital/interop-data-model'
 import {
+  asyncIterableToArray,
   discoverAuthorizationAgent,
   discoverDelegationIssuanceEndpoint,
   fetchWrapper,
@@ -99,6 +101,75 @@ export async function storeDataGrant(payload: FinalDataGrantData): Promise<void>
 
   const grant = session.factory.immutable.dataGrant(payload.id, payload)
   return grant.put()
+}
+
+// TODO: DRY with getGrantees
+export async function ensurePeers(payload: { webId: string; peersOrRoles: string[] }): Promise<
+  string[]
+> {
+  let peers = new Set<string>()
+
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+
+  for (const peerOrRole of payload.peersOrRoles) {
+    const agentRegistration =
+      await session.registrySet.hasAgentRegistry.findRegistration(peerOrRole)
+    if (agentRegistration) {
+      peers.add(peerOrRole)
+    } else {
+      if (session.registrySet.hasRoleRegistry.containedIncludes(peerOrRole)) {
+        const role = await session.factory.crud.role(peerOrRole)
+        peers = new Set([...peers, ...role.members])
+      }
+    }
+  }
+
+  return Array.from(peers)
+}
+
+export async function deleteAuthorizationsUsingRole(payload: {
+  webId: string
+  roleId: string
+}): Promise<string[]> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+  const authorizations = await asyncIterableToArray(
+    await session.registrySet.hasAuthorizationRegistry.accessAuthorizations()
+  )
+  const grantees = new Set<string>()
+  for (const accessAuthorization of authorizations) {
+    const dataAuthorizations = await asyncIterableToArray<ReadableDataAuthorization>(
+      accessAuthorization.dataAuthorizations
+    )
+    let toBeDeleted = false
+    if (accessAuthorization.grantee === payload.roleId) {
+      toBeDeleted = true
+    } else {
+      // TODO handle authorizations on data from multiple roles
+      for (const dataAuthorization of dataAuthorizations) {
+        if (dataAuthorization.dataOwner === payload.roleId) {
+          toBeDeleted = true
+          break
+        }
+      }
+    }
+    if (toBeDeleted) {
+      grantees.add(accessAuthorization.grantee)
+      for (const dataAuthorization of dataAuthorizations) {
+        const response = await session.fetch(dataAuthorization.iri, {
+          method: 'DELETE',
+        })
+        if (!response.ok) throw await response.json()
+      }
+      const response = await session.fetch(accessAuthorization.iri, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw await response.json()
+      await session.registrySet.hasAuthorizationRegistry.remove(accessAuthorization.iri)
+    }
+    return Array.from(grantees)
+  }
 }
 
 /*

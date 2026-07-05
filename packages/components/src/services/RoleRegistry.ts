@@ -1,32 +1,8 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import { Temporal } from '../temporal/client.js'
-import { processRoleMembershipChange } from '../temporal/workflows/grants.js'
+import { processRoleMembershipChange, processRoleDeletion } from '../temporal/workflows/grants.js'
 import type * as S from 'effect/Schema'
-
-async function executeWorkflow(
-  webId: string,
-  roleId: string,
-  beforePeers: string[],
-  afterPeers: string[]
-): Promise<void> {
-  const before = new Set(beforePeers)
-  const after = new Set(afterPeers)
-  const affected = [...before.symmetricDifference(after)]
-  const temporal = new Temporal()
-  await temporal.init()
-  await temporal.client.workflow.execute(processRoleMembershipChange, {
-    taskQueue: 'create-grants',
-    args: [
-      {
-        webId,
-        roleId,
-        peers: affected,
-      },
-    ],
-    workflowId: crypto.randomUUID(),
-  })
-}
 
 export const getRoles = async (saiSession: AuthorizationAgent) => {
   const roles = []
@@ -60,8 +36,24 @@ export const updateRole = async (
 ): Promise<S.Schema.Type<typeof Role>> => {
   const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.updateRole(id, label, [...members])
-  // TODO fix IRI type change
-  await executeWorkflow(saiSession.webId, id, role.members, members as unknown as string[])
+  const before = new Set(role.members)
+  const after = new Set(members)
+  const affected = [...before.symmetricDifference(after)]
+  if (affected.length) {
+    const temporal = new Temporal()
+    await temporal.init()
+    await temporal.client.workflow.execute(processRoleMembershipChange, {
+      taskQueue: 'create-grants',
+      args: [
+        {
+          webId: saiSession.webId,
+          roleId: id,
+          peers: affected,
+        },
+      ],
+      workflowId: crypto.randomUUID(),
+    })
+  }
   return Role.make({ id, label, members: [...members] })
 }
 
@@ -71,6 +63,17 @@ export const deleteRole = async (
 ): Promise<void> => {
   const role = await saiSession.factory.crud.role(id)
   await saiSession.registrySet.hasRoleRegistry.deleteRole(id)
-  // TODO delete authorizations for that role
-  await executeWorkflow(saiSession.webId, id, role.members, [])
+  const temporal = new Temporal()
+  await temporal.init()
+  await temporal.client.workflow.execute(processRoleDeletion, {
+    taskQueue: 'create-grants',
+    args: [
+      {
+        webId: saiSession.webId,
+        roleId: id,
+        peers: role.members,
+      },
+    ],
+    workflowId: crypto.randomUUID(),
+  })
 }

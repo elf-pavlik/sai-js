@@ -71,12 +71,26 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
         DataFactory.namedNode(priorAuthorization.iri)
       )
       await this.replaceStatement(priorQuad, quad)
+      this.removeStatement(priorQuad)
+      this.addStatement(quad)
     } else {
       await this.addStatement(quad)
     }
   }
 
-  // match dataOwner on data authorizations - scope All will have no dataOwner but we want it to also match
+  /*
+   * Unlinks access authorization from registry
+   * Updates itself
+   */
+  async remove(accessAuthorizationIri: string): Promise<void> {
+    const quad = this.getQuad(
+      DataFactory.namedNode(this.iri),
+      INTEROP.hasAccessAuthorization,
+      DataFactory.namedNode(accessAuthorizationIri)
+    )
+    await this.removeStatement(quad)
+    this.removeStatement(quad)
+  }
   async findAuthorizationsDelegatingFromOwner(
     dataOwner: string,
     roleId: string

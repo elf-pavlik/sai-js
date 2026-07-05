@@ -146,64 +146,6 @@ describe('role-based access', () => {
     expect(role!.members).toEqual([bobId])
   })
 
-  test('bob creates role-based authorization', async () => {
-    const body = await rpcCall(
-      rpcPayload({
-        _tag: 'AuthorizeApp',
-        authorization: {
-          grantee: 'https://registry/bob/role/v7emok',
-          agentType: 'http://www.w3.org/ns/solid/interop#Role',
-          accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
-          dataAuthorizations: [
-            {
-              accessNeed: 'https://data/test-client/public/access-needs#need-project',
-              scope: 'AllFromRole',
-              dataOwner: 'https://registry/bob/role/t6nwde',
-            },
-            {
-              accessNeed: 'https://data/test-client/public/access-needs#need-task',
-              scope: 'Inherited',
-            },
-          ],
-          granted: true,
-        },
-      }),
-      bobCookie
-    )
-    expect(body.granted).toBe(true)
-    expect(body.id).toMatch('https://registry/bob/authorization/')
-
-    const manager = buildSessionManager()
-    const bobSession = await manager.getSession(bobId)
-
-    const initialRole = await bobSession.findRole(whizRoleId)
-    const initialMembers = initialRole?.members ?? []
-
-    await rpcCall(
-      rpcPayload({
-        _tag: 'UpdateRole',
-        id: whizRoleId,
-        label: initialRole?.label ?? 'Whiz',
-        members: [...initialMembers, danId],
-      }),
-      bobCookie
-    )
-
-    await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
-
-    await rpcCall(
-      rpcPayload({
-        _tag: 'UpdateRole',
-        id: bizRoleId,
-        label: 'Biz',
-        members: [],
-      }),
-      bobCookie
-    )
-
-    await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
-  })
-
   test('grant is created when kim is added to role and revoked when removed', async () => {
     await rpcCall(
       rpcPayload({
@@ -228,5 +170,137 @@ describe('role-based access', () => {
     )
 
     await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, false)
+  })
+
+  describe('AllFromRole scope', () => {
+    const payload = rpcPayload({
+      _tag: 'AuthorizeApp',
+      authorization: {
+        grantee: whizRoleId,
+        agentType: 'http://www.w3.org/ns/solid/interop#Role',
+        accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
+        dataAuthorizations: [
+          {
+            accessNeed: 'https://data/test-client/public/access-needs#need-project',
+            scope: 'AllFromRole',
+            dataOwner: bizRoleId,
+          },
+          {
+            accessNeed: 'https://data/test-client/public/access-needs#need-task',
+            scope: 'Inherited',
+          },
+        ],
+        granted: true,
+      },
+    })
+    test('existing authorization - add remove members to roles', async () => {
+      const body = await rpcCall(payload, bobCookie)
+      expect(body.granted).toBe(true)
+      expect(body.id).toMatch('https://registry/bob/authorization/')
+
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
+
+      const initialRole = await bobSession.findRole(whizRoleId)
+      const initialMembers = initialRole?.members ?? []
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: whizRoleId,
+          label: initialRole?.label ?? 'Whiz',
+          members: [...initialMembers, danId],
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: bizRoleId,
+          label: 'Biz',
+          members: [],
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
+    })
+
+    test('create authorization for role with existing members', async () => {
+      await rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: whizRoleId,
+          label: 'Whiz',
+          members: [danId],
+        }),
+        bobCookie
+      )
+
+      const body = await rpcCall(payload, bobCookie)
+      expect(body.granted).toBe(true)
+      expect(body.id).toMatch('https://registry/bob/authorization/')
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
+    })
+
+    test('delete grantee role', async () => {
+      const body = await rpcCall(payload, bobCookie)
+      expect(body.granted).toBe(true)
+      expect(body.id).toMatch('https://registry/bob/authorization/')
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: whizRoleId,
+          label: 'Whiz',
+          members: [danId],
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'DeleteRole',
+          id: whizRoleId,
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
+    })
+
+    test('delete dataOwner role', async () => {
+      const body = await rpcCall(payload, bobCookie)
+      expect(body.granted).toBe(true)
+      expect(body.id).toMatch('https://registry/bob/authorization/')
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: whizRoleId,
+          label: 'Whiz',
+          members: [danId],
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
+
+      await rpcCall(
+        rpcPayload({
+          _tag: 'DeleteRole',
+          id: bizRoleId,
+        }),
+        bobCookie
+      )
+
+      await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
+    })
   })
 })

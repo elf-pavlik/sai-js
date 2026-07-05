@@ -4,6 +4,7 @@ import type * as activities from '../activities/grants.js'
 
 const {
   findAffectedAuthorizations,
+  deleteAuthorizationsUsingRole,
   getGrantees,
   getAuthorizations,
   unsetAccessGrant,
@@ -13,6 +14,7 @@ const {
   createAcr,
   storeAccessGrant,
   setAccessGrant,
+  ensurePeers,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 })
@@ -53,6 +55,27 @@ export async function updateGrantsForOneAgent(
       })
     )
   )
+}
+
+export async function processRoleDeletion(
+  payload: activities.ProcessRoleMembershipChangeInput
+): Promise<void> {
+  const peersOrRoles = await deleteAuthorizationsUsingRole({
+    webId: payload.webId,
+    roleId: payload.roleId,
+  })
+  const peers = await ensurePeers({
+    webId: payload.webId,
+    peersOrRoles,
+  })
+  await executeChild(processRoleMembershipChange, {
+    args: [
+      {
+        ...payload,
+        peers: [...new Set([...payload.peers, ...peers])],
+      },
+    ],
+  })
 }
 
 export async function processRoleMembershipChange(
@@ -107,10 +130,14 @@ export async function createGrantsForAgent(
     await storeGrantAndAcr(grant)
   }
 
-  const delegatedGrantIds = await Promise.all(
-    // if grant has inheriting it delegation will return a flat array with all the ids
-    accessGrantData.delegatedGrants.map((grant) => requestDelegation({ grantData: grant }))
-  )
+  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
+  // multiple resources are PUT concurrently in the same container,
+  // causing "Multiple results for http://purl.org/dc/terms/modified".
+  // Change back to Promise.all after the CSS bug is fixed.
+  const delegatedGrantIds = []
+  for (const grant of accessGrantData.delegatedGrants) {
+    delegatedGrantIds.push(await requestDelegation({ grantData: grant }))
+  }
 
   // TODO: use ids only for dataGrants at this point
   const finalAccessGrantData: FinalAccessGrantData = {

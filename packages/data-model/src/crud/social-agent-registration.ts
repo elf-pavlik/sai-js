@@ -132,7 +132,6 @@ export class CRUDSocialAgentRegistration extends CRUDAgentRegistration {
       this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.SocialAgentRegistration))
       this.datasetFromData()
     }
-    await this.buildAccessGrant()
     if (!this.reciprocal) {
       await this.buildReciprocalRegistration()
     }

@@ -1,6 +1,5 @@
 import {
   type AccessAuthorizationData,
-  type AccessGrantData,
   type AgentRegistrationData,
   BaseFactory,
   type BaseReadableFactory,
@@ -19,9 +18,8 @@ import {
   type DataRegistrationData,
   type ExpandedDataAuthorizationData,
   type FactoryDependencies,
-  type FinalAccessGrantData,
+  type FinalDataGrantData,
   ImmutableAccessAuthorization,
-  ImmutableAccessGrant,
   ImmutableDataAuthorization,
   ImmutableDataGrant,
   ReadableAccessAuthorization,
@@ -72,7 +70,6 @@ interface CRUDFactory {
 
 interface ImmutableFactory {
   dataGrant(iri: string, data: DataGrantData): ImmutableDataGrant
-  accessGrant(iri: string, data: FinalAccessGrantData): ImmutableAccessGrant
   dataAuthorization(iri: string, data: ExpandedDataAuthorizationData): ImmutableDataAuthorization
   accessAuthorization(iri: string, data: AccessAuthorizationData): ImmutableAccessAuthorization
 }
@@ -175,12 +172,6 @@ export class AuthorizationAgentFactory extends BaseFactory {
     return {
       dataGrant: function dataGrant(iri: string, data: DataGrantData): ImmutableDataGrant {
         return new ImmutableDataGrant(iri, factory, data)
-      },
-      accessGrant: function accessGrant(
-        iri: string,
-        data: FinalAccessGrantData
-      ): ImmutableAccessGrant {
-        return new ImmutableAccessGrant(iri, factory, data)
       },
       dataAuthorization: function dataAuthorization(
         iri: string,

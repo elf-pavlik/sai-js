@@ -1,10 +1,11 @@
 import {
-  type AccessGrantData,
   type DataGrantData,
-  type FinalAccessGrantData,
   type FinalDataGrantData,
+  type GeneratedGrants,
   type ReadableDataAuthorization,
+  addDataGrant,
   dataGrantTemplate,
+  removeAllDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   asyncIterableToArray,
@@ -89,7 +90,7 @@ export async function getAuthorizations(payload: GetAuthorizationsInput): Promis
   return authorizations.map((authorization) => authorization.iri)
 }
 
-export async function generateGrants(payload: CreateGrantsForAgentInput): Promise<AccessGrantData> {
+export async function generateGrants(payload: CreateGrantsForAgentInput): Promise<GeneratedGrants> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
   return session.generateAccessGrant(payload.authorizationId, payload.grantee)
@@ -266,27 +267,44 @@ export async function requestDelegation(payload: { grantData: DataGrantData }): 
   return response.json() as Promise<string[]>
 }
 
-// TODO: check case when granted === false
-export async function storeAccessGrant(payload: FinalAccessGrantData): Promise<void> {
-  const manager = buildSessionManager()
-  const session = await manager.getSession(payload.grantedBy)
-  const accessGrant = session.factory.immutable.accessGrant(payload.id, payload)
-  return accessGrant.put()
+// ---------------------------------------------------------------------------
+// New functions replacing storeAccessGrant / setAccessGrant / unsetAccessGrant
+// ---------------------------------------------------------------------------
+
+export async function storeAccessGrant(_payload: never): Promise<void> {
+  throw new Error('storeAccessGrant is no longer supported - AccessGrant removed')
 }
 
-export async function setAccessGrant(payload: FinalAccessGrantData): Promise<void> {
+export interface SetDataGrantsOnRegistrationInput {
+  webId: string
+  grantee: string
+  grantIris: string[]
+}
+
+export async function setDataGrantsOnRegistration(
+  payload: SetDataGrantsOnRegistrationInput
+): Promise<void> {
   const manager = buildSessionManager()
-  const session = await manager.getSession(payload.grantedBy)
+  const session = await manager.getSession(payload.webId)
   const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
     payload.grantee
   )
   if (!agentRegistration) {
     throw new Error('agent registration for the grantee does not exist')
   }
-  await agentRegistration.setAccessGrant(payload.id)
+  for (const grantIri of payload.grantIris) {
+    await addDataGrant(agentRegistration, grantIri)
+  }
 }
 
-export async function unsetAccessGrant(payload: GetAuthorizationsInput): Promise<void> {
+export interface ClearDataGrantsOnRegistrationInput {
+  webId: string
+  peerId: string
+}
+
+export async function clearDataGrantsOnRegistration(
+  payload: ClearDataGrantsOnRegistrationInput
+): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
   const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
@@ -295,5 +313,5 @@ export async function unsetAccessGrant(payload: GetAuthorizationsInput): Promise
   if (!agentRegistration) {
     throw new Error('agent registration for the peer does not exist')
   }
-  await agentRegistration.unsetAccessGrant()
+  await removeAllDataGrants(agentRegistration)
 }

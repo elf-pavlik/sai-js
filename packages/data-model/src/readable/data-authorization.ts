@@ -1,13 +1,15 @@
 import { INTEROP, asyncIterableToArray } from '@janeirodigital/interop-utils'
 import { Memoize } from 'typescript-memoize'
 import { ReadableResource, type SelectedFromRegistryDataGrant } from '.'
-import type {
-  AuthorizationAgentFactory,
-  CRUDRegistrySet,
-  DataGrantData,
-  FinalDataGrantData,
-  InheritableDataGrant,
-  ReadableDataRegistration,
+import {
+  getDataGrants,
+  getDataGrantIris,
+  type AuthorizationAgentFactory,
+  type CRUDRegistrySet,
+  type DataGrantData,
+  type FinalDataGrantData,
+  type InheritableDataGrant,
+  type ReadableDataRegistration,
 } from '..'
 
 interface SourceAndDelegatedGrants {
@@ -137,13 +139,13 @@ export class ReadableDataAuthorization extends ReadableResource {
       if (grantee === agentRegistration.registeredAgent) {
         continue
       }
-      const accessGrantIri = agentRegistration.reciprocalRegistration?.hasAccessGrant
+      const reciprocalReg = agentRegistration.reciprocalRegistration
 
-      if (!accessGrantIri) continue
+      if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
 
-      const accessGrant = await this.factory.readable.accessGrant(accessGrantIri)
+      const reciprocalDataGrants = await getDataGrants(reciprocalReg)
 
-      let matchingDataGrants = accessGrant.hasDataGrant.filter(
+      let matchingDataGrants = reciprocalDataGrants.filter(
         (grant) => grant.registeredShapeTree === this.registeredShapeTree
       )
       if (this.hasDataRegistration) {

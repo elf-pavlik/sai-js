@@ -1,5 +1,4 @@
 import {
-  type AccessGrantData,
   AuthorizationAgentFactory,
   type CRUDApplicationRegistration,
   type CRUDRegistrySet,
@@ -7,12 +6,15 @@ import {
   type CRUDSocialAgentInvitation,
   type CRUDSocialAgentRegistration,
   type DataGrant,
+  type GeneratedGrants,
   type ReadableAccessAuthorization,
   type ReadableDataAuthorization,
   type ReadableDataInstance,
   type ReadableDataRegistration,
   type ReadableShapeTree,
   type ReadableWebIdProfile,
+  getDataGrants,
+  getDataGrantIris,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -29,7 +31,6 @@ import {
   type NestedDataAuthorizationData,
   generateAuthorization,
 } from './authorization'
-
 interface AuthorizationAgentDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
@@ -162,10 +163,12 @@ export class AuthorizationAgent {
     }
     if (!ownerId) {
       for await (const socialAgentRegistration of this.socialAgentRegistrations) {
-        const grant =
-          socialAgentRegistration?.reciprocalRegistration?.accessGrant?.hasDataGrant.find(
-            (dataGrant) => dataGrant.hasStorage === resourceServerId
-          )
+        const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
+        if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
+        const dataGrants = await getDataGrants(reciprocalReg)
+        const grant = dataGrants.find(
+          (dataGrant) => dataGrant.hasStorage === resourceServerId
+        )
         if (grant) ownerId = socialAgentRegistration.registeredAgent
       }
     }
@@ -186,8 +189,11 @@ export class AuthorizationAgent {
   public async findGrantForResource(resourceId: string, ownerId: string): Promise<DataGrant> {
     const socialAgentRegistration = await this.findSocialAgentRegistration(ownerId)
     const dataRegistrationIri = `${resourceId.split('/').slice(0, -1).join('/')}/`
-    return socialAgentRegistration.reciprocalRegistration.accessGrant.hasDataGrant.find(
-      (dataGtant) => dataGtant.hasDataRegistration === dataRegistrationIri
+    const reciprocalReg = socialAgentRegistration.reciprocalRegistration
+    if (!reciprocalReg) throw new Error(`no reciprocal registration for ${ownerId}`)
+    const dataGrants = await getDataGrants(reciprocalReg)
+    return dataGrants.find(
+      (dataGrant) => dataGrant.hasDataRegistration === dataRegistrationIri
     )
   }
 
@@ -259,7 +265,7 @@ export class AuthorizationAgent {
   public async generateAccessGrant(
     accessAuthorizationIri: string,
     grantee: string
-  ): Promise<AccessGrantData> {
+  ): Promise<GeneratedGrants> {
     const accessAuthorization =
       await this.factory.readable.accessAuthorization(accessAuthorizationIri)
     return accessAuthorization.generateAccessGrant(this.registrySet, grantee)

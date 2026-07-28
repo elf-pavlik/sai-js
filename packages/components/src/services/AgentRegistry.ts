@@ -1,8 +1,10 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type {
-  CRUDApplicationRegistration,
-  CRUDSocialAgentInvitation,
-  CRUDSocialAgentRegistration,
+import {
+  type CRUDApplicationRegistration,
+  type CRUDSocialAgentInvitation,
+  type CRUDSocialAgentRegistration,
+  getDataGrantIris,
+  getDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   Application,
@@ -22,7 +24,6 @@ export const buildSocialAgentProfile = (registration: CRUDSocialAgentRegistratio
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessGrant: registration.accessGrant?.iri,
     accessRequested: !!registration.hasAccessNeedGroup,
     accessNeedGroup: registration.reciprocalRegistration?.hasAccessNeedGroup,
   })
@@ -35,8 +36,10 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
 
   const seenIds = new Set(profiles.map((p) => p.id))
   for await (const registration of saiSession.socialAgentRegistrations) {
-    if (!registration.reciprocalRegistration?.accessGrant) continue
-    for (const dataGrant of registration.reciprocalRegistration.accessGrant.hasDataGrant) {
+    const reciprocalReg = registration.reciprocalRegistration
+    if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
+    const dataGrants = await getDataGrants(reciprocalReg)
+    for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
       if (seenIds.has(ownerIri)) continue
       seenIds.add(ownerIri)

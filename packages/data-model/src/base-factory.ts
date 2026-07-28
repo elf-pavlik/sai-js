@@ -6,7 +6,6 @@ import {
   DataInstance,
   type FactoryDependencies,
   InheritedDataGrant,
-  ReadableAccessGrant,
   ReadableApplicationRegistration,
   ReadableClientIdDocument,
   ReadableDataInstance,
@@ -26,7 +25,6 @@ interface Cache {
 
 export interface BaseReadableFactory {
   dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
-  accessGrant(iri: string): Promise<ReadableAccessGrant>
   applicationRegistration(iri: string): Promise<ReadableApplicationRegistration>
   dataRegistration(iri: string): Promise<ReadableDataRegistration>
   shapeTree(iri: string, descriptionLang?: string): Promise<ReadableShapeTree>
@@ -63,9 +61,6 @@ export class BaseFactory {
         descriptionLang?: string
       ): Promise<ReadableDataInstance> {
         return ReadableDataInstance.build(iri, factory, shapeTreeIri, descriptionLang)
-      },
-      accessGrant: async function accessGrant(iri: string): Promise<ReadableAccessGrant> {
-        return ReadableAccessGrant.build(iri, factory)
       },
       applicationRegistration: async function applicationRegistration(
         iri: string

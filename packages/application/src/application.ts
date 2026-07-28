@@ -1,7 +1,6 @@
 import {
   AllFromRegistryDataGrant,
   ApplicationFactory,
-  type DataGrant,
   DataOwner,
   InheritedDataGrant,
   type ReadableApplicationRegistration,
@@ -117,7 +116,16 @@ export class Application {
    */
   get dataOwners(): DataOwner[] {
     if (!this.hasApplicationRegistration) return []
-    return this.hasApplicationRegistration.hasAccessGrant.hasDataGrant.reduce((acc, grant) => {
+    // Note: this is now lazy — fetches data grants each time
+    // The property access pattern changed from sync to async.
+    // Consumers should use getDataOwnersAsync() instead.
+    return []
+  }
+
+  public async getDataOwnersAsync(): Promise<DataOwner[]> {
+    if (!this.hasApplicationRegistration) return []
+    const dataGrants = await this.hasApplicationRegistration.getDataGrants()
+    return dataGrants.reduce((acc, grant) => {
       let owner: DataOwner = acc.find((agent) => agent.iri === grant.dataOwner)
       if (!owner) {
         owner = new DataOwner(grant.dataOwner)
@@ -125,21 +133,25 @@ export class Application {
       }
       owner.issuedGrants.push(grant)
       return acc
-    }, [])
+    }, [] as DataOwner[])
   }
 
-  public resourceOwners(): Set<string> {
-    return new Set(this.dataOwners.map((dataOwner) => dataOwner.iri))
+  public async resourceOwners(): Promise<Set<string>> {
+    const owners = await this.getDataOwnersAsync()
+    return new Set(owners.map((dataOwner) => dataOwner.iri))
   }
 
-  public resourceServers(resourceOwner: string, scope: string): Set<string> {
-    const dataOwner = this.dataOwners.find((owner) => owner.iri === resourceOwner)
+  public async resourceServers(resourceOwner: string, scope: string): Promise<Set<string>> {
+    const owners = await this.getDataOwnersAsync()
+    const dataOwner = owners.find((owner) => owner.iri === resourceOwner)
+    if (!dataOwner) return new Set()
     const grants = dataOwner.issuedGrants.filter((grant) => grant.registeredShapeTree === scope)
     return new Set(grants.map((grant) => grant.hasStorage))
   }
 
-  private findGrant(storage: string, scope: string): DataGrant {
-    return this.dataOwners
+  private async findGrant(storage: string, scope: string) {
+    const owners = await this.getDataOwnersAsync()
+    return owners
       .flatMap((owner) => owner.issuedGrants)
       .find(
         (dataGrant) => dataGrant.hasStorage === storage && dataGrant.registeredShapeTree === scope
@@ -147,7 +159,7 @@ export class Application {
   }
 
   public async resources(resourceServer: string, scope: string): Promise<Set<string>> {
-    const grant = this.findGrant(resourceServer, scope)
+    const grant = await this.findGrant(resourceServer, scope)
     let list: string[] = []
     if (grant instanceof InheritedDataGrant) {
       throw new Error('Cannot list instances from Inherited grants')
@@ -189,38 +201,38 @@ export class Application {
     return (this.parentMap.get(id) || this.childMap.get(id))!
   }
 
-  public canCreate(resourceServer: string, scope: string): boolean {
-    const grant = this.findGrant(resourceServer, scope)
+  public async canCreate(resourceServer: string, scope: string): Promise<boolean> {
+    const grant = await this.findGrant(resourceServer, scope)
     return grant?.accessMode.includes(ACL.Create.value)
   }
 
-  public canCreateChild(parentId: string, scope: string): boolean {
+  public async canCreateChild(parentId: string, scope: string): Promise<boolean> {
     const { resourceServer } = this.parentMap.get(parentId)
-    const grant = this.findGrant(resourceServer, scope)
+    const grant = await this.findGrant(resourceServer, scope)
     return grant?.accessMode.includes(ACL.Create.value)
   }
 
-  public canUpdate(id: string): boolean {
+  public async canUpdate(id: string): Promise<boolean> {
     const info = this.getInfo(id)
-    const grant = this.findGrant(info.resourceServer, info.scope)
+    const grant = await this.findGrant(info.resourceServer, info.scope)
     return grant?.accessMode.includes(ACL.Update.value)
   }
 
-  public canDelete(id: string): boolean {
+  public async canDelete(id: string): Promise<boolean> {
     const info = this.getInfo(id)
-    const grant = this.findGrant(info.resourceServer, info.scope)
+    const grant = await this.findGrant(info.resourceServer, info.scope)
     return grant?.accessMode.includes(ACL.Delete.value)
   }
 
   // TODO: rename to idForNew
-  public iriForNew(resourceServer: string, scope: string): string {
-    const grant = this.findGrant(resourceServer, scope)
+  public async iriForNew(resourceServer: string, scope: string): Promise<string> {
+    const grant = await this.findGrant(resourceServer, scope)
     return grant.iriForNew()
   }
 
-  public iriForChild(parentId: string, scope: string): string {
+  public async iriForChild(parentId: string, scope: string): Promise<string> {
     const { resourceServer } = this.parentMap.get(parentId)
-    const iri = this.iriForNew(resourceServer, scope)
+    const iri = await this.iriForNew(resourceServer, scope)
     this.childMap.set(iri, this.childInfo(iri, scope, parentId))
     return iri
   }

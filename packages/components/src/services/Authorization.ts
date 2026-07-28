@@ -6,6 +6,8 @@ import type {
 import {
   type CRUDSocialAgentRegistration,
   type DataAuthorizationData,
+  getDataGrantIris,
+  getDataGrants,
   InheritedDataGrant,
   type ReadableAccessNeed,
   type ReadableAccessNeedGroup,
@@ -81,8 +83,9 @@ async function findSocialAgentDataRegistrations(
   saiSession: AuthorizationAgent
 ) {
   const dataRegistrations = []
-  if (!socialAgentRegistration.accessGrant) return []
-  for (const dataGrant of socialAgentRegistration.accessGrant.hasDataGrant) {
+  if (getDataGrantIris(socialAgentRegistration).length === 0) return []
+  const dataGrants = await getDataGrants(socialAgentRegistration)
+  for (const dataGrant of dataGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
         dataGrant.registeredShapeTree === accessNeed.shapeTree.iri &&

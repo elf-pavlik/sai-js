@@ -12,7 +12,6 @@ export class CRUDApplicationRegistration extends CRUDAgentRegistration {
       this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.ApplicationRegistration))
       this.datasetFromData()
     }
-    await this.buildAccessGrant()
   }
 
   get applicationNode(): NamedNode | undefined {

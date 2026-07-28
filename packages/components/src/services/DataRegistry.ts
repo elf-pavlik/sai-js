@@ -1,5 +1,6 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import type { CRUDDataRegistry, DataGrant } from '@janeirodigital/interop-data-model'
+import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
 import { DataInstance, DataRegistration, DataRegistry, IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 
@@ -68,8 +69,10 @@ async function findDataGrantIndex(
 ): Promise<Record<string, DataGrant[]>> {
   const dataGrantIndex: Record<string, DataGrant[]> = {}
   for await (const registration of saiSession.socialAgentRegistrations) {
-    if (!registration.reciprocalRegistration?.accessGrant) continue
-    for (const dataGrant of registration.reciprocalRegistration.accessGrant.hasDataGrant) {
+    const reciprocalReg = registration.reciprocalRegistration
+    if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
+    const dataGrants = await getDataGrants(reciprocalReg)
+    for (const dataGrant of dataGrants) {
       if (dataGrant.dataOwner !== agentId) continue
       if (!dataGrantIndex[dataGrant.dataRegistryIri]) {
         dataGrantIndex[dataGrant.dataRegistryIri] = []
@@ -94,8 +97,9 @@ export const getDataRegistries = async (
   }
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
   let dataGrantIndex: Record<string, DataGrant[]>
-  if (socialAgentRegistration?.reciprocalRegistration?.accessGrant) {
-    dataGrantIndex = socialAgentRegistration.reciprocalRegistration.accessGrant.hasDataGrant.reduce(
+  if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
+    const dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
+    dataGrantIndex = dataGrants.reduce(
       (acc, dataGrant) => {
         if (!acc[dataGrant.dataRegistryIri]) {
           acc[dataGrant.dataRegistryIri] = [] as DataGrant[]
@@ -135,8 +139,8 @@ export const listDataInstances = async (
   } else {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
     let dataGrants: DataGrant[]
-    if (socialAgentRegistration?.reciprocalRegistration?.accessGrant) {
-      dataGrants = socialAgentRegistration.reciprocalRegistration.accessGrant.hasDataGrant
+    if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
+      dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
     } else {
       const dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
       dataGrants = Object.values(dataGrantIndex).flat()

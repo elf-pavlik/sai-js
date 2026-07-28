@@ -2,44 +2,17 @@ import { INTEROP } from '@janeirodigital/interop-utils'
 import { Memoize } from 'typescript-memoize'
 import { type ReadableDataAuthorization, ReadableResource } from '.'
 import type {
-  AccessGrantData,
   AuthorizationAgentFactory,
-  CRUDAgentRegistration,
   CRUDRegistrySet,
   DataGrantData,
   FinalDataGrantData,
 } from '..'
 
-// reuse equivalent data grants
-// reuse all child grants if parent grant was reused
-// function reuseDataGrants(
-//   immutableDataGrants: ImmutableDataGrant[],
-//   readableDataGrants: DataGrant[]
-// ): (ImmutableDataGrant | DataGrant)[] {
-//   const finalGrants: (ImmutableDataGrant | DataGrant)[] = []
-//   const parentGrants = immutableDataGrants.filter(
-//     (grant) => grant.data.scopeOfGrant !== INTEROP.Inherited.value
-//   )
-//   for (const parentGrant of parentGrants) {
-//     const priorGrant = readableDataGrants.find((readableGrant) =>
-//       parentGrant.checkEquivalence(readableGrant)
-//     ) as AllFromRegistryDataGrant | SelectedFromRegistryDataGrant
-//     if (priorGrant) {
-//       finalGrants.push(priorGrant)
-//       if (priorGrant.hasInheritingGrant) {
-//         finalGrants.push(...priorGrant.hasInheritingGrant)
-//       }
-//     } else {
-//       finalGrants.push(parentGrant)
-//       // push all children if any
-//       if (parentGrant.data.hasInheritingGrant?.length) {
-//         finalGrants.push(...parentGrant.data.hasInheritingGrant)
-//       }
-//     }
-//   }
+export interface GeneratedGrants {
+  sourceGrants: FinalDataGrantData[]
+  delegatedGrants: DataGrantData[]
+}
 
-//   return finalGrants
-// }
 export class ReadableAccessAuthorization extends ReadableResource {
   declare factory: AuthorizationAgentFactory
 
@@ -94,20 +67,14 @@ export class ReadableAccessAuthorization extends ReadableResource {
   }
 
   /*
-   * Generates Access Grant with Data Grants
+   * Generates Data Grants (no AccessGrant wrapper)
    */
-
   public async generateAccessGrant(
     registrySet: CRUDRegistrySet,
     grantee: string
-  ): Promise<AccessGrantData> {
+  ): Promise<GeneratedGrants> {
     const sourceGrants: FinalDataGrantData[] = []
     const delegatedGrants: DataGrantData[] = []
-
-    const granteeRegistration = await registrySet.hasAgentRegistry.findRegistration(grantee)
-    if (!granteeRegistration) {
-      throw new Error('agent registration for the grantee does not exist')
-    }
 
     if (this.granted) {
       const regularAuthorizations: ReadableDataAuthorization[] = []
@@ -124,14 +91,8 @@ export class ReadableAccessAuthorization extends ReadableResource {
     }
 
     return {
-      id: granteeRegistration.iriForContained(),
-      grantedBy: this.factory.webId,
-      grantedWith: this.factory.agentId,
-      grantee: grantee,
-      hasAccessNeedGroup: this.hasAccessNeedGroup,
       sourceGrants,
       delegatedGrants,
-      granted: this.granted,
     }
   }
 }

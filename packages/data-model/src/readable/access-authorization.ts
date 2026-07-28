@@ -66,10 +66,7 @@ export class ReadableAccessAuthorization extends ReadableResource {
     return this.getObjectsArray(INTEROP.hasDataAuthorization).map((object) => object.value)
   }
 
-  /*
-   * Generates Data Grants (no AccessGrant wrapper)
-   */
-  public async generateAccessGrant(
+  public async generateDataGrants(
     registrySet: CRUDRegistrySet,
     grantee: string
   ): Promise<GeneratedGrants> {

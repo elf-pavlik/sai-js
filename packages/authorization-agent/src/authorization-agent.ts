@@ -262,13 +262,13 @@ export class AuthorizationAgent {
     )
   }
 
-  public async generateAccessGrant(
+  public async generateDataGrants(
     accessAuthorizationIri: string,
     grantee: string
   ): Promise<GeneratedGrants> {
     const accessAuthorization =
       await this.factory.readable.accessAuthorization(accessAuthorizationIri)
-    return accessAuthorization.generateAccessGrant(this.registrySet, grantee)
+    return accessAuthorization.generateDataGrants(this.registrySet, grantee)
   }
 
   public async findAuthorizationsForAgent(peerId: string): Promise<ReadableAccessAuthorization[]> {

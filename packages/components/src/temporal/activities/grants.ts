@@ -93,7 +93,7 @@ export async function getAuthorizations(payload: GetAuthorizationsInput): Promis
 export async function generateGrants(payload: CreateGrantsForAgentInput): Promise<GeneratedGrants> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  return session.generateAccessGrant(payload.authorizationId, payload.grantee)
+  return session.generateDataGrants(payload.authorizationId, payload.grantee)
 }
 
 export async function storeDataGrant(payload: FinalDataGrantData): Promise<void> {
@@ -268,12 +268,6 @@ export async function requestDelegation(payload: { grantData: DataGrantData }): 
 }
 
 // ---------------------------------------------------------------------------
-// New functions replacing storeAccessGrant / setAccessGrant / unsetAccessGrant
-// ---------------------------------------------------------------------------
-
-export async function storeAccessGrant(_payload: never): Promise<void> {
-  throw new Error('storeAccessGrant is no longer supported - AccessGrant removed')
-}
 
 export interface SetDataGrantsOnRegistrationInput {
   webId: string

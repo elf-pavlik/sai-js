@@ -350,7 +350,7 @@ describe.skip('authorization agent', () => {
     })
   })
 
-  describe.skip('generateAccessGrant', () => {
+  describe.skip('generateDataGrants', () => {
     test('should generate grants without changing data grant iris', async () => {
       const statefulFetch = createStatefulFetch()
       const accessAuthorizationIri =
@@ -363,7 +363,7 @@ describe.skip('authorization agent', () => {
       const agentRegistration =
         await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
       const beforeIris = getDataGrantIris(agentRegistration!)
-      await agent.generateAccessGrant(accessAuthorizationIri)
+      await agent.generateDataGrants(accessAuthorizationIri)
       const updatedAgentRegistration =
         await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
       const afterIris = getDataGrantIris(updatedAgentRegistration!)
@@ -377,7 +377,7 @@ describe.skip('authorization agent', () => {
         fetch: statelessFetch,
         randomUUID,
       })
-      const result = await agent.generateAccessGrant(accessAuthorizationIri)
+      const result = await agent.generateDataGrants(accessAuthorizationIri)
       expect(result.sourceGrants).toEqual([])
       expect(result.delegatedGrants).toEqual([])
     })

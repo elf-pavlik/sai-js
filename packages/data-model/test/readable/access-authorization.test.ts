@@ -37,19 +37,19 @@ describe('getters', () => {
   })
 })
 
-describe.skip('generateAccessGrant', () => {
+describe.skip('generateDataGrants', () => {
   test('generates access grant for application', async () => {
     const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const result = await accessAuthorization.generateAccessGrant(registrySet, accessAuthorization.grantee)
+    const result = await accessAuthorization.generateDataGrants(registrySet, accessAuthorization.grantee)
     expect(result.sourceGrants.length).toBeGreaterThan(0)
   })
   test('returns empty grants when no data authorizations', async () => {
     const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const result = await accessAuthorization.generateAccessGrant(registrySet, 'https://some.random.grantee/#id')
+    const result = await accessAuthorization.generateDataGrants(registrySet, 'https://some.random.grantee/#id')
     expect(result.sourceGrants).toEqual([])
     expect(result.delegatedGrants).toEqual([])
   })
@@ -61,7 +61,7 @@ describe.skip('generateAccessGrant', () => {
     )
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const result = await accessAuthorization.generateAccessGrant(registrySet, accessAuthorization.grantee)
+    const result = await accessAuthorization.generateDataGrants(registrySet, accessAuthorization.grantee)
     expect(result.sourceGrants.length).toBeGreaterThan(0)
     expect(result.delegatedGrants.length).toBeGreaterThanOrEqual(0)
   })

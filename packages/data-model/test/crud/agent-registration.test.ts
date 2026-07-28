@@ -4,8 +4,10 @@ import { INTEROP, RDF, SKOS } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
 import {
+  addDataGrant,
   AuthorizationAgentFactory,
   CRUDSocialAgentRegistration,
+  getDataGrantIris,
   type SocialAgentRegistrationData,
 } from '../../src'
 import { expect } from '../expect'
@@ -15,10 +17,10 @@ const agentId = 'https://jarvis.alice.example/#agent'
 const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
 const snippetIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
 const newSnippetIri = 'https://auth.alice.example/afb6a337-40df-4fbe-9b00-5c9c1e56c812'
-const accessGrantIri = 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
+const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
 const data = {
   registeredAgent: 'https://different.iri/',
-  hasAccessGrant: 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe',
+  hasDataGrant: [dataGrantIri],
   prefLabel: 'Someone',
 }
 
@@ -30,7 +32,7 @@ describe('build', () => {
 
   test('should fetch its data if none passed', async () => {
     const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    expect(agentRegistration.dataset.size).toBe(10)
+    expect(agentRegistration.dataset.size).toBe(19)
   })
 
   test('should set dataset if data passed', async () => {
@@ -47,8 +49,8 @@ describe('build', () => {
       ),
       DataFactory.quad(
         DataFactory.namedNode(newSnippetIri),
-        INTEROP.hasAccessGrant,
-        DataFactory.namedNode(data.hasAccessGrant)
+        INTEROP.hasDataGrant,
+        DataFactory.namedNode(dataGrantIri)
       ),
       DataFactory.quad(
         DataFactory.namedNode(newSnippetIri),
@@ -78,10 +80,11 @@ describe('build', () => {
   })
 })
 
-describe('hasAccessGrant', () => {
-  test('should have getter', async () => {
+describe('getDataGrantIris', () => {
+  test('should return data grant IRIs from dataset', async () => {
     const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    expect(agentRegistration.hasAccessGrant).toBe(accessGrantIri)
+    const iris = getDataGrantIris(agentRegistration)
+    expect(iris).toContain(dataGrantIri)
   })
 })
 
@@ -92,32 +95,14 @@ describe('registeredAgent', () => {
   })
 })
 
-describe('setAccessGrant', () => {
-  test('updates dataset when previous existed', async () => {
+describe('addDataGrant', () => {
+  test('adds new data grant IRI to dataset', async () => {
     const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    const newAccessGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    expect(agentRegistration.hasAccessGrant).toBe(
-      'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
-    )
-    await agentRegistration.setAccessGrant(newAccessGrantIri)
-    expect(agentRegistration.hasAccessGrant).toBe(newAccessGrantIri)
-  })
-
-  test('updates dataset if existed', async () => {
-    const noAgData = {
-      ...data,
-      hasAccessGrant: undefined as undefined,
-      prefLabel: 'Jane',
-    } as SocialAgentRegistrationData
-    const agentRegistration = await CRUDSocialAgentRegistration.build(
-      newSnippetIri,
-      factory,
-      false,
-      noAgData
-    )
-    const newAccessGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    expect(agentRegistration.hasAccessGrant).toBeUndefined()
-    await agentRegistration.setAccessGrant(newAccessGrantIri)
-    expect(agentRegistration.hasAccessGrant).toBe(newAccessGrantIri)
+    const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
+    const beforeIris = getDataGrantIris(agentRegistration)
+    expect(beforeIris).not.toContain(newGrantIri)
+    await addDataGrant(agentRegistration, newGrantIri)
+    const afterIris = getDataGrantIris(agentRegistration)
+    expect(afterIris).toContain(newGrantIri)
   })
 })

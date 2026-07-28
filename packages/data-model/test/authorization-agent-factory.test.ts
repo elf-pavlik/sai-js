@@ -11,7 +11,6 @@ import {
   CRUDRegistrySet,
   CRUDSocialAgentRegistration,
   ImmutableAccessAuthorization,
-  ImmutableAccessGrant,
   ImmutableDataAuthorization,
   ImmutableDataGrant,
   ReadableAccessAuthorization,
@@ -106,30 +105,6 @@ describe('immutable', () => {
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, inheritnstancesData)
       expect(dataGrant).toBeInstanceOf(ImmutableDataGrant)
     })
-  })
-
-  test('builds Access Grant with Data Grant', async () => {
-    const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
-    const dataGrantIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    const dataGrant = factory.immutable.dataGrant(dataGrantIri, {
-      dataOwner: 'https://acme.example/#corp',
-      registeredShapeTree: 'https://solidshapes.example/trees/Project',
-      hasDataRegistration: 'https://finance.acme.example/4f3fbf70-49df-47ce-a573-dc54366b01ad',
-      accessMode: [ACL.Read.value, ACL.Write.value],
-      scopeOfGrant: INTEROP.AllFromRegistry.value,
-    })
-    expect(dataGrant).toBeInstanceOf(ImmutableDataGrant)
-    const accessGrantData = {
-      granted: true,
-      grantedBy: webId,
-      grantedWith: agentId,
-      grantee: 'https://projectron.example/#app',
-      hasAccessNeedGroup: 'https://projectron.example/#some-access-group',
-      dataGrants: [dataGrant],
-    }
-    const accessGrantIri = 'https://auth.alice.example/5e8d3d6f-9e61-4e5c-acff-adee83b68ad1'
-    const accessGrant = factory.immutable.accessGrant(accessGrantIri, accessGrantData)
-    expect(accessGrant).toBeInstanceOf(ImmutableAccessGrant)
   })
 
   test('builds Access Authorization with Data Authorization', async () => {

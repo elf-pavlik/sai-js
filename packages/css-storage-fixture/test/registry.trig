@@ -181,15 +181,9 @@ GRAPH <meta:https://registry/acme/agent/je0s7n/> {
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://id/alice> ;
     interop:reciprocalRegistration <https://registry/alice/agent/cp9g7p/> ;
-    interop:hasAccessGrant <https://registry/acme/agent/je0s7n/gmaqjb> ;
+    interop:hasDataGrant <https://registry/acme/grant/g4yhtm> ;
     skos:prefLabel "Alice" ;
     skos:note "Chasing white rabits." .
-}
-
-GRAPH <https://registry/acme/agent/je0s7n/> {
-  <https://registry/acme/agent/je0s7n/>
-    ldp:contains
-      <https://registry/acme/agent/je0s7n/gmaqjb>.
 }
 
 GRAPH <meta:https://registry/acme/agent/je0s7n/.acr> {
@@ -237,7 +231,10 @@ GRAPH <meta:https://registry/acme/agent/m4k9wp/> {
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://id/bob> ;
     interop:reciprocalRegistration <https://registry/bob/agent/x7n2qv/> ;
-    interop:hasAccessGrant <https://registry/acme/agent/m4k9wp/b8n3kx> ;
+    interop:hasDataGrant <https://registry/acme/grant/p9m2vr>,
+      <https://registry/acme/grant/t7k5nw>,
+      <https://registry/acme/grant/x4j8lm>,
+      <https://registry/acme/grant/q2v9pt> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague working on projects." .
 }
@@ -280,29 +277,6 @@ GRAPH <https://registry/acme/agent/m4k9wp/.acr> {
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
       ]
     ].
-}
-
-GRAPH <https://registry/acme/agent/m4k9wp/> {
-  <https://registry/acme/agent/m4k9wp/>
-    ldp:contains
-      <https://registry/acme/agent/m4k9wp/b8n3kx> .
-}
-
-GRAPH <https://registry/acme/agent/m4k9wp/b8n3kx> {
-  <https://registry/acme/agent/m4k9wp/b8n3kx>
-    a interop:AccessGrant;
-    interop:granted true;
-    interop:grantee <https://id/bob>;
-    interop:grantedBy <https://id/acme>;
-    interop:hasDataGrant
-      <https://registry/acme/grant/p9m2vr>,
-      <https://registry/acme/grant/t7k5nw>,
-      <https://registry/acme/grant/x4j8lm>,
-      <https://registry/acme/grant/q2v9pt> .
-}
-
-GRAPH <meta:https://registry/acme/agent/m4k9wp/b8n3kx> {
-        <https://registry/acme/agent/m4k9wp/b8n3kx> a ldp:Resource .
 }
 
 GRAPH <https://registry/acme/grant/p9m2vr> {
@@ -377,20 +351,6 @@ GRAPH <https://registry/acme/grant/q2v9pt> {
 
 GRAPH <meta:https://registry/acme/grant/q2v9pt> {
         <https://registry/acme/grant/q2v9pt> a ldp:Resource .
-}
-
-GRAPH <https://registry/acme/agent/je0s7n/gmaqjb> {
-  <https://registry/acme/agent/je0s7n/gmaqjb>
-    a interop:AccessGrant;
-    interop:granted true;
-    interop:grantee <https://id/alice>;
-    interop:grantedBy <https://id/acme>;
-    interop:hasDataGrant
-      <https://registry/acme/grant/g4yhtm>.
-}
-
-GRAPH <meta:https://registry/acme/agent/je0s7n/gmaqjb> {
-        <https://registry/acme/agent/je0s7n/gmaqjb> a ldp:Resource .
 }
 
 GRAPH <https://registry/acme/grant/g4yhtm> {
@@ -799,7 +759,8 @@ GRAPH <meta:https://registry/alice/agent/vzp6ky/> {
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://id/bob> ;
     interop:reciprocalRegistration <https://registry/bob/agent/jc5gt6/> ;
-    interop:hasAccessGrant <https://registry/alice/agent/vzp6ky/w9n2qx> ;
+    interop:hasDataGrant <https://registry/alice/grant/p3m8kr>,
+      <https://registry/alice/grant/t7k5nw> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague at ACME" .
 }
@@ -842,27 +803,6 @@ GRAPH <https://registry/alice/agent/vzp6ky/.acr> {
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
       ]
     ].
-}
-
-GRAPH <https://registry/alice/agent/vzp6ky/> {
-  <https://registry/alice/agent/vzp6ky/>
-    ldp:contains
-      <https://registry/alice/agent/vzp6ky/w9n2qx> .
-}
-
-GRAPH <https://registry/alice/agent/vzp6ky/w9n2qx> {
-  <https://registry/alice/agent/vzp6ky/w9n2qx>
-    a interop:AccessGrant;
-    interop:granted true;
-    interop:grantee <https://id/bob>;
-    interop:grantedBy <https://id/alice>;
-    interop:hasDataGrant
-      <https://registry/alice/grant/p3m8kr>,
-      <https://registry/alice/grant/t7k5nw> .
-}
-
-GRAPH <meta:https://registry/alice/agent/vzp6ky/w9n2qx> {
-        <https://registry/alice/agent/vzp6ky/w9n2qx> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/alice/agent/fpn3ih/> {
@@ -955,7 +895,10 @@ GRAPH <meta:https://registry/alice/agent/cvmsa4/> {
   <https://registry/alice/agent/cvmsa4/>
     a interop:ApplicationRegistration, ldp:Resource;
     interop:registeredAgent <https://data/test-client/public/id>;
-    interop:hasAccessGrant <https://registry/alice/agent/cvmsa4/y1pp6y>.
+    interop:hasDataGrant <https://registry/alice/grant/afiooi>,
+      <https://registry/alice/grant/azgyc5>,
+      <https://registry/acme/grant/wwp4j6>,
+      <https://registry/acme/grant/qwvbcu>.
   <https://data/test-client/public/id> oidc:client_name "Test client";
       interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm> ;
       interop:hasAuthorizationCallbackEndpoint <https://test-client> .
@@ -999,30 +942,6 @@ GRAPH <https://registry/alice/agent/cvmsa4/.acr> {
         acp:client <https://data/test-client/public/id>
       ]
     ].
-}
-
-GRAPH <https://registry/alice/agent/cvmsa4/> {
-  <https://registry/alice/agent/cvmsa4/>
-    ldp:contains
-      <https://registry/alice/agent/cvmsa4/y1pp6y>.
-}
-
-GRAPH <https://registry/alice/agent/cvmsa4/y1pp6y> {
-  <https://registry/alice/agent/cvmsa4/y1pp6y>
-    a interop:AccessGrant;
-    interop:granted true;
-    interop:grantee <https://data/test-client/public/id>;
-    interop:grantedBy <https://id/alice>;
-    interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm>;
-    interop:hasDataGrant
-      <https://registry/alice/grant/afiooi>,
-      <https://registry/alice/grant/azgyc5>,
-      <https://registry/acme/grant/wwp4j6>,
-      <https://registry/acme/grant/qwvbcu>.
-}
-
-GRAPH <meta:https://registry/alice/agent/cvmsa4/y1pp6y> {
-        <https://registry/alice/agent/cvmsa4/y1pp6y> a ldp:Resource .
 }
 
 GRAPH <https://registry/alice/grant/afiooi> {
@@ -1601,7 +1520,8 @@ GRAPH <meta:https://registry/yoyo/agent/z3k7wm/> {
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://id/bob> ;
     interop:reciprocalRegistration <https://registry/bob/agent/n4m8qx/> ;
-    interop:hasAccessGrant <https://registry/yoyo/agent/z3k7wm/k9m4wp> ;
+    interop:hasDataGrant <https://registry/yoyo/grant/p7n2vx>,
+      <https://registry/yoyo/grant/t5m8qr> ;
     skos:prefLabel "Bob" ;
     skos:note "A colleague working on projects." .
 }
@@ -1644,27 +1564,6 @@ GRAPH <https://registry/yoyo/agent/z3k7wm/.acr> {
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
       ]
     ].
-}
-
-GRAPH <https://registry/yoyo/agent/z3k7wm/> {
-  <https://registry/yoyo/agent/z3k7wm/>
-    ldp:contains
-      <https://registry/yoyo/agent/z3k7wm/k9m4wp> .
-}
-
-GRAPH <https://registry/yoyo/agent/z3k7wm/k9m4wp> {
-  <https://registry/yoyo/agent/z3k7wm/k9m4wp>
-    a interop:AccessGrant;
-    interop:granted true;
-    interop:grantee <https://id/bob>;
-    interop:grantedBy <https://id/yoyo>;
-    interop:hasDataGrant
-      <https://registry/yoyo/grant/p7n2vx>,
-      <https://registry/yoyo/grant/t5m8qr> .
-}
-
-GRAPH <meta:https://registry/yoyo/agent/z3k7wm/k9m4wp> {
-        <https://registry/yoyo/agent/z3k7wm/k9m4wp> a ldp:Resource .
 }
 
 GRAPH <https://registry/yoyo/grant/p7n2vx> {

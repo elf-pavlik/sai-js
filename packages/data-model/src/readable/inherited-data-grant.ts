@@ -12,10 +12,10 @@ export class InheritedDataGrant extends AbstractDataGrant {
 
   getDataInstanceIterator(): AsyncIterable<DataInstance> {
     const grant = this
-    const parentIterator = grant.inheritsFromGrant.getDataInstanceIterator()
     return {
       async *[Symbol.asyncIterator]() {
-        for await (const parentInstance of parentIterator) {
+        const parent = await grant.factory.readable.dataGrant(grant.inheritsFromGrantIri)
+        for await (const parentInstance of parent.getDataInstanceIterator()) {
           yield* parentInstance.getChildInstancesIterator(grant.registeredShapeTree)
         }
       },

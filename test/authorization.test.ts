@@ -1,4 +1,5 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
+import { getGranted } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 
 const rpcEndpoint = 'https://auth/.sai/api'
@@ -129,6 +130,6 @@ describe('denied', () => {
       await session.registrySet.hasAuthorizationRegistry.findAuthorization(clientId)
     expect(accessAuthorization?.granted).toBeFalsy()
     const registration = await session.findApplicationRegistration(clientId)
-    expect(registration?.accessGrant?.granted).toBeFalsy()
+    expect(registration && getGranted(registration)).toBeFalsy()
   })
 })

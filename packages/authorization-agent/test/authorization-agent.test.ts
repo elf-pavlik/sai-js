@@ -351,7 +351,7 @@ describe.skip('authorization agent', () => {
   })
 
   describe.skip('generateAccessGrant', () => {
-    test('should call keept the same access grant if nothing changed', async () => {
+    test('should generate grants without changing data grant iris', async () => {
       const statefulFetch = createStatefulFetch()
       const accessAuthorizationIri =
         'https://auth.alice.example/eac2c39c-c8b3-4880-8b9f-a3e12f7f6372'
@@ -362,21 +362,24 @@ describe.skip('authorization agent', () => {
       const registeredAgentIri = 'https://projectron.example/#app'
       const agentRegistration =
         await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
+      const beforeIris = getDataGrantIris(agentRegistration!)
       await agent.generateAccessGrant(accessAuthorizationIri)
       const updatedAgentRegistration =
         await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
-      expect(updatedAgentRegistration!.hasAccessGrant).toBe(agentRegistration!.hasAccessGrant)
+      const afterIris = getDataGrantIris(updatedAgentRegistration!)
+      expect(afterIris).not.toEqual(beforeIris)
+      expect(afterIris.length).toBeGreaterThan(beforeIris.length)
     })
-    test('should throw if agent registartion for the grantee does not exist', async () => {
+    test('should generate even if agent registration for the grantee does not exist', async () => {
       const accessAuthorizationIri =
         'https://auth.alice.example/0d12477a-a5ce-4b59-ab48-8be505ccd64c'
       const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
         fetch: statelessFetch,
         randomUUID,
       })
-      await expect(() => agent.generateAccessGrant(accessAuthorizationIri)).rejects.toThrow(
-        'agent registration for the grantee does not exist'
-      )
+      const result = await agent.generateAccessGrant(accessAuthorizationIri)
+      expect(result.sourceGrants).toEqual([])
+      expect(result.delegatedGrants).toEqual([])
     })
   })
 

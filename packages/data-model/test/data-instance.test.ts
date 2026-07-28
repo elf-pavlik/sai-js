@@ -31,10 +31,8 @@ describe('build', () => {
 
 describe('getChildInstancesIterator', () => {
   test('should iterate over children data instances', async () => {
-    const accessGrantIri = 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
     const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
-    const accessGrant = await factory.readable.accessGrant(accessGrantIri)
-    const dataGrant = accessGrant.hasDataGrant.find((grant) => grant.iri === dataGrantIri)!
+    const dataGrant = await factory.readable.dataGrant(dataGrantIri)
     const dataInstance = await DataInstance.build(snippetIri, dataGrant, factory)
     let count = 0
     for await (const child of dataInstance.getChildInstancesIterator(taskShapeTree)) {
@@ -56,10 +54,8 @@ describe('getChildInstancesIterator', () => {
 
 describe('newChildDataInstance', () => {
   test('should provide newChildDataInstance method', async () => {
-    const accessGrantIri = 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
     const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
-    const accessGrant = await factory.readable.accessGrant(accessGrantIri)
-    const dataGrant = accessGrant.hasDataGrant.find((grant) => grant.iri === dataGrantIri)!
+    const dataGrant = await factory.readable.dataGrant(dataGrantIri)
     const dataInstance = await DataInstance.build(snippetIri, dataGrant, factory)
     expect(await dataInstance.newChildDataInstance(taskShapeTree)).toBeInstanceOf(DataInstance)
   })
@@ -76,10 +72,8 @@ describe('newChildDataInstance', () => {
 })
 
 test('should forward accessMode from the grant', async () => {
-  const accessGrantIri = 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
   const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
-  const accessGrant = await factory.readable.accessGrant(accessGrantIri)
-  const dataGrant = accessGrant.hasDataGrant.find((grant) => grant.iri === dataGrantIri)!
+  const dataGrant = await factory.readable.dataGrant(dataGrantIri)
   const dataInstance = await DataInstance.build(snippetIri, dataGrant, factory)
   expect(dataInstance.accessMode).toEqual(dataGrant.accessMode)
 })

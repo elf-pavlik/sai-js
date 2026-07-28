@@ -1,4 +1,5 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
+import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 
 const rpcEndpoint = 'https://auth/.sai/api'
@@ -21,9 +22,9 @@ async function verifyAccessGrant(
   expect(grantedByRegForGrantee).toBeDefined()
   expect(grantedByRegForGrantee!.registeredAgent).toBe(granteeId)
 
-  const accessGrant = grantedByRegForGrantee!.accessGrant
+  const dataGrants = await getDataGrants(grantedByRegForGrantee!)
 
-  const dataGrant = accessGrant?.hasDataGrant.find(
+  const dataGrant = dataGrants.find(
     (grant) =>
       grant.registeredShapeTree === shapeTree &&
       grant.grantedBy === grantedById &&
@@ -31,11 +32,7 @@ async function verifyAccessGrant(
   )
 
   if (expectGrant) {
-    expect(accessGrant).toBeDefined()
-    expect(accessGrant!.granted).toBe(true)
-    expect(accessGrant!.grantedBy).toBe(grantedById)
-    expect(accessGrant!.grantee).toBe(granteeId)
-
+    expect(getDataGrantIris(grantedByRegForGrantee!).length).toBeGreaterThan(0)
     expect(dataGrant).toBeDefined()
     expect(dataGrant!.scopeOfGrant.value).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
     expect(dataGrant!.dataOwner).toBe(dataOwnerId)

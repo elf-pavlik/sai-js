@@ -5,7 +5,7 @@ import {
   AuthorizationAgentFactory,
   type CRUDApplicationRegistration,
   type CRUDSocialAgentRegistration,
-  ImmutableAccessGrant,
+  getDataGrantIris,
   ReadableDataAuthorization,
 } from '../../src'
 import { expect } from '../expect'
@@ -42,33 +42,16 @@ describe.skip('generateAccessGrant', () => {
     const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const agentRegistration = (await registrySet.hasAgentRegistry.findRegistration(
-      accessAuthorization.grantee
-    )) as CRUDApplicationRegistration
-    const accessGrant = await accessAuthorization.generateAccessGrant(
-      registrySet.hasDataRegistry,
-      registrySet.hasAgentRegistry,
-      agentRegistration
-    )
-    expect(accessGrant).toBeInstanceOf(ImmutableAccessGrant)
+    const result = await accessAuthorization.generateAccessGrant(registrySet, accessAuthorization.grantee)
+    expect(result.sourceGrants.length).toBeGreaterThan(0)
   })
-  test('uses new data grants if equivalent does not exists', async () => {
+  test('returns empty grants when no data authorizations', async () => {
     const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const agentRegistration = (await registrySet.hasAgentRegistry.findRegistration(
-      accessAuthorization.grantee
-    )) as CRUDApplicationRegistration
-    // remove all of existing data grants
-    // TODO improve snippets for this test
-    agentRegistration.accessGrant.hasDataGrant = []
-    const accessGrant = await accessAuthorization.generateAccessGrant(
-      registrySet.hasDataRegistry,
-      registrySet.hasAgentRegistry,
-      agentRegistration
-    )
-    expect(accessGrant).toBeInstanceOf(ImmutableAccessGrant)
-    expect(accessGrant.dataGrants).toHaveLength(4)
+    const result = await accessAuthorization.generateAccessGrant(registrySet, 'https://some.random.grantee/#id')
+    expect(result.sourceGrants).toEqual([])
+    expect(result.delegatedGrants).toEqual([])
   })
   test('generates access grant for social agent', async () => {
     const authorizationForSocialAgentIri =
@@ -78,14 +61,8 @@ describe.skip('generateAccessGrant', () => {
     )
     const registrySetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(registrySetIri)
-    const agentRegistration = (await registrySet.hasAgentRegistry.findRegistration(
-      accessAuthorization.grantee
-    )) as CRUDSocialAgentRegistration
-    const accessGrant = await accessAuthorization.generateAccessGrant(
-      registrySet.hasDataRegistry,
-      registrySet.hasAgentRegistry,
-      agentRegistration
-    )
-    expect(accessGrant).toBeInstanceOf(ImmutableAccessGrant)
+    const result = await accessAuthorization.generateAccessGrant(registrySet, accessAuthorization.grantee)
+    expect(result.sourceGrants.length).toBeGreaterThan(0)
+    expect(result.delegatedGrants.length).toBeGreaterThanOrEqual(0)
   })
 })

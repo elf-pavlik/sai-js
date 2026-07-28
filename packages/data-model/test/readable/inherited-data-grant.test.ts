@@ -7,25 +7,16 @@ import {
   ApplicationFactory,
   DataInstance,
   InheritedDataGrant,
-  type ReadableAccessGrant,
 } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
 const selectedFromRegistryDataGrantIri =
   'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
-const accessGrantIri = 'https://auth.alice.example/dd442d1b-bcc7-40e2-bbb9-4abfa7309fbe'
-
 const inheritsFromSelectedFromRegistryIri =
   'https://auth.alice.example/9827ae00-2778-4655-9f22-08bb9daaee26'
 const inheritsFromAllFromRegistryIri =
   'https://auth.alice.example/54b1a123-23ca-4733-9371-700b52b9c567'
-
-let accessGrant: ReadableAccessGrant
-
-beforeAll(async () => {
-  accessGrant = await factory.readable.accessGrant(accessGrantIri)
-})
 
 test('should use correct subclass', async () => {
   const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
@@ -55,19 +46,6 @@ test('should set inheritsFromGrantIri', async () => {
   expect(dataGrant.inheritsFromGrantIri).toBe(selectedFromRegistryDataGrantIri)
 })
 
-test('should set inheritsFromGrant', async () => {
-  const dataGrant = (await factory.readable.dataGrant(
-    inheritsFromSelectedFromRegistryIri
-  )) as InheritedDataGrant
-  expect(dataGrant.inheritsFromGrant).toBeInstanceOf(AbstractDataGrant)
-})
-test('should set inheritsFromGrant', async () => {
-  const dataGrant = (await factory.readable.dataGrant(
-    inheritsFromSelectedFromRegistryIri
-  )) as InheritedDataGrant
-  expect(dataGrant.inheritsFromGrant).toBeInstanceOf(AbstractDataGrant)
-})
-
 // depends on slash semantics
 test('should provide dataRegistryIri', async () => {
   const dataGrant = (await factory.readable.dataGrant(
@@ -77,9 +55,7 @@ test('should provide dataRegistryIri', async () => {
 })
 
 test('should provide data instance iterator for Inherited of AllFromRegistry', async () => {
-  const inheritingGrant = accessGrant.hasDataGrant.find(
-    (grant) => grant.iri === inheritsFromAllFromRegistryIri
-  )!
+  const inheritingGrant = await factory.readable.dataGrant(inheritsFromAllFromRegistryIri)
   let count = 0
   for await (const instance of inheritingGrant.getDataInstanceIterator()) {
     expect(instance).toBeInstanceOf(DataInstance)
@@ -89,9 +65,7 @@ test('should provide data instance iterator for Inherited of AllFromRegistry', a
 })
 
 test('should provide data instance iterator for Inherited of SelectedFromRegistry', async () => {
-  const inheritingGrant = accessGrant.hasDataGrant.find(
-    (grant) => grant.iri === inheritsFromSelectedFromRegistryIri
-  )!
+  const inheritingGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
   let count = 0
   for await (const instance of inheritingGrant.getDataInstanceIterator()) {
     expect(instance).toBeInstanceOf(DataInstance)
@@ -107,9 +81,10 @@ describe('newDataInstance', () => {
     const dataGrant = (await factory.readable.dataGrant(
       inheritsFromSelectedFromRegistryIri
     )) as InheritedDataGrant
+    const parentGrant = await factory.readable.dataGrant(dataGrant.inheritsFromGrantIri)
     const parentInstance = await factory.dataInstance(
       parentInstanceIri,
-      dataGrant.inheritsFromGrant
+      parentGrant
     )
     const newDataInstance = await dataGrant.newDataInstance(parentInstance)
     expect(newDataInstance.iri).toMatch(dataGrant.hasDataRegistration)

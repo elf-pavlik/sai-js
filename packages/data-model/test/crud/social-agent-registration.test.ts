@@ -5,7 +5,7 @@ import { describe, test, vi } from 'vitest'
 import {
   AuthorizationAgentFactory,
   CRUDSocialAgentRegistration,
-  ReadableAccessGrant,
+  getDataGrantIris,
 } from '../../src'
 import { expect } from '../expect'
 
@@ -54,11 +54,12 @@ describe('build', () => {
       CRUDSocialAgentRegistration
     )
   })
-  test('should build access grant', async () => {
+  test('should have data grant IRIs', async () => {
     const acme2bobRegistrationIri = 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
     const socialAgentRegistration =
       await factory.crud.socialAgentRegistration(acme2bobRegistrationIri)
-    expect(socialAgentRegistration.accessGrant).toBeInstanceOf(ReadableAccessGrant)
+    const iris = getDataGrantIris(socialAgentRegistration)
+    expect(iris.length).toBeGreaterThan(0)
   })
 })
 

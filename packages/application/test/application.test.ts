@@ -40,8 +40,9 @@ describe('applicatrion registration exists', () => {
   test('should have dataOwners getter', async () => {
     mocked.mockResolvedValueOnce(await statelessFetch(webId)).mockResolvedValueOnce(responseMock)
     const app = await Application.build(webId, applicationId, { fetch: mocked, randomUUID })
-    expect(app.dataOwners).toHaveLength(3)
-    for (const owner of app.dataOwners) {
+    const owners = await app.getDataOwnersAsync()
+    expect(owners).toHaveLength(3)
+    for (const owner of owners) {
       expect(owner).toBeInstanceOf(DataOwner)
     }
   })

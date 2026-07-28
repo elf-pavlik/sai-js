@@ -141,6 +141,12 @@ export async function createGrantsForAgent(
 
   const allGrantIris = [...allGrantIds, ...delegatedGrantIds.flat()]
 
+  // Clear existing data grants first, then add the new ones
+  await clearDataGrantsOnRegistration({
+    webId: payload.webId,
+    peerId: payload.grantee,
+  })
+
   await setDataGrantsOnRegistration({
     webId: payload.webId,
     grantee: payload.grantee,

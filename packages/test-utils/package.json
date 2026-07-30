@@ -24,7 +24,10 @@
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
-  "files": ["dist/", "src/"],
+  "files": [
+    "dist/",
+    "src/"
+  ],
   "directories": {
     "lib": "src",
     "test": "test"
@@ -36,10 +39,12 @@
   },
   "dependencies": {
     "@janeirodigital/interop-utils": "^1.0.0-rc.26",
+    "jsonld": "^9.0.0",
     "n3": "^1.23.1"
   },
   "devDependencies": {
     "@rdfjs/types": "^1.1.0",
+    "@types/jsonld": "^1.5.15",
     "@types/n3": "^1.21.1"
   }
 }

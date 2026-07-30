@@ -6,7 +6,7 @@ import {
   addDataGrant,
   dataGrantTemplate,
   removeAllDataGrants,
-  toDataset,
+  toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
   asyncIterableToArray,
@@ -101,11 +101,12 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
-  const dataset = await toDataset(payload)
-  const response = await session.fetch(payload.id, {
+  const body = JSON.stringify(toJsonLd(payload))
+  const response = await session.fetch.raw(payload.id, {
     method: 'PUT',
-    dataset,
+    body,
     headers: {
+      'Content-Type': 'application/ld+json',
       'If-None-Match': '*',
     },
   })

@@ -1,47 +1,57 @@
-import type { DatasetCore } from '@rdfjs/types'
-import type { IDocumentLoader, IJsonLdContext } from 'jsonld-context-parser'
-import { FetchDocumentLoader } from 'jsonld-context-parser'
-import { JsonLdParser } from 'jsonld-streaming-parser'
+import type { DatasetCore, Quad } from '@rdfjs/types'
+import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
 
+// CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
+// has the full exports only on .default, while named exports like `toRDF` are
+// hoisted.  Grab the full object so that `documentLoaders` is available.
+const jsonld = (jsonldNs as any).default ?? jsonldNs
+
+// Local type for the document loader result compatible with jsonld's RemoteDocument
+interface RemoteDocument {
+  contextUrl?: string | null
+  document: unknown
+  documentUrl: string
+}
+
 /**
- * Wrapper around streaming-jsonld-parser to convert from callback style to Promise.
+ * Wrapper around jsonld.toRDF to parse JSON-LD text into an N3 Store.
  * @param text Text to parse (JSON-LD)
- * @param source
+ * @param source Base IRI
  */
-
 export const parseJsonld = async (text: string, source = ''): Promise<DatasetCore> => {
-  const store = new Store()
-  return new Promise((resolve, reject) => {
-    const parserOptions: { baseIRI?: string; documentLoader: IDocumentLoader } = {
-      documentLoader: new LocalDocumentLoader(localContexts),
-    }
-    if (source) {
-      parserOptions.baseIRI = source
-    }
-    const parser = new JsonLdParser(parserOptions)
-    parser.on('data', (quads) => store.add(quads))
-    parser.on('error', (error) => reject(error))
-    parser.on('end', () => resolve(store))
-    parser.write(text)
-    parser.end()
+  const doc = JSON.parse(text)
+  const dataset = await jsonld.toRDF(doc, {
+    base: source || undefined,
+    documentLoader: localDocumentLoader as any,
   })
+  const store = new Store()
+  for (const quad of dataset as unknown as Iterable<Quad>) {
+    store.add(quad)
+  }
+  return store
 }
 
-class LocalDocumentLoader extends FetchDocumentLoader {
-  public constructor(private readonly contexts: Record<string, IJsonLdContext>) {
-    super(fetch)
-  }
+const nodeLoader = jsonld.documentLoaders.node() as (
+  url: string
+) => Promise<RemoteDocument>
 
-  public async load(url: string): Promise<IJsonLdContext> {
-    if (url in this.contexts) {
-      return this.contexts[url]
+async function localDocumentLoader(
+  url: string
+): Promise<RemoteDocument> {
+  if (url in localContexts) {
+    return {
+      contextUrl: null,
+      document: localContexts[url],
+      documentUrl: url,
     }
-    super.load(url)
   }
+  return nodeLoader(url)
 }
 
-const localContexts = {
+type LocalContext = Record<string, unknown> & { '@context'?: unknown }
+
+const localContexts: Record<string, LocalContext> = {
   'https://www.w3.org/ns/solid/oidc-context.jsonld': {
     '@context': {
       '@version': 1.1,

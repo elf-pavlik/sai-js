@@ -20,5 +20,6 @@ export default {
   hasInheritingGrant: {
     '@reverse': 'http://www.w3.org/ns/solid/interop#inheritsFromGrant',
     '@container': '@set',
+    '@type': '@id',
   },
 }

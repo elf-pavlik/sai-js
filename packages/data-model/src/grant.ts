@@ -1,10 +1,15 @@
-import { INTEROP, ACL, parseJsonld } from '@janeirodigital/interop-utils'
-import { JsonLdSerializer } from 'jsonld-streaming-serializer'
+import { INTEROP, ACL } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
-import { DataFactory, Store } from 'n3'
+import * as jsonldNs from 'jsonld'
+import { Store } from 'n3'
 import grantContext from './grant-context'
 import type { BaseFactory } from './base-factory'
 import { DataInstance } from './data-instance'
+
+// CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
+// has the full exports only on .default.  Grab the full object so that all
+// properties (fromRDF, compact, toRDF, expand, …) are available.
+const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 // ──────────────────────────
 // Types
@@ -44,97 +49,86 @@ export type FinalGrantData = GrantData & Required<Pick<GrantData, 'id'>>
 // Read path: Dataset → GrantData
 // ──────────────────────────
 
+/** Build a JSON-LD frame that resolves the grant node at `iri` with all its
+ * properties as plain node references (no embedding of referenced nodes).
+ *
+ * Each property in the grant context gets `@embed: "@never"` so that the
+ * framing algorithm produces `@type: @id`-compacted plain IRI strings
+ * instead of embedding full child graphs. This also resolves @reverse
+ * relationships (hasInheritingGrant) automatically.
+ */
+function buildGrantFrame(iri: string): Record<string, unknown> {
+  const frame: Record<string, unknown> = {
+    '@context': grantContext,
+    '@id': iri,
+  }
+  for (const [key, val] of Object.entries(grantContext)) {
+    if (key === 'id' || key === 'type' || key === '@version') continue
+    if (typeof val === 'object' && val !== null) {
+      frame[key] = { '@embed': '@never' }
+    }
+  }
+  return frame
+}
+
 /**
- * Convert a parsed RDF dataset into a compacted JSON-LD string using the local context,
- * then extract the node for the given IRI as a GrantData POJO.
+ * Convert a parsed RDF dataset into a GrantData POJO.
+ *
+ * Uses jsonld.frame with the grant context to resolve @reverse relationships
+ * (hasInheritingGrant) automatically, without embedding child nodes.
  */
 export async function fromDataset(dataset: DatasetCore, iri: string): Promise<GrantData> {
-  const serializer = new JsonLdSerializer({ context: grantContext })
-  let output = ''
-  serializer.on('data', (chunk: string) => {
-    output += chunk
-  })
-
-  return new Promise((resolve, reject) => {
-    serializer.on('end', () => {
-      try {
-        const compacted = JSON.parse(output)
-        // The compacted output may be a single node or a @graph array
-        const nodes = compacted['@graph'] ?? [compacted]
-        const node = nodes.find((n: any) => n['@id'] === iri)
-        if (!node) throw new Error(`Node ${iri} not found in compacted output`)
-        const grant = compactNodeToGrantData(node)
-        // Scan dataset for inverse inheritsFromGrant quads
-        // (the streaming serializer does not handle @reverse correctly)
-        const childIris: string[] = []
-        for (const quad of dataset) {
-          if (
-            quad.predicate.equals(INTEROP.inheritsFromGrant) &&
-            quad.object.equals(DataFactory.namedNode(iri))
-          ) {
-            childIris.push(quad.subject.value)
-          }
-        }
-        if (childIris.length > 0) {
-          grant.hasInheritingGrant = childIris
-        }
-        resolve(grant)
-      } catch (e) {
-        reject(e)
-      }
-    })
-    serializer.on('error', reject)
-
-    // Write all quads from the dataset
-    for (const quad of dataset) {
-      serializer.write(quad)
-    }
-    serializer.end()
-  })
+  const expanded = await jsonld.fromRDF(dataset)
+  const framed = await jsonld.frame(expanded, buildGrantFrame(iri) as any)
+  if (!(framed as any).id && !(framed as any)['@id']) {
+    throw new Error(`Node ${iri} not found in framed output`)
+  }
+  return compactNodeToGrantData(framed as any)
 }
 
 /**
- * Extract a term value from a compacted JSON-LD node.
- * Values with @type: @id appear as { "@id": "..." } after compaction.
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a GrantData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form.
+ * Uses jsonld.frame to resolve @reverse relationships (hasInheritingGrant)
+ * automatically, without embedding child nodes.
  */
-function termValue(value: any): string | undefined {
-  if (value === undefined || value === null) return undefined
-  // Handle array-wrapped values (jsonld-streaming-serializer always wraps in arrays)
-  const actual = Array.isArray(value) ? value[0] : value
-  if (actual === undefined || actual === null) return undefined
-  return actual['@id'] ?? String(actual)
+export async function fromJsonLd(doc: unknown, iri: string): Promise<GrantData> {
+  const framed = await jsonld.frame(doc, buildGrantFrame(iri) as any)
+  if (!(framed as any).id && !(framed as any)['@id']) {
+    throw new Error(`Node ${iri} not found in framed output`)
+  }
+  return compactNodeToGrantData(framed as any)
 }
 
 /**
- * Extract an array of term values.
- * @container: @set guarantees the value is always an array when present
- * (per JSON-LD 1.1 spec). Zero matching quads → key is absent → ?? [].
+ * Extract the grant node from a framed JSON-LD output into a GrantData POJO.
+ *
+ * The framed output uses compacted form with @type: @id on all properties,
+ * so values are plain IRI strings (or null/undefined when absent).
+ * No @id-object unwrapping or array-flattening is needed.
  */
-function termArray(values: any): string[] {
-  return (values ?? []).map((v: any) => termValue(v) ?? v)
-}
-
 function compactNodeToGrantData(node: any): GrantData {
   return {
-    id: node['@id'],
-    grantee: termValue(node.grantee)!,
-    grantedBy: termValue(node.grantedBy)!,
-    dataOwner: termValue(node.dataOwner)!,
-    registeredShapeTree: termValue(node.registeredShapeTree)!,
-    hasDataRegistration: termValue(node.hasDataRegistration)!,
-    hasStorage: termValue(node.hasStorage)!,
-    scopeOfGrant: termValue(node.scopeOfGrant)!,
-    accessMode: termArray(node.accessMode),
-    creatorAccessMode: termArray(node.creatorAccessMode),
-    hasDataInstance: termArray(node.hasDataInstance),
-    inheritsFromGrant: termValue(node.inheritsFromGrant),
-    delegationOfGrant: termValue(node.delegationOfGrant),
-    hasInheritingGrant: termArray(node.hasInheritingGrant),
+    id: node.id ?? node['@id'],
+    grantee: node.grantee,
+    grantedBy: node.grantedBy,
+    dataOwner: node.dataOwner,
+    registeredShapeTree: node.registeredShapeTree,
+    hasDataRegistration: node.hasDataRegistration,
+    hasStorage: node.hasStorage,
+    scopeOfGrant: node.scopeOfGrant,
+    accessMode: node.accessMode ?? [],
+    creatorAccessMode: node.creatorAccessMode ?? [],
+    hasDataInstance: node.hasDataInstance ?? [],
+    inheritsFromGrant: node.inheritsFromGrant ?? undefined,
+    delegationOfGrant: node.delegationOfGrant ?? undefined,
+    hasInheritingGrant: node.hasInheritingGrant ?? [],
   }
 }
 
 // ──────────────────────────
-// Write path: GrantData → Dataset
+// Write path: GrantData → Dataset / JSON-LD
 // ──────────────────────────
 
 /**
@@ -142,22 +136,38 @@ function compactNodeToGrantData(node: any): GrantData {
  *
  * Steps:
  *   1. Attach the local context to the grant POJO
- *   2. JSON.stringify → JSON-LD string
- *   3. parseJsonld → N3 Store (via jsonld-streaming-parser)
+ *   2. Use jsonld.toRDF to convert the JSON-LD object directly to RDF quads
+ *   3. Collect quads into an N3 Store
  *
  * The resulting dataset can be passed directly to an RdfFetch call
  * as the `dataset` option (the wrapper serializes it to turtle).
  */
 export async function toDataset(grant: FinalGrantData): Promise<Store> {
-  // hasInheritingGrant uses @reverse, so values must be node references ({@id: string}), not plain strings
-  const jsonldDoc: Record<string, unknown> = {
+  const jsonldDoc = toJsonLd(grant)
+  const dataset = await jsonld.toRDF(jsonldDoc, {
+    base: grant.id,
+  })
+  const store = new Store()
+  for (const quad of dataset as unknown as Iterable<Quad>) {
+    store.add(quad)
+  }
+  return store as Store
+}
+
+/**
+ * Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json.
+ *
+ * The document uses the grant context so that `@reverse` relationships
+ * (hasInheritingGrant) produce the correct RDF quads on the server side.
+ */
+export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
+  return {
     '@context': grantContext,
     ...grant,
-    hasInheritingGrant: grant.hasInheritingGrant?.map((id) => ({ '@id': id })),
+    // hasInheritingGrant uses @reverse + @type: @id, so plain IRI strings are
+    // correctly interpreted as node references by jsonld.toRDF.
+    hasInheritingGrant: grant.hasInheritingGrant,
   }
-  const jsonldStr = JSON.stringify(jsonldDoc)
-  const store = await parseJsonld(jsonldStr, grant.id)
-  return store as Store
 }
 
 // ──────────────────────────

@@ -3,7 +3,7 @@ import {
   type GrantData,
   DataInstance,
   type FactoryDependencies,
-  fromDataset,
+  fromJsonLd,
   ReadableApplicationRegistration,
   ReadableClientIdDocument,
   ReadableDataInstance,
@@ -71,9 +71,11 @@ export class BaseFactory {
         return ReadableClientIdDocument.build(iri, factory)
       },
       dataGrant: async function dataGrant(iri: string): Promise<GrantData> {
-        const response = await factory.fetch(iri)
-        const dataset = await response.dataset()
-        return fromDataset(dataset, iri)
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return fromJsonLd(doc, iri)
       },
     }
   }

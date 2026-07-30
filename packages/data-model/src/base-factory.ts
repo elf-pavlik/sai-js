@@ -1,34 +1,23 @@
-import { INTEROP, type RdfFetch, getOneMatchingQuad } from '@janeirodigital/interop-utils'
-import { DataFactory, type NamedNode } from 'n3'
+import { type RdfFetch } from '@janeirodigital/interop-utils'
 import {
-  AllFromRegistryDataGrant,
-  type DataGrant,
+  type GrantData,
   DataInstance,
   type FactoryDependencies,
-  InheritedDataGrant,
+  fromDataset,
   ReadableApplicationRegistration,
   ReadableClientIdDocument,
   ReadableDataInstance,
   ReadableDataRegistration,
   ReadableShapeTree,
   ReadableWebIdProfile,
-  SelectedFromRegistryDataGrant,
 } from '.'
-
-interface CachedDataGrants {
-  [key: string]: DataGrant
-}
-
-interface Cache {
-  dataGrant: CachedDataGrants
-}
 
 export interface BaseReadableFactory {
   dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
   applicationRegistration(iri: string): Promise<ReadableApplicationRegistration>
   dataRegistration(iri: string): Promise<ReadableDataRegistration>
   shapeTree(iri: string, descriptionLang?: string): Promise<ReadableShapeTree>
-  dataGrant(iri: string): Promise<DataGrant>
+  dataGrant(iri: string): Promise<GrantData>
   webIdProfile(iri: string): Promise<ReadableWebIdProfile>
   clientIdDocument(iri: string): Promise<ReadableClientIdDocument>
 }
@@ -40,14 +29,9 @@ export class BaseFactory {
 
   randomUUID: () => string
 
-  cache: Cache
-
   constructor(dependencies: FactoryDependencies) {
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
-    this.cache = {
-      dataGrant: {},
-    }
 
     this.readable = this.readableFactory()
   }
@@ -86,40 +70,15 @@ export class BaseFactory {
       ): Promise<ReadableClientIdDocument> {
         return ReadableClientIdDocument.build(iri, factory)
       },
-      dataGrant: async function dataGrant(iri: string): Promise<DataGrant> {
-        // return cached if exists
-        const cached = factory.cache.dataGrant[iri]
-        if (cached) return cached
-
+      dataGrant: async function dataGrant(iri: string): Promise<GrantData> {
         const response = await factory.fetch(iri)
         const dataset = await response.dataset()
-
-        const quadPattern = [DataFactory.namedNode(iri), INTEROP.scopeOfGrant, null, null]
-        const scopeOfGrant = getOneMatchingQuad(dataset, ...quadPattern).object as NamedNode
-        let scopedDataGrant
-        switch (scopeOfGrant.value) {
-          case INTEROP.AllFromRegistry.value:
-            scopedDataGrant = await AllFromRegistryDataGrant.build(iri, factory, dataset)
-            break
-          case INTEROP.SelectedFromRegistry.value:
-            scopedDataGrant = await SelectedFromRegistryDataGrant.build(iri, factory, dataset)
-            break
-          case INTEROP.Inherited.value:
-            scopedDataGrant = new InheritedDataGrant(iri, factory, dataset)
-            break
-          default:
-            throw new Error(`Unknown scope: ${scopeOfGrant.value} on ${iri}`)
-        }
-
-        // store in cache for future access
-        factory.cache.dataGrant[iri] = scopedDataGrant
-
-        return scopedDataGrant
+        return fromDataset(dataset, iri)
       },
     }
   }
 
-  async dataInstance(iri: string, grant: DataGrant, parent?: DataInstance): Promise<DataInstance> {
+  async dataInstance(iri: string, grant: GrantData, parent?: DataInstance): Promise<DataInstance> {
     return DataInstance.build(iri, grant, this, parent)
   }
 }

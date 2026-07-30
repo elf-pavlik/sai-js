@@ -1,4 +1,5 @@
 import {
+  INTEROP,
   SHAPETREES,
   getDescriptionResource,
   insertPatch,
@@ -8,14 +9,14 @@ import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory, type NamedNode } from 'n3'
 import {
   type ApplicationFactory,
-  type DataGrant,
-  InheritedDataGrant,
+  type GrantData,
   ReadableResource,
   type ReadableShapeTree,
 } from '.'
+import * as Grant from './grant'
 
 export class DataInstance extends ReadableResource {
-  dataGrant: DataGrant
+  dataGrant: GrantData
 
   parent: DataInstance
 
@@ -25,7 +26,7 @@ export class DataInstance extends ReadableResource {
 
   public constructor(
     iri: string,
-    dataGrant: DataGrant,
+    dataGrant: GrantData,
     factory: ApplicationFactory,
     parent?: DataInstance,
     draft = false
@@ -62,7 +63,7 @@ export class DataInstance extends ReadableResource {
 
   public static async build(
     iri: string,
-    dataGrant: DataGrant,
+    dataGrant: GrantData,
     factory: ApplicationFactory,
     parent?: DataInstance,
     draft = false
@@ -158,17 +159,22 @@ export class DataInstance extends ReadableResource {
     return this.getObjectsArray(predicate).map((object) => object.value)
   }
 
-  findChildGrant(shapeTree: string): InheritedDataGrant {
-    if (this.dataGrant instanceof InheritedDataGrant) {
+  async findChildGrant(shapeTree: string): Promise<GrantData | undefined> {
+    if (this.dataGrant.scopeOfGrant === INTEROP.Inherited.value) {
       throw new Error('child instance can not have child instances')
     }
-    return [...this.dataGrant.hasInheritingGrant].find(
-      (grant) => grant.registeredShapeTree === shapeTree
-    )
+    for (const childIri of this.dataGrant.hasInheritingGrant ?? []) {
+      const childGrant = await this.factory.readable.dataGrant(childIri)
+      if (childGrant.registeredShapeTree === shapeTree) {
+        return childGrant
+      }
+    }
+    return undefined
   }
 
-  getChildInstancesIterator(shapeTree: string): AsyncIterable<DataInstance> {
-    const childGrant = this.findChildGrant(shapeTree)
+  async getChildInstancesIterator(shapeTree: string): Promise<AsyncIterable<DataInstance>> {
+    const childGrant = await this.findChildGrant(shapeTree)
+    if (!childGrant) throw new Error(`No child grant found for shape tree ${shapeTree}`)
     const instance = this
     return {
       async *[Symbol.asyncIterator]() {
@@ -181,12 +187,13 @@ export class DataInstance extends ReadableResource {
   }
 
   async newChildDataInstance(shapeTree: string): Promise<DataInstance> {
-    const childGrant = this.findChildGrant(shapeTree)
-    return childGrant.newDataInstance(this)
+    const childGrant = await this.findChildGrant(shapeTree)
+    if (!childGrant) throw new Error(`No child grant found for shape tree ${shapeTree}`)
+    return Grant.newDataInstance(childGrant, this.factory, this.factory.randomUUID, this)
   }
 
   get accessMode(): string[] {
-    return this.dataGrant.accessMode
+    return this.dataGrant.accessMode ?? []
   }
 
   public async updateAddingChildReference(child: DataInstance): Promise<void> {

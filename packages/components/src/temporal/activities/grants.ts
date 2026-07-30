@@ -1,11 +1,12 @@
 import {
-  type DataGrantData,
-  type FinalDataGrantData,
+  type GrantData,
+  type FinalGrantData,
   type GeneratedGrants,
   type ReadableDataAuthorization,
   addDataGrant,
   dataGrantTemplate,
   removeAllDataGrants,
+  toDataset,
 } from '@janeirodigital/interop-data-model'
 import {
   asyncIterableToArray,
@@ -96,12 +97,19 @@ export async function generateGrants(payload: CreateGrantsForAgentInput): Promis
   return session.generateDataGrants(payload.authorizationId, payload.grantee)
 }
 
-export async function storeDataGrant(payload: FinalDataGrantData): Promise<void> {
+export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
-  const grant = session.factory.immutable.dataGrant(payload.id, payload)
-  return grant.put()
+  const dataset = await toDataset(payload)
+  const response = await session.fetch(payload.id, {
+    method: 'PUT',
+    dataset,
+    headers: {
+      'If-None-Match': '*',
+    },
+  })
+  if (!response.ok) throw new Error(`failed to store grant: ${response.status}`)
 }
 
 // TODO: DRY with getGrantees
@@ -179,7 +187,7 @@ export async function deleteAuthorizationsUsingRole(payload: {
  * 3. grantor grants to a peer (delegation)
  * 4. grantor grants to an application (delegation)
  */
-export async function createAcr(payload: FinalDataGrantData): Promise<void> {
+export async function createAcr(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
   // TODO: improve error handling
@@ -242,7 +250,7 @@ export async function createAcr(payload: FinalDataGrantData): Promise<void> {
   }
 }
 
-export async function requestDelegation(payload: { grantData: DataGrantData }): Promise<string[]> {
+export async function requestDelegation(payload: { grantData: GrantData }): Promise<string[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.grantData.grantedBy)
 

@@ -8,7 +8,7 @@ import {
   type DataAuthorizationData,
   getDataGrantIris,
   getDataGrants,
-  InheritedDataGrant,
+  type GrantData,
   type ReadableAccessNeed,
   type ReadableAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
@@ -89,7 +89,7 @@ async function findSocialAgentDataRegistrations(
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
         dataGrant.registeredShapeTree === accessNeed.shapeTree.iri &&
-        !(dataGrant instanceof InheritedDataGrant) // TODO clarify case when this could happen
+        dataGrant.scopeOfGrant !== INTEROP.Inherited.value // TODO clarify case when this could happen
       ) {
         dataRegistrations.push({
           id: IRI.make(dataGrant.hasDataRegistration),

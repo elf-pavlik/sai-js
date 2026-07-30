@@ -1,11 +1,10 @@
 import {
-  AllFromRegistryDataGrant,
   ApplicationFactory,
   DataOwner,
-  InheritedDataGrant,
   type ReadableApplicationRegistration,
-  SelectedFromRegistryDataGrant,
+  Grant,
 } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   ACL,
   type RdfFetch,
@@ -128,7 +127,7 @@ export class Application {
     return dataGrants.reduce((acc, grant) => {
       let owner: DataOwner = acc.find((agent) => agent.iri === grant.dataOwner)
       if (!owner) {
-        owner = new DataOwner(grant.dataOwner)
+        owner = new DataOwner(grant.dataOwner, this.factory)
         acc.push(owner)
       }
       owner.issuedGrants.push(grant)
@@ -160,15 +159,16 @@ export class Application {
 
   public async resources(resourceServer: string, scope: string): Promise<Set<string>> {
     const grant = await this.findGrant(resourceServer, scope)
+    if (!grant) throw new Error('No grant found')
     let list: string[] = []
-    if (grant instanceof InheritedDataGrant) {
+    if (grant.scopeOfGrant === INTEROP.Inherited.value) {
       throw new Error('Cannot list instances from Inherited grants')
     }
-    if (grant instanceof SelectedFromRegistryDataGrant) {
-      list = grant.hasDataInstance
+    if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) {
+      list = grant.hasDataInstance ?? []
     }
-    if (grant instanceof AllFromRegistryDataGrant) {
-      const dataRegistration = await grant.factory.readable.dataRegistration(
+    if (grant.scopeOfGrant === INTEROP.AllFromRegistry.value) {
+      const dataRegistration = await this.factory.readable.dataRegistration(
         grant.hasDataRegistration
       )
       list = dataRegistration.contains
@@ -227,7 +227,8 @@ export class Application {
   // TODO: rename to idForNew
   public async iriForNew(resourceServer: string, scope: string): Promise<string> {
     const grant = await this.findGrant(resourceServer, scope)
-    return grant.iriForNew()
+    if (!grant) throw new Error('No grant found')
+    return Grant.iriForNew(grant, this.factory.randomUUID)
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

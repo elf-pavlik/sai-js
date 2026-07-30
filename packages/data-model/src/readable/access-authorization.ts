@@ -4,13 +4,13 @@ import { type ReadableDataAuthorization, ReadableResource } from '.'
 import type {
   AuthorizationAgentFactory,
   CRUDRegistrySet,
-  DataGrantData,
-  FinalDataGrantData,
+  GrantData,
+  FinalGrantData,
 } from '..'
 
 export interface GeneratedGrants {
-  sourceGrants: FinalDataGrantData[]
-  delegatedGrants: DataGrantData[]
+  sourceGrants: FinalGrantData[]
+  delegatedGrants: GrantData[]
 }
 
 export class ReadableAccessAuthorization extends ReadableResource {
@@ -70,8 +70,8 @@ export class ReadableAccessAuthorization extends ReadableResource {
     registrySet: CRUDRegistrySet,
     grantee: string
   ): Promise<GeneratedGrants> {
-    const sourceGrants: FinalDataGrantData[] = []
-    const delegatedGrants: DataGrantData[] = []
+    const sourceGrants: FinalGrantData[] = []
+    const delegatedGrants: GrantData[] = []
 
     if (this.granted) {
       const regularAuthorizations: ReadableDataAuthorization[] = []

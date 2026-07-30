@@ -1,4 +1,4 @@
-import type { DataGrantData, FinalDataGrantData } from '@janeirodigital/interop-data-model'
+import type { GrantData, FinalGrantData } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
@@ -46,7 +46,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       throw new ForbiddenHttpError()
     }
 
-    let topGrant: DataGrantData
+    let topGrant: GrantData
     try {
       topGrant = JSON.parse(await readableToString(operation.body.data))
     } catch (err) {
@@ -56,12 +56,31 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     const sai = await this.sessionManager.getSession(topGrant.dataOwner)
 
     // TODO: support recursive inheritance
-    const inheritingGrants: FinalDataGrantData[] = [...(topGrant.hasInheritingGrant ?? [])].map(
-      (grant) => ({
-        ...grant,
+    const inheritingGrants: FinalGrantData[] = [...(topGrant.hasInheritingGrant ?? [])].map(
+      (iri) => ({
         id: sai.registrySet.hasGrantRegistry.iriForContained(),
+        grantee: topGrant.grantee,
+        grantedBy: topGrant.grantedBy,
+        dataOwner: topGrant.dataOwner,
+        registeredShapeTree: '', // will be set from the referenced grant
+        hasDataRegistration: topGrant.hasDataRegistration,
+        hasStorage: topGrant.hasStorage,
+        scopeOfGrant: '', // will be set from the referenced grant
+        accessMode: topGrant.accessMode,
+        inheritsFromGrant: topGrant.id!,
       })
     )
+
+    // Fetch each child grant to populate fields
+    for (const [i, childIri] of (topGrant.hasInheritingGrant ?? []).entries()) {
+      const childGrant = await sai.factory.readable.dataGrant(childIri)
+      inheritingGrants[i].registeredShapeTree = childGrant.registeredShapeTree
+      inheritingGrants[i].scopeOfGrant = childGrant.scopeOfGrant
+      inheritingGrants[i].accessMode = childGrant.accessMode
+      inheritingGrants[i].hasDataRegistration = childGrant.hasDataRegistration
+      inheritingGrants[i].hasStorage = childGrant.hasStorage
+      inheritingGrants[i].dataOwner = childGrant.dataOwner
+    }
 
     const fetcher = new SparqlEndpointFetcher()
 
@@ -135,11 +154,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // const upstreamGrantGraph = queryResults[0]?.['g']?.value
 
     const grantId = sai.registrySet.hasGrantRegistry.iriForContained()
-    const finalGrant = {
+    const finalGrant: FinalGrantData = {
       ...topGrant,
       id: grantId,
-      hasInheritingGrant: inheritingGrants.map((g) => ({ id: g.id })),
-    } as FinalDataGrantData
+      hasInheritingGrant: inheritingGrants.map((g) => g.id!),
+    }
 
     const allGrants = [finalGrant, ...inheritingGrants]
 

@@ -1,6 +1,6 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Mixin } from 'ts-mixer'
-import { type DataGrant, ReadableContainer } from '.'
+import { type GrantData, ReadableContainer } from '.'
 import type { InteropFactory } from '..'
 import { AgentRegistrationGetters } from '../mixins/agent-registration-getters'
 
@@ -8,7 +8,7 @@ export class ReadableApplicationRegistration extends Mixin(
   ReadableContainer,
   AgentRegistrationGetters
 ) {
-  async getDataGrants(): Promise<DataGrant[]> {
+  async getDataGrants(): Promise<GrantData[]> {
     const grantIris = this.getObjectsArray(INTEROP.hasDataGrant).map((node) => node.value)
     return Promise.all(grantIris.map((iri) => this.factory.readable.dataGrant(iri)))
   }

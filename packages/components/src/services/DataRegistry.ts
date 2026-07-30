@@ -1,6 +1,6 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type { CRUDDataRegistry, DataGrant } from '@janeirodigital/interop-data-model'
-import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
+import type { CRUDDataRegistry, GrantData } from '@janeirodigital/interop-data-model'
+import { getDataGrantIris, getDataGrants, Grant } from '@janeirodigital/interop-data-model'
 import { DataInstance, DataRegistration, DataRegistry, IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 
@@ -34,7 +34,7 @@ const buildDataRegistry = async (
 
 const buildDataRegistryForGrant = async (
   registryIri: string,
-  dataGrants: DataGrant[],
+  dataGrants: GrantData[],
   descriptionsLang: string,
   saiSession: AuthorizationAgent
 ) => {
@@ -66,18 +66,19 @@ const buildDataRegistryForGrant = async (
 async function findDataGrantIndex(
   saiSession: AuthorizationAgent,
   agentId: string
-): Promise<Record<string, DataGrant[]>> {
-  const dataGrantIndex: Record<string, DataGrant[]> = {}
+): Promise<Record<string, GrantData[]>> {
+  const dataGrantIndex: Record<string, GrantData[]> = {}
   for await (const registration of saiSession.socialAgentRegistrations) {
     const reciprocalReg = registration.reciprocalRegistration
     if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
     const dataGrants = await getDataGrants(reciprocalReg)
     for (const dataGrant of dataGrants) {
       if (dataGrant.dataOwner !== agentId) continue
-      if (!dataGrantIndex[dataGrant.dataRegistryIri]) {
-        dataGrantIndex[dataGrant.dataRegistryIri] = []
+      const regIri = Grant.dataRegistryIri(dataGrant)
+      if (!dataGrantIndex[regIri]) {
+        dataGrantIndex[regIri] = []
       }
-      dataGrantIndex[dataGrant.dataRegistryIri].push(dataGrant)
+      dataGrantIndex[regIri].push(dataGrant)
     }
   }
   return dataGrantIndex
@@ -96,18 +97,19 @@ export const getDataRegistries = async (
     )
   }
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
-  let dataGrantIndex: Record<string, DataGrant[]>
+  let dataGrantIndex: Record<string, GrantData[]>
   if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
     const dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
     dataGrantIndex = dataGrants.reduce(
       (acc, dataGrant) => {
-        if (!acc[dataGrant.dataRegistryIri]) {
-          acc[dataGrant.dataRegistryIri] = [] as DataGrant[]
+        const regIri = Grant.dataRegistryIri(dataGrant)
+        if (!acc[regIri]) {
+          acc[regIri] = [] as GrantData[]
         }
-        acc[dataGrant.dataRegistryIri].push(dataGrant)
+        acc[regIri].push(dataGrant)
         return acc
       },
-      {} as Record<string, DataGrant[]>
+      {} as Record<string, GrantData[]>
     )
   } else {
     dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
@@ -138,7 +140,7 @@ export const listDataInstances = async (
     }
   } else {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
-    let dataGrants: DataGrant[]
+    let dataGrants: GrantData[]
     if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
       dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
     } else {
@@ -153,7 +155,7 @@ export const listDataInstances = async (
       if (dataGrant.hasDataRegistration === registrationId) {
         // TODO: optimize not to create crud data instances
 
-        for await (const instance of dataGrant.getDataInstanceIterator()) {
+        for await (const instance of Grant.getDataInstanceIterator(dataGrant, saiSession.factory)) {
           if (seenInstances.has(instance.iri)) continue
           seenInstances.add(instance.iri)
           const dataInstance = await saiSession.factory.readable.dataInstance(

@@ -1,7 +1,7 @@
 import { INTEROP, discoverAccessResource, parseTurtle } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { Mixin } from 'ts-mixer'
-import type { AuthorizationAgentFactory, DataGrant } from '..'
+import type { AuthorizationAgentFactory, GrantData } from '..'
 import { AgentRegistrationGetters } from '../mixins/agent-registration-getters'
 import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
 import type { AgentAndClient } from '../templates/types'
@@ -71,7 +71,7 @@ export function getGranted(registration: CRUDAgentRegistration): boolean {
 
 export async function getDataGrants(
   registration: CRUDAgentRegistration
-): Promise<DataGrant[]> {
+): Promise<GrantData[]> {
   const iris = getDataGrantIris(registration)
   return Promise.all(iris.map((iri) => registration.factory.readable.dataGrant(iri)))
 }

@@ -1,19 +1,10 @@
-import type { AllFromRegistryDataGrant } from './all-from-registry-data-grant'
-import type { InheritedDataGrant } from './inherited-data-grant'
-import type { SelectedFromRegistryDataGrant } from './selected-from-registry-data-grant'
+import type { GrantData } from '../grant'
 
-export type DataGrant =
-  | AllFromRegistryDataGrant
-  | SelectedFromRegistryDataGrant
-  | InheritedDataGrant
+export type DataGrant = GrantData
+export type { GrantData }
 
 export { ReadableResource } from './resource'
 export { ReadableContainer } from './container'
-export { AbstractDataGrant } from './data-grant'
-export { InheritableDataGrant } from './inheritable-data-grant'
-export { AllFromRegistryDataGrant } from './all-from-registry-data-grant'
-export { SelectedFromRegistryDataGrant } from './selected-from-registry-data-grant'
-export { InheritedDataGrant } from './inherited-data-grant'
 export { ReadableApplicationRegistration } from './application-registration'
 export { ReadableShapeTree } from './shape-tree'
 export { ReadableShapeTreeDescription } from './shape-tree-description'

@@ -1,4 +1,4 @@
-import type { FinalDataGrantData } from '@janeirodigital/interop-data-model'
+import type { FinalGrantData } from '@janeirodigital/interop-data-model'
 import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
@@ -18,12 +18,12 @@ const {
   startToCloseTimeout: '1 minute',
 })
 
-async function storeGrantAndAcr(grant: FinalDataGrantData) {
+async function storeGrantAndAcr(grant: FinalGrantData) {
   await storeDataGrant(grant)
   await createAcr(grant)
 }
 
-export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
+export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
   // TODO same race condition as in createGrantsForAgent — change back to
   // Promise.all after the CSS SPARQL backend dcterms:modified bug is fixed
   for (const grant of payload) {

@@ -19,3 +19,7 @@ export type InteropFactory = ApplicationFactory | AuthorizationAgentFactory
 export { DataInstance } from './data-instance'
 export { DataOwner } from './data-owner'
 export { ReadableDataRegistrationProxy } from './data-registration-proxy'
+export type { GrantData, FinalGrantData } from './grant'
+export * as Grant from './grant'
+export { fromDataset, toDataset } from './grant'
+export { default as grantContext } from './grant-context'

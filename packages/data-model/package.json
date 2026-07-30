@@ -44,6 +44,7 @@
   },
   "dependencies": {
     "@janeirodigital/interop-utils": "^1.0.0-rc.26",
+    "jsonld-streaming-serializer": "^3.0.1",
     "n3": "^1.23.1",
     "ts-mixer": "^6.0.3",
     "typescript-memoize": "^1.1.1"

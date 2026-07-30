@@ -14,14 +14,13 @@ import {
   CRUDRoleRegistry,
   CRUDSocialAgentInvitation,
   CRUDSocialAgentRegistration,
-  type DataGrantData,
   type DataRegistrationData,
   type ExpandedDataAuthorizationData,
   type FactoryDependencies,
-  type FinalDataGrantData,
+  type FinalGrantData,
+  type GrantData,
   ImmutableAccessAuthorization,
   ImmutableDataAuthorization,
-  ImmutableDataGrant,
   ReadableAccessAuthorization,
   ReadableAccessDescriptionSet,
   ReadableAccessNeed,
@@ -69,7 +68,7 @@ interface CRUDFactory {
 }
 
 interface ImmutableFactory {
-  dataGrant(iri: string, data: DataGrantData): ImmutableDataGrant
+  dataGrant(iri: string, data: GrantData): FinalGrantData
   dataAuthorization(iri: string, data: ExpandedDataAuthorizationData): ImmutableDataAuthorization
   accessAuthorization(iri: string, data: AccessAuthorizationData): ImmutableAccessAuthorization
 }
@@ -170,8 +169,8 @@ export class AuthorizationAgentFactory extends BaseFactory {
   private immutableFactory(): ImmutableFactory {
     const factory = this
     return {
-      dataGrant: function dataGrant(iri: string, data: DataGrantData): ImmutableDataGrant {
-        return new ImmutableDataGrant(iri, factory, data)
+      dataGrant: function dataGrant(iri: string, data: GrantData): FinalGrantData {
+        return { ...data, id: iri }
       },
       dataAuthorization: function dataAuthorization(
         iri: string,

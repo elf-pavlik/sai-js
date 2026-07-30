@@ -32,10 +32,6 @@ export const parseJsonld = async (text: string, source = ''): Promise<DatasetCor
   return store
 }
 
-const nodeLoader = jsonld.documentLoaders.node() as (
-  url: string
-) => Promise<RemoteDocument>
-
 async function localDocumentLoader(
   url: string
 ): Promise<RemoteDocument> {
@@ -46,7 +42,13 @@ async function localDocumentLoader(
       documentUrl: url,
     }
   }
-  return nodeLoader(url)
+  const response = await fetch(url)
+  const document = await response.json()
+  return {
+    contextUrl: null,
+    document,
+    documentUrl: url,
+  }
 }
 
 type LocalContext = Record<string, unknown> & { '@context'?: unknown }

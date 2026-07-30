@@ -94,8 +94,9 @@ export const useAppStore = defineStore('app', () => {
   async function loadAgents(force = false): Promise<void> {
     if (agents.value.length && !force) return
     await ensureSaiSession()
+    const owners = await session.resourceOwners()
     const profiles = await Promise.all(
-      [...session.resourceOwners()].map((owner) => session.factory.readable.webIdProfile(owner))
+      [...owners].map((owner) => session.factory.readable.webIdProfile(owner))
     )
 
     agents.value = profiles.map((profile) => ({
@@ -116,12 +117,12 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const servers: ResourceServer[] = []
     const scope = scopes.project
-    for (const resourceServer of session.resourceServers(ownerId, scope)) {
+    for (const resourceServer of await session.resourceServers(ownerId, scope)) {
       servers.push({
         id: resourceServer,
         label: resourceServer, // TODO replace with human readabel label
         owner: ownerId,
-        canCreate: session.canCreate(resourceServer, scope),
+        canCreate: await session.canCreate(resourceServer, scope),
       })
       const serverProjects: Project[] = []
 
@@ -215,7 +216,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function draftTask(projectId: string): Promise<Task> {
     await ensureSaiSession()
-    const iri = session.iriForChild(projectId, scopes.task)
+    const iri = await session.iriForChild(projectId, scopes.task)
     const ldoSolidTask = solidLdoDataset.usingType(TaskShapeType).fromSubject(iri)
     return ldoSolidTask
   }
@@ -266,7 +267,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const ldoProject = findProject(projectId)
 
-    const fileId = session.iriForChild(projectId, scope)
+    const fileId = await session.iriForChild(projectId, scope)
 
     // add reference from project to new file
     const cProject = changeData(ldoProject)
@@ -331,23 +332,23 @@ export const useAppStore = defineStore('app', () => {
     currentProject.value = projects.value.find((p) => p['@id'] === projectId)
   }
 
-  function canUpdate(id: string): boolean {
+  async function canUpdate(id: string): Promise<boolean> {
     return session.canUpdate(id)
   }
 
-  function canDelete(id: string): boolean {
+  async function canDelete(id: string): Promise<boolean> {
     return session.canDelete(id)
   }
 
-  function canAddTasks(id: string): boolean {
+  async function canAddTasks(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.task)
   }
 
-  function canAddImages(id: string): boolean {
+  async function canAddImages(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.image)
   }
 
-  function canAddFiles(id: string): boolean {
+  async function canAddFiles(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.file)
   }
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { ACL } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { type AllFromRegistryDataGrant, ApplicationFactory } from '../../src'
+import { ApplicationFactory, DataInstance, Grant } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
@@ -10,7 +10,7 @@ const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63a
 
 test('should set the iri', async () => {
   const dataGrant = await factory.readable.dataGrant(dataGrantIri)
-  expect(dataGrant.iri).toBe(dataGrantIri)
+  expect(dataGrant.id).toBe(dataGrantIri)
 })
 
 test('should set the accessMode', async () => {
@@ -25,11 +25,6 @@ test('should set the hasDataRegistration', async () => {
   expect(dataGrant.hasDataRegistration).toBe(dataRegistrationIri)
 })
 
-test('should set the factory', async () => {
-  const dataGrant = await factory.readable.dataGrant(dataGrantIri)
-  expect(dataGrant.factory).toBe(factory)
-})
-
 test('should set registeredShapeTree', async () => {
   const dataGrant = await factory.readable.dataGrant(dataGrantIri)
   const projectShapeTree = 'https://solidshapes.example/trees/Project'
@@ -39,17 +34,13 @@ test('should set registeredShapeTree', async () => {
 describe('newDataInstance', () => {
   const allFromRegistryIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5126'
   test('sets dataGrant on created data instance', async () => {
-    const dataGrant = (await factory.readable.dataGrant(
-      allFromRegistryIri
-    )) as AllFromRegistryDataGrant
-    const newInstance = await dataGrant.newDataInstance()
-    expect(newInstance.dataGrant.iri).toBe(dataGrant.iri)
+    const dataGrant = await factory.readable.dataGrant(allFromRegistryIri)
+    const newInstance = await Grant.newDataInstance(dataGrant, factory, factory.randomUUID)
+    expect(newInstance.dataGrant.id).toBe(dataGrant.id)
   })
   test('sets draft to true', async () => {
-    const dataGrant = (await factory.readable.dataGrant(
-      allFromRegistryIri
-    )) as AllFromRegistryDataGrant
-    const newInstance = await dataGrant.newDataInstance()
+    const dataGrant = await factory.readable.dataGrant(allFromRegistryIri)
+    const newInstance = await Grant.newDataInstance(dataGrant, factory, factory.randomUUID)
     expect(newInstance.draft).toBe(true)
   })
 })

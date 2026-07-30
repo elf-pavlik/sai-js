@@ -34,7 +34,7 @@ async function verifyAccessGrant(
   if (expectGrant) {
     expect(getDataGrantIris(grantedByRegForGrantee!).length).toBeGreaterThan(0)
     expect(dataGrant).toBeDefined()
-    expect(dataGrant!.scopeOfGrant.value).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
+    expect(dataGrant!.scopeOfGrant).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
     expect(dataGrant!.dataOwner).toBe(dataOwnerId)
   } else {
     expect(dataGrant).toBeUndefined()

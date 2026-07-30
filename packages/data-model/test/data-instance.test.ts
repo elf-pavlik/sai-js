@@ -4,13 +4,13 @@ import { RDFS } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { beforeAll, describe, expect, test, vi } from 'vitest'
-import { ApplicationFactory, type DataGrant, DataInstance } from '../src'
+import { ApplicationFactory, DataInstance } from '../src'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
 const snippetIri = 'https://pro.alice.example/7a130c38-668a-4775-821a-08b38f2306fb#project'
 const defaultDataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
 const taskShapeTree = 'https://solidshapes.example/trees/Task'
-let defaultDataGrant: DataGrant
+let defaultDataGrant: any
 
 beforeAll(async () => {
   defaultDataGrant = await factory.readable.dataGrant(defaultDataGrantIri)
@@ -35,7 +35,8 @@ describe('getChildInstancesIterator', () => {
     const dataGrant = await factory.readable.dataGrant(dataGrantIri)
     const dataInstance = await DataInstance.build(snippetIri, dataGrant, factory)
     let count = 0
-    for await (const child of dataInstance.getChildInstancesIterator(taskShapeTree)) {
+    const iterable = await dataInstance.getChildInstancesIterator(taskShapeTree)
+    for await (const child of iterable) {
       expect(child).toBeInstanceOf(DataInstance)
       count += 1
     }
@@ -46,7 +47,7 @@ describe('getChildInstancesIterator', () => {
     const inheritingDataGrantIri = 'https://auth.alice.example/54b1a123-23ca-4733-9371-700b52b9c567'
     const inheritingDataGrant = await factory.readable.dataGrant(inheritingDataGrantIri)
     const dataInstance = await DataInstance.build(dataInstanceIri, inheritingDataGrant, factory)
-    expect(() => dataInstance.getChildInstancesIterator(taskShapeTree)).toThrow(
+    await expect(dataInstance.getChildInstancesIterator(taskShapeTree)).rejects.toThrow(
       'can not have child instance'
     )
   })
@@ -65,7 +66,7 @@ describe('newChildDataInstance', () => {
     const inheritingDataGrantIri = 'https://auth.alice.example/54b1a123-23ca-4733-9371-700b52b9c567'
     const inheritingDataGrant = await factory.readable.dataGrant(inheritingDataGrantIri)
     const dataInstance = await DataInstance.build(dataInstanceIri, inheritingDataGrant, factory)
-    expect(dataInstance.newChildDataInstance(taskShapeTree)).rejects.toThrow(
+    await expect(dataInstance.newChildDataInstance(taskShapeTree)).rejects.toThrow(
       'can not have child instance'
     )
   })
@@ -100,7 +101,8 @@ describe('delete', () => {
     const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
     let taskToDelete
 
-    for await (const task of dataInstance.getChildInstancesIterator(taskShapeTree)) {
+    const iterable = await dataInstance.getChildInstancesIterator(taskShapeTree)
+    for await (const task of iterable) {
       taskToDelete = task
       break
     }
@@ -191,7 +193,8 @@ test('updateRemovingChildReference', async () => {
   const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
   let taskToDelete
 
-  for await (const task of dataInstance.getChildInstancesIterator(taskShapeTree)) {
+  const iterable = await dataInstance.getChildInstancesIterator(taskShapeTree)
+  for await (const task of iterable) {
     taskToDelete = task
     break
   }

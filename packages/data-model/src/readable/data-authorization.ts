@@ -90,8 +90,6 @@ export class ReadableDataAuthorization extends ReadableResource {
   ): Promise<GrantData[]> {
     const result: GrantData[] = []
     for (const childAuthorization of this.hasInheritingAuthorization) {
-      const childGrantIri = registrySet.hasGrantRegistry.iriForContained()
-
       // Find matching child grant by fetching each child IRI
       let childSourceGrant: GrantData | undefined
       for (const childIri of sourceGrant.hasInheritingGrant ?? []) {
@@ -104,7 +102,7 @@ export class ReadableDataAuthorization extends ReadableResource {
       if (!childSourceGrant) continue
 
       const childData: GrantData = {
-        id: childGrantIri,
+        // no id — delegation endpoint assigns IRIs
         grantee: grantee,
         grantedBy: this.grantedBy,
         dataOwner: childSourceGrant.dataOwner,
@@ -192,9 +190,11 @@ export class ReadableDataAuthorization extends ReadableResource {
           }
         }
         if (childGrantData.length) {
-          data.hasInheritingGrant = childGrantData.map((g) => g.id!).filter(Boolean)
+          // embed full child grant data for delegation endpoint to assign IRIs
+          data.hasInheritingGrant = childGrantData as unknown as string[]
         }
-        result.push(data, ...childGrantData)
+        // only push parent — children are embedded in hasInheritingGrant and handled by GrantIssuanceHandler
+        result.push(data)
       }
     }
     return result

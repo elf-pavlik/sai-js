@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { BaseFactory, ReadableApplicationRegistration } from '../src'
+import { BaseFactory, Grant, ReadableApplicationRegistration } from '../src'
 
 describe('constructor', () => {
   test('should set fetch', () => {
@@ -27,10 +27,12 @@ test('throws for grant with invalid scope', async () => {
     PREFIX foo: <https://foo.example/>
     foo:bar interop:scopeOfGrant interop:NonExistingScope .
   `)
-  const fakeFetch = () => Promise.resolve({ dataset: () => invalidGrantDataset, ok: true })
+  const fakeFetch = (url: string) =>
+    Promise.resolve({ dataset: () => invalidGrantDataset, ok: true, url })
   // @ts-ignore
   const factory = new BaseFactory({ fetch: fakeFetch, randomUUID })
-  return expect(factory.readable.dataGrant('https://foo.example/bar')).rejects.toThrow(
-    'Unknown scope'
-  )
+  const grant = await factory.readable.dataGrant('https://foo.example/bar')
+  // getDataInstanceIterator is an async generator, error only surfaces on iteration
+  const iterator = Grant.getDataInstanceIterator(grant, factory)
+  await expect(iterator.next()).rejects.toThrow('Unknown scope')
 })

@@ -3,7 +3,7 @@ import { fetch } from '@janeirodigital/interop-test-utils'
 import { ACL, INTEROP } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, ImmutableDataGrant } from '../../src'
+import { AuthorizationAgentFactory, type FinalGrantData, Grant } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -39,6 +39,12 @@ const commonQuads = [
   ),
 ]
 
+async function toDatasetAndCheck(data: Omit<FinalGrantData, 'id'>, expectedQuads: any[]) {
+  const finalGrant = factory.immutable.dataGrant(snippetIri, data)
+  const dataset = await Grant.toDataset(finalGrant)
+  expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
+}
+
 describe('constructor', () => {
   test('should set dataset for AllFromRegistry scope', async () => {
     const allFromRegistryData = {
@@ -54,8 +60,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataGrant = new ImmutableDataGrant(snippetIri, factory, allFromRegistryData)
-    expect(dataGrant.dataset).toBeRdfDatasetContaining(...allFromRegistryQuads)
+    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('should set dataset for SelectedFromRegistry scope', async () => {
@@ -83,8 +88,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataGrant = new ImmutableDataGrant(snippetIri, factory, selectedFromRegistryData)
-    expect(dataGrant.dataset).toBeRdfDatasetContaining(...selectedFromRegistryQuads)
+    await toDatasetAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
   })
 
   test('should set dataset for Inherited scope', async () => {
@@ -103,8 +107,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataGrant = new ImmutableDataGrant(snippetIri, factory, inheritedData)
-    expect(dataGrant.dataset).toBeRdfDatasetContaining(...inheritedQuads)
+    await toDatasetAndCheck(inheritedData, inheritedQuads)
   })
 
   test('should set dataset with creatorAccessMode', async () => {
@@ -123,7 +126,6 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataGrant = new ImmutableDataGrant(snippetIri, factory, allFromRegistryData)
-    expect(dataGrant.dataset).toBeRdfDatasetContaining(...allFromRegistryQuads)
+    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 })

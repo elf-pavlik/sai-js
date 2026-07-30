@@ -176,11 +176,11 @@ export class DataInstance extends ReadableResource {
     const childGrant = await this.findChildGrant(shapeTree)
     if (!childGrant) throw new Error(`No child grant found for shape tree ${shapeTree}`)
     const instance = this
+    const references = await instance.getChildReferencesForShapeTree(shapeTree)
     return {
       async *[Symbol.asyncIterator]() {
-        const references = await instance.getChildReferencesForShapeTree(shapeTree)
         for (const childInstanceIri of references) {
-          yield instance.factory.dataInstance(childInstanceIri, childGrant, instance)
+          yield instance.factory.dataInstance(childInstanceIri, childGrant!, instance)
         }
       },
     }

@@ -1,7 +1,7 @@
 import { INTEROP, ACL, parseJsonld } from '@janeirodigital/interop-utils'
 import { JsonLdSerializer } from 'jsonld-streaming-serializer'
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
+import type { DatasetCore, Quad } from '@rdfjs/types'
+import { DataFactory, Store } from 'n3'
 import grantContext from './grant-context'
 import type { BaseFactory } from './base-factory'
 import { DataInstance } from './data-instance'
@@ -63,7 +63,22 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Gr
         const nodes = compacted['@graph'] ?? [compacted]
         const node = nodes.find((n: any) => n['@id'] === iri)
         if (!node) throw new Error(`Node ${iri} not found in compacted output`)
-        resolve(compactNodeToGrantData(node))
+        const grant = compactNodeToGrantData(node)
+        // Scan dataset for inverse inheritsFromGrant quads
+        // (the streaming serializer does not handle @reverse correctly)
+        const childIris: string[] = []
+        for (const quad of dataset) {
+          if (
+            quad.predicate.equals(INTEROP.inheritsFromGrant) &&
+            quad.object.equals(DataFactory.namedNode(iri))
+          ) {
+            childIris.push(quad.subject.value)
+          }
+        }
+        if (childIris.length > 0) {
+          grant.hasInheritingGrant = childIris
+        }
+        resolve(grant)
       } catch (e) {
         reject(e)
       }
@@ -84,7 +99,10 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Gr
  */
 function termValue(value: any): string | undefined {
   if (value === undefined || value === null) return undefined
-  return value['@id'] ?? String(value)
+  // Handle array-wrapped values (jsonld-streaming-serializer always wraps in arrays)
+  const actual = Array.isArray(value) ? value[0] : value
+  if (actual === undefined || actual === null) return undefined
+  return actual['@id'] ?? String(actual)
 }
 
 /**
@@ -131,7 +149,12 @@ function compactNodeToGrantData(node: any): GrantData {
  * as the `dataset` option (the wrapper serializes it to turtle).
  */
 export async function toDataset(grant: FinalGrantData): Promise<Store> {
-  const jsonldDoc = { '@context': grantContext, ...grant }
+  // hasInheritingGrant uses @reverse, so values must be node references ({@id: string}), not plain strings
+  const jsonldDoc: Record<string, unknown> = {
+    '@context': grantContext,
+    ...grant,
+    hasInheritingGrant: grant.hasInheritingGrant?.map((id) => ({ '@id': id })),
+  }
   const jsonldStr = JSON.stringify(jsonldDoc)
   const store = await parseJsonld(jsonldStr, grant.id)
   return store as Store

@@ -12,7 +12,6 @@ import {
   CRUDSocialAgentRegistration,
   ImmutableAccessAuthorization,
   ImmutableDataAuthorization,
-  ImmutableDataGrant,
   ReadableAccessAuthorization,
   ReadableDataAuthorization,
 } from '../src'
@@ -81,7 +80,8 @@ describe('immutable', () => {
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5126'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, allFromRegistryData)
-      expect(dataGrant).toBeInstanceOf(ImmutableDataGrant)
+      expect(dataGrant).toHaveProperty('id', dataGrantIri)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.AllFromRegistry.value)
     })
 
     test('builds SelectedFromRegistry data grant', async () => {
@@ -92,7 +92,8 @@ describe('immutable', () => {
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, selectedFromRegistryData)
-      expect(dataGrant).toBeInstanceOf(ImmutableDataGrant)
+      expect(dataGrant).toHaveProperty('id', dataGrantIri)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.SelectedFromRegistry.value)
     })
 
     test('builds Inherited data grant', async () => {
@@ -103,7 +104,8 @@ describe('immutable', () => {
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/9827ae00-2778-4655-9f22-08bb9daaee26'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, inheritnstancesData)
-      expect(dataGrant).toBeInstanceOf(ImmutableDataGrant)
+      expect(dataGrant).toHaveProperty('id', dataGrantIri)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.Inherited.value)
     })
   })
 

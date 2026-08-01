@@ -207,7 +207,8 @@ export const getDescriptions = async (
 // TODO validate all scopes
 function buildDataAuthorizations(
   authorization: S.Schema.Type<typeof GrantedAuthorization>,
-  accessNeedGroup: ReadableAccessNeedGroup
+  accessNeedGroup: ReadableAccessNeedGroup,
+  grantedBy: string
 ): NestedDataAuthorizationData[] {
   const structuredDataAuthorizations = authorization.dataAuthorizations.map((dataAuthorization) => {
     const accessNeed = accessNeedGroup.accessNeeds
@@ -219,6 +220,7 @@ function buildDataAuthorizations(
     const saiReady: DataAuthorizationData = {
       satisfiesAccessNeed: accessNeed.iri,
       grantee: authorization.grantee,
+      grantedBy,
       registeredShapeTree: accessNeed.shapeTree.iri,
       scopeOfAuthorization: INTEROP[dataAuthorization.scope].value,
       accessMode: accessNeed!.accessMode,
@@ -276,7 +278,7 @@ export const recordAuthorization = async (
     structure = {
       grantee: authorization.grantee,
       hasAccessNeedGroup: authorization.accessNeedGroup,
-      dataAuthorizations: buildDataAuthorizations(authorization, accessNeedGroup),
+      dataAuthorizations: buildDataAuthorizations(authorization, accessNeedGroup, saiSession.webId),
       granted: true,
     }
   } else {
@@ -288,9 +290,34 @@ export const recordAuthorization = async (
   }
 
   const recorded = await saiSession.recordAccessAuthorization(structure)
-  let response = { id: IRI.make(recorded.iri), ...authorization } as S.Schema.Type<
-    typeof AccessAuthorization
-  >
+  const response: S.Schema.Type<typeof AccessAuthorization> = recorded.map((dataAuthorization) => ({
+    id: IRI.make(dataAuthorization.id),
+    grantee: IRI.make(dataAuthorization.grantee),
+    grantedBy: IRI.make(dataAuthorization.grantedBy),
+    registeredShapeTree: IRI.make(dataAuthorization.registeredShapeTree),
+    scopeOfAuthorization: IRI.make(dataAuthorization.scopeOfAuthorization),
+    dataOwner: dataAuthorization.dataOwner ? IRI.make(dataAuthorization.dataOwner) : undefined,
+    hasDataRegistration: dataAuthorization.hasDataRegistration
+      ? IRI.make(dataAuthorization.hasDataRegistration)
+      : undefined,
+    satisfiesAccessNeed: dataAuthorization.satisfiesAccessNeed
+      ? IRI.make(dataAuthorization.satisfiesAccessNeed)
+      : undefined,
+    inheritsFromAuthorization: dataAuthorization.inheritsFromAuthorization
+      ? IRI.make(dataAuthorization.inheritsFromAuthorization)
+      : undefined,
+    accessMode: dataAuthorization.accessMode.map((mode) => IRI.make(mode)),
+    creatorAccessMode: dataAuthorization.creatorAccessMode
+      ? dataAuthorization.creatorAccessMode.map((mode) => IRI.make(mode))
+      : undefined,
+    hasDataInstance: dataAuthorization.hasDataInstance
+      ? dataAuthorization.hasDataInstance.map((iri) => IRI.make(iri))
+      : undefined,
+    hasInheritingAuthorization: dataAuthorization.hasInheritingAuthorization
+      ? dataAuthorization.hasInheritingAuthorization.map((iri) => IRI.make(iri))
+      : undefined,
+  }))
+
   if (authorization.agentType === AgentType.Application) {
     // we need to ensure that Application Registration exists before generating Access Grant!
     // TODO: extract
@@ -299,12 +326,6 @@ export const recordAuthorization = async (
         authorization.grantee
       )
     }
-    const clientIdDocument = await saiSession.factory.readable.clientIdDocument(
-      authorization.grantee
-    )
-    if (clientIdDocument.callbackEndpoint) {
-      response = { ...response, callbackEndpoint: clientIdDocument.callbackEndpoint }
-    }
   }
   const temporal = new Temporal()
   await temporal.init()
@@ -312,8 +333,9 @@ export const recordAuthorization = async (
     taskQueue: 'create-grants',
     args: [
       {
-        authorizationId: recorded.iri,
         webId: saiSession.webId,
+        authorizationGrantee: authorization.grantee,
+        dataAuthorizationIris: recorded.map((da) => da.id),
       },
     ],
     workflowId: crypto.randomUUID(),

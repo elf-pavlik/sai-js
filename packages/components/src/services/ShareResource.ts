@@ -40,7 +40,7 @@ export const shareResource = async (
   shareAuthorization: S.Schema.Type<typeof ShareAuthorization>
 ): Promise<S.Schema.Type<typeof ShareAuthorizationConfirmation>> => {
   // TODO: finde cleaner way of dealing with types
-  const authorizationIris = await saiSession.shareDataInstance(
+  const recorded = await saiSession.shareDataInstance(
     shareAuthorization as unknown as ShareDataInstanceStructure
   )
 
@@ -48,17 +48,26 @@ export const shareResource = async (
     shareAuthorization.applicationId
   )
 
+  // group recorded data authorizations by grantee
+  const grouped = new Map<string, string[]>()
+  for (const dataAuthorization of recorded) {
+    const iris = grouped.get(dataAuthorization.grantee) ?? []
+    iris.push(dataAuthorization.id)
+    grouped.set(dataAuthorization.grantee, iris)
+  }
+
   // TODO: consider a single workflow that will fire-and-forget all the child workflows
   const temporal = new Temporal()
   await temporal.init()
   await Promise.all(
-    authorizationIris.map((authorizationIri) =>
+    [...grouped.entries()].map(([grantee, dataAuthorizationIris]) =>
       temporal.client.workflow.start(createGrantsForAuthorization, {
         taskQueue: 'create-grants',
         args: [
           {
-            authorizationId: authorizationIri,
             webId: saiSession.webId,
+            authorizationGrantee: grantee,
+            dataAuthorizationIris,
           },
         ],
         workflowId: crypto.randomUUID(),

@@ -120,15 +120,14 @@ describe('denied', () => {
     const body = await response.json()
     const { _tag, value } = body[0]
     expect(_tag).toBe('Success')
-    expect(value.granted).toBeFalsy()
-    expect(value.id).toMatch('https://registry/bob/authorization/')
-    expect(value.callbackEndpoint).toBe('https://test-client')
+    expect(Array.isArray(value)).toBe(true)
+    expect(value.length).toBe(0)
 
     const manager = buildSessionManager()
     const session = await manager.getSession(bobId)
-    const accessAuthorization =
-      await session.registrySet.hasAuthorizationRegistry.findAuthorization(clientId)
-    expect(accessAuthorization?.granted).toBeFalsy()
+    const dataAuthorizations =
+      await session.registrySet.hasAuthorizationRegistry.findDataAuthorizations(clientId)
+    expect(dataAuthorizations.length).toBe(0)
     const registration = await session.findApplicationRegistration(clientId)
     expect(registration && getGranted(registration)).toBeFalsy()
   })

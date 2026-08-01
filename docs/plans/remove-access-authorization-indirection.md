@@ -1,5 +1,8 @@
 # Plan: Remove indirection between AuthorizationRegistry and DataAuthorizations
 
+> **Status: implemented** (commit `c6527fb3 authorizations as pojos`). Statuses below
+> reflect what was done. Remaining work is limited to unit-test migration (see §13).
+
 ## Current Architecture
 
 ```
@@ -31,21 +34,21 @@ This mirrors the completed `remove-access-grant-indirection.md` migration: the g
 
 | Package | Files | Status |
 |---------|-------|--------|
-| `packages/data-model` | `jsonld-utils.ts` (new), `grant.ts`, `data-authorization.ts` (new), `data-authorization-context.ts` (new), `crud/authorization-registry.ts`, `authorization-agent-factory.ts`, `readable/access-authorization.ts` (delete), `readable/data-authorization.ts` (delete), `immutable/access-authorization.ts` (delete), `immutable/data-authorization.ts` (delete), `readable/index.ts`, `immutable/index.ts`, `crud/index.ts`, `index.ts` | ⏳ |
-| `packages/authorization-agent` | `authorization.ts`, `authorization-agent.ts` | ⏳ |
-| `packages/components` | `services/Authorization.ts`, `services/ShareResource.ts`, `temporal/activities/grants.ts`, `temporal/workflows/grants.ts` | ⏳ |
-| `packages/api-messages` | `effect.ts` — `AccessAuthorization` response changes to an array of recorded data authorizations (see Design Decisions #8) | ⏳ |
-| Tests | Multiple test files (see below) | ⏳ |
+| `packages/data-model` | `jsonld-utils.ts` (new), `grant.ts`, `data-authorization.ts` (new), `data-authorization-context.ts` (new), `crud/authorization-registry.ts`, `authorization-agent-factory.ts`, `readable/access-authorization.ts` (delete), `readable/data-authorization.ts` (delete), `immutable/access-authorization.ts` (delete), `immutable/data-authorization.ts` (delete), `readable/index.ts`, `immutable/index.ts`, `crud/index.ts`, `index.ts` | ✅ |
+| `packages/authorization-agent` | `authorization.ts`, `authorization-agent.ts` | ✅ |
+| `packages/components` | `services/Authorization.ts`, `services/ShareResource.ts`, `temporal/activities/grants.ts`, `temporal/workflows/grants.ts` | ✅ |
+| `packages/api-messages` | `effect.ts` — `AccessAuthorization` response changes to an array of recorded data authorizations (see Design Decisions #8) | ✅ |
+| Tests | Integration tests (`test/roles.test.ts`, `test/authorization.test.ts`) updated; unit tests in `packages/data-model` / `packages/authorization-agent` not yet migrated (see §13) | ⏳ |
 
 ---
 
-## Part 0: Extract general JSON-LD functionality from `grant.ts`
+## Part 0: Extract general JSON-LD functionality from `grant.ts` ✅
 
-Before the authorization work, extract the context-agnostic JSON-LD machinery currently living in `packages/data-model/src/grant.ts` so it can be reused by the new `data-authorization.ts` module.
+Extract the context-agnostic JSON-LD machinery currently living in `packages/data-model/src/grant.ts` so it can be reused by the new `data-authorization.ts` module. **Done** — `jsonld-utils.ts` created; `grant.ts` refactored to delegate (public API unchanged).
 
-### New file: `packages/data-model/src/jsonld-utils.ts`
+### New file: `packages/data-model/src/jsonld-utils.ts` ✅
 
-Move the following from `grant.ts`, parameterized by an explicit JSON-LD context instead of the hardcoded `grantContext`:
+Moved from `grant.ts`, parameterized by an explicit JSON-LD context instead of the hardcoded `grantContext`:
 
 ```ts
 import type { DatasetCore, Quad } from '@rdfjs/types'
@@ -87,7 +90,7 @@ export async function toStore(doc: Record<string, unknown>, base?: string): Prom
 export function withContext(context: JsonLdContext, node: Record<string, unknown>): Record<string, unknown>
 ```
 
-### `packages/data-model/src/grant.ts` — refactor
+### `packages/data-model/src/grant.ts` — refactor ✅
 
 `grant.ts` keeps its public API unchanged (`fromDataset`, `fromJsonLd`, `toDataset`, `toJsonLd`, `GrantData`, `FinalGrantData`, behavior functions). Internally it delegates to `jsonld-utils`:
 
@@ -106,16 +109,17 @@ return compactNodeToGrantData(await frameDataset(dataset, grantContext, iri))
 - `compactNodeToGrantData(node)` stays grant-specific.
 - `toJsonLd` becomes `withContext(grantContext, grant)`.
 - The `jsonld` import + CJS/ESM interop line moves to `jsonld-utils.ts`.
+- `GeneratedGrants` type now lives in `grant.ts` (it references `FinalGrantData`/`GrantData`).
 
 ---
 
-## Part 1: DataAuthorization as a POJO (mirror of grant.ts)
+## Part 1: DataAuthorization as a POJO (mirror of grant.ts) ✅
 
 To link DataAuthorizations directly from the registry we read them as plain objects, exactly like DataGrants became `GrantData` POJOs in the previous migration.
 
-### New file: `packages/data-model/src/data-authorization-context.ts`
+### New file: `packages/data-model/src/data-authorization-context.ts` ✅
 
-Mirror of `grant-context.ts`, based on the predicates currently written by `immutable/data-authorization.ts`:
+Mirror of `grant-context.ts`, based on the predicates previously written by `immutable/data-authorization.ts`:
 
 ```ts
 export default {
@@ -143,7 +147,7 @@ export default {
 }
 ```
 
-### New file: `packages/data-model/src/data-authorization.ts`
+### New file: `packages/data-model/src/data-authorization.ts` ✅
 
 Replaces both `readable/data-authorization.ts` (read side) and `immutable/data-authorization.ts` (write side). Structure mirrors `grant.ts`:
 
@@ -207,15 +211,15 @@ export async function generateGrantsForAuthorization(
 Notes:
 - `generateDataGrants(data, registrySet, grantee)` is the old `ReadableDataAuthorization.generateDataGrants` (role handling via `AllFromRole`, source vs. delegated logic) as a standalone function.
 - `generateGrantsForAuthorization(dataAuthorizations, registrySet, grantee)` is the old `ReadableAccessAuthorization.generateDataGrants` (filters out `Inherited`-scope authorizations, aggregates `sourceGrants`/`delegatedGrants`, honors the `granted` check by returning empty when the list is empty).
-- `GeneratedGrants` type moves from `readable/access-authorization.ts` into `grant.ts` (it references `FinalGrantData`/`GrantData`) and is re-exported from `data-authorization.ts` / `index.ts`.
+- `GeneratedGrants` type moves from `readable/access-authorization.ts` into `grant.ts` and is re-exported from `data-authorization.ts` / `index.ts`.
 
 ---
 
 ## Part 2: Detailed Changes
 
-### 1. `packages/data-model/src/crud/authorization-registry.ts` — CRUDAuthorizationRegistry ⏳
+### 1. `packages/data-model/src/crud/authorization-registry.ts` — CRUDAuthorizationRegistry ✅
 
-**Rewrite to link `hasDataAuthorization` directly:**
+**Rewritten to link `hasDataAuthorization` directly:**
 
 - `accessAuthorizations()` → renamed `dataAuthorizations(): AsyncIterable<DataAuthorizationData>` — iterates `getDataAuthorizationIris()` and yields `factory.readable.dataAuthorization(iri)`.
 - `findAuthorization(agentIri): Promise<ReadableAccessAuthorization | undefined>` → replaced by `findDataAuthorizations(grantee): Promise<DataAuthorizationData[]>` — fetches all data authorizations and filters by `grantee`.
@@ -223,7 +227,7 @@ Notes:
 - `remove(accessAuthorizationIri)` → replaced by functional helpers.
 - `findAuthorizationsDelegatingFromOwner(dataOwner, roleId)` — iterate `getDataAuthorizations()` instead of access authorizations; the grantee exclusion check (`accessAuthorization.grantee !== dataOwner`) becomes `dataAuthorization.grantee !== dataOwner`.
 
-**Add (as standalone exported functions, mirroring `crud/agent-registration.ts`):**
+**Added as standalone exported functions (mirroring `crud/agent-registration.ts`):**
 
 ```ts
 export function getDataAuthorizationIris(registry: CRUDAuthorizationRegistry): string[]
@@ -234,42 +238,43 @@ export async function removeDataAuthorization(registry: CRUDAuthorizationRegistr
 export async function removeAllDataAuthorizations(registry: CRUDAuthorizationRegistry): Promise<void>
 ```
 
-### 2. `packages/data-model/src/readable/access-authorization.ts` — ReadableAccessAuthorization ⏳
+### 2. `packages/data-model/src/readable/access-authorization.ts` — ReadableAccessAuthorization ✅
 
 **Removed entirely.** File deleted. `generateDataGrants` logic lives on as `generateGrantsForAuthorization` in `data-authorization.ts`.
 
-### 3. `packages/data-model/src/immutable/access-authorization.ts` — ImmutableAccessAuthorization ⏳
+### 3. `packages/data-model/src/immutable/access-authorization.ts` — ImmutableAccessAuthorization ✅
 
 **Removed entirely.** File deleted, along with `AccessAuthorizationData` type, `grantedAt`/`granted`/`grantedWith` writing, and `store()`.
 
-### 4. `packages/data-model/src/readable/data-authorization.ts` and `immutable/data-authorization.ts` ⏳
+### 4. `packages/data-model/src/readable/data-authorization.ts` and `immutable/data-authorization.ts` ✅
 
 **Removed entirely.** Replaced by the POJO module `data-authorization.ts` (+ `data-authorization-context.ts`) from Part 1. The old `DataAuthorizationData`/`ExpandedDataAuthorizationData` immutable types are superseded by the POJO `DataAuthorizationData` (grantee + grantedBy both present).
 
-### 5. `packages/data-model/src/authorization-agent-factory.ts` — AuthorizationAgentFactory ⏳
+### 5. `packages/data-model/src/authorization-agent-factory.ts` — AuthorizationAgentFactory ✅
 
-- `AuthorizationAgentReadableFactory`: remove `accessAuthorization(iri)`; change `dataAuthorization(iri)` to `Promise<DataAuthorizationData>` — implementation fetches `application/ld+json` and calls `fromJsonLd` (mirror of `dataGrant` in `base-factory.ts`).
-- `ImmutableFactory`: remove `accessAuthorization` and `dataAuthorization`. (`immutable.dataGrant` passthrough stays for now; `dataAuthorization` writes happen via `toDataset` + PUT in the recording logic.)
+- `AuthorizationAgentReadableFactory`: removed `accessAuthorization(iri)`; `dataAuthorization(iri)` now returns `Promise<DataAuthorizationData>` — implementation fetches `application/ld+json` and calls `fromJsonLd` (mirror of `dataGrant` in `base-factory.ts`).
+- `ImmutableFactory`: removed `accessAuthorization` and `dataAuthorization`. (`immutable.dataGrant` passthrough stays for now; `dataAuthorization` writes happen via `toDataset` + PUT in the recording logic.)
 
-### 6. `packages/data-model/src/index.ts` + `readable/index.ts` + `immutable/index.ts` + `crud/index.ts` ⏳
+### 6. `packages/data-model/src/index.ts` + `readable/index.ts` + `immutable/index.ts` + `crud/index.ts` ✅
 
-- Remove exports of `ReadableAccessAuthorization`, `ImmutableAccessAuthorization`, `GeneratedGrants` (moved), `AccessAuthorizationData`.
-- Export `DataAuthorizationData`, `FinalDataAuthorizationData`, `fromDataset`/`fromJsonLd`/`toDataset`/`toJsonLd` from `data-authorization.ts` (naming mirrors the `Grant` namespace export for `grant.ts`), `dataAuthorizationContext`, and `jsonld-utils` helpers.
-- Keep `CRUDAuthorizationRegistry` and the new functional helpers exported.
+- Removed exports of `ReadableAccessAuthorization`, `ImmutableAccessAuthorization`, `GeneratedGrants` (moved), `AccessAuthorizationData`.
+- Exported `DataAuthorizationData`, `FinalDataAuthorizationData`, `fromDataset`/`fromJsonLd`/`toDataset`/`toJsonLd` from `data-authorization.ts` (naming mirrors the `Grant` namespace export for `grant.ts`), `dataAuthorizationContext`, and `jsonld-utils` helpers.
+- Kept `CRUDAuthorizationRegistry` and the new functional helpers exported.
 
-### 7. `packages/authorization-agent/src/authorization.ts` — generateAuthorization ⏳
+### 7. `packages/authorization-agent/src/authorization.ts` — generateAuthorization ✅
 
-**Rework to create/link DataAuthorizations directly:**
+**Reworked to create/link DataAuthorizations directly:**
 
-- `generateAuthorization(authorization, grantedBy, authorizationRegistry, agentId, factory, extendIfExists)`:
+- `generateAuthorization(authorization, grantedBy, authorizationRegistry, factory, extendIfExists)`:
   - `agentId` parameter removed — nothing writes `grantedWith` anymore.
   - Returns `Promise<FinalDataAuthorizationData[]>` (the stored data authorizations) instead of `ReadableAccessAuthorization`.
   - `generateDataAuthorizations(...)` builds `FinalDataAuthorizationData` POJOs (children via `hasInheritingAuthorization`), assigns IRIs with `authorizationRegistry.iriForContained()`, stores each via `toDataset` + PUT.
   - Denied authorizations: clear the grantee's existing data authorizations (`findDataAuthorizations` → `removeDataAuthorization` for each).
-  - `extendIfExists` merge logic moves from access-authorization-level to registry-level: `findDataAuthorizations(registry, grantee)` replaces `findAuthorization(grantee)`; reused IRIs + newly created IRIs are linked via a `replaceDataAuthorizationsForGrantee(registry, grantee, iris)` helper (find existing → removeAll → add each).
+  - `extendIfExists` merge logic moved from access-authorization-level to registry-level: `findDataAuthorizations(registry, grantee)` replaces `findAuthorization(grantee)`; reused IRIs + newly created IRIs are linked via a `replaceDataAuthorizationsForGrantee(registry, grantee, iris)` helper (find existing → removeAll → add each).
 - `AccessAuthorizationStructure` (GrantedAuthorization | DeniedAuthorization) stays in this file; `granted` now maps to "grantee has data authorizations" rather than a stored boolean.
+- `NestedDataAuthorizationData` type is defined here and used by `formatAuthorization`.
 
-### 8. `packages/authorization-agent/src/authorization-agent.ts` — AuthorizationAgent ⏳
+### 8. `packages/authorization-agent/src/authorization-agent.ts` — AuthorizationAgent ✅
 
 - `recordAccessAuthorization(authorization, extendIfExists = false)` → returns `Promise<FinalDataAuthorizationData[]>`.
 - `generateDataGrants(dataAuthorizationIris: string[], grantee)` → fetch each via `factory.readable.dataAuthorization`, call `generateGrantsForAuthorization(dataAuthorizations, registrySet, grantee)`.
@@ -278,9 +283,9 @@ export async function removeAllDataAuthorizations(registry: CRUDAuthorizationReg
 - `formatAgentWithAccess(dataAuthorization: DataAuthorizationData)` — type change only.
 - `shareDataInstance` returns the **flattened** `FinalDataAuthorizationData[]` (one entry per stored data authorization; `recordAccessAuthorization` now returns an array per agent). **Decision (Q3):** the caller (`ShareResource`) groups the flattened array by `grantee` to build the workflow payloads.
 - `formatAuthorization` — include `grantedBy: this.webId` in the produced `NestedDataAuthorizationData` (required in the POJO type).
-- Remove `ReadableAccessAuthorization` import; use `DataAuthorizationData`/`FinalDataAuthorizationData`.
+- Removed `ReadableAccessAuthorization` import; uses `DataAuthorizationData`/`FinalDataAuthorizationData`.
 
-### 9. `packages/components/src/services/Authorization.ts` ⏳
+### 9. `packages/components/src/services/Authorization.ts` ✅
 
 - `recordAuthorization`: `recorded` is now `FinalDataAuthorizationData[]`; the API response is an **array of recorded data authorizations** mapped to the new `RecordedDataAuthorization` api-messages schema (see Design Decisions #8). Denied authorizations produce an empty array.
 - `buildDataAuthorizations(authorization, accessNeedGroup, grantedBy)` — takes the session webId and includes `grantedBy` in each produced `DataAuthorizationData` (required in the POJO type).
@@ -290,14 +295,14 @@ export async function removeAllDataAuthorizations(registry: CRUDAuthorizationReg
     taskQueue: 'create-grants',
     args: [{
       webId: saiSession.webId,
-      grantee: authorization.grantee,
+      authorizationGrantee: authorization.grantee,
       dataAuthorizationIris: recorded.map((da) => da.id),
     }],
     workflowId: crypto.randomUUID(),
   })
   ```
 
-### 9b. `packages/components/src/services/ShareResource.ts` ⏳
+### 9b. `packages/components/src/services/ShareResource.ts` ✅
 
 - `shareDataInstance` now returns the flattened `FinalDataAuthorizationData[]`.
 - Group the recorded data authorizations by `grantee` and start one `createGrantsForAuthorization` workflow per grantee:
@@ -310,47 +315,88 @@ export async function removeAllDataAuthorizations(registry: CRUDAuthorizationReg
   }
   // per [grantee, dataAuthorizationIris] entry:
   //   temporal.client.workflow.start(createGrantsForAuthorization, {
-  //     args: [{ webId: saiSession.webId, grantee, dataAuthorizationIris }]
+  //     args: [{ webId: saiSession.webId, authorizationGrantee: grantee, dataAuthorizationIris }]
   //   })
   ```
 
-### 10. `packages/components/src/temporal/activities/grants.ts` ⏳
+### 10. `packages/components/src/temporal/activities/grants.ts` ✅
 
 - `getGrantees(payload: { webId: string; grantee: string })` — grantee comes in the payload (no more fetching the access authorization); role expansion logic unchanged.
 - `generateGrants(payload: { webId: string; grantee: string; dataAuthorizationIris: string[] })` → `session.generateDataGrants(payload.dataAuthorizationIris, payload.grantee)`.
 - `getAuthorizations(payload)` — `findAuthorizationsForAgent` now returns `DataAuthorizationData[]`; map `(da) => da.id`.
 - `deleteAuthorizationsUsingRole({ webId, roleId })` — iterate `getDataAuthorizations(session.registrySet.hasAuthorizationRegistry)`; delete matching data authorization resources via DELETE, unlink via `removeDataAuthorization`.
 - `findAffectedAuthorizations` → returns `{ webId, grantee, dataAuthorizationIris }[]` (group the matching data authorizations by grantee) instead of `{ webId, authorizationId }[]`.
+- Workflow payload interfaces (see also §11):
+  ```ts
+  export interface CreateGrantsInput {
+    webId: string
+    authorizationGrantee: string   // the authorization's grantee — may be a role
+    dataAuthorizationIris: string[]
+  }
 
-### 11. `packages/components/src/temporal/workflows/grants.ts` ⏳
+  export interface CreateGrantsForAgentInput {
+    webId: string
+    grantee: string               // always an agent — the expanded role member
+    dataAuthorizationIris: string[]
+  }
+  ```
 
-- `CreateGrantsInput` → `{ webId: string; grantee: string; dataAuthorizationIris: string[] }`.
-- `createGrantsForAuthorization(payload)` → `getGrantees({ webId, grantee })` → `createGrantsForAgent({ ...payload, grantee: agent })` for each agent.
-- `createGrantsForAgent` — unchanged grant generation/storage; input carries `dataAuthorizationIris`.
-- `updateGrantsForOneAgent` / `updateGrantsForAuthorization` — pass `dataAuthorizationIris` from `getAuthorizations` / `findAffectedAuthorizations` instead of `authorizationId`.
+### 11. `packages/components/src/temporal/workflows/grants.ts` ✅
 
-### 12. `packages/api-messages/src/effect.ts` ⏳
+- `CreateGrantsInput` → `{ webId: string; authorizationGrantee: string; dataAuthorizationIris: string[] }`.
+- **Naming decision (see Design Decisions #11):** the entry payload field is `authorizationGrantee`, NOT `grantee` — a role may only ever be an *authorization* grantee, never a *grant* grantee. `createGrantsForAgent` receives a separate `CreateGrantsForAgentInput` (not `extends CreateGrantsInput`) whose `grantee` is the expanded member agent.
+- `createGrantsForAuthorization(payload)` → `getGrantees({ webId, grantee: payload.authorizationGrantee })` → `createGrantsForAgent` for each member with the child payload built explicitly (`{ webId, grantee, dataAuthorizationIris }`) — no spread of the entry payload, so the role can never clobber the member:
+  ```ts
+  export async function createGrantsForAuthorization(
+    payload: activities.CreateGrantsInput
+  ): Promise<void> {
+    const grantees = await getGrantees({
+      webId: payload.webId,
+      grantee: payload.authorizationGrantee,
+    })
+    await Promise.all(
+      grantees.map((grantee) =>
+        executeChild(createGrantsForAgent, {
+          args: [
+            {
+              webId: payload.webId,
+              grantee,
+              dataAuthorizationIris: payload.dataAuthorizationIris,
+            },
+          ],
+        })
+      )
+    )
+  }
+  ```
+- `createGrantsForAgent` — unchanged grant generation/storage; input carries `dataAuthorizationIris` and the agent `grantee`.
+- `updateGrantsForOneAgent` / `updateGrantsForAuthorization` — pass `dataAuthorizationIris` from `getAuthorizations` / `findAffectedAuthorizations` instead of `authorizationId`; `updateGrantsForAuthorization` forwards `authorizationGrantee: payload.grantee`.
+
+### 12. `packages/api-messages/src/effect.ts` ✅
 
 **Decision (Q1):** the API response changes to an **array of data authorizations**.
 
-- Add `RecordedDataAuthorization` schema (the stored data authorization shape: `id`, `grantee`, `grantedBy`, `registeredShapeTree`, `scopeOfAuthorization`, optional `dataOwner`/`hasDataRegistration`/`satisfiesAccessNeed`/`inheritsFromAuthorization`, `accessMode`, optional `creatorAccessMode`/`hasDataInstance`/`hasInheritingAuthorization`).
-- Change `AccessAuthorization = S.Array(RecordedDataAuthorization)`. Denied authorizations return `[]` (no `id` needed — see Design Decision #8).
+- Added `RecordedDataAuthorization` schema (the stored data authorization shape: `id`, `grantee`, `grantedBy`, `registeredShapeTree`, `scopeOfAuthorization`, optional `dataOwner`/`hasDataRegistration`/`satisfiesAccessNeed`/`inheritsFromAuthorization`, `accessMode`, optional `creatorAccessMode`/`hasDataInstance`/`hasInheritingAuthorization`).
+- `AccessAuthorization = S.Array(RecordedDataAuthorization)`. Denied authorizations return `[]` (no `id` needed — see Design Decision #8).
 
-### 13. Test Files ⏳
+### 13. Test Files ⏳ (partial)
 
-**Delete:**
-- `packages/data-model/test/readable/access-authorization.test.ts`
-- `packages/data-model/test/immutable/access-authorization.test.ts`
+**Done — integration tests (`test/`):**
+- `test/roles.test.ts` — updated to the new response shape (`body` is an array of recorded data authorizations, `body[0].grantee`/`grantedBy`/`id` assertions).
+- `test/authorization.test.ts` — "denied" test rewritten: response is `[]` for a denied authorization (`expect(Array.isArray(value)).toBe(true)`, `expect(value.length).toBe(0)`); registry check via `findDataAuthorizations(grantee)` instead of `findAuthorization`; no `id`/`callbackEndpoint` assertions.
+- `packages/css-storage-fixture/test/registry.trig` — fixture rewritten from `hasAccessAuthorization` to direct `hasDataAuthorization` links.
 
-**Rewrite to POJO/registry-direct style:**
-- `packages/data-model/test/readable/data-authorization.test.ts` — getters via `fromDataset`/`fromJsonLd` instead of the class
-- `packages/data-model/test/immutable/data-authorization.test.ts` — `toDataset`/`toJsonLd` round-trips (mirror `immutable/data-grant.test.ts` which already uses the `Grant` namespace)
-- `packages/data-model/test/crud/access-consent-registry.test.ts` — registry links `hasDataAuthorization` directly (`getDataAuthorizationIris`, `addDataAuthorization`, `removeDataAuthorization`, `findDataAuthorizations`)
-- `packages/data-model/test/authorization-agent-factory.test.ts` — remove `accessAuthorization` factory tests, update `dataAuthorization` to POJO
-- `packages/authorization-agent/test/authorization-agent.test.ts` — `recordAccessAuthorization` returns data authorizations; `generateDataGrants` takes IRIs; `findAuthorizationsForAgent` returns data authorizations
+**Not done — unit tests (still reference removed APIs, will not compile/run):**
+- `packages/data-model/test/readable/access-authorization.test.ts` — to be **deleted** (uses `factory.readable.accessAuthorization`, `ReadableDataAuthorization`).
+- `packages/data-model/test/immutable/access-authorization.test.ts` — to be **deleted** (uses `AccessAuthorizationData`, `factory.immutable.dataAuthorization`).
+- `packages/data-model/test/immutable/data-authorization.test.ts` — to be **rewritten** to `toDataset`/`toJsonLd` round-trips (mirror `immutable/data-grant.test.ts` which already uses the `Grant` namespace); currently imports `ImmutableDataAuthorization`.
+- `packages/data-model/test/readable/data-authorization.test.ts` — to be **rewritten** to `fromDataset`/`fromJsonLd` instead of the class; currently uses `factory.readable.dataAuthorization` (works) but legacy generator tests are skipped.
+- `packages/data-model/test/crud/access-consent-registry.test.ts` — registry links `hasDataAuthorization` directly (`getDataAuthorizationIris`, `addDataAuthorization`, `removeDataAuthorization`, `findDataAuthorizations`).
+- `packages/data-model/test/authorization-agent-factory.test.ts` — remove `accessAuthorization` factory tests, update `dataAuthorization` to POJO.
+- `packages/authorization-agent/test/authorization-agent.test.ts` — `recordAccessAuthorization` returns data authorizations; `generateDataGrants` takes IRIs; `findAuthorizationsForAgent` returns data authorizations.
 
-**New (optional):**
-- `packages/data-model/test/jsonld-utils.test.ts` — framing/RDF round-trip for a generic context
+**New (optional, not yet created):**
+- `packages/data-model/test/jsonld-utils.test.ts` — framing/RDF round-trip for a generic context.
 
 ---
 
@@ -358,7 +404,7 @@ export async function removeAllDataAuthorizations(registry: CRUDAuthorizationReg
 
 Following the functional approach from the grants migration (standalone exported functions taking the instance as parameter):
 
-### In `packages/data-model/src/jsonld-utils.ts`:
+### In `packages/data-model/src/jsonld-utils.ts` ✅
 
 ```ts
 export function buildFrame(context: JsonLdContext, iri: string): Record<string, unknown>
@@ -368,7 +414,7 @@ export async function toStore(doc: Record<string, unknown>, base?: string): Prom
 export function withContext(context: JsonLdContext, node: Record<string, unknown>): Record<string, unknown>
 ```
 
-### In `packages/data-model/src/data-authorization.ts`:
+### In `packages/data-model/src/data-authorization.ts` ✅
 
 ```ts
 export type DataAuthorizationData   // plain JSON, id optional
@@ -382,7 +428,7 @@ export async function generateDataGrants(data, registrySet, grantee): Promise<So
 export async function generateGrantsForAuthorization(dataAuthorizations, registrySet, grantee): Promise<GeneratedGrants>
 ```
 
-### In `packages/data-model/src/crud/authorization-registry.ts`:
+### In `packages/data-model/src/crud/authorization-registry.ts` ✅
 
 ```ts
 export function getDataAuthorizationIris(registry: CRUDAuthorizationRegistry): string[]
@@ -393,7 +439,7 @@ export async function removeDataAuthorization(registry: CRUDAuthorizationRegistr
 export async function removeAllDataAuthorizations(registry: CRUDAuthorizationRegistry): Promise<void>
 ```
 
-### In `packages/authorization-agent/src/authorization.ts`:
+### In `packages/authorization-agent/src/authorization.ts` ✅
 
 ```ts
 export async function generateAuthorization(
@@ -409,41 +455,37 @@ export async function replaceDataAuthorizationsForGrantee(
   grantee: string,
   dataAuthorizationIris: string[]
 ): Promise<void>
+
+// additionally implemented (used by generateAuthorization)
+export async function generateDataAuthorizations(
+  authorization: GrantedAuthorization,
+  grantedBy: string,
+  authorizationRegistry: CRUDAuthorizationRegistry,
+  factory: AuthorizationAgentFactory
+): Promise<FinalDataAuthorizationData[]>
 ```
 
 ---
 
 ## Migration Order
 
-1. **data-model — JSON-LD extraction**
-   - Add `jsonld-utils.ts`; refactor `grant.ts` to use it (no public API change); run existing grant tests.
+### ✅ Done (commit `c6527fb3 authorizations as pojos`)
 
-2. **data-model — DataAuthorization POJO**
-   - Add `data-authorization-context.ts` + `data-authorization.ts` (types, from/to, behavior functions).
-   - Delete `readable/data-authorization.ts`, `immutable/data-authorization.ts`.
-   - Update `authorization-agent-factory.ts` (`readable.dataAuthorization` returns POJO; remove `immutable.dataAuthorization`).
-   - Update index exports.
+1. **data-model — JSON-LD extraction** — `jsonld-utils.ts` added; `grant.ts` refactored (no public API change).
+2. **data-model — DataAuthorization POJO** — `data-authorization-context.ts` + `data-authorization.ts` (types, from/to, behavior functions); `readable/data-authorization.ts` and `immutable/data-authorization.ts` deleted; `authorization-agent-factory.ts` updated; index exports updated.
+3. **data-model — remove AccessAuthorization** — `readable/access-authorization.ts` and `immutable/access-authorization.ts` deleted; `crud/authorization-registry.ts` rewritten (direct `hasDataAuthorization` + functional helpers); `GeneratedGrants` moved to `grant.ts`.
+4. **authorization-agent package** — `authorization.ts` reworked (`generateAuthorization`, `generateDataAuthorizations`, `replaceDataAuthorizationsForGrantee`); `authorization-agent.ts` updated (`recordAccessAuthorization`, `generateDataGrants`, `findAuthorizationsForAgent`, `findAgentsWithAccess`, `shareDataInstance`).
+5. **components package** — `services/Authorization.ts` and `services/ShareResource.ts` updated (array response, per-grantee workflows with `authorizationGrantee`); `temporal/activities/grants.ts` and `temporal/workflows/grants.ts` updated (payload carries `dataAuthorizationIris` + `authorizationGrantee`; child payload separated with agent `grantee`).
+6. **api-messages** — `effect.ts`: `RecordedDataAuthorization` schema; `AccessAuthorization = S.Array(RecordedDataAuthorization)`.
+7. **integration tests** — `test/roles.test.ts`, `test/authorization.test.ts`, `packages/css-storage-fixture/test/registry.trig` updated.
 
-3. **data-model — remove AccessAuthorization**
-   - Delete `readable/access-authorization.ts`, `immutable/access-authorization.ts`.
-   - Rewrite `crud/authorization-registry.ts` (direct `hasDataAuthorization` + functional helpers).
-   - Move `GeneratedGrants` to `grant.ts`; update exports.
+### ⏳ Not Done (unit tests only)
 
-4. **authorization-agent package**
-   - Rework `authorization.ts` (`generateAuthorization`, `replaceDataAuthorizationsForGrantee`).
-   - Update `authorization-agent.ts` (`recordAccessAuthorization`, `generateDataGrants`, `findAuthorizationsForAgent`, `findAgentsWithAccess`, `shareDataInstance`).
-
-5. **components package**
-   - Update `services/Authorization.ts` (`recordAuthorization` response + workflow payload).
-   - Update `temporal/activities/grants.ts` and `temporal/workflows/grants.ts`.
-
-6. **api-messages** — only if the response shape changes (see #8).
-
-7. **tests** — delete obsolete, rewrite remaining, run full build.
+8. **unit tests** — delete/rewrite `packages/data-model` and `packages/authorization-agent` tests per §13, then run full build.
 
 ---
 
-## Key Design Decisions (To Confirm)
+## Key Design Decisions (Confirmed)
 
 1. **AccessAuthorization is completely removed** — both `ImmutableAccessAuthorization` and `ReadableAccessAuthorization` classes, `AccessAuthorizationData`, and all related exports. No more AccessAuthorization resources created or read.
 
@@ -464,3 +506,8 @@ export async function replaceDataAuthorizationsForGrantee(
 9. **Registry no longer enforces one wrapper per grantee** — the registry simply links all current data authorizations; the recording logic handles replacing a grantee's prior links.
 
 10. **`shareDataInstance` return shape** — **Decision (Q3):** returns the flattened `FinalDataAuthorizationData[]`; `ShareResource` groups by `grantee` to build the `createGrantsForAuthorization` workflow payloads.
+
+11. **`authorizationGrantee` vs `grantee` naming (added during implementation)** — a role may only ever be an *authorization* grantee, never a *grant* grantee; grants and ACRs must target actual member agents. To make this explicit at the type level:
+    - The workflow entry payload `CreateGrantsInput` uses `authorizationGrantee` (may be a role; consumed only by `getGrantees` for role → members expansion).
+    - `createGrantsForAgent` gets its own `CreateGrantsForAgentInput` (not `extends CreateGrantsInput`) whose `grantee` is always the expanded member agent.
+    - This also fixes the pre-existing `{ grantee, ...payload }` spread bug: previously the entry payload's `grantee` (the role) silently overwrote the expanded member, leaking a role into `GrantData.grantee`, `createAcr`, and `clearDataGrantsOnRegistration`/`setDataGrantsOnRegistration` (which throw for roles).

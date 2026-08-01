@@ -1,7 +1,7 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { CRUDContainer } from '.'
-import type { AuthorizationAgentFactory, ReadableAccessAuthorization } from '..'
+import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
 import type { CRUDData } from './resource'
 
 export class CRUDAuthorizationRegistry extends CRUDContainer {
@@ -24,95 +24,100 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
     return instance
   }
 
-  public async accessAuthorizations(): Promise<AsyncIterable<ReadableAccessAuthorization>> {
-    await this.fetchData()
-    const accessAuthorizationPattern = [
-      DataFactory.namedNode(this.iri),
-      INTEROP.hasAccessAuthorization,
-    ]
-    const accessAuthorizationIris = this.getQuadArray(...accessAuthorizationPattern).map(
-      (q) => q.object.value
-    )
+  public dataAuthorizations(): AsyncIterable<DataAuthorizationData> {
     const { factory } = this
+    const iris = getDataAuthorizationIris(this)
     return {
       async *[Symbol.asyncIterator]() {
-        for (const iri of accessAuthorizationIris) {
-          yield factory.readable.accessAuthorization(iri)
+        for (const iri of iris) {
+          yield factory.readable.dataAuthorization(iri)
         }
       },
     }
   }
 
-  async findAuthorization(agentIri: string): Promise<ReadableAccessAuthorization | undefined> {
-    for await (const authorization of await this.accessAuthorizations()) {
-      if (authorization.grantee === agentIri) {
-        return authorization
-      }
-    }
-  }
-
-  /*
-   * Links access authorization from registry
-   * If prior authorization exists for that agent it gets unlinked
-   * Updates itself
-   */
-  async add(accessAuthorization: ReadableAccessAuthorization): Promise<void> {
-    const quad = DataFactory.quad(
-      DataFactory.namedNode(this.iri),
-      INTEROP.hasAccessAuthorization,
-      DataFactory.namedNode(accessAuthorization.iri)
-    )
-    // unlink prevoius access authorization for that grantee if exists
-    const priorAuthorization = await this.findAuthorization(accessAuthorization.grantee)
-    if (priorAuthorization) {
-      const priorQuad = this.getQuad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.hasAccessAuthorization,
-        DataFactory.namedNode(priorAuthorization.iri)
-      )
-      await this.replaceStatement(priorQuad, quad)
-      this.removeStatement(priorQuad)
-      this.addStatement(quad)
-    } else {
-      await this.addStatement(quad)
-    }
-  }
-
-  /*
-   * Unlinks access authorization from registry
-   * Updates itself
-   */
-  async remove(accessAuthorizationIri: string): Promise<void> {
-    const quad = this.getQuad(
-      DataFactory.namedNode(this.iri),
-      INTEROP.hasAccessAuthorization,
-      DataFactory.namedNode(accessAuthorizationIri)
-    )
-    await this.removeStatement(quad)
-    this.removeStatement(quad)
-  }
-  async findAuthorizationsDelegatingFromOwner(
-    dataOwner: string,
-    roleId: string
-  ): Promise<ReadableAccessAuthorization[]> {
-    const matching: ReadableAccessAuthorization[] = []
-    for await (const accessAuthorization of await this.accessAuthorizations()) {
-      let matches = false
-      // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
-      if (accessAuthorization.grantee !== dataOwner) {
-        for await (const dataAuthorization of accessAuthorization.dataAuthorizations) {
-          if (dataAuthorization.dataOwner === dataOwner) {
-            matches = true
-          }
-          if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
-            matches = true
-          }
-        }
-      }
-      if (matches) {
-        matching.push(accessAuthorization)
+  public async findDataAuthorizations(grantee: string): Promise<DataAuthorizationData[]> {
+    const matching: DataAuthorizationData[] = []
+    for await (const dataAuthorization of this.dataAuthorizations()) {
+      if (dataAuthorization.grantee === grantee) {
+        matching.push(dataAuthorization)
       }
     }
     return matching
   }
+
+  public async findAuthorizationsDelegatingFromOwner(
+    dataOwner: string,
+    roleId: string
+  ): Promise<DataAuthorizationData[]> {
+    const matching: DataAuthorizationData[] = []
+    for await (const dataAuthorization of this.dataAuthorizations()) {
+      let matches = false
+      // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
+      if (dataAuthorization.grantee !== dataOwner) {
+        if (dataAuthorization.dataOwner === dataOwner) {
+          matches = true
+        }
+        if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
+          matches = true
+        }
+      }
+      if (matches) {
+        matching.push(dataAuthorization)
+      }
+    }
+    return matching
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Standalone functional helpers for managing hasDataAuthorization on the registry
+// ---------------------------------------------------------------------------
+
+export function getDataAuthorizationIris(registry: CRUDAuthorizationRegistry): string[] {
+  return registry.getObjectsArray(INTEROP.hasDataAuthorization).map((node) => node.value)
+}
+
+export function getGranted(registry: CRUDAuthorizationRegistry): boolean {
+  return getDataAuthorizationIris(registry).length > 0
+}
+
+export async function getDataAuthorizations(
+  registry: CRUDAuthorizationRegistry
+): Promise<DataAuthorizationData[]> {
+  const iris = getDataAuthorizationIris(registry)
+  return Promise.all(iris.map((iri) => registry.factory.readable.dataAuthorization(iri)))
+}
+
+export async function addDataAuthorization(
+  registry: CRUDAuthorizationRegistry,
+  iri: string
+): Promise<void> {
+  const quad = DataFactory.quad(
+    DataFactory.namedNode(registry.iri),
+    INTEROP.hasDataAuthorization,
+    DataFactory.namedNode(iri)
+  )
+  await registry.addStatement(quad)
+}
+
+export async function removeDataAuthorization(
+  registry: CRUDAuthorizationRegistry,
+  iri: string
+): Promise<void> {
+  const quad = registry.getQuad(
+    DataFactory.namedNode(registry.iri),
+    INTEROP.hasDataAuthorization,
+    DataFactory.namedNode(iri)
+  )
+  if (quad) {
+    await registry.removeStatement(quad)
+  }
+}
+
+export async function removeAllDataAuthorizations(
+  registry: CRUDAuthorizationRegistry
+): Promise<void> {
+  const iris = getDataAuthorizationIris(registry)
+  await Promise.all(iris.map((iri) => removeDataAuthorization(registry, iri)))
 }

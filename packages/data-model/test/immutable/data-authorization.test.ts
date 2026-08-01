@@ -3,12 +3,10 @@ import { fetch } from '@janeirodigital/interop-test-utils'
 import { ACL, INTEROP } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, ImmutableDataAuthorization } from '../../src'
+import { DataAuthorization, type FinalDataAuthorizationData } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
 const snippetIri = 'https://some.iri/'
 const commonData = {
   grantee: 'https://projectron.example/#app',
@@ -18,6 +16,16 @@ const commonData = {
   accessMode: [ACL.Read.value],
 }
 const commonQuads = [
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    INTEROP.grantee,
+    DataFactory.namedNode(commonData.grantee)
+  ),
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    INTEROP.grantedBy,
+    DataFactory.namedNode(commonData.grantedBy)
+  ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
     INTEROP.registeredShapeTree,
@@ -31,7 +39,16 @@ const commonQuads = [
   DataFactory.quad(DataFactory.namedNode(snippetIri), INTEROP.accessMode, ACL.Read),
 ]
 
-describe('constructor', () => {
+async function toDatasetAndCheck(
+  data: Omit<FinalDataAuthorizationData, 'id'>,
+  expectedQuads: any[]
+) {
+  const finalData: FinalDataAuthorizationData = { id: snippetIri, ...data }
+  const dataset = await DataAuthorization.toDataset(finalData)
+  expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
+}
+
+describe('toDataset', () => {
   test('should set dataset for AllFromRegistry scope', async () => {
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
@@ -52,12 +69,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataAuthorization = new ImmutableDataAuthorization(
-      snippetIri,
-      factory,
-      allFromRegistryData
-    )
-    expect(dataAuthorization.dataset).toBeRdfDatasetContaining(...allFromRegistryQuads)
+    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('should set dataset for SelectedFromRegistry scope', async () => {
@@ -91,12 +103,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataAuthorization = new ImmutableDataAuthorization(
-      snippetIri,
-      factory,
-      selectedFromRegistryData
-    )
-    expect(dataAuthorization.dataset).toBeRdfDatasetContaining(...selectedFromRegistryQuads)
+    await toDatasetAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
   })
 
   test('should set dataset for Inherited scope', async () => {
@@ -125,8 +132,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataAuthorization = new ImmutableDataAuthorization(snippetIri, factory, inheritedData)
-    expect(dataAuthorization.dataset).toBeRdfDatasetContaining(...inheritedQuads)
+    await toDatasetAndCheck(inheritedData, inheritedQuads)
   })
 
   test('should set dataset with creatorAccessMode', async () => {
@@ -155,44 +161,27 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    const dataAuthorization = new ImmutableDataAuthorization(
-      snippetIri,
-      factory,
-      allFromRegistryData
-    )
-    expect(dataAuthorization.dataset).toBeRdfDatasetContaining(...allFromRegistryQuads)
+    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('links back to children', async () => {
     const childIri = 'https://some.iri/child'
 
-    const inheritedData = {
-      dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.Inherited.value,
-      inheritsFromAuthorization: snippetIri,
-      ...commonData,
-    }
-
-    const childDataAuthorization = new ImmutableDataAuthorization(childIri, factory, inheritedData)
-
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
       scopeOfAuthorization: INTEROP.AllFromRegistry.value,
-      hasInheritingAuthorization: [childDataAuthorization.iri],
+      hasInheritingAuthorization: [childIri],
       ...commonData,
     }
 
-    const dataAuthorization = new ImmutableDataAuthorization(
-      snippetIri,
-      factory,
-      allFromRegistryData
-    )
+    const finalData: FinalDataAuthorizationData = { id: snippetIri, ...allFromRegistryData }
+    const dataset = await DataAuthorization.toDataset(finalData)
 
     const linkBackQuad = DataFactory.quad(
       DataFactory.namedNode(childIri),
       INTEROP.inheritsFromAuthorization,
       DataFactory.namedNode(snippetIri)
     )
-    expect(dataAuthorization.dataset).toBeRdfDatasetContaining(linkBackQuad)
+    expect(dataset).toBeRdfDatasetContaining(linkBackQuad)
   })
 })

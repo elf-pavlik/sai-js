@@ -1,15 +1,10 @@
 import { INTEROP, ACL } from '@janeirodigital/interop-utils'
-import type { DatasetCore, Quad } from '@rdfjs/types'
-import * as jsonldNs from 'jsonld'
+import type { DatasetCore } from '@rdfjs/types'
 import { Store } from 'n3'
 import grantContext from './grant-context'
 import type { BaseFactory } from './base-factory'
 import { DataInstance } from './data-instance'
-
-// CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
-// has the full exports only on .default.  Grab the full object so that all
-// properties (fromRDF, compact, toRDF, expand, …) are available.
-const jsonld = (jsonldNs as any).default ?? jsonldNs
+import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -45,31 +40,14 @@ export type GrantData = {
 /** A grant that has been assigned its storage IRI. */
 export type FinalGrantData = GrantData & Required<Pick<GrantData, 'id'>>
 
+export interface GeneratedGrants {
+  sourceGrants: FinalGrantData[]
+  delegatedGrants: GrantData[]
+}
+
 // ──────────────────────────
 // Read path: Dataset → GrantData
 // ──────────────────────────
-
-/** Build a JSON-LD frame that resolves the grant node at `iri` with all its
- * properties as plain node references (no embedding of referenced nodes).
- *
- * Each property in the grant context gets `@embed: "@never"` so that the
- * framing algorithm produces `@type: @id`-compacted plain IRI strings
- * instead of embedding full child graphs. This also resolves @reverse
- * relationships (hasInheritingGrant) automatically.
- */
-function buildGrantFrame(iri: string): Record<string, unknown> {
-  const frame: Record<string, unknown> = {
-    '@context': grantContext,
-    '@id': iri,
-  }
-  for (const [key, val] of Object.entries(grantContext)) {
-    if (key === 'id' || key === 'type' || key === '@version') continue
-    if (typeof val === 'object' && val !== null) {
-      frame[key] = { '@embed': '@never' }
-    }
-  }
-  return frame
-}
 
 /**
  * Convert a parsed RDF dataset into a GrantData POJO.
@@ -78,12 +56,7 @@ function buildGrantFrame(iri: string): Record<string, unknown> {
  * (hasInheritingGrant) automatically, without embedding child nodes.
  */
 export async function fromDataset(dataset: DatasetCore, iri: string): Promise<GrantData> {
-  const expanded = await jsonld.fromRDF(dataset)
-  const framed = await jsonld.frame(expanded, buildGrantFrame(iri) as any)
-  if (!(framed as any).id && !(framed as any)['@id']) {
-    throw new Error(`Node ${iri} not found in framed output`)
-  }
-  return compactNodeToGrantData(framed as any)
+  return compactNodeToGrantData((await frameDataset(dataset, grantContext, iri)) as any)
 }
 
 /**
@@ -94,11 +67,7 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Gr
  * automatically, without embedding child nodes.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<GrantData> {
-  const framed = await jsonld.frame(doc, buildGrantFrame(iri) as any)
-  if (!(framed as any).id && !(framed as any)['@id']) {
-    throw new Error(`Node ${iri} not found in framed output`)
-  }
-  return compactNodeToGrantData(framed as any)
+  return compactNodeToGrantData((await frameDoc(doc, grantContext, iri)) as any)
 }
 
 /**
@@ -143,15 +112,7 @@ function compactNodeToGrantData(node: any): GrantData {
  * as the `dataset` option (the wrapper serializes it to turtle).
  */
 export async function toDataset(grant: FinalGrantData): Promise<Store> {
-  const jsonldDoc = toJsonLd(grant)
-  const dataset = await jsonld.toRDF(jsonldDoc, {
-    base: grant.id,
-  })
-  const store = new Store()
-  for (const quad of dataset as unknown as Iterable<Quad>) {
-    store.add(quad)
-  }
-  return store as Store
+  return toStore(toJsonLd(grant), grant.id)
 }
 
 /**
@@ -161,13 +122,7 @@ export async function toDataset(grant: FinalGrantData): Promise<Store> {
  * (hasInheritingGrant) produce the correct RDF quads on the server side.
  */
 export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
-  return {
-    '@context': grantContext,
-    ...grant,
-    // hasInheritingGrant uses @reverse + @type: @id, so plain IRI strings are
-    // correctly interpreted as node references by jsonld.toRDF.
-    hasInheritingGrant: grant.hasInheritingGrant,
-  }
+  return withContext(grantContext, grant)
 }
 
 // ──────────────────────────

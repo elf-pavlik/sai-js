@@ -223,18 +223,24 @@ export const DeniedAuthorization = S.Struct({
 
 export const Authorization = S.Union(GrantedAuthorization, DeniedAuthorization)
 
-export const AccessAuthorization = S.Union(
-  S.Struct({
-    id: IRI,
-    callbackEndpoint: S.optional(S.String),
-    ...GrantedAuthorization.fields,
-  }),
-  S.Struct({
-    id: IRI,
-    callbackEndpoint: S.optional(S.String),
-    granted: S.Literal(false),
-  })
-)
+/** A data authorization as recorded by the authorization agent (API response). */
+export const RecordedDataAuthorization = S.Struct({
+  id: IRI,
+  grantee: IRI,
+  grantedBy: IRI,
+  registeredShapeTree: IRI,
+  scopeOfAuthorization: IRI,
+  dataOwner: S.optional(IRI),
+  hasDataRegistration: S.optional(IRI),
+  satisfiesAccessNeed: S.optional(IRI),
+  inheritsFromAuthorization: S.optional(IRI),
+  accessMode: S.Array(IRI),
+  creatorAccessMode: S.optional(S.Array(IRI)),
+  hasDataInstance: S.optional(S.Array(IRI)),
+  hasInheritingAuthorization: S.optional(S.Array(IRI)),
+})
+
+export const AccessAuthorization = S.Array(RecordedDataAuthorization)
 
 export class GetWebId extends S.TaggedRequest<GetWebId>()('GetWebId', {
   failure: S.Never,

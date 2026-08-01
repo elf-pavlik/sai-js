@@ -6,7 +6,9 @@ import { beforeEach, describe, test, vi } from 'vitest'
 import {
   AuthorizationAgentFactory,
   type CRUDAuthorizationRegistry,
-  ReadableAccessAuthorization,
+  addDataAuthorization,
+  getDataAuthorizationIris,
+  removeDataAuthorization,
 } from '../../src'
 import { expect } from '../expect'
 
@@ -15,14 +17,15 @@ const agentId = 'https://jarvis.alice.example/#agent'
 const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
 const snippetIri = 'https://auth.alice.example/96feb105-063e-4996-ab74-5e504c6ceae5'
 
-test('should provide accessAuthorizations', async () => {
+test('should provide dataAuthorizations', async () => {
   const registry = await factory.crud.authorizationRegistry(snippetIri)
   let count = 0
-  for await (const authorization of await registry.accessAuthorizations()) {
+  for await (const dataAuthorization of registry.dataAuthorizations()) {
     count += 1
-    expect(authorization).toBeInstanceOf(ReadableAccessAuthorization)
+    expect(dataAuthorization).toHaveProperty('grantee')
+    expect(dataAuthorization).toHaveProperty('grantedBy')
   }
-  expect(count).toBe(2)
+  expect(count).toBe(6)
 })
 
 test('should provide iriForContained method', async () => {
@@ -30,94 +33,100 @@ test('should provide iriForContained method', async () => {
   expect(registry.iriForContained()).toMatch(registry.iri)
 })
 
+describe('getDataAuthorizationIris', () => {
+  test('should return iris of linked data authorizations', async () => {
+    const registry = await factory.crud.authorizationRegistry(snippetIri)
+    const iris = getDataAuthorizationIris(registry)
+    expect(iris).toHaveLength(6)
+    expect(iris).toContain('https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263')
+    expect(iris).toContain('https://auth.alice.example/a691ee69-97d8-45c0-bb03-8e887b2db806')
+  })
+})
+
 describe('add', () => {
   let registry: CRUDAuthorizationRegistry
-  let authorization: ReadableAccessAuthorization
 
   beforeEach(async () => {
     registry = await factory.crud.authorizationRegistry(snippetIri)
-    authorization = {
-      iri: registry.iriForContained(),
-      grantee: 'https://someone.example/#id',
-    } as unknown as ReadableAccessAuthorization
   })
 
-  test('should add new quad linking to added authorization', async () => {
+  test('should add new quad linking to added data authorization', async () => {
+    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
     const quads = [
       DataFactory.quad(
         DataFactory.namedNode(registry.iri),
-        INTEROP.hasAccessAuthorization,
-        DataFactory.namedNode(authorization.iri)
+        INTEROP.hasDataAuthorization,
+        DataFactory.namedNode(dataAuthorizationIri)
       ),
     ]
     expect(registry.dataset).not.toBeRdfDatasetContaining(...quads)
-    await registry.add(authorization)
+    await addDataAuthorization(registry, dataAuthorizationIri)
     expect(registry.dataset).toBeRdfDatasetContaining(...quads)
   })
 
-  test('should update statement if prior existed', async () => {
-    authorization = {
-      iri: registry.iriForContained(),
-      grantee: 'https://projectron.example/#app',
-    } as unknown as ReadableAccessAuthorization
-    const accessRegistrySpy = vi.spyOn(registry, 'replaceStatement')
-    await registry.add(authorization)
-    expect(accessRegistrySpy).toBeCalled()
+  test('should add statement via addStatement', async () => {
+    const addStatementSpy = vi.spyOn(registry, 'addStatement')
+    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
+    await addDataAuthorization(registry, dataAuthorizationIri)
+    expect(addStatementSpy).toBeCalled()
   })
 
-  // TODO: move to container test
-  test('should remove link to prior authorization for that agent if exists', async () => {
-    authorization = {
-      iri: registry.iriForContained(),
-      grantee: 'https://projectron.example/#app',
-    } as unknown as ReadableAccessAuthorization
-    const projectronAuthorizationIri =
-      'https://auth.alice.example/eac2c39c-c8b3-4880-8b9f-a3e12f7f6372'
-    const priorQuads = [
-      registry.getQuad(
-        DataFactory.namedNode(registry.iri),
-        INTEROP.hasAccessAuthorization,
-        DataFactory.namedNode(projectronAuthorizationIri)
-      ),
-    ]
-    expect(registry.dataset).toBeRdfDatasetContaining(...priorQuads)
-    await registry.add(authorization)
-    expect(registry.dataset).not.toBeRdfDatasetContaining(...priorQuads)
-  })
-
-  test('should add statement if no prior existed', async () => {
-    const accessRegistrySpy = vi.spyOn(registry, 'addStatement')
-    await registry.add(authorization)
-    expect(accessRegistrySpy).toBeCalled()
-  })
-
-  test('should not remove authorizations for other agents', async () => {
+  test('should not remove links to other data authorizations', async () => {
     const numberOfAuthorizationsBefore = registry.getQuadArray(
       null,
-      INTEROP.hasAccessAuthorization
+      INTEROP.hasDataAuthorization
     ).length
-    await registry.add(authorization)
+    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
+    await addDataAuthorization(registry, dataAuthorizationIri)
     const numberOfAuthorizationsAfter = registry.getQuadArray(
       null,
-      INTEROP.hasAccessAuthorization
+      INTEROP.hasDataAuthorization
     ).length
     expect(numberOfAuthorizationsAfter).toBe(numberOfAuthorizationsBefore + 1)
   })
 })
 
-describe('findAuthorization', () => {
-  test('should return access authorization if exists', async () => {
+describe('remove', () => {
+  test('should remove link to data authorization', async () => {
     const registry = await factory.crud.authorizationRegistry(snippetIri)
-    const agentIri = 'https://projectron.example/#app'
-    const authorization = await registry.findAuthorization(agentIri)
-    expect(authorization).toBeInstanceOf(ReadableAccessAuthorization)
+    const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
+    const quads = [
+      DataFactory.quad(
+        DataFactory.namedNode(registry.iri),
+        INTEROP.hasDataAuthorization,
+        DataFactory.namedNode(dataAuthorizationIri)
+      ),
+    ]
+    expect(registry.dataset).toBeRdfDatasetContaining(...quads)
+    await removeDataAuthorization(registry, dataAuthorizationIri)
+    expect(registry.dataset).not.toBeRdfDatasetContaining(...quads)
   })
 
-  test('should return undefined if access authorization does not exist', async () => {
+  test('should do nothing if the data authorization is not linked', async () => {
+    const registry = await factory.crud.authorizationRegistry(snippetIri)
+    const removeStatementSpy = vi.spyOn(registry, 'removeStatement')
+    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
+    await removeDataAuthorization(registry, dataAuthorizationIri)
+    expect(removeStatementSpy).not.toBeCalled()
+  })
+})
+
+describe('findDataAuthorizations', () => {
+  test('should return data authorizations if exist', async () => {
+    const registry = await factory.crud.authorizationRegistry(snippetIri)
+    const agentIri = 'https://projectron.example/#app'
+    const dataAuthorizations = await registry.findDataAuthorizations(agentIri)
+    expect(dataAuthorizations).toHaveLength(4)
+    for (const dataAuthorization of dataAuthorizations) {
+      expect(dataAuthorization.grantee).toBe(agentIri)
+    }
+  })
+
+  test('should return empty array if no data authorization for grantee', async () => {
     const registry = await factory.crud.authorizationRegistry(snippetIri)
     const agentIri = 'https://non-existing.example/#oops'
-    const authorization = await registry.findAuthorization(agentIri)
-    expect(authorization).toBeUndefined()
+    const dataAuthorizations = await registry.findDataAuthorizations(agentIri)
+    expect(dataAuthorizations).toEqual([])
   })
 })
 
@@ -126,6 +135,14 @@ describe('findAuthorizationsDelegatingFromOwner', () => {
     const registry = await factory.crud.authorizationRegistry(snippetIri)
     const ownerIri = 'https://acme.example/#corp'
     const authorizations = await registry.findAuthorizationsDelegatingFromOwner(ownerIri)
+    expect(authorizations).toHaveLength(2)
+  })
+
+  test('should find authorizations for data owned by alice', async () => {
+    const registry = await factory.crud.authorizationRegistry(snippetIri)
+    const ownerIri = 'https://alice.example/#id'
+    const authorizations = await registry.findAuthorizationsDelegatingFromOwner(ownerIri)
+    // a691ee69 is an All-scope authorization on alice-owned data (grantee is acme)
     expect(authorizations).toHaveLength(1)
   })
 })

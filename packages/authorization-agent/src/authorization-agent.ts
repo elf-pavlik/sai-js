@@ -5,14 +5,15 @@ import {
   type CRUDRole,
   type CRUDSocialAgentInvitation,
   type CRUDSocialAgentRegistration,
+  type DataAuthorizationData,
   type DataGrant,
+  type FinalDataAuthorizationData,
   type GeneratedGrants,
-  type ReadableAccessAuthorization,
-  type ReadableDataAuthorization,
   type ReadableDataInstance,
   type ReadableDataRegistration,
   type ReadableShapeTree,
   type ReadableWebIdProfile,
+  generateGrantsForAuthorization,
   getDataGrants,
   getDataGrantIris,
 } from '@janeirodigital/interop-data-model'
@@ -20,7 +21,6 @@ import {
   INTEROP,
   type RdfFetch,
   type WhatwgFetch,
-  asyncIterableToArray,
   discoverStorageDescription,
   fetchWrapper,
   getStorageRoot,
@@ -59,10 +59,10 @@ function registryOfRegistration(dataRegistrationIri: string): string {
   return `${dataRegistrationIri.split('/').slice(0, -2).join('/')}/`
 }
 
-function formatAgentWithAccess(dataAuthorization: ReadableDataAuthorization): AgentWithAccess {
+function formatAgentWithAccess(dataAuthorization: DataAuthorizationData): AgentWithAccess {
   return {
     agent: dataAuthorization.grantee,
-    dataAuthorization: dataAuthorization.iri,
+    dataAuthorization: dataAuthorization.id!,
     accessMode: dataAuthorization.accessMode,
   }
 }
@@ -237,51 +237,48 @@ export class AuthorizationAgent {
   }
 
   /*
+  /*
    * Sincle solid doesn't provide atomic transactions we should follow this order
-   * 1. Create Access Authorization with Data Authorizations (or reuse existing when possible)
-   *    AccessAuthorization#store does it
-   * 2. Update Access Authorization Registry in single request
-   *   * a) Remove reference to prior Access Authorization
-   *   * b) Add reference to new Access Authorization
+   * 1. Create Data Authorizations (or reuse existing when possible)
+   * 2. Update Authorization Registry in single request
+   *   * a) Remove reference to prior Data Authorizations for the grantee
+   *   * b) Add reference to new Data Authorizations
    * TODO: reuse existing Data Authorizations wherever possible - see Data Authorization tests
    */
   public async recordAccessAuthorization(
     authorization: AccessAuthorizationStructure,
     extendIfExists = false
-  ): Promise<ReadableAccessAuthorization> {
-    // create data authorizations
-
-    // TODO explore moving into AccessAuthorization
+  ): Promise<FinalDataAuthorizationData[]> {
     return generateAuthorization(
       authorization,
       this.webId,
       this.registrySet.hasAuthorizationRegistry,
-      this.agentId,
       this.factory,
       extendIfExists
     )
   }
 
   public async generateDataGrants(
-    accessAuthorizationIri: string,
+    dataAuthorizationIris: string[],
     grantee: string
   ): Promise<GeneratedGrants> {
-    const accessAuthorization =
-      await this.factory.readable.accessAuthorization(accessAuthorizationIri)
-    return accessAuthorization.generateDataGrants(this.registrySet, grantee)
+    const dataAuthorizations = await Promise.all(
+      dataAuthorizationIris.map((iri) => this.factory.readable.dataAuthorization(iri))
+    )
+    return generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee)
   }
 
-  public async findAuthorizationsForAgent(peerId: string): Promise<ReadableAccessAuthorization[]> {
-    const authorizations: ReadableAccessAuthorization[] = []
+  public async findAuthorizationsForAgent(peerId: string): Promise<DataAuthorizationData[]> {
+    const authorizations: DataAuthorizationData[] = []
     // TODO: optimize!
-    const iterator = await this.registrySet.hasAuthorizationRegistry.accessAuthorizations()
-    for await (const accessAuthorization of iterator) {
-      if (accessAuthorization.grantee === peerId) {
-        authorizations.push(accessAuthorization)
+    const iterator = this.registrySet.hasAuthorizationRegistry.dataAuthorizations()
+    for await (const dataAuthorization of iterator) {
+      if (dataAuthorization.grantee === peerId) {
+        authorizations.push(dataAuthorization)
       } else {
         for await (const role of this.roles) {
-          if (accessAuthorization.grantee === role.iri && role.members.includes(peerId)) {
-            authorizations.push(accessAuthorization)
+          if (dataAuthorization.grantee === role.iri && role.members.includes(peerId)) {
+            authorizations.push(dataAuthorization)
           }
         }
       }
@@ -307,15 +304,9 @@ export class AuthorizationAgent {
     const dataInstance = await this.factory.readable.dataInstance(dataInstanceIri)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
-    const iterator = await this.registrySet.hasAuthorizationRegistry.accessAuthorizations()
-    for await (const accessAuthorization of iterator) {
-      const dataAuthorization = (
-        await asyncIterableToArray<ReadableDataAuthorization>(
-          accessAuthorization.dataAuthorizations
-        )
-      ).find((autorization) => autorization.registeredShapeTree === shapeTree)
-
-      if (!dataAuthorization) continue
+    const iterator = this.registrySet.hasAuthorizationRegistry.dataAuthorizations()
+    for await (const dataAuthorization of iterator) {
+      if (dataAuthorization.registeredShapeTree !== shapeTree) continue
 
       switch (dataAuthorization.scopeOfAuthorization) {
         case INTEROP.All.value:
@@ -335,7 +326,7 @@ export class AuthorizationAgent {
         case INTEROP.SelectedFromRegistry.value:
           if (
             dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.iri &&
-            dataAuthorization.hasDataInstance.includes(dataInstanceIri)
+            (dataAuthorization.hasDataInstance ?? []).includes(dataInstanceIri)
           ) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           }
@@ -356,6 +347,7 @@ export class AuthorizationAgent {
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
       grantee: agent,
+      grantedBy: this.webId,
       registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
       scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
       dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
@@ -365,6 +357,7 @@ export class AuthorizationAgent {
       children: await Promise.all(
         details.children.map(async (child) => ({
           grantee: agent,
+          grantedBy: this.webId,
           registeredShapeTree: child.shapeTree,
           scopeOfAuthorization: INTEROP.Inherited.value,
           dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
@@ -390,7 +383,9 @@ export class AuthorizationAgent {
    * Authorizes access to a specific Data Instance to multiple agents
    * TODO: support delegated authorization
    */
-  public async shareDataInstance(details: ShareDataInstanceStructure): Promise<string[]> {
+  public async shareDataInstance(
+    details: ShareDataInstanceStructure
+  ): Promise<FinalDataAuthorizationData[]> {
     // ensure owner doesn't grant acces for oneself
     // TODO: reconsider for TrustedGrants grantees, compare with data instance owner instead
     const requestedAgents = details.agents.filter((agent) => agent !== this.webId)
@@ -410,6 +405,6 @@ export class AuthorizationAgent {
         return this.recordAccessAuthorization(authorization, true)
       })
     )
-    return authorizations.map((authorization) => authorization.iri)
+    return authorizations.flat()
   }
 }

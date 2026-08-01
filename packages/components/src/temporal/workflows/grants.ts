@@ -34,25 +34,20 @@ export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
 export async function updateGrantsForOneAgent(
   payload: activities.GetAuthorizationsInput
 ): Promise<void> {
-  const authorizations = await getAuthorizations(payload)
-  if (authorizations.length === 0) {
+  const dataAuthorizationIris = await getAuthorizations(payload)
+  if (dataAuthorizationIris.length === 0) {
     await clearDataGrantsOnRegistration(payload)
     return
   }
-  await Promise.all(
-    // TODO generalize grant creation workflow to handle multiple authorizations
-    [authorizations[0]].map((authorizationId) =>
-      executeChild(createGrantsForAgent, {
-        args: [
-          {
-            webId: payload.webId,
-            grantee: payload.peerId,
-            authorizationId,
-          },
-        ],
-      })
-    )
-  )
+  await executeChild(createGrantsForAgent, {
+    args: [
+      {
+        webId: payload.webId,
+        grantee: payload.peerId,
+        dataAuthorizationIris,
+      },
+    ],
+  })
 }
 
 export async function processRoleDeletion(
@@ -105,11 +100,20 @@ export async function processRoleMembershipChange(
 export async function createGrantsForAuthorization(
   payload: activities.CreateGrantsInput
 ): Promise<void> {
-  const grantees = await getGrantees(payload)
+  const grantees = await getGrantees({
+    webId: payload.webId,
+    grantee: payload.authorizationGrantee,
+  })
   await Promise.all(
     grantees.map((grantee) =>
       executeChild(createGrantsForAgent, {
-        args: [{ grantee, ...payload }],
+        args: [
+          {
+            webId: payload.webId,
+            grantee,
+            dataAuthorizationIris: payload.dataAuthorizationIris,
+          },
+        ],
       })
     )
   )
@@ -172,6 +176,7 @@ export async function updateGrantsForAuthorization(
 ): Promise<void> {
   await createGrantsForAuthorization({
     webId: payload.webId,
-    authorizationId: payload.authorizationId,
+    authorizationGrantee: payload.grantee,
+    dataAuthorizationIris: payload.dataAuthorizationIris,
   })
 }

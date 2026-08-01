@@ -7,7 +7,16 @@ export * from './social-agent-registration'
 export * from './social-agent-invitation'
 export { CRUDDataRegistry } from './data-registry'
 export * from './data-registration'
-export { CRUDAuthorizationRegistry } from './authorization-registry'
+// explicit re-export to resolve getGranted ambiguity with ./agent-registration
+// (getGranted remains exported from the authorization-registry module itself)
+export {
+  CRUDAuthorizationRegistry,
+  getDataAuthorizationIris,
+  getDataAuthorizations,
+  addDataAuthorization,
+  removeDataAuthorization,
+  removeAllDataAuthorizations,
+} from './authorization-registry'
 export { CRUDGrantRegistry } from './grant-registry'
 export { CRUDAgentRegistry } from './agent-registry'
 export { CRUDRole } from './role'

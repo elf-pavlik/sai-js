@@ -10,10 +10,6 @@ import {
   CRUDDataRegistry,
   CRUDRegistrySet,
   CRUDSocialAgentRegistration,
-  ImmutableAccessAuthorization,
-  ImmutableDataAuthorization,
-  ReadableAccessAuthorization,
-  ReadableDataAuthorization,
 } from '../src'
 
 const webId = 'https://alice.example/#id'
@@ -108,46 +104,16 @@ describe('immutable', () => {
       expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.Inherited.value)
     })
   })
-
-  test('builds Access Authorization with Data Authorization', async () => {
-    const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
-    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    const dataAuthorization = factory.immutable.dataAuthorization(dataAuthorizationIri, {
-      grantee: 'https://projectron.example/#app',
-      grantedBy: webId,
-      registeredShapeTree: 'https://solidshapes.example/trees/Project',
-      accessMode: [ACL.Read.value, ACL.Write.value],
-      scopeOfAuthorization: INTEROP.All.value,
-    })
-    expect(dataAuthorization).toBeInstanceOf(ImmutableDataAuthorization)
-    const accessAuthorizationData = {
-      granted: true,
-      grantedBy: webId,
-      grantedWith: agentId,
-      grantee: 'https://projectron.example/#app',
-      hasAccessNeedGroup: 'https://projectron.example/#some-access-group',
-      dataAuthorizations: [dataAuthorization],
-    }
-    const accessAuthorizationIri = 'https://auth.alice.example/5e8d3d6f-9e61-4e5c-acff-adee83b68ad1'
-    const accessAuthorization = factory.immutable.accessAuthorization(
-      accessAuthorizationIri,
-      accessAuthorizationData
-    )
-    expect(accessAuthorization).toBeInstanceOf(ImmutableAccessAuthorization)
-  })
 })
 
 describe('readable', () => {
   const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
-  test('accessAuthorization', async () => {
-    const snippetIri = 'https://auth.alice.example/eac2c39c-c8b3-4880-8b9f-a3e12f7f6372'
-    const accessAuthorization = await factory.readable.accessAuthorization(snippetIri)
-    expect(accessAuthorization).toBeInstanceOf(ReadableAccessAuthorization)
-  })
-
   test('dataAuthorization', async () => {
     const snippetIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const dataAuthorization = await factory.readable.dataAuthorization(snippetIri)
-    expect(dataAuthorization).toBeInstanceOf(ReadableDataAuthorization)
+    expect(dataAuthorization.id).toBe(snippetIri)
+    expect(dataAuthorization.grantee).toBe('https://projectron.example/#app')
+    expect(dataAuthorization.grantedBy).toBe(webId)
+    expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent.value)
   })
 })

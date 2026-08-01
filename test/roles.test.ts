@@ -192,8 +192,11 @@ describe('role-based access', () => {
     })
     test('existing authorization - add remove members to roles', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
@@ -238,16 +241,22 @@ describe('role-based access', () => {
       )
 
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 
     test('delete grantee role', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await rpcCall(
         rpcPayload({
@@ -274,8 +283,11 @@ describe('role-based access', () => {
 
     test('delete dataOwner role', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await rpcCall(
         rpcPayload({

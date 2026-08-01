@@ -1,5 +1,4 @@
 import {
-  type AccessAuthorizationData,
   type AgentRegistrationData,
   BaseFactory,
   type BaseReadableFactory,
@@ -14,29 +13,25 @@ import {
   CRUDRoleRegistry,
   CRUDSocialAgentInvitation,
   CRUDSocialAgentRegistration,
+  type DataAuthorizationData,
   type DataRegistrationData,
-  type ExpandedDataAuthorizationData,
   type FactoryDependencies,
   type FinalGrantData,
   type GrantData,
-  ImmutableAccessAuthorization,
-  ImmutableDataAuthorization,
-  ReadableAccessAuthorization,
   ReadableAccessDescriptionSet,
   ReadableAccessNeed,
   ReadableAccessNeedDescription,
   ReadableAccessNeedGroup,
   ReadableAccessNeedGroupDescription,
-  ReadableDataAuthorization,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
+import { fromJsonLd as dataAuthorizationFromJsonLd } from './data-authorization'
 import type { CRUDRegistrySetData } from './crud/registry-set'
 import type { CRUDData } from './crud/resource'
 
 interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
-  accessAuthorization(iri: string): Promise<ReadableAccessAuthorization>
-  dataAuthorization(iri: string): Promise<ReadableDataAuthorization>
+  dataAuthorization(iri: string): Promise<DataAuthorizationData>
   accessNeedDescription(iri: string): Promise<ReadableAccessNeedDescription>
   accessNeedGroupDescription(iri: string): Promise<ReadableAccessNeedGroupDescription>
   accessDescriptionSet(iri: string): Promise<ReadableAccessDescriptionSet>
@@ -69,8 +64,6 @@ interface CRUDFactory {
 
 interface ImmutableFactory {
   dataGrant(iri: string, data: GrantData): FinalGrantData
-  dataAuthorization(iri: string, data: ExpandedDataAuthorizationData): ImmutableDataAuthorization
-  accessAuthorization(iri: string, data: AccessAuthorizationData): ImmutableAccessAuthorization
 }
 
 export class AuthorizationAgentFactory extends BaseFactory {
@@ -172,33 +165,20 @@ export class AuthorizationAgentFactory extends BaseFactory {
       dataGrant: function dataGrant(iri: string, data: GrantData): FinalGrantData {
         return { ...data, id: iri }
       },
-      dataAuthorization: function dataAuthorization(
-        iri: string,
-        data: ExpandedDataAuthorizationData
-      ): ImmutableDataAuthorization {
-        return new ImmutableDataAuthorization(iri, factory, data)
-      },
-      accessAuthorization: function accessAuthorization(
-        iri: string,
-        data: AccessAuthorizationData
-      ): ImmutableAccessAuthorization {
-        return new ImmutableAccessAuthorization(iri, factory, data)
-      },
     }
   }
 
   protected readableFactory() {
     const factory = this
     return {
-      accessAuthorization: async function accessAuthorization(
-        iri: string
-      ): Promise<ReadableAccessAuthorization> {
-        return ReadableAccessAuthorization.build(iri, factory)
-      },
       dataAuthorization: async function dataAuthorization(
         iri: string
-      ): Promise<ReadableDataAuthorization> {
-        return ReadableDataAuthorization.build(iri, factory)
+      ): Promise<DataAuthorizationData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return dataAuthorizationFromJsonLd(doc, iri)
       },
       accessNeedDescription: async function accessNeedDescription(
         iri: string

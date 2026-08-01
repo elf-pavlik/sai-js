@@ -1,1 +1,0 @@
-export { ImmutableResource } from './resource'

@@ -10,7 +10,6 @@ export * from './base-factory'
 export * from './resource'
 
 export * from './readable'
-export * from './immutable'
 export * from './crud'
 export * from './templates'
 export { ApplicationFactory } from './application-factory'

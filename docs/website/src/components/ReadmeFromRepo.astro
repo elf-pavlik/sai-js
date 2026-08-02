@@ -2,7 +2,25 @@
 import { marked } from "marked";
 import readmeSource from "../../../../README.md?raw";
 
-const html = marked.parse(readmeSource, { gfm: true, breaks: false });
+interface Props {
+  section: string;
+  showHeading?: boolean;
+}
+
+const { section, showHeading = true } = Astro.props;
+
+// Extract only the requested section (e.g. "Localization") from the repository README
+const sectionMatch = readmeSource.match(
+  new RegExp(`## ${section}[\\s\\S]*?(?=\\n## |\\n# |$)`),
+);
+let sectionContent = sectionMatch ? sectionMatch[0] : "";
+
+if (!showHeading) {
+  // Drop the section heading line (e.g. "## Localization")
+  sectionContent = sectionContent.replace(/^## .*\n?/, "").trim();
+}
+
+const html = marked.parse(sectionContent, { gfm: true, breaks: false });
 ---
 
 <article class="prose readme-md" set:html={html} />

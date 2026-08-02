@@ -62,7 +62,7 @@ GRAPH <https://registry/acme/grant/> {
       <https://registry/acme/grant/g4yhtm>,
       <https://registry/acme/grant/wpqyds>,
       <https://registry/acme/grant/p9m2vr>,
-      <https://registry/acme/grant/t7k5nw>,
+      <https://registry/acme/grant/hdaymz>,
       <https://registry/acme/grant/x4j8lm>,
       <https://registry/acme/grant/q2v9pt>,
       <https://registry/acme/grant/cshspf>,
@@ -214,7 +214,7 @@ GRAPH <meta:https://registry/acme/agent/m4k9wp/> {
     interop:registeredAgent <https://id/bob> ;
     interop:reciprocalRegistration <https://registry/bob/agent/x7n2qv/> ;
     interop:hasDataGrant <https://registry/acme/grant/p9m2vr>,
-      <https://registry/acme/grant/t7k5nw>,
+      <https://registry/acme/grant/hdaymz>,
       <https://registry/acme/grant/x4j8lm>,
       <https://registry/acme/grant/q2v9pt> ;
     skos:prefLabel "Bob" ;
@@ -272,7 +272,7 @@ GRAPH <https://registry/acme/grant/p9m2vr> {
     interop:hasDataRegistration <https://data/acme-rnd/reb39k/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
-  <https://registry/acme/grant/t7k5nw>
+  <https://registry/acme/grant/hdaymz>
     interop:inheritsFromGrant <https://registry/acme/grant/p9m2vr>.
 }
 
@@ -280,8 +280,8 @@ GRAPH <meta:https://registry/acme/grant/p9m2vr> {
         <https://registry/acme/grant/p9m2vr> a ldp:Resource .
 }
 
-GRAPH <https://registry/acme/grant/t7k5nw> {
-  <https://registry/acme/grant/t7k5nw>
+GRAPH <https://registry/acme/grant/hdaymz> {
+  <https://registry/acme/grant/hdaymz>
     a interop:DataGrant;
     interop:grantee <https://id/bob>;
     interop:grantedBy <https://id/acme>;
@@ -294,8 +294,8 @@ GRAPH <https://registry/acme/grant/t7k5nw> {
     interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
 }
 
-GRAPH <meta:https://registry/acme/grant/t7k5nw> {
-        <https://registry/acme/grant/t7k5nw> a ldp:Resource .
+GRAPH <meta:https://registry/acme/grant/hdaymz> {
+        <https://registry/acme/grant/hdaymz> a ldp:Resource .
 }
 
 GRAPH <https://registry/acme/grant/x4j8lm> {
@@ -1798,19 +1798,19 @@ GRAPH <https://registry/acme/grant/p9m2vr.acr> {
     ].
 }
 
-GRAPH <meta:https://registry/acme/grant/t7k5nw.acr> {
-        <https://registry/acme/grant/t7k5nw.acr> a ldp:Resource .
+GRAPH <meta:https://registry/acme/grant/hdaymz.acr> {
+        <https://registry/acme/grant/hdaymz.acr> a ldp:Resource .
 }
 
-GRAPH <https://registry/acme/grant/t7k5nw.acr> {
-  <https://registry/acme/grant/t7k5nw.acr#root>
+GRAPH <https://registry/acme/grant/hdaymz.acr> {
+  <https://registry/acme/grant/hdaymz.acr#root>
     a acp:AccessControlResource;
-    acp:resource <https://registry/acme/grant/t7k5nw>;
+    acp:resource <https://registry/acme/grant/hdaymz>;
     acp:accessControl
-      <https://registry/acme/grant/t7k5nw.acr#fullOwnerAccess>,
-      <https://registry/acme/grant/t7k5nw.acr#peerReadAccess>.
+      <https://registry/acme/grant/hdaymz.acr#fullOwnerAccess>,
+      <https://registry/acme/grant/hdaymz.acr#peerReadAccess>.
 
-  <https://registry/acme/grant/t7k5nw.acr#fullOwnerAccess>
+  <https://registry/acme/grant/hdaymz.acr#fullOwnerAccess>
     a acp:AccessControl;
     acp:apply [
       a acp:Policy;
@@ -1822,7 +1822,7 @@ GRAPH <https://registry/acme/grant/t7k5nw.acr> {
       ]
     ].
 
-  <https://registry/acme/grant/t7k5nw.acr#peerReadAccess>
+  <https://registry/acme/grant/hdaymz.acr#peerReadAccess>
     a acp:AccessControl;
     acp:apply [
       a acp:Policy;

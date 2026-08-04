@@ -4,8 +4,6 @@ import {
   DataAuthorization,
   type DataAuthorizationData,
   type FinalDataAuthorizationData,
-  addDataAuthorization,
-  removeDataAuthorization,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 
@@ -74,30 +72,48 @@ export async function generateDataAuthorizations(
 }
 
 /**
- * Replace the registry links for a grantee with the given data authorization IRIs.
- * Removes the grantee's previously linked data authorizations and adds the new ones.
+ * Delete the grantee's data authorization resources (parents and their
+ * hasInheritingAuthorization children) whose IRI is not in irisToKeep.
+ * Containment is server-managed (ldp:contains), so kept authorizations stay
+ * linked to the registry without any client-side link management.
  */
 export async function replaceDataAuthorizationsForGrantee(
   registry: CRUDAuthorizationRegistry,
-  grantee: string,
-  dataAuthorizationIris: string[]
+  existingDataAuthorizations: DataAuthorizationData[],
+  irisToKeep: string[],
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
-  const existing = await registry.findDataAuthorizations(grantee)
-  for (const dataAuthorization of existing) {
-    await removeDataAuthorization(registry, dataAuthorization.id!)
+  const keep = new Set(irisToKeep)
+  // children of kept parents must stay too (the kept parent still references them)
+  for (const dataAuthorization of existingDataAuthorizations) {
+    if (keep.has(dataAuthorization.id!)) {
+      for (const child of dataAuthorization.hasInheritingAuthorization ?? []) keep.add(child)
+    }
   }
-  for (const iri of dataAuthorizationIris) {
-    await addDataAuthorization(registry, iri)
+  const irisToDelete = new Set(
+    existingDataAuthorizations.flatMap((da) => [da.id!, ...(da.hasInheritingAuthorization ?? [])])
+  ).difference(keep)
+  // Change back to Promise.all after the CSS bug is fixed.
+  for (const iri of irisToDelete) {
+    const response = await factory.fetch(iri, { method: 'DELETE' })
+    if (!response.ok) {
+      throw new Error(`failed to delete data authorization: ${response.status}`)
+    }
   }
+  await registry.fetchData()
 }
 
 /**
- * Create (and store) data authorizations for an authorization structure and link
- * them from the authorization registry.
+ * Create (and store) data authorizations for an authorization structure. The
+ * registry's containment (ldp:contains) is server-managed: storing a data
+ * authorization via PUT adds it to the registry, and deleting the resource
+ * removes it.
  *
  * - granted: builds and stores FinalDataAuthorizationData POJOs (with reuse of
- *   existing data authorizations when extendIfExists), returns the stored list.
- * - denied: clears the grantee's existing data authorizations, returns [].
+ *   existing data authorizations when extendIfExists), deletes existing data
+ *   authorization resources which are not reused, returns the stored list.
+ * - denied: deletes all of the grantee's existing data authorization resources,
+ *   returns [].
  */
 export async function generateAuthorization(
   authorization: AccessAuthorizationStructure,
@@ -175,16 +191,21 @@ export async function generateAuthorization(
       }
     }
 
-    // link reused and newly created data authorizations from the registry
-    await replaceDataAuthorizationsForGrantee(authorizationRegistry, authorization.grantee, [
-      ...dataAuthorizationsToReuse,
-      ...dataAuthorizations.map((da) => da.id),
-    ])
+    // delete the grantee's existing data authorization resources which are not reused
+    await replaceDataAuthorizationsForGrantee(
+      authorizationRegistry,
+      existingDataAuthorizations,
+      dataAuthorizationsToReuse,
+      factory
+    )
   } else {
-    // denied authorization: clear the grantee's existing data authorizations
-    for (const dataAuthorization of existingDataAuthorizations) {
-      await removeDataAuthorization(authorizationRegistry, dataAuthorization.id!)
-    }
+    // denied authorization: delete all of the grantee's existing data authorization resources
+    await replaceDataAuthorizationsForGrantee(
+      authorizationRegistry,
+      existingDataAuthorizations,
+      [],
+      factory
+    )
   }
 
   return dataAuthorizations

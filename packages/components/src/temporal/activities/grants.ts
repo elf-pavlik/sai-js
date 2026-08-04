@@ -7,7 +7,6 @@ import {
   dataGrantTemplate,
   getDataAuthorizations,
   removeAllDataGrants,
-  removeDataAuthorization,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -181,10 +180,6 @@ export async function deleteAuthorizationsUsingRole(payload: {
       method: 'DELETE',
     })
     if (!response.ok) throw await response.json()
-    await removeDataAuthorization(
-      session.registrySet.hasAuthorizationRegistry,
-      dataAuthorization.id!
-    )
   }
   return Array.from(grantees)
 }

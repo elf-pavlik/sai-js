@@ -41,8 +41,12 @@ GRAPH <meta:https://registry/acme/> {
 
 GRAPH <meta:https://registry/acme/authorization/> {
   <https://registry/acme/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource;
-    interop:hasDataAuthorization
+    a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/acme/authorization/> {
+  <https://registry/acme/authorization/>
+    ldp:contains
       <https://registry/acme/authorization/k9m4vp>,
       <https://registry/acme/authorization/r5j8tw>,
       <https://registry/acme/authorization/p3j7mq>,
@@ -518,8 +522,12 @@ GRAPH <https://registry/alice/grant/> {
 
 GRAPH <meta:https://registry/alice/authorization/> {
   <https://registry/alice/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource;
-    interop:hasDataAuthorization
+    a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/alice/authorization/> {
+  <https://registry/alice/authorization/>
+    ldp:contains
       <https://registry/alice/authorization/w329t6>,
       <https://registry/alice/authorization/p7n4qw>,
       <https://registry/alice/authorization/t5m8kr>,
@@ -983,9 +991,12 @@ GRAPH <https://registry/bob/grant/> {
 
 GRAPH <meta:https://registry/bob/authorization/> {
   <https://registry/bob/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource;
-    interop:hasDataAuthorization
-      <https://registry/bob/authorization/t1u13z>.
+    a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/bob/authorization/> {
+  <https://registry/bob/authorization/>
+    ldp:contains <https://registry/bob/authorization/t1u13z>.
 }
 
 
@@ -1370,8 +1381,12 @@ GRAPH <https://registry/yoyo/grant/> {
 
 GRAPH <meta:https://registry/yoyo/authorization/> {
   <https://registry/yoyo/authorization/>
-    a interop:AuthorizationRegistry, ldp:Resource;
-    interop:hasDataAuthorization
+    a interop:AuthorizationRegistry, ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/authorization/> {
+  <https://registry/yoyo/authorization/>
+    ldp:contains
       <https://registry/yoyo/authorization/k2m5qp>,
       <https://registry/yoyo/authorization/t8p3wr>.
 }

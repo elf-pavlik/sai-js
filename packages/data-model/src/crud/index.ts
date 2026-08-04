@@ -13,9 +13,6 @@ export {
   CRUDAuthorizationRegistry,
   getDataAuthorizationIris,
   getDataAuthorizations,
-  addDataAuthorization,
-  removeDataAuthorization,
-  removeAllDataAuthorizations,
 } from './authorization-registry'
 export { CRUDGrantRegistry } from './grant-registry'
 export { CRUDAgentRegistry } from './agent-registry'

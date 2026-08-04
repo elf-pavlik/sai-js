@@ -1,4 +1,4 @@
-import { INTEROP, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { CRUDContainer } from '.'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
@@ -71,11 +71,11 @@ export class CRUDAuthorizationRegistry extends CRUDContainer {
 }
 
 // ---------------------------------------------------------------------------
-// Standalone functional helpers for managing hasDataAuthorization on the registry
+// Standalone functional helpers for reading the contained data authorizations
 // ---------------------------------------------------------------------------
 
 export function getDataAuthorizationIris(registry: CRUDAuthorizationRegistry): string[] {
-  return registry.getObjectsArray(INTEROP.hasDataAuthorization).map((node) => node.value)
+  return registry.getObjectsArray(LDP.contains).map((node) => node.value)
 }
 
 export function getGranted(registry: CRUDAuthorizationRegistry): boolean {
@@ -87,37 +87,4 @@ export async function getDataAuthorizations(
 ): Promise<DataAuthorizationData[]> {
   const iris = getDataAuthorizationIris(registry)
   return Promise.all(iris.map((iri) => registry.factory.readable.dataAuthorization(iri)))
-}
-
-export async function addDataAuthorization(
-  registry: CRUDAuthorizationRegistry,
-  iri: string
-): Promise<void> {
-  const quad = DataFactory.quad(
-    DataFactory.namedNode(registry.iri),
-    INTEROP.hasDataAuthorization,
-    DataFactory.namedNode(iri)
-  )
-  await registry.addStatement(quad)
-}
-
-export async function removeDataAuthorization(
-  registry: CRUDAuthorizationRegistry,
-  iri: string
-): Promise<void> {
-  const quad = registry.getQuad(
-    DataFactory.namedNode(registry.iri),
-    INTEROP.hasDataAuthorization,
-    DataFactory.namedNode(iri)
-  )
-  if (quad) {
-    await registry.removeStatement(quad)
-  }
-}
-
-export async function removeAllDataAuthorizations(
-  registry: CRUDAuthorizationRegistry
-): Promise<void> {
-  const iris = getDataAuthorizationIris(registry)
-  await Promise.all(iris.map((iri) => removeDataAuthorization(registry, iri)))
 }

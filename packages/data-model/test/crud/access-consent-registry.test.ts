@@ -1,15 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { INTEROP } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { beforeEach, describe, test, vi } from 'vitest'
-import {
-  AuthorizationAgentFactory,
-  type CRUDAuthorizationRegistry,
-  addDataAuthorization,
-  getDataAuthorizationIris,
-  removeDataAuthorization,
-} from '../../src'
+import { describe, test } from 'vitest'
+import { AuthorizationAgentFactory, getDataAuthorizationIris } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -34,7 +26,7 @@ test('should provide iriForContained method', async () => {
 })
 
 describe('getDataAuthorizationIris', () => {
-  test('should return iris of linked data authorizations', async () => {
+  test('should return iris of contained data authorizations', async () => {
     const registry = await factory.crud.authorizationRegistry(snippetIri)
     const iris = getDataAuthorizationIris(registry)
     expect(iris).toHaveLength(6)
@@ -43,71 +35,15 @@ describe('getDataAuthorizationIris', () => {
   })
 })
 
-describe('add', () => {
-  let registry: CRUDAuthorizationRegistry
-
-  beforeEach(async () => {
-    registry = await factory.crud.authorizationRegistry(snippetIri)
-  })
-
-  test('should add new quad linking to added data authorization', async () => {
-    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    const quads = [
-      DataFactory.quad(
-        DataFactory.namedNode(registry.iri),
-        INTEROP.hasDataAuthorization,
-        DataFactory.namedNode(dataAuthorizationIri)
-      ),
-    ]
-    expect(registry.dataset).not.toBeRdfDatasetContaining(...quads)
-    await addDataAuthorization(registry, dataAuthorizationIri)
-    expect(registry.dataset).toBeRdfDatasetContaining(...quads)
-  })
-
-  test('should add statement via addStatement', async () => {
-    const addStatementSpy = vi.spyOn(registry, 'addStatement')
-    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    await addDataAuthorization(registry, dataAuthorizationIri)
-    expect(addStatementSpy).toBeCalled()
-  })
-
-  test('should not remove links to other data authorizations', async () => {
-    const numberOfAuthorizationsBefore = registry.getQuadArray(
-      null,
-      INTEROP.hasDataAuthorization
-    ).length
-    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    await addDataAuthorization(registry, dataAuthorizationIri)
-    const numberOfAuthorizationsAfter = registry.getQuadArray(
-      null,
-      INTEROP.hasDataAuthorization
-    ).length
-    expect(numberOfAuthorizationsAfter).toBe(numberOfAuthorizationsBefore + 1)
-  })
-})
-
-describe('remove', () => {
-  test('should remove link to data authorization', async () => {
+describe('containedIncludes', () => {
+  test('should report contained data authorizations', async () => {
     const registry = await factory.crud.authorizationRegistry(snippetIri)
-    const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const quads = [
-      DataFactory.quad(
-        DataFactory.namedNode(registry.iri),
-        INTEROP.hasDataAuthorization,
-        DataFactory.namedNode(dataAuthorizationIri)
-      ),
-    ]
-    expect(registry.dataset).toBeRdfDatasetContaining(...quads)
-    await removeDataAuthorization(registry, dataAuthorizationIri)
-    expect(registry.dataset).not.toBeRdfDatasetContaining(...quads)
-  })
-
-  test('should do nothing if the data authorization is not linked', async () => {
-    const registry = await factory.crud.authorizationRegistry(snippetIri)
-    const removeStatementSpy = vi.spyOn(registry, 'removeStatement')
-    const dataAuthorizationIri = 'https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd'
-    await removeDataAuthorization(registry, dataAuthorizationIri)
-    expect(removeStatementSpy).not.toBeCalled()
+    expect(
+      registry.containedIncludes('https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263')
+    ).toBe(true)
+    expect(
+      registry.containedIncludes('https://auth.alice.example/25b18e05-7f75-4e13-94f6-9950a67a89dd')
+    ).toBe(false)
   })
 })
 

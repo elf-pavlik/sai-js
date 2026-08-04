@@ -2,8 +2,8 @@ import { SHAPETREES, XSD } from '@janeirodigital/interop-utils'
 import type { NamedNode } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { Memoize } from 'typescript-memoize'
-import { ReadableResource, ReadableShapeTreeDescription } from '.'
-import type { InteropFactory } from '..'
+import { ReadableResource } from './resource'
+import type { ShapeTreeDescriptionData, InteropFactory } from '..'
 
 export interface ShapeTreeReference {
   shapeTree: string
@@ -12,7 +12,7 @@ export interface ShapeTreeReference {
 export class ReadableShapeTree extends ReadableResource {
   shapeText?: string
 
-  public descriptions: { [key: string]: ReadableShapeTreeDescription } = {}
+  public descriptions: { [key: string]: ShapeTreeDescriptionData } = {}
 
   constructor(
     public iri: string,
@@ -44,7 +44,7 @@ export class ReadableShapeTree extends ReadableResource {
     return instance
   }
 
-  public async getDescription(lang: string): Promise<ReadableShapeTreeDescription> {
+  public async getDescription(lang: string): Promise<ShapeTreeDescriptionData | null> {
     if (this.descriptions[lang]) return this.descriptions[lang]
     const descriptionSetNode = this.getQuad(
       null,
@@ -58,7 +58,7 @@ export class ReadableShapeTree extends ReadableResource {
       this.getQuad(node, SHAPETREES.inDescriptionSet, descriptionSetNode)
     )?.value
     const description = descriptionIri
-      ? await ReadableShapeTreeDescription.build(descriptionIri, this.factory)
+      ? await this.factory.readable.shapeTreeDescription(descriptionIri)
       : null
     if (description) {
       this.descriptions[lang] = description

@@ -13,28 +13,32 @@ import {
   CRUDRoleRegistry,
   CRUDSocialAgentInvitation,
   CRUDSocialAgentRegistration,
+  type AccessDescriptionSetData,
+  type AccessNeedDescriptionData,
+  type AccessNeedGroupDescriptionData,
   type DataAuthorizationData,
   type DataRegistrationData,
   type FactoryDependencies,
   type FinalGrantData,
   type GrantData,
-  ReadableAccessDescriptionSet,
   ReadableAccessNeed,
-  ReadableAccessNeedDescription,
   ReadableAccessNeedGroup,
-  ReadableAccessNeedGroupDescription,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
+import {
+  accessNeedDescriptionFromJsonLd,
+  accessNeedGroupDescriptionFromJsonLd,
+} from './access-description'
 import { fromJsonLd as dataAuthorizationFromJsonLd } from './data-authorization'
 import type { CRUDRegistrySetData } from './crud/registry-set'
 import type { CRUDData } from './crud/resource'
 
 interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
   dataAuthorization(iri: string): Promise<DataAuthorizationData>
-  accessNeedDescription(iri: string): Promise<ReadableAccessNeedDescription>
-  accessNeedGroupDescription(iri: string): Promise<ReadableAccessNeedGroupDescription>
-  accessDescriptionSet(iri: string): Promise<ReadableAccessDescriptionSet>
+  accessNeedDescription(iri: string): Promise<AccessNeedDescriptionData>
+  accessNeedGroupDescription(iri: string): Promise<AccessNeedGroupDescriptionData>
+  accessDescriptionSet(iri: string): Promise<AccessDescriptionSetData>
   accessNeed(iri: string, descriptionLang?: string): Promise<ReadableAccessNeed>
   accessNeedGroup(iri: string, descriptionLang?: string): Promise<ReadableAccessNeedGroup>
 }
@@ -182,18 +186,28 @@ export class AuthorizationAgentFactory extends BaseFactory {
       },
       accessNeedDescription: async function accessNeedDescription(
         iri: string
-      ): Promise<ReadableAccessNeedDescription> {
-        return ReadableAccessNeedDescription.build(iri, factory)
+      ): Promise<AccessNeedDescriptionData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return accessNeedDescriptionFromJsonLd(doc, iri)
       },
       accessNeedGroupDescription: async function accessNeedGroupDescription(
         iri: string
-      ): Promise<ReadableAccessNeedGroupDescription> {
-        return ReadableAccessNeedGroupDescription.build(iri, factory)
+      ): Promise<AccessNeedGroupDescriptionData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return accessNeedGroupDescriptionFromJsonLd(doc, iri)
       },
-      accessDescriptionSet: async function accessDescription(
+      accessDescriptionSet: async function accessDescriptionSet(
         iri: string
-      ): Promise<ReadableAccessDescriptionSet> {
-        return ReadableAccessDescriptionSet.build(iri, factory)
+      ): Promise<AccessDescriptionSetData> {
+        // the set's own data is only its identity; descriptions are
+        // resolved on demand via loadDescriptions
+        return { id: iri }
       },
       accessNeed: async function accessNeed(
         iri: string,

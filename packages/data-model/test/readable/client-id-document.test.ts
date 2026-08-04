@@ -25,7 +25,7 @@ const snippetText = `
 }
 `
 const fetch = {
-  raw: async () => ({ text: async () => snippetText }),
+  raw: async () => ({ json: async () => JSON.parse(snippetText) }),
 } as unknown as RdfFetch
 
 const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })

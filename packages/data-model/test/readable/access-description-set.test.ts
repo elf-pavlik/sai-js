@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import {
-  AuthorizationAgentFactory,
-  ReadableAccessDescriptionSet,
-  ReadableAccessNeedDescription,
-  ReadableAccessNeedGroupDescription,
-} from '../../src'
+import { AccessDescriptionSet, AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -16,18 +11,20 @@ const snippetIri = 'https://projectron.example/descriptions-en'
 
 test('factory should build an access description set', async () => {
   const descriptionSet = await factory.readable.accessDescriptionSet(snippetIri)
-  expect(descriptionSet).toBeInstanceOf(ReadableAccessDescriptionSet)
+  expect(descriptionSet).toEqual({ id: snippetIri })
 })
 
 test('should build the descriptions', async () => {
   const descriptionSet = await factory.readable.accessDescriptionSet(snippetIri)
-  expect(descriptionSet.accessNeedDescriptions).toHaveLength(2)
-  for (const description of descriptionSet.accessNeedDescriptions) {
-    expect(description).toBeInstanceOf(ReadableAccessNeedDescription)
+  const { accessNeedDescriptions, accessNeedGroupDescriptions } =
+    await AccessDescriptionSet.loadDescriptions(descriptionSet, factory)
+  expect(accessNeedDescriptions).toHaveLength(2)
+  for (const description of accessNeedDescriptions) {
+    expect(description.hasAccessNeed).toBeDefined()
   }
-  expect(descriptionSet.accessNeedGroupDescriptions).toHaveLength(1)
-  for (const description of descriptionSet.accessNeedGroupDescriptions) {
-    expect(description).toBeInstanceOf(ReadableAccessNeedGroupDescription)
+  expect(accessNeedGroupDescriptions).toHaveLength(1)
+  for (const description of accessNeedGroupDescriptions) {
+    expect(description.hasAccessNeedGroup).toBeDefined()
   }
 })
 
@@ -36,7 +33,7 @@ describe('findInLanguage', () => {
     const lang = 'en'
     const accessNeedIri = 'https://projectron.example/access-needs#need-project'
     const accessNeed = await factory.readable.accessNeed(accessNeedIri)
-    const descriptionSetIri = ReadableAccessDescriptionSet.findInLanguage(accessNeed, lang)
+    const descriptionSetIri = AccessDescriptionSet.findInLanguage(accessNeed.dataset, lang)
     expect(descriptionSetIri).toBe('https://projectron.example/descriptions-en')
   })
 })

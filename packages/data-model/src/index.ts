@@ -26,4 +26,18 @@ export type { DataAuthorizationData, FinalDataAuthorizationData } from './data-a
 export * as DataAuthorization from './data-authorization'
 export { generateGrantsForAuthorization } from './data-authorization'
 export { default as dataAuthorizationContext } from './data-authorization-context'
+export type { WebIdProfileData } from './web-id-profile'
+export * as WebIdProfile from './web-id-profile'
+export type { ClientIdDocumentData } from './client-id-document'
+export * as ClientIdDocument from './client-id-document'
+export type { ShapeTreeDescriptionData } from './shape-tree-description'
+export * as ShapeTreeDescription from './shape-tree-description'
+export type {
+  AccessDescriptionData,
+  AccessNeedDescriptionData,
+  AccessNeedGroupDescriptionData,
+} from './access-description'
+export * as AccessDescription from './access-description'
+export type { AccessDescriptionSetData } from './access-description-set'
+export * as AccessDescriptionSet from './access-description-set'
 export * from './jsonld-utils'

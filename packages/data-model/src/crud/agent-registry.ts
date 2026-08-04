@@ -123,15 +123,34 @@ export class CRUDAgentRegistry extends CRUDContainer {
     // get data from ClientID document
     try {
       const clientIdDocument = await this.factory.readable.clientIdDocument(registeredAgent)
-      const props = [
-        OIDC.client_name,
-        OIDC.logo_uri,
-        INTEROP.hasAccessNeedGroup,
-        INTEROP.hasAuthorizationCallbackEndpoint,
-      ]
-      for (const prop of props) {
-        const quad = clientIdDocument.getQuad(clientIdDocument.node, prop)
-        if (quad) registration.dataset.add(quad)
+      const node = DataFactory.namedNode(registeredAgent)
+      if (clientIdDocument.clientName) {
+        registration.dataset.add(
+          DataFactory.quad(node, OIDC.client_name, DataFactory.literal(clientIdDocument.clientName))
+        )
+      }
+      if (clientIdDocument.logoUri) {
+        registration.dataset.add(
+          DataFactory.quad(node, OIDC.logo_uri, DataFactory.namedNode(clientIdDocument.logoUri))
+        )
+      }
+      if (clientIdDocument.hasAccessNeedGroup) {
+        registration.dataset.add(
+          DataFactory.quad(
+            node,
+            INTEROP.hasAccessNeedGroup,
+            DataFactory.namedNode(clientIdDocument.hasAccessNeedGroup)
+          )
+        )
+      }
+      if (clientIdDocument.callbackEndpoint) {
+        registration.dataset.add(
+          DataFactory.quad(
+            node,
+            INTEROP.hasAuthorizationCallbackEndpoint,
+            DataFactory.namedNode(clientIdDocument.callbackEndpoint)
+          )
+        )
       }
     } catch (error) {
       console.error('failed to get data from Client ID document', error)

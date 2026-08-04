@@ -100,7 +100,7 @@ export const useAppStore = defineStore('app', () => {
     )
 
     agents.value = profiles.map((profile) => ({
-      id: profile.iri,
+      id: profile.id,
       label: profile.label ?? 'unknown', // TODO think of a better fallback
     }))
   }

@@ -32,7 +32,7 @@ export const parseJsonld = async (text: string, source = ''): Promise<DatasetCor
   return store
 }
 
-async function localDocumentLoader(
+export async function localDocumentLoader(
   url: string
 ): Promise<RemoteDocument> {
   if (url in localContexts) {

@@ -1,3 +1,4 @@
+import { localDocumentLoader } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
@@ -8,6 +9,15 @@ import { Store } from 'n3'
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 export type JsonLdContext = Record<string, unknown>
+
+/**
+ * Document loader that resolves known remote contexts (OIDC, notifications)
+ * from bundled local copies instead of fetching them over the network.
+ * SAI data never needs remote contexts beyond those two.
+ */
+const documentLoader = localDocumentLoader as any
+
+export { documentLoader }
 
 /** Build a JSON-LD frame that resolves the node at `iri` with all its
  * properties as plain node references (no embedding of referenced nodes).
@@ -59,7 +69,7 @@ export async function frameDoc(
   context: JsonLdContext,
   iri: string
 ): Promise<Record<string, unknown>> {
-  const framed = await jsonld.frame(doc, buildFrame(context, iri) as any)
+  const framed = await jsonld.frame(doc, buildFrame(context, iri) as any, { documentLoader })
   if (!(framed as any).id && !(framed as any)['@id']) {
     throw new Error(`Node ${iri} not found in framed output`)
   }
@@ -77,6 +87,7 @@ export async function frameDoc(
 export async function toStore(doc: Record<string, unknown>, base?: string): Promise<Store> {
   const dataset = await jsonld.toRDF(doc, {
     base,
+    documentLoader,
   })
   const store = new Store()
   for (const quad of dataset as unknown as Iterable<Quad>) {
@@ -94,4 +105,22 @@ export function withContext(
     '@context': context,
     ...node,
   }
+}
+
+/**
+ * Unwrap a value from framed JSON-LD output to a plain string.
+ *
+ * Plain strings pass through; language-tagged and typed literals frame to
+ * `{ @value, @language }` / `{ @value, @type }` objects; node references
+ * (IRI values without `@type: '@id'` coercion) frame to `{ id }` objects.
+ */
+export function framedValue(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    if (typeof obj['@value'] === 'string') return obj['@value']
+    if (typeof obj.id === 'string') return obj.id
+    if (typeof obj['@id'] === 'string') return obj['@id']
+  }
+  return undefined
 }

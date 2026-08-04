@@ -12,7 +12,7 @@ import {
   type ReadableDataInstance,
   type ReadableDataRegistration,
   type ReadableShapeTree,
-  type ReadableWebIdProfile,
+  type WebIdProfileData,
   generateGrantsForAuthorization,
   getDataGrants,
   getDataGrantIris,
@@ -74,7 +74,7 @@ export class AuthorizationAgent {
 
   fetch: RdfFetch
 
-  webIdProfile: ReadableWebIdProfile
+  webIdProfile: WebIdProfileData
 
   ownersIndex: { [key: string]: string } = {}
 

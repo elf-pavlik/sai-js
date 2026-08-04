@@ -2,6 +2,12 @@ import { write } from '@jeswr/pretty-turtle'
 import { SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import * as jsonldNs from 'jsonld'
+import { Store } from 'n3'
+
+// CJS/ESM interop: jsonld is a CJS package; grab the full object so all
+// properties (fromRDF, …) are available regardless of import style.
+const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 const idOrigin = process.env.ID_ORIGIN
 const docOrigin = process.env.DOC_ORIGIN
@@ -41,8 +47,15 @@ app.get('/:handle', async (c) => {
   const handle = c.req.param('handle')
   const id = `https://${docOrigin}/${handle}`
   const triplesStream = await fetcher.fetchTriples(sparqlEndpoint, construct(id))
+  const triples = await triplesStream.toArray()
+  const accept = c.req.header('Accept') ?? ''
+  if (accept.includes('application/ld+json')) {
+    const doc = await jsonld.fromRDF(new Store(triples))
+    c.header('Content-Type', 'application/ld+json')
+    return c.body(JSON.stringify(doc))
+  }
   c.header('Content-Type', 'text/turtle')
-  return c.body(await write(await triplesStream.toArray()))
+  return c.body(await write(triples))
 })
 
 export default app

@@ -1,12 +1,12 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory } from '..'
-import { ReadableAccessDescriptionSet } from './access-description-set'
+import { findInLanguage, loadDescriptions } from '../access-description-set'
+import type { AccessNeedGroupDescriptionData } from '../access-description'
 import type { ReadableAccessNeed } from './access-need'
-import type { ReadableAccessNeedGroupDescription } from './access-need-group-description'
 import { ReadableResource } from './resource'
 
 export class ReadableAccessNeedGroup extends ReadableResource {
-  public descriptions: { [key: string]: ReadableAccessNeedGroupDescription } = {}
+  public descriptions: { [key: string]: AccessNeedGroupDescriptionData } = {}
 
   accessNeeds: ReadableAccessNeed[] = []
 
@@ -34,12 +34,13 @@ export class ReadableAccessNeedGroup extends ReadableResource {
 
   public async getDescription(
     descriptionLang: string
-  ): Promise<ReadableAccessNeedGroupDescription | undefined> {
+  ): Promise<AccessNeedGroupDescriptionData | undefined> {
     if (this.descriptions[descriptionLang]) return this.descriptions[descriptionLang]
-    const descriptionSetIri = ReadableAccessDescriptionSet.findInLanguage(this, descriptionLang)
+    const descriptionSetIri = findInLanguage(this.dataset, descriptionLang)
     if (!descriptionSetIri) return undefined
     const descriptionSet = await this.factory.readable.accessDescriptionSet(descriptionSetIri)
-    return descriptionSet.accessNeedGroupDescriptions.find(
+    const { accessNeedGroupDescriptions } = await loadDescriptions(descriptionSet, this.factory)
+    return accessNeedGroupDescriptions.find(
       (description) => description.hasAccessNeedGroup === this.iri
     )
   }

@@ -13,6 +13,8 @@
   "dependencies": {
     "@hono/node-server": "^1.19.8",
     "@jeswr/pretty-turtle": "^1.8.2",
-    "fetch-sparql-endpoint": "^6.2.0"
+    "fetch-sparql-endpoint": "^6.2.0",
+    "jsonld": "^9.0.0",
+    "n3": "^1.23.1"
   }
 }

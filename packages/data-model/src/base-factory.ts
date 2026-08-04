@@ -5,21 +5,26 @@ import {
   type FactoryDependencies,
   fromJsonLd,
   ReadableApplicationRegistration,
-  ReadableClientIdDocument,
   ReadableDataInstance,
   ReadableDataRegistration,
   ReadableShapeTree,
-  ReadableWebIdProfile,
+  type ClientIdDocumentData,
+  type ShapeTreeDescriptionData,
+  type WebIdProfileData,
 } from '.'
+import { fromJsonLd as clientIdDocumentFromJsonLd } from './client-id-document'
+import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description'
+import { fromJsonLd as webIdProfileFromJsonLd } from './web-id-profile'
 
 export interface BaseReadableFactory {
   dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
   applicationRegistration(iri: string): Promise<ReadableApplicationRegistration>
   dataRegistration(iri: string): Promise<ReadableDataRegistration>
   shapeTree(iri: string, descriptionLang?: string): Promise<ReadableShapeTree>
+  shapeTreeDescription(iri: string): Promise<ShapeTreeDescriptionData>
   dataGrant(iri: string): Promise<GrantData>
-  webIdProfile(iri: string): Promise<ReadableWebIdProfile>
-  clientIdDocument(iri: string): Promise<ReadableClientIdDocument>
+  webIdProfile(iri: string): Promise<WebIdProfileData>
+  clientIdDocument(iri: string): Promise<ClientIdDocumentData>
 }
 
 export class BaseFactory {
@@ -62,13 +67,30 @@ export class BaseFactory {
       ): Promise<ReadableShapeTree> {
         return ReadableShapeTree.build(iri, factory, descriptionLang)
       },
-      webIdProfile: async function webIdProfile(iri: string): Promise<ReadableWebIdProfile> {
-        return ReadableWebIdProfile.build(iri, factory)
+      shapeTreeDescription: async function shapeTreeDescription(
+        iri: string
+      ): Promise<ShapeTreeDescriptionData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return shapeTreeDescriptionFromJsonLd(doc, iri)
+      },
+      webIdProfile: async function webIdProfile(iri: string): Promise<WebIdProfileData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return webIdProfileFromJsonLd(doc, iri)
       },
       clientIdDocument: async function clientIdDocument(
         iri: string
-      ): Promise<ReadableClientIdDocument> {
-        return ReadableClientIdDocument.build(iri, factory)
+      ): Promise<ClientIdDocumentData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return clientIdDocumentFromJsonLd(doc, iri)
       },
       dataGrant: async function dataGrant(iri: string): Promise<GrantData> {
         const response = await factory.fetch.raw(iri, {

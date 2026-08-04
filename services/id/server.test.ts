@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import { DataFactory } from 'n3'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 const mockFetchTriples = vi.fn()
@@ -97,5 +98,36 @@ describe('doc', () => {
     })
     expect(res.status).toBe(400)
     expect(await res.text()).toBe('wrong doc origin')
+  })
+  test('request doc as jsonld', async () => {
+    mockFetchTriples.mockResolvedValue({
+      toArray: vi.fn().mockResolvedValue([
+        DataFactory.quad(
+          DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+          DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+          DataFactory.literal('Alice')
+        ),
+        DataFactory.quad(
+          DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+          DataFactory.namedNode('http://www.w3.org/ns/solid/terms#oidcIssuer'),
+          DataFactory.namedNode(`https://${idOrigin}`)
+        ),
+      ]),
+    })
+    const res = await app.request('/somehandle', {
+      headers: {
+        Host: docOrigin,
+        Accept: 'application/ld+json',
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/ld+json')
+    expect(await res.json()).toEqual([
+      {
+        '@id': `https://${docOrigin}/somehandle`,
+        'http://www.w3.org/2000/01/rdf-schema#label': [{ '@value': 'Alice' }],
+        'http://www.w3.org/ns/solid/terms#oidcIssuer': [{ '@id': `https://${idOrigin}` }],
+      },
+    ])
   })
 })

@@ -24,7 +24,7 @@ describe('build', () => {
 
   test('should fetch its data if none passed', async () => {
     const dataRegistration = await CRUDDataRegistration.build(snippetIri, factory)
-    expect(dataRegistration.dataset.size).toBe(8)
+    expect(dataRegistration.dataset.size).toBe(7)
   })
 
   test('should set dataset if data passed', async () => {

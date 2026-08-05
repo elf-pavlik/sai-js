@@ -10,7 +10,7 @@ import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { CRUDContainer, type CRUDDataRegistration } from '.'
 import type { AuthorizationAgentFactory } from '..'
-import type { ReadableDataRegistration, ReadableShapeTree } from '../readable'
+import type { DataRegistrationData, ReadableShapeTree } from '..'
 import type { CRUDData } from './resource'
 
 export class CRUDDataRegistry extends CRUDContainer {
@@ -22,10 +22,14 @@ export class CRUDDataRegistry extends CRUDContainer {
 
   async registeredShapeTrees(): Promise<ReadableShapeTree[]> {
     const registrations = await asyncIterableToArray(this.registrations)
-    return registrations.map((registration) => registration.shapeTree)
+    return Promise.all(
+      registrations.map((registration) =>
+        this.factory.readable.shapeTree(registration.registeredShapeTree)
+      )
+    )
   }
 
-  get registrations(): AsyncIterable<ReadableDataRegistration> {
+  get registrations(): AsyncIterable<DataRegistrationData> {
     const { factory } = this
     const dataRegistry = this
     return {
@@ -43,8 +47,11 @@ export class CRUDDataRegistry extends CRUDContainer {
         throw new Error('registration already exists')
       }
     }
-    const dataRegistration = await this.factory.crud.dataRegistration(this.iriForContained(true), {
+    const iri = this.iriForContained(true)
+    const dataRegistration = await this.factory.crud.dataRegistration(iri, {
+      id: iri,
       registeredShapeTree,
+      contains: [],
     })
     await dataRegistration.create()
 

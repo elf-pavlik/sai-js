@@ -66,9 +66,9 @@ async function findUserDataRegistrations(
       )
       if (dataRegistration)
         dataRegistrations.push({
-          id: IRI.make(dataRegistration.iri),
+          id: IRI.make(dataRegistration.id),
           dataRegistry: IRI.make(dataRegistry.iri),
-          label: `${dataRegistration.iri.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
+          label: `${dataRegistration.id.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
           shapeTree: accessNeed.shapeTree.iri,
           count: dataRegistration.contains.length,
         })

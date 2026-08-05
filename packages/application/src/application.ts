@@ -1,7 +1,8 @@
 import {
   ApplicationFactory,
-  DataOwner,
-  type ReadableApplicationRegistration,
+  type ApplicationRegistrationData,
+  type DataOwnerData,
+  ApplicationRegistration,
   Grant,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -48,7 +49,7 @@ export class Application {
   registrationIri: string
 
   // TODO rename
-  hasApplicationRegistration?: ReadableApplicationRegistration
+  hasApplicationRegistration?: ApplicationRegistrationData
 
   public parentMap: Map<string, ParentInfo> = new Map()
 
@@ -113,7 +114,7 @@ export class Application {
    * Array of DataOwner instances out of all the data application can access.
    * @public
    */
-  get dataOwners(): DataOwner[] {
+  get dataOwners(): DataOwnerData[] {
     if (!this.hasApplicationRegistration) return []
     // Note: this is now lazy — fetches data grants each time
     // The property access pattern changed from sync to async.
@@ -121,18 +122,21 @@ export class Application {
     return []
   }
 
-  public async getDataOwnersAsync(): Promise<DataOwner[]> {
+  public async getDataOwnersAsync(): Promise<DataOwnerData[]> {
     if (!this.hasApplicationRegistration) return []
-    const dataGrants = await this.hasApplicationRegistration.getDataGrants()
+    const dataGrants = await ApplicationRegistration.getDataGrants(
+      this.hasApplicationRegistration,
+      this.factory
+    )
     return dataGrants.reduce((acc, grant) => {
-      let owner: DataOwner = acc.find((agent) => agent.iri === grant.dataOwner)
+      let owner: DataOwnerData = acc.find((agent) => agent.iri === grant.dataOwner)
       if (!owner) {
-        owner = new DataOwner(grant.dataOwner, this.factory)
+        owner = { iri: grant.dataOwner, issuedGrants: [] }
         acc.push(owner)
       }
       owner.issuedGrants.push(grant)
       return acc
-    }, [] as DataOwner[])
+    }, [] as DataOwnerData[])
   }
 
   public async resourceOwners(): Promise<Set<string>> {

@@ -13,12 +13,11 @@ export type {
   AccessNeedGroupDescriptionData,
 } from '../access-description'
 export type { AccessDescriptionSetData } from '../access-description-set'
+export type { DataRegistrationData } from '../data-registration'
+export type { ApplicationRegistrationData } from '../application-registration'
 
 export { ReadableResource } from './resource'
-export { ReadableContainer } from './container'
-export { ReadableApplicationRegistration } from './application-registration'
 export { ReadableShapeTree } from './shape-tree'
-export { ReadableDataRegistration } from './data-registration'
 export { ReadableAccessNeed } from './access-need'
 export { ReadableAccessNeedGroup } from './access-need-group'
 export { ReadableDataInstance } from './data-instance'

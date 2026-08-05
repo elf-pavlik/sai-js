@@ -2,10 +2,7 @@ import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { CRUDContainer } from '.'
 import type { AuthorizationAgentFactory } from '..'
-
-export type DataRegistrationData = {
-  registeredShapeTree: string
-}
+import type { DataRegistrationData } from '../data-registration'
 
 export class CRUDDataRegistration extends CRUDContainer {
   declare data: DataRegistrationData
@@ -21,7 +18,7 @@ export class CRUDDataRegistration extends CRUDContainer {
   }
 
   private datasetFromData(): void {
-    const props: (keyof DataRegistrationData)[] = ['registeredShapeTree']
+    const props = ['registeredShapeTree'] as const
     for (const prop of props) {
       this.dataset.add(
         DataFactory.quad(

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { SolidTestUtils, accounts, inspector, shapeTree } from '@janeirodigital/css-test-utils'
-import { DataOwner, ReadableApplicationRegistration } from '@janeirodigital/interop-data-model'
 import { statelessFetch } from '@janeirodigital/interop-test-utils'
 import type { RdfResponse } from '@janeirodigital/interop-utils'
 import * as utils from '@janeirodigital/interop-utils'
@@ -34,7 +33,10 @@ describe('applicatrion registration exists', () => {
   test('should build application registration if discovered', async () => {
     mocked.mockResolvedValueOnce(await statelessFetch(webId)).mockResolvedValueOnce(responseMock)
     const app = await Application.build(webId, applicationId, { fetch: mocked, randomUUID })
-    expect(app.hasApplicationRegistration).toBeInstanceOf(ReadableApplicationRegistration)
+    expect(app.hasApplicationRegistration?.id).toBe(
+      'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
+    )
+    expect(app.hasApplicationRegistration?.registeredAgent).toBe('https://projectron.example/#app')
   })
 
   test('should have dataOwners getter', async () => {
@@ -43,7 +45,11 @@ describe('applicatrion registration exists', () => {
     const owners = await app.getDataOwnersAsync()
     expect(owners).toHaveLength(3)
     for (const owner of owners) {
-      expect(owner).toBeInstanceOf(DataOwner)
+      expect(owner.iri).toBeTypeOf('string')
+      expect(Array.isArray(owner.issuedGrants)).toBe(true)
+      for (const grant of owner.issuedGrants) {
+        expect(grant.dataOwner).toBe(owner.iri)
+      }
     }
   })
 })

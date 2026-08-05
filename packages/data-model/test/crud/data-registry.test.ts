@@ -6,7 +6,6 @@ import { describe, test, vi } from 'vitest'
 import {
   AuthorizationAgentFactory,
   CRUDDataRegistration,
-  ReadableDataRegistration,
 } from '../../src'
 import { expect } from '../expect'
 
@@ -24,7 +23,8 @@ test('registrations', async () => {
   const dataRegistry = await factory.crud.dataRegistry(snippetIri)
   let count = 0
   for await (const registration of dataRegistry.registrations) {
-    expect(registration).toBeInstanceOf(ReadableDataRegistration)
+    expect(registration.id).toBeTypeOf('string')
+    expect(registration.registeredShapeTree).toBeTypeOf('string')
     count += 1
   }
   expect(count).toBe(2)

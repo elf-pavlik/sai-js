@@ -1,31 +1,42 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import { ApplicationFactory, ReadableApplicationRegistration } from '../../src'
+import { ApplicationFactory, ApplicationRegistration } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
 const snippetIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
 
-describe('build', () => {
-  test('should return instance of Application Registration', async () => {
-    const applicationRegistration = await ReadableApplicationRegistration.build(snippetIri, factory)
-    expect(applicationRegistration).toBeInstanceOf(ReadableApplicationRegistration)
+describe('getters', () => {
+  test('id', async () => {
+    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    expect(applicationRegistration.id).toEqual(snippetIri)
   })
 
-  test('should fetch its data', async () => {
-    const applicationRegistration = await ReadableApplicationRegistration.build(snippetIri, factory)
-    expect(applicationRegistration.dataset.size).toBeGreaterThan(0)
+  test('registeredAgent', async () => {
+    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    expect(applicationRegistration.registeredAgent).toEqual('https://projectron.example/#app')
   })
 
+  test('hasDataGrant', async () => {
+    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    expect(applicationRegistration.hasDataGrant.length).toBeGreaterThan(0)
+    for (const grantIri of applicationRegistration.hasDataGrant) {
+      expect(typeof grantIri).toBe('string')
+    }
+  })
+
+  test('granted', async () => {
+    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    expect(applicationRegistration.granted).toBe(true)
+    expect(ApplicationRegistration.getGranted(applicationRegistration)).toBe(true)
+  })
+})
+
+describe('getDataGrants', () => {
   test('should provide data grants', async () => {
-    const applicationRegistration = await ReadableApplicationRegistration.build(snippetIri, factory)
-    const dataGrants = await applicationRegistration.getDataGrants()
+    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const dataGrants = await ApplicationRegistration.getDataGrants(applicationRegistration, factory)
     expect(dataGrants.length).toBeGreaterThan(0)
-  })
-
-  test('should provide iriForContained method', async () => {
-    const applicationRegistration = await ReadableApplicationRegistration.build(snippetIri, factory)
-    expect(applicationRegistration.iriForContained()).toMatch(applicationRegistration.iri)
   })
 })

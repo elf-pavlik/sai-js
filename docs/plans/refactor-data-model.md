@@ -10,7 +10,7 @@ The refactor happens in **four independent phases**. After each phase the whole 
 
 Every resource becomes a POJO via:
 
-1. **POJO type** (`XxxData` / `FinalXxxData`), `id` optional until assigned
+1. **POJO type** (`XxxData` / `FinalXxxData`); `id` is **required** on every resource POJO — only `GrantData` has the optional-`id` + `FinalGrantData` split (see decision 16)
 2. **JSON-LD context** (`xxx-context.ts`) — used by `fromDataset`/`fromJsonLd` (read) and `toDataset`/`toJsonLd` (write); shared framing/RDF helpers live in `jsonld-utils.ts`
 3. **Behavior as free functions** taking `(data, factory)` as the first parameters
 4. **Factory methods return POJOs** (`factory.readable.xxx()` / `factory.crud.xxx()`)
@@ -99,9 +99,9 @@ After this phase the **application package is fully converted**.
 
 | Class | POJO type | Fields |
 |-------|-----------|--------|
-| `ReadableDataRegistration` | `DataRegistrationData` | `id`, `registeredShapeTree`, `contains: string[]`, `iriPrefix` — **no `shapeTree` property**; consumers fetch it via `factory.readable.shapeTree(...)` |
+| `ReadableDataRegistration` | `DataRegistrationData` | `id`, `registeredShapeTree`, `contains: string[]` — **no `shapeTree` property** (dropped: `iriPrefix` is no longer needed; consumers fetch the shape tree via `factory.readable.shapeTree(...)`) |
 | `ReadableApplicationRegistration` | `ApplicationRegistrationData` | `id`, `registeredAgent`, `hasDataGrant: string[]`, `granted` |
-| `ReadableContainer` | folded | `iriForContained` → free fn (e.g. in a `container.ts` module or reused from `CRUDContainer`) |
+| `ReadableContainer` | folded | no readable-side replacement needed — `iriForContained` stays only on `CRUDContainer`; the sole readable user was `ReadableApplicationRegistration` itself |
 | `DataOwner` | `DataOwnerData` | `iri`, `issuedGrants: GrantData[]` |
 
 ## Steps
@@ -112,15 +112,16 @@ After this phase the **application package is fully converted**.
    - `src/data-owner.ts` — `DataOwnerData` + `selectRegistrations(owner, shapeTree, factory): ReadableDataRegistrationProxy[]` free fn
 2. **Factory** — `factory.readable.{dataRegistration, applicationRegistration}` return POJOs.
 3. **data-model internals** (still classes, adapted in place):
-   - `ReadableDataInstance.buildDataRegistration` gets a POJO; replace `this.dataRegistration?.shapeTree` usages with `await factory.readable.shapeTree(reg.registeredShapeTree)`; `registeredShapeTree`/`iri` accesses unchanged
-   - `CRUDDataRegistry.registrations` → `AsyncIterable<DataRegistrationData>`; `registeredShapeTrees()` fetches `factory.readable.shapeTree(reg.registeredShapeTree)` itself
+   - `ReadableDataInstance.buildDataRegistration` gets a POJO; its `bootstrap` now **always** resolves `this._shapeTree` explicitly via `await factory.readable.shapeTree(reg.registeredShapeTree)` (the old `ReadableDataRegistration.shapeTree` eager property is gone); `label`/`shapeTree`/`isBlob`/`buildChildrenInfo` read from `_shapeTree`
+   - `CRUDDataRegistry.registrations` → `AsyncIterable<DataRegistrationData>`; `registeredShapeTrees()` fetches `factory.readable.shapeTree(reg.registeredShapeTree)` itself **and keeps returning `ReadableShapeTree[]`** (repl's `cli.ts` maps `({ iri }) => iri`); `createRegistration` still returns the `CRUDDataRegistration` class in this phase
    - `AgentRegistrationGetters` mixin stays (still used by `CRUDAgentRegistration` until Phase 4); readable side stops using it
+   - All `.iri` reads on data registrations become `.id` — incl. internal `data-authorization.ts` (`generateChildSourceGrantData`, `generateSourceDataGrants` match/fill `hasDataRegistration`)
 4. **Consumers:**
    - `packages/application` — `DataOwner` → `DataOwnerData` (`getDataOwnersAsync` builds POJOs); `hasApplicationRegistration.getDataGrants()` → `getDataGrants(reg, factory)`; `dataRegistration.contains` unchanged (POJO field)
-   - `packages/authorization-agent` — `dataRegistration.registeredShapeTree/.iri/.contains` (same field names on POJO); `factory.readable.dataRegistration` returns POJO
-   - `packages/components` — `services/Authorization.ts` line ~102 `factory.readable.dataRegistration(...)` returns POJO (field accesses unchanged)
+   - `packages/authorization-agent` — POJO fields: `registeredShapeTree`/`contains` unchanged, **`.iri` → `.id`** (`findAgentsWithAccess`, `formatAuthorization`, `findDataRegistrationForResource`)
+   - `packages/components` — `services/Authorization.ts` (`findUserDataRegistrations` `.iri` → `.id`; the line ~102 read returns POJO, `.contains` unchanged) and `services/DataRegistry.ts` (`buildDataRegistry` `.iri` → `.id`)
 5. **Delete old classes:** `readable/data-registration.ts`, `readable/application-registration.ts`, `readable/container.ts`, `data-owner.ts` (class)
-6. **Tests:** rewrite `readable/{data-registration, application-registration}.test.ts`, `data-owner.test.ts`; adapt `readable/data-instance.test.ts`, `crud/data-registry.test.ts`, `application.test.ts`, `authorization-agent.test.ts` (dataRegistration usages)
+6. **Tests:** rewrite `readable/{data-registration, application-registration}.test.ts`, `data-owner.test.ts`; adapt `base-factory.test.ts` ("builds application registration"), `crud/data-registration.test.ts` (dataset count 8 → 7 — the removed `iriPrefix` fixture quad), `crud/data-registry.test.ts` (`registrations` now yields POJOs), `application.test.ts` (two `instanceof` checks → POJO field assertions). **No changes needed:** `readable/data-instance.test.ts` (passed unchanged) and `authorization-agent.test.ts` (skip-gated; uses `ReadableDataRegistration` only as a type in a cast).
 7. **Verify:** same as Phase 1
 
 ---
@@ -352,3 +353,7 @@ Key facts:
 13. **Server-backed package tests move to root `test/`, mock-based unit tests stay in the packages** — each package keeps a server-free test gate (helps Phases 1–4, especially Phase 2's `application` conversion).
 14. **`AccessDescriptionSetData` stores only `{ id }`** — the need/group split is derived data (a query over the set's dataset), extracted as pure fns `forAccessNeed(dataset, setIri)` / `forAccessNeedGroup(dataset, setIri)`; the set module has no `fromDataset`/`fromJsonLd` since the split can't round-trip. Framing can't express it either: two context terms mapping to the same `@reverse` predicate collide (jsonld throws on the resulting frame array).
 15. **No `@type: '@id'` on interop context fields** (`clientIdDocumentContext` callbackEndpoint/hasAccessNeedGroup/logoUri, `webIdProfileContext` oidcIssuer, `accessDescriptionContext` hasAccessNeed/hasAccessNeedGroup) — client id docs serialize interop props as bare strings; `framedValue` unwraps every value shape (plain string, `{@value…}` literal, `{id}`/`{@id}` node ref).
+16. **`id` is required on resource POJOs** — every converted resource always has an IRI: the read path fetches by a known IRI (`factory.readable.xxx(iri)` → `id: iri`) and the write path generates the IRI *before* constructing the POJO (`factory.crud.xxx(iriForContained(), data)` → `id: iri`). So `DataRegistrationData.id`, `ApplicationRegistrationData.id`, `DataInstanceData.id`, etc. are all `id: string` — **not** `id?`. The one exception is `GrantData`, where `id?: string` + `FinalGrantData` exist because *delegated grants* are embedded in the parent grant's `hasInheritingGrant` before any IRI is assigned (the delegation endpoint assigns it later, see `generateDelegatedDataGrants` / `requestDelegation`). No other resource type has such a pre-IRI state, so the `id?`/`Final*` split is **not** replicated for them.
+17. **`DataRegistrationData.contains` is a required read-only field; the write side shares the same type** — `contains: string[]` (possibly `[]` for an empty registration) is always present on reads. The write side (SPARQL patch based) never writes `contains` — `ldp:contains` is server-managed LDP containment, not client-written data — and never serializes the POJO via `toDataset`/`toJsonLd` in Phase 2. There is **no separate CRUD write type**: `factory.crud.dataRegistration(iri, data?: DataRegistrationData)` takes the same `DataRegistrationData`, and the creation path (the only place a registration is built without a prior read) supplies `{ id: iri, registeredShapeTree, contains: [] }` — a brand-new container legitimately contains nothing yet.
+18. **Behavior fns with colliding names export as namespaces, not top-level** — `application-registration.ts`'s `getDataGrants`/`getGranted` are exported via `export * as ApplicationRegistration`, because `crud/agent-registration.ts` already exports top-level `getDataGrants`/`getGranted`; star-exporting both at the top level would silently drop one. Consumers call `ApplicationRegistration.getDataGrants(reg, factory)`. The same namespace pattern (`export * as DataRegistration`, `export * as DataOwner`) keeps module fns discoverable without polluting the top-level scope.
+19. **Context style follows the resource's source serialization** — registry-style POJOs (`DataRegistrationData`, `ApplicationRegistrationData`, like `GrantData`) use `@type: '@id'` (plus `@container: '@set'` for arrays) on interop properties and read framed values directly (`node.registeredShapeTree`, no `framedValue`), because these resources are RDF-served with IRI values. Decision 15's *no* `@type: '@id'` rule applies only to leaf-doc POJOs (client id doc, webid profile, access descriptions) whose source documents serialize interop properties as bare strings.

@@ -7,10 +7,10 @@ import {
   type CRUDSocialAgentRegistration,
   type DataAuthorizationData,
   type DataGrant,
+  type DataRegistrationData,
   type FinalDataAuthorizationData,
   type GeneratedGrants,
   type ReadableDataInstance,
-  type ReadableDataRegistration,
   type ReadableShapeTree,
   type WebIdProfileData,
   generateGrantsForAuthorization,
@@ -140,11 +140,11 @@ export class AuthorizationAgent {
   public async findDataRegistration(
     dataRegistryIri: string,
     shapeTree: string
-  ): Promise<ReadableDataRegistration> {
+  ): Promise<DataRegistrationData> {
     const dataRegistry = this.registrySet.hasDataRegistry.find(
       (registry) => registry.iri === dataRegistryIri
     )
-    let dataRegistration: ReadableDataRegistration
+    let dataRegistration: DataRegistrationData
     for await (const registration of dataRegistry.registrations) {
       if (registration.registeredShapeTree === shapeTree) {
         dataRegistration = registration
@@ -199,7 +199,7 @@ export class AuthorizationAgent {
 
   public async findDataRegistrationForResource(
     resourceId: string
-  ): Promise<ReadableDataRegistration> {
+  ): Promise<DataRegistrationData> {
     const registrationId = `${resourceId.split('/').slice(0, -1).join('/')}/`
     return this.factory.readable.dataRegistration(registrationId)
   }
@@ -319,13 +319,13 @@ export class AuthorizationAgent {
           }
           break
         case INTEROP.AllFromRegistry.value:
-          if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.iri) {
+          if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           }
           break
         case INTEROP.SelectedFromRegistry.value:
           if (
-            dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.iri &&
+            dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id &&
             (dataAuthorization.hasDataInstance ?? []).includes(dataInstanceIri)
           ) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
@@ -351,7 +351,7 @@ export class AuthorizationAgent {
       registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
       scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
       dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
-      hasDataRegistration: dataInstance.dataRegistration!.iri,
+      hasDataRegistration: dataInstance.dataRegistration!.id,
       accessMode: details.accessMode,
       hasDataInstance: [dataInstance.iri],
       children: await Promise.all(
@@ -363,10 +363,10 @@ export class AuthorizationAgent {
           dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
           hasDataRegistration: (
             await this.findDataRegistration(
-              registryOfRegistration(dataInstance.dataRegistration!.iri),
+              registryOfRegistration(dataInstance.dataRegistration!.id),
               child.shapeTree
             )
-          ).iri,
+          ).id,
           accessMode: child.accessMode,
         }))
       ),

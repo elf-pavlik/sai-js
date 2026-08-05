@@ -6,7 +6,7 @@ import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
 import dataAuthorizationContext from './data-authorization-context'
 import type { GeneratedGrants, GrantData, FinalGrantData } from './grant'
 import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
-import type { ReadableDataRegistration } from './readable/data-registration'
+import type { DataRegistrationData } from './data-registration'
 
 // ──────────────────────────
 // Types
@@ -270,7 +270,7 @@ async function generateDelegatedDataGrants(
 async function generateChildSourceGrantData(
   data: DataAuthorizationData,
   parentGrantIri: string,
-  dataRegistrations: ReadableDataRegistration[],
+  dataRegistrations: DataRegistrationData[],
   registrySet: CRUDRegistrySet,
   grantee: string,
   storageIri: string
@@ -291,7 +291,7 @@ async function generateChildSourceGrantData(
       grantedBy: childAuthorization.grantedBy,
       dataOwner: childAuthorization.grantedBy,
       registeredShapeTree: childAuthorization.registeredShapeTree,
-      hasDataRegistration: dataRegistration.iri,
+      hasDataRegistration: dataRegistration.id,
       hasStorage: storageIri,
       scopeOfGrant: INTEROP.Inherited.value,
       accessMode: childAuthorization.accessMode,
@@ -320,12 +320,12 @@ async function generateSourceDataGrants(
 
     const dataRegistrations = await asyncIterableToArray(dataRegistry.registrations)
 
-    let matchingRegistration: ReadableDataRegistration
+    let matchingRegistration: DataRegistrationData
 
     if (data.hasDataRegistration) {
       // match registration if specified
       matchingRegistration = dataRegistrations.find(
-        (registration) => registration.iri === data.hasDataRegistration
+        (registration) => registration.id === data.hasDataRegistration
       )
     } else {
       // match shape tree
@@ -358,7 +358,7 @@ async function generateSourceDataGrants(
       grantedBy: data.grantedBy,
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
-      hasDataRegistration: matchingRegistration.iri,
+      hasDataRegistration: matchingRegistration.id,
       hasStorage: await dataRegistry.storageIri(),
       scopeOfGrant,
       accessMode: data.accessMode,

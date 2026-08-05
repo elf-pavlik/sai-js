@@ -3,7 +3,7 @@ import { fetch } from '@janeirodigital/interop-test-utils'
 import { parseTurtle } from '@janeirodigital/interop-utils'
 import * as jsonldNs from 'jsonld'
 import { describe, expect, test } from 'vitest'
-import { BaseFactory, Grant, ReadableApplicationRegistration } from '../src'
+import { BaseFactory, Grant } from '../src'
 
 // CJS/ESM interop
 const jsonld = (jsonldNs as any).default ?? jsonldNs
@@ -22,7 +22,9 @@ test('builds application registration', async () => {
   const applicationRegistration = await factory.readable.applicationRegistration(
     applicationRegistrationUrl
   )
-  expect(applicationRegistration).toBeInstanceOf(ReadableApplicationRegistration)
+  expect(applicationRegistration.id).toEqual(applicationRegistrationUrl)
+  expect(applicationRegistration.registeredAgent).toEqual('https://projectron.example/#app')
+  expect(applicationRegistration.granted).toBe(true)
 })
 
 test('throws for grant with invalid scope', async () => {

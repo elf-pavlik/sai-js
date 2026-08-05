@@ -17,7 +17,7 @@ const buildDataRegistry = async (
     )
     registrations.push(
       DataRegistration.make({
-        id: IRI.make(registration.iri),
+        id: IRI.make(registration.id),
         shapeTree: registration.registeredShapeTree,
         dataRegistry: registry.iri,
         count: registration.contains.length,

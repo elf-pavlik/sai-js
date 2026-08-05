@@ -2,24 +2,26 @@ import { type RdfFetch } from '@janeirodigital/interop-utils'
 import {
   type GrantData,
   DataInstance,
+  type DataRegistrationData,
+  type ApplicationRegistrationData,
   type FactoryDependencies,
   fromJsonLd,
-  ReadableApplicationRegistration,
   ReadableDataInstance,
-  ReadableDataRegistration,
   ReadableShapeTree,
   type ClientIdDocumentData,
   type ShapeTreeDescriptionData,
   type WebIdProfileData,
 } from '.'
 import { fromJsonLd as clientIdDocumentFromJsonLd } from './client-id-document'
+import { fromJsonLd as dataRegistrationFromJsonLd } from './data-registration'
+import { fromJsonLd as applicationRegistrationFromJsonLd } from './application-registration'
 import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description'
 import { fromJsonLd as webIdProfileFromJsonLd } from './web-id-profile'
 
 export interface BaseReadableFactory {
   dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
-  applicationRegistration(iri: string): Promise<ReadableApplicationRegistration>
-  dataRegistration(iri: string): Promise<ReadableDataRegistration>
+  applicationRegistration(iri: string): Promise<ApplicationRegistrationData>
+  dataRegistration(iri: string): Promise<DataRegistrationData>
   shapeTree(iri: string, descriptionLang?: string): Promise<ReadableShapeTree>
   shapeTreeDescription(iri: string): Promise<ShapeTreeDescriptionData>
   dataGrant(iri: string): Promise<GrantData>
@@ -53,13 +55,21 @@ export class BaseFactory {
       },
       applicationRegistration: async function applicationRegistration(
         iri: string
-      ): Promise<ReadableApplicationRegistration> {
-        return ReadableApplicationRegistration.build(iri, factory)
+      ): Promise<ApplicationRegistrationData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return applicationRegistrationFromJsonLd(doc, iri)
       },
       dataRegistration: async function dataRegistration(
         iri: string
-      ): Promise<ReadableDataRegistration> {
-        return ReadableDataRegistration.build(iri, factory)
+      ): Promise<DataRegistrationData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return dataRegistrationFromJsonLd(doc, iri)
       },
       shapeTree: async function shapeTree(
         iri: string,

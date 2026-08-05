@@ -1,4 +1,5 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { RoleRegistry } from '@janeirodigital/interop-data-model'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import { Temporal } from '../temporal/client.js'
 import { processRoleMembershipChange, processRoleDeletion } from '../temporal/workflows/grants.js'
@@ -9,7 +10,7 @@ export const getRoles = async (saiSession: AuthorizationAgent) => {
   for await (const registration of saiSession.roles) {
     roles.push(
       Role.make({
-        id: IRI.make(registration.iri),
+        id: IRI.make(registration.id),
         label: registration.label,
         members: registration.members.map((m) => IRI.make(m)),
       })
@@ -24,8 +25,13 @@ export const createRole = async (
   label: string,
   members: readonly S.Schema.Type<typeof IRI>[]
 ): Promise<S.Schema.Type<typeof Role>> => {
-  const registration = await saiSession.registrySet.hasRoleRegistry.createRole(label, [...members])
-  return Role.make({ id: IRI.make(registration.iri), label, members: [...members] })
+  const registration = await RoleRegistry.createRole(
+    saiSession.registrySet.hasRoleRegistry,
+    saiSession.factory,
+    label,
+    [...members]
+  )
+  return Role.make({ id: IRI.make(registration.id), label, members: [...members] })
 }
 
 export const updateRole = async (
@@ -35,7 +41,13 @@ export const updateRole = async (
   members: readonly S.Schema.Type<typeof IRI>[]
 ): Promise<S.Schema.Type<typeof Role>> => {
   const role = await saiSession.factory.crud.role(id)
-  await saiSession.registrySet.hasRoleRegistry.updateRole(id, label, [...members])
+  await RoleRegistry.updateRole(
+    saiSession.registrySet.hasRoleRegistry,
+    saiSession.factory,
+    id,
+    label,
+    [...members]
+  )
   const before = new Set(role.members)
   const after = new Set(members)
   const affected = [...before.symmetricDifference(after)]
@@ -62,7 +74,11 @@ export const deleteRole = async (
   id: S.Schema.Type<typeof IRI>
 ): Promise<void> => {
   const role = await saiSession.factory.crud.role(id)
-  await saiSession.registrySet.hasRoleRegistry.deleteRole(id)
+  await RoleRegistry.deleteRole(
+    saiSession.registrySet.hasRoleRegistry,
+    saiSession.factory,
+    id
+  )
   const temporal = new Temporal()
   await temporal.init()
   await temporal.client.workflow.execute(processRoleDeletion, {

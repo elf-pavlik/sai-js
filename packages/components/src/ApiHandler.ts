@@ -81,7 +81,7 @@ export class ApiHandler extends OperationHttpHandler {
         getDataRegistries: (agentId, lang) =>
           Effect.promise(() => getDataRegistries(session, agentId, lang)),
         listDataInstances: (agentId, registrationId) =>
-          Effect.promise(() => listDataInstances(session, agentId, registrationId)),
+          Effect.promise(() => listDataInstances(session, agentId, registrationId, 'en')),
         getApplications: () => Effect.promise(() => getApplications(session)),
         getUnregisteredApplication: (id) =>
           Effect.promise(() => getUnregisteredApplication(session, id)),

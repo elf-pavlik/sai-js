@@ -1,6 +1,7 @@
 import {
   type AuthorizationAgentFactory,
-  type CRUDAuthorizationRegistry,
+  type AuthorizationRegistryData,
+  AuthorizationRegistry,
   DataAuthorization,
   type DataAuthorizationData,
   type FinalDataAuthorizationData,
@@ -36,7 +37,8 @@ export type AccessAuthorizationStructure = GrantedAuthorization | DeniedAuthoriz
 export async function generateDataAuthorizations(
   dataAuthorizations: NestedDataAuthorizationData[],
   grantedBy: string,
-  authorizationRegistry: CRUDAuthorizationRegistry
+  authorizationRegistry: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
 ): Promise<FinalDataAuthorizationData[]> {
   // don't create data authorization where grantee == dataowner
   const validDataAuthorizations = dataAuthorizations.filter(
@@ -45,11 +47,11 @@ export async function generateDataAuthorizations(
 
   const result: FinalDataAuthorizationData[] = []
   for (const dataAuthorization of validDataAuthorizations) {
-    const dataAuthorizationIri = authorizationRegistry.iriForContained()
+    const dataAuthorizationIri = AuthorizationRegistry.iriForContained(authorizationRegistry, factory)
     const children: FinalDataAuthorizationData[] = []
     if (dataAuthorization.children) {
       for (const childDataAuthorization of dataAuthorization.children) {
-        const childDataAuthorizationIri = authorizationRegistry.iriForContained()
+        const childDataAuthorizationIri = AuthorizationRegistry.iriForContained(authorizationRegistry, factory)
         children.push({
           ...childDataAuthorization,
           id: childDataAuthorizationIri,
@@ -78,7 +80,7 @@ export async function generateDataAuthorizations(
  * linked to the registry without any client-side link management.
  */
 export async function replaceDataAuthorizationsForGrantee(
-  registry: CRUDAuthorizationRegistry,
+  registry: AuthorizationRegistryData,
   existingDataAuthorizations: DataAuthorizationData[],
   irisToKeep: string[],
   factory: AuthorizationAgentFactory
@@ -100,7 +102,6 @@ export async function replaceDataAuthorizationsForGrantee(
       throw new Error(`failed to delete data authorization: ${response.status}`)
     }
   }
-  await registry.fetchData()
 }
 
 /**
@@ -118,7 +119,7 @@ export async function replaceDataAuthorizationsForGrantee(
 export async function generateAuthorization(
   authorization: AccessAuthorizationStructure,
   grantedBy: string,
-  authorizationRegistry: CRUDAuthorizationRegistry,
+  authorizationRegistry: AuthorizationRegistryData,
   factory: AuthorizationAgentFactory,
   extendIfExists: boolean
 ): Promise<FinalDataAuthorizationData[]> {
@@ -126,7 +127,9 @@ export async function generateAuthorization(
     throw new Error('Previous denied authorizations can not be extended')
   }
 
-  const existingDataAuthorizations = await authorizationRegistry.findDataAuthorizations(
+  const existingDataAuthorizations = await AuthorizationRegistry.findDataAuthorizations(
+    authorizationRegistry,
+    factory,
     authorization.grantee
   )
 
@@ -173,7 +176,8 @@ export async function generateAuthorization(
     dataAuthorizations = await generateDataAuthorizations(
       authorization.dataAuthorizations,
       grantedBy,
-      authorizationRegistry
+      authorizationRegistry,
+      factory
     )
 
     // store data authorizations

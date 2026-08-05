@@ -1,14 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { INTEROP, RDF, SKOS } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
 import {
   addDataGrant,
   AuthorizationAgentFactory,
-  CRUDSocialAgentRegistration,
   getDataGrantIris,
-  type SocialAgentRegistrationData,
 } from '../../src'
 import { expect } from '../expect'
 
@@ -25,84 +21,50 @@ const data = {
 }
 
 describe('build', () => {
-  test('should return instance of Agent Registration', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    expect(agentRegistration).toBeInstanceOf(CRUDSocialAgentRegistration)
+  test('should return agent registration', async () => {
+    const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
+    expect(agentRegistration).toHaveProperty('id', snippetIri)
   })
 
   test('should fetch its data if none passed', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    expect(agentRegistration.dataset.size).toBe(19)
+    const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
+    expect(agentRegistration.registeredAgent).toBe('https://projectron.example/#app')
+    expect(agentRegistration.hasDataGrant).toHaveLength(10)
   })
 
-  test('should set dataset if data passed', async () => {
-    const quads = [
-      DataFactory.quad(
-        DataFactory.namedNode(newSnippetIri),
-        RDF.type,
-        INTEROP.SocialAgentRegistration
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(newSnippetIri),
-        INTEROP.registeredAgent,
-        DataFactory.namedNode(data.registeredAgent)
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(newSnippetIri),
-        INTEROP.hasDataGrant,
-        DataFactory.namedNode(dataGrantIri)
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(newSnippetIri),
-        SKOS.prefLabel,
-        DataFactory.literal(data.prefLabel)
-      ),
-    ]
-    const agentRegistration = await CRUDSocialAgentRegistration.build(
+  test('should set data if passed', async () => {
+    const agentRegistration = await factory.crud.socialAgentRegistration(
       newSnippetIri,
-      factory,
       false,
       data
     )
-    expect(agentRegistration.dataset.size).toBe(4)
-    expect(agentRegistration.dataset).toBeRdfDatasetContaining(...quads)
-  })
-
-  test('should have updatedAt and registeredAt uset for new before update', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(
-      newSnippetIri,
-      factory,
-      false,
-      data
-    )
-    expect(agentRegistration.registeredAt).toBeUndefined()
-    expect(agentRegistration.updatedAt).toBeUndefined()
+    expect(agentRegistration).toMatchObject(data)
+    expect(agentRegistration.id).toBe(newSnippetIri)
   })
 })
 
 describe('getDataGrantIris', () => {
   test('should return data grant IRIs from dataset', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
-    const iris = getDataGrantIris(agentRegistration)
+    const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
+    const iris = await getDataGrantIris(agentRegistration, factory)
     expect(iris).toContain(dataGrantIri)
   })
 })
 
 describe('registeredAgent', () => {
   test('should have getter', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
+    const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
     expect(agentRegistration.registeredAgent).toBe('https://projectron.example/#app')
   })
 })
 
 describe('addDataGrant', () => {
   test('adds new data grant IRI to dataset', async () => {
-    const agentRegistration = await CRUDSocialAgentRegistration.build(snippetIri, factory, false)
+    const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
     const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    const beforeIris = getDataGrantIris(agentRegistration)
+    const beforeIris = await getDataGrantIris(agentRegistration, factory)
     expect(beforeIris).not.toContain(newGrantIri)
-    await addDataGrant(agentRegistration, newGrantIri)
-    const afterIris = getDataGrantIris(agentRegistration)
-    expect(afterIris).toContain(newGrantIri)
+    await addDataGrant(agentRegistration, factory, newGrantIri)
+    expect(agentRegistration.hasDataGrant).toContain(newGrantIri)
   })
 })

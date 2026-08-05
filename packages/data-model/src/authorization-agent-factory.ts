@@ -2,27 +2,25 @@ import {
   type AgentRegistrationData,
   BaseFactory,
   type BaseReadableFactory,
-  CRUDAgentRegistry,
-  CRUDApplicationRegistration,
-  CRUDAuthorizationRegistry,
-  CRUDDataRegistration,
-  CRUDDataRegistry,
-  CRUDGrantRegistry,
-  CRUDRegistrySet,
-  CRUDRole,
-  CRUDRoleRegistry,
-  CRUDSocialAgentInvitation,
-  CRUDSocialAgentRegistration,
   type AccessDescriptionSetData,
   type AccessNeedDescriptionData,
   type AccessNeedGroupDescriptionData,
   type AccessNeedData,
   type AccessNeedGroupData,
+  type AgentRegistryData,
+  type ApplicationRegistrationData,
+  type AuthorizationRegistryData,
   type DataAuthorizationData,
   type DataRegistrationData,
+  type DataRegistryData,
   type FactoryDependencies,
   type FinalGrantData,
   type GrantData,
+  type GrantRegistryData,
+  type RegistrySetData,
+  type RegistrySetDataInput,
+  type RoleData,
+  type RoleRegistryData,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
@@ -33,8 +31,11 @@ import {
 import { fromJsonLd as accessNeedFromJsonLd } from './access-need'
 import { fromJsonLd as accessNeedGroupFromJsonLd } from './access-need-group'
 import { fromJsonLd as dataAuthorizationFromJsonLd } from './data-authorization'
-import type { CRUDRegistrySetData } from './crud/registry-set'
-import type { CRUDData } from './crud/resource'
+import { loadApplicationRegistration } from './crud/application-registration'
+import { loadSocialAgentInvitation } from './crud/social-agent-invitation'
+import { loadSocialAgentRegistration } from './crud/social-agent-registration'
+import { loadRole } from './crud/role'
+import { loadRegistrySet } from './crud/registry-set'
 
 interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
   dataAuthorization(iri: string): Promise<DataAuthorizationData>
@@ -47,25 +48,25 @@ interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
 interface CRUDFactory {
   applicationRegistration(
     iri: string,
-    data?: AgentRegistrationData
-  ): Promise<CRUDApplicationRegistration>
+    data?: Omit<AgentRegistrationData, 'id'>
+  ): Promise<ApplicationRegistrationData>
   socialAgentRegistration(
     iri: string,
     reciprocal?: boolean,
-    data?: SocialAgentRegistrationData
-  ): Promise<CRUDSocialAgentRegistration>
+    data?: Omit<SocialAgentRegistrationData, 'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'>
+  ): Promise<SocialAgentRegistrationData>
   socialAgentInvitation(
     iri: string,
-    data?: SocialAgentInvitationData
-  ): Promise<CRUDSocialAgentInvitation>
-  role(iri: string, data?: CRUDData): Promise<CRUDRole>
-  roleRegistry(iri: string, data?: CRUDData): Promise<CRUDRoleRegistry>
-  dataRegistry(iri: string, data?: CRUDData): Promise<CRUDDataRegistry>
-  dataRegistration(iri: string, data?: DataRegistrationData): Promise<CRUDDataRegistration>
-  authorizationRegistry(iri: string, data?: CRUDData): Promise<CRUDAuthorizationRegistry>
-  grantRegistry(iri: string, data?: CRUDData): Promise<CRUDGrantRegistry>
-  agentRegistry(iri: string, data?: CRUDData): Promise<CRUDAgentRegistry>
-  registrySet(iri: string, data?: CRUDRegistrySetData): Promise<CRUDRegistrySet>
+    data?: Omit<SocialAgentInvitationData, 'id' | 'registeredAgent'>
+  ): Promise<SocialAgentInvitationData>
+  role(iri: string, data?: Omit<RoleData, 'id'>): Promise<RoleData>
+  roleRegistry(iri: string): Promise<RoleRegistryData>
+  dataRegistry(iri: string): Promise<DataRegistryData>
+  dataRegistration(iri: string, data?: DataRegistrationData): Promise<DataRegistrationData>
+  authorizationRegistry(iri: string): Promise<AuthorizationRegistryData>
+  grantRegistry(iri: string): Promise<GrantRegistryData>
+  agentRegistry(iri: string): Promise<AgentRegistryData>
+  registrySet(iri: string, data?: RegistrySetDataInput): Promise<RegistrySetData>
 }
 
 interface ImmutableFactory {
@@ -96,71 +97,86 @@ export class AuthorizationAgentFactory extends BaseFactory {
     return {
       applicationRegistration: async function applicationRegistration(
         iri: string,
-        data?: AgentRegistrationData
-      ): Promise<CRUDApplicationRegistration> {
-        return CRUDApplicationRegistration.build(iri, factory, data)
+        data?: Omit<AgentRegistrationData, 'id'>
+      ): Promise<ApplicationRegistrationData> {
+        if (data) {
+          const hasDataGrant = data.hasDataGrant ?? []
+          return {
+            ...data,
+            id: iri,
+            hasDataGrant,
+            granted: hasDataGrant.length > 0,
+          }
+        }
+        return loadApplicationRegistration(iri, factory)
       },
       socialAgentRegistration: async function socialAgentRegistration(
         iri: string,
-
         reciprocal = false,
-        data?: SocialAgentRegistrationData
-      ): Promise<CRUDSocialAgentRegistration> {
-        return CRUDSocialAgentRegistration.build(iri, factory, reciprocal, data)
+        data?: Omit<SocialAgentRegistrationData, 'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'>
+      ): Promise<SocialAgentRegistrationData> {
+        if (data) {
+          return { ...data, id: iri }
+        }
+        return loadSocialAgentRegistration(iri, factory, reciprocal)
       },
       socialAgentInvitation: async function socialAgentInvitation(
         iri: string,
-        data?: SocialAgentInvitationData
-      ): Promise<CRUDSocialAgentInvitation> {
-        return CRUDSocialAgentInvitation.build(iri, factory, data)
+        data?: Omit<SocialAgentInvitationData, 'id' | 'registeredAgent'>
+      ): Promise<SocialAgentInvitationData> {
+        if (data) {
+          return { ...data, id: iri }
+        }
+        return loadSocialAgentInvitation(iri, factory)
       },
       role: async function role(
         iri: string,
-        data?: CRUDData
-      ): Promise<CRUDRole> {
-        return CRUDRole.build(iri, factory, data)
+        data?: Omit<RoleData, 'id'>
+      ): Promise<RoleData> {
+        if (data) {
+          return { id: iri, label: data.label, members: data.members }
+        }
+        return loadRole(iri, factory)
       },
       roleRegistry: async function roleRegistry(
-        iri: string,
-        data?: CRUDData
-      ): Promise<CRUDRoleRegistry> {
-        return CRUDRoleRegistry.build(iri, factory, data)
+        iri: string
+      ): Promise<RoleRegistryData> {
+        return { id: iri }
       },
       dataRegistry: async function dataRegistry(
-        iri: string,
-        data?: CRUDData
-      ): Promise<CRUDDataRegistry> {
-        return CRUDDataRegistry.build(iri, factory, data)
+        iri: string
+      ): Promise<DataRegistryData> {
+        return { id: iri }
       },
       dataRegistration: async function dataRegistration(
         iri: string,
         data?: DataRegistrationData
-      ): Promise<CRUDDataRegistration> {
-        return CRUDDataRegistration.build(iri, factory, data)
+      ): Promise<DataRegistrationData> {
+        if (data) {
+          return { ...data, id: iri }
+        }
+        return factory.readable.dataRegistration(iri)
       },
       authorizationRegistry: async function authorizationRegistry(
-        iri: string,
-        data?: CRUDData
-      ): Promise<CRUDAuthorizationRegistry> {
-        return CRUDAuthorizationRegistry.build(iri, factory, data)
+        iri: string
+      ): Promise<AuthorizationRegistryData> {
+        return { id: iri }
       },
       grantRegistry: async function grantRegistry(
-        iri: string,
-        data?: CRUDData
-      ): Promise<CRUDGrantRegistry> {
-        return CRUDGrantRegistry.build(iri, factory, data)
+        iri: string
+      ): Promise<GrantRegistryData> {
+        return { id: iri }
       },
       agentRegistry: async function agentRegistry(
-        iri: string,
-        data?: CRUDData
-      ): Promise<CRUDAgentRegistry> {
-        return CRUDAgentRegistry.build(iri, factory, data)
+        iri: string
+      ): Promise<AgentRegistryData> {
+        return { id: iri }
       },
       registrySet: async function registrySet(
         iri: string,
-        data?: CRUDRegistrySetData
-      ): Promise<CRUDRegistrySet> {
-        return CRUDRegistrySet.build(iri, factory, data)
+        data?: RegistrySetDataInput
+      ): Promise<RegistrySetData> {
+        return loadRegistrySet(iri, factory, data)
       },
     }
   }

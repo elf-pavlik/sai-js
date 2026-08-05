@@ -1,21 +1,22 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type { CRUDDataRegistry, GrantData } from '@janeirodigital/interop-data-model'
+import type { DataRegistryData, GrantData } from '@janeirodigital/interop-data-model'
 import {
+  DataRegistry,
   getDataGrantIris,
   getDataGrants,
   Grant,
   ShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { DataInstance, DataRegistration, DataRegistry, IRI } from '@janeirodigital/sai-api-messages'
+import { DataInstance, DataRegistration, DataRegistry as DataRegistrySchema, IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 
 const buildDataRegistry = async (
-  registry: CRUDDataRegistry,
+  registry: DataRegistryData,
   descriptionsLang: string,
   saiSession: AuthorizationAgent
 ) => {
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
-  for await (const registration of registry.registrations) {
+  for await (const registration of DataRegistry.registrations(registry, saiSession.factory)) {
     const shapeTree = await saiSession.factory.readable.shapeTree(registration.registeredShapeTree)
     const shapeTreeDescription = descriptionsLang
       ? await ShapeTree.getDescription(shapeTree, descriptionsLang, saiSession.factory)
@@ -24,15 +25,15 @@ const buildDataRegistry = async (
       DataRegistration.make({
         id: IRI.make(registration.id),
         shapeTree: registration.registeredShapeTree,
-        dataRegistry: registry.iri,
+        dataRegistry: registry.id,
         count: registration.contains.length,
         label: shapeTreeDescription?.label,
       })
     )
   }
-  return DataRegistry.make({
-    id: IRI.make(registry.iri),
-    label: await registry.storageIri(),
+  return DataRegistrySchema.make({
+    id: IRI.make(registry.id),
+    label: await DataRegistry.storageIri(registry, saiSession.factory),
     registrations,
   })
 }
@@ -61,7 +62,7 @@ const buildDataRegistryForGrant = async (
       })
     )
   }
-  return DataRegistry.make({
+  return DataRegistrySchema.make({
     id: IRI.make(registryIri),
     label: dataGrants[0].hasStorage,
     registrations,
@@ -75,8 +76,8 @@ async function findDataGrantIndex(
   const dataGrantIndex: Record<string, GrantData[]> = {}
   for await (const registration of saiSession.socialAgentRegistrations) {
     const reciprocalReg = registration.reciprocalRegistration
-    if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
-    const dataGrants = await getDataGrants(reciprocalReg)
+    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, saiSession.factory)).length === 0) continue
+    const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     for (const dataGrant of dataGrants) {
       if (dataGrant.dataOwner !== agentId) continue
       const regIri = Grant.dataRegistryIri(dataGrant)
@@ -103,8 +104,14 @@ export const getDataRegistries = async (
   }
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
   let dataGrantIndex: Record<string, GrantData[]>
-  if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
-    const dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
+  if (
+    socialAgentRegistration?.reciprocalRegistration &&
+    (await getDataGrantIris(socialAgentRegistration.reciprocalRegistration, saiSession.factory)).length > 0
+  ) {
+    const dataGrants = await getDataGrants(
+      socialAgentRegistration.reciprocalRegistration,
+      saiSession.factory
+    )
     dataGrantIndex = dataGrants.reduce(
       (acc, dataGrant) => {
         const regIri = Grant.dataRegistryIri(dataGrant)
@@ -129,13 +136,18 @@ export const getDataRegistries = async (
 export const listDataInstances = async (
   saiSession: AuthorizationAgent,
   agentId: string,
-  registrationId: string
+  registrationId: string,
+  descriptionsLang = 'en'
 ) => {
   const dataInstances = []
   if (agentId === saiSession.webId) {
     const dataRegistration = await saiSession.factory.readable.dataRegistration(registrationId)
     for (const dataInstanceIri of dataRegistration.contains) {
-      const dataInstance = await saiSession.factory.readable.dataInstance(dataInstanceIri)
+      const dataInstance = await saiSession.factory.readable.dataInstance(
+        dataInstanceIri,
+        undefined,
+        descriptionsLang
+      )
       dataInstances.push(
         DataInstance.make({
           id: IRI.make(dataInstance.id),
@@ -146,8 +158,14 @@ export const listDataInstances = async (
   } else {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
     let dataGrants: GrantData[]
-    if (socialAgentRegistration?.reciprocalRegistration && getDataGrantIris(socialAgentRegistration.reciprocalRegistration).length > 0) {
-      dataGrants = await getDataGrants(socialAgentRegistration.reciprocalRegistration)
+    if (
+      socialAgentRegistration?.reciprocalRegistration &&
+      (await getDataGrantIris(socialAgentRegistration.reciprocalRegistration, saiSession.factory)).length > 0
+    ) {
+      dataGrants = await getDataGrants(
+        socialAgentRegistration.reciprocalRegistration,
+        saiSession.factory
+      )
     } else {
       const dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
       dataGrants = Object.values(dataGrantIndex).flat()
@@ -165,7 +183,8 @@ export const listDataInstances = async (
           seenInstances.add(instance.iri)
           const dataInstance = await saiSession.factory.readable.dataInstance(
             instance.iri,
-            dataGrant.registeredShapeTree
+            dataGrant.registeredShapeTree,
+            descriptionsLang
           )
           dataInstances.push(
             DataInstance.make({

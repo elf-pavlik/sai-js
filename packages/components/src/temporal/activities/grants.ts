@@ -4,9 +4,11 @@ import {
   type FinalGrantData,
   type GeneratedGrants,
   addDataGrant,
+  AgentRegistry,
+  AuthorizationRegistry,
   dataGrantTemplate,
-  getDataAuthorizations,
   removeAllDataGrants,
+  RoleRegistry,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -41,7 +43,9 @@ export async function findAffectedAuthorizations(
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
   const dataAuthorizations =
-    await session.registrySet.hasAuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
+    await AuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
+      session.registrySet.hasAuthorizationRegistry,
+      session.factory,
       payload.peerId,
       payload.roleId
     )
@@ -83,12 +87,20 @@ export async function getGrantees(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
 
-  const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
+  const agentRegistration = await AgentRegistry.findRegistration(
+    session.registrySet.hasAgentRegistry,
+    session.factory,
     payload.grantee
   )
   if (agentRegistration) return [agentRegistration.registeredAgent]
 
-  if (session.registrySet.hasRoleRegistry.containedIncludes(payload.grantee)) {
+  if (
+    await RoleRegistry.containedIncludes(
+      session.registrySet.hasRoleRegistry,
+      session.factory,
+      payload.grantee
+    )
+  ) {
     const role = await session.factory.crud.role(payload.grantee)
     return role.members
   }
@@ -134,12 +146,21 @@ export async function ensurePeers(payload: { webId: string; peersOrRoles: string
   const session = await manager.getSession(payload.webId)
 
   for (const peerOrRole of payload.peersOrRoles) {
-    const agentRegistration =
-      await session.registrySet.hasAgentRegistry.findRegistration(peerOrRole)
+    const agentRegistration = await AgentRegistry.findRegistration(
+      session.registrySet.hasAgentRegistry,
+      session.factory,
+      peerOrRole
+    )
     if (agentRegistration) {
       peers.add(peerOrRole)
     } else {
-      if (session.registrySet.hasRoleRegistry.containedIncludes(peerOrRole)) {
+      if (
+        await RoleRegistry.containedIncludes(
+          session.registrySet.hasRoleRegistry,
+          session.factory,
+          peerOrRole
+        )
+      ) {
         const role = await session.factory.crud.role(peerOrRole)
         peers = new Set([...peers, ...role.members])
       }
@@ -155,12 +176,13 @@ export async function deleteAuthorizationsUsingRole(payload: {
 }): Promise<string[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const dataAuthorizations = await getDataAuthorizations(
-    session.registrySet.hasAuthorizationRegistry
+  const dataAuthorizations = await AuthorizationRegistry.dataAuthorizations(
+    session.registrySet.hasAuthorizationRegistry,
+    session.factory
   )
   const grantees = new Set<string>()
   const toBeDeleted: DataAuthorizationData[] = []
-  for (const dataAuthorization of dataAuthorizations) {
+  for await (const dataAuthorization of dataAuthorizations) {
     let matches = false
     if (dataAuthorization.grantee === payload.roleId) {
       matches = true
@@ -291,14 +313,16 @@ export async function setDataGrantsOnRegistration(
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
+  const agentRegistration = await AgentRegistry.findRegistration(
+    session.registrySet.hasAgentRegistry,
+    session.factory,
     payload.grantee
   )
   if (!agentRegistration) {
     throw new Error('agent registration for the grantee does not exist')
   }
   for (const grantIri of payload.grantIris) {
-    await addDataGrant(agentRegistration, grantIri)
+    await addDataGrant(agentRegistration, session.factory, grantIri)
   }
 }
 
@@ -312,11 +336,13 @@ export async function clearDataGrantsOnRegistration(
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const agentRegistration = await session.registrySet.hasAgentRegistry.findRegistration(
+  const agentRegistration = await AgentRegistry.findRegistration(
+    session.registrySet.hasAgentRegistry,
+    session.factory,
     payload.peerId
   )
   if (!agentRegistration) {
     throw new Error('agent registration for the peer does not exist')
   }
-  await removeAllDataGrants(agentRegistration)
+  await removeAllDataGrants(agentRegistration, session.factory)
 }

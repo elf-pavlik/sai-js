@@ -10,6 +10,10 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
+import {
+  AgentRegistry,
+  setRegisteredAgent,
+} from '@janeirodigital/interop-data-model'
 import type { CustomWebIdStore } from './CustomWebIdStore.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
@@ -47,9 +51,11 @@ export class InvitationHandler extends OperationHttpHandler {
 
     let socialAgentRegistration = await sai.findSocialAgentRegistration(invitedId)
     if (!socialAgentRegistration) {
-      socialAgentRegistration = await sai.registrySet.hasAgentRegistry.addSocialAgentRegistration(
+      socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
+        sai.registrySet.hasAgentRegistry,
+        sai.factory,
         invitedId,
-        socialAgentInvitation.label,
+        socialAgentInvitation.prefLabel,
         socialAgentInvitation.note
       )
       // start workflow to discover, add and subscribe to reciprocal registration
@@ -67,7 +73,7 @@ export class InvitationHandler extends OperationHttpHandler {
             accountId,
             webId: inviteeId,
             peerId: invitedId,
-            registrationId: socialAgentRegistration.iri,
+            registrationId: socialAgentRegistration.id,
           },
         ],
         startDelay: '10s',
@@ -76,8 +82,11 @@ export class InvitationHandler extends OperationHttpHandler {
     }
 
     // update invitation with agent who accepted it
-    socialAgentInvitation.registeredAgent = socialAgentRegistration.registeredAgent
-    await socialAgentInvitation.update()
+    await setRegisteredAgent(
+      socialAgentInvitation,
+      sai.factory,
+      socialAgentRegistration.registeredAgent
+    )
 
     const representation = new BasicRepresentation(inviteeId, operation.target, 'text/plain')
     return new OkResponseDescription(representation.metadata, representation.data)

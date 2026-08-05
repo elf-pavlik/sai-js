@@ -1,7 +1,10 @@
 import { INTEROP, asyncIterableToArray } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { Store } from 'n3'
-import type { AuthorizationAgentFactory, CRUDRegistrySet } from '.'
+import type { AuthorizationAgentFactory, RegistrySetData } from '.'
+import * as AgentRegistry from './crud/agent-registry'
+import * as DataRegistry from './crud/data-registry'
+import * as GrantRegistry from './crud/grant-registry'
 import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
 import dataAuthorizationContext from './data-authorization-context'
 import type { GeneratedGrants, GrantData, FinalGrantData } from './grant'
@@ -149,7 +152,7 @@ async function generateChildDelegatedGrantData(
   data: DataAuthorizationData,
   parentGrantIri: string,
   sourceGrant: GrantData,
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string
 ): Promise<GrantData[]> {
   const result: GrantData[] = []
@@ -188,7 +191,7 @@ async function generateChildDelegatedGrantData(
 
 async function generateDelegatedDataGrants(
   data: DataAuthorizationData,
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string,
   dataOwner?: string
 ): Promise<GrantData[]> {
@@ -199,7 +202,10 @@ async function generateDelegatedDataGrants(
   }
   const result: GrantData[] = []
 
-  for await (const agentRegistration of registrySet.hasAgentRegistry.socialAgentRegistrations) {
+  for await (const agentRegistration of AgentRegistry.socialAgentRegistrations(
+    registrySet.hasAgentRegistry,
+    registrySet.factory
+  )) {
     // data onwer is specified but it is not their registration
     if (dataOwner && dataOwner !== agentRegistration.registeredAgent) {
       continue
@@ -210,9 +216,9 @@ async function generateDelegatedDataGrants(
     }
     const reciprocalReg = agentRegistration.reciprocalRegistration
 
-    if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
+    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, registrySet.factory)).length === 0) continue
 
-    const reciprocalDataGrants = await getDataGrants(reciprocalReg)
+    const reciprocalDataGrants = await getDataGrants(reciprocalReg, registrySet.factory)
 
     let matchingDataGrants = reciprocalDataGrants.filter(
       (grant) => grant.registeredShapeTree === data.registeredShapeTree
@@ -224,7 +230,10 @@ async function generateDelegatedDataGrants(
     }
 
     for (const sourceGrant of matchingDataGrants) {
-      const regularGrantIri = registrySet.hasGrantRegistry.iriForContained()
+      const regularGrantIri = GrantRegistry.iriForContained(
+        registrySet.hasGrantRegistry,
+        registrySet.factory
+      )
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
         data,
@@ -271,14 +280,17 @@ async function generateChildSourceGrantData(
   data: DataAuthorizationData,
   parentGrantIri: string,
   dataRegistrations: DataRegistrationData[],
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string,
   storageIri: string
 ): Promise<FinalGrantData[]> {
   const result: FinalGrantData[] = []
   const childAuthorizations = await inheritingAuthorizations(data, registrySet.factory)
   for (const childAuthorization of childAuthorizations) {
-    const childGrantIri = registrySet.hasGrantRegistry.iriForContained()
+    const childGrantIri = GrantRegistry.iriForContained(
+      registrySet.hasGrantRegistry,
+      registrySet.factory
+    )
     const dataRegistration = dataRegistrations.find(
       (registration) =>
         registration.registeredShapeTree === childAuthorization.registeredShapeTree
@@ -304,7 +316,7 @@ async function generateChildSourceGrantData(
 
 async function generateSourceDataGrants(
   data: DataAuthorizationData,
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string
 ): Promise<FinalGrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited.value) {
@@ -318,7 +330,9 @@ async function generateSourceDataGrants(
   for (const dataRegistry of registrySet.hasDataRegistry) {
     // FIXME handle each data registry independently
 
-    const dataRegistrations = await asyncIterableToArray(dataRegistry.registrations)
+    const dataRegistrations = await asyncIterableToArray(
+      DataRegistry.registrations(dataRegistry, registrySet.factory)
+    )
 
     let matchingRegistration: DataRegistrationData
 
@@ -337,7 +351,10 @@ async function generateSourceDataGrants(
     if (!matchingRegistration) continue
 
     // create source grant
-    const regularGrantIri = registrySet.hasGrantRegistry.iriForContained()
+    const regularGrantIri = GrantRegistry.iriForContained(
+      registrySet.hasGrantRegistry,
+      registrySet.factory
+    )
 
     // create children if needed
     const childGrantData: FinalGrantData[] = await generateChildSourceGrantData(
@@ -346,7 +363,7 @@ async function generateSourceDataGrants(
       dataRegistrations,
       registrySet,
       grantee,
-      await dataRegistry.storageIri()
+      await DataRegistry.storageIri(dataRegistry, registrySet.factory)
     )
 
     let scopeOfGrant = INTEROP.AllFromRegistry.value
@@ -359,7 +376,7 @@ async function generateSourceDataGrants(
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
       hasDataRegistration: matchingRegistration.id,
-      hasStorage: await dataRegistry.storageIri(),
+      hasStorage: await DataRegistry.storageIri(dataRegistry, registrySet.factory),
       scopeOfGrant,
       accessMode: data.accessMode,
     }
@@ -385,7 +402,7 @@ async function generateSourceDataGrants(
  */
 export async function generateDataGrants(
   data: DataAuthorizationData,
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string
 ): Promise<SourceAndDelegatedGrants> {
   const dataGrantData: SourceAndDelegatedGrants = {
@@ -452,7 +469,7 @@ export async function generateDataGrants(
  */
 export async function generateGrantsForAuthorization(
   dataAuthorizations: DataAuthorizationData[],
-  registrySet: CRUDRegistrySet,
+  registrySet: RegistrySetData,
   grantee: string
 ): Promise<GeneratedGrants> {
   const sourceGrants: FinalGrantData[] = []

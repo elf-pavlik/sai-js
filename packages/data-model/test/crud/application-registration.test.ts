@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { DataFactory } from 'n3'
 import { test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
@@ -14,12 +13,9 @@ const applicationIri = 'https://projectron.example/#app'
 test('getters', async () => {
   const applicationRegistration = await factory.crud.applicationRegistration(snippetIri)
   expect(applicationRegistration.registeredAgent).toEqual(applicationIri)
-  expect(applicationRegistration.applicationNode).toEqualRdfTerm(
-    DataFactory.namedNode(applicationIri)
-  )
-  expect(applicationRegistration.registeredAt).toBeInstanceOf(Date)
-  expect(applicationRegistration.updatedAt).toBeInstanceOf(Date)
   expect(applicationRegistration.name).toEqual('Projectron')
   expect(applicationRegistration.logo).toEqual('https://projectron.example/logo.png')
   expect(applicationRegistration.accessNeedGroup).toEqual('https://projectron.example/needs')
+  expect(applicationRegistration.granted).toBe(true)
+  expect(applicationRegistration.hasDataGrant).toHaveLength(10)
 })

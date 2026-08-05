@@ -8,7 +8,7 @@ import {
   type ShareAuthorization,
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
-import { ShapeTree } from '@janeirodigital/interop-data-model'
+import { setAccessNeedGroup, ShapeTree } from '@janeirodigital/interop-data-model'
 import type * as S from 'effect/Schema'
 import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
@@ -90,5 +90,9 @@ export async function requestAccessUsingApplicationNeeds(
 ): Promise<void> {
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
   const clientIdDocument = await saiSession.factory.readable.clientIdDocument(applicationIri)
-  await socialAgentRegistration.setAccessNeedGroup(clientIdDocument.hasAccessNeedGroup)
+  await setAccessNeedGroup(
+    socialAgentRegistration,
+    saiSession.factory,
+    clientIdDocument.hasAccessNeedGroup
+  )
 }

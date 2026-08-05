@@ -22,7 +22,7 @@ async function verifyAccessGrant(
   expect(grantedByRegForGrantee).toBeDefined()
   expect(grantedByRegForGrantee!.registeredAgent).toBe(granteeId)
 
-  const dataGrants = await getDataGrants(grantedByRegForGrantee!)
+  const dataGrants = await getDataGrants(grantedByRegForGrantee!, granteeSession.factory)
 
   const dataGrant = dataGrants.find(
     (grant) =>
@@ -32,7 +32,7 @@ async function verifyAccessGrant(
   )
 
   if (expectGrant) {
-    expect(getDataGrantIris(grantedByRegForGrantee!).length).toBeGreaterThan(0)
+    expect((await getDataGrantIris(grantedByRegForGrantee!, granteeSession.factory)).length).toBeGreaterThan(0)
     expect(dataGrant).toBeDefined()
     expect(dataGrant!.scopeOfGrant).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
     expect(dataGrant!.dataOwner).toBe(dataOwnerId)

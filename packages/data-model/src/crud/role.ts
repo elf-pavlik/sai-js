@@ -1,51 +1,51 @@
-import { INTEROP, RDF, SKOS } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { type CRUDData, CRUDResource } from '.'
+import { INTEROP, RDF, SKOS, getAllMatchingQuads, getOneMatchingQuad } from '@janeirodigital/interop-utils'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import { CRUDResource, fetchDataset } from './resource'
 
-export class CRUDRole extends CRUDResource {
-  declare factory: AuthorizationAgentFactory
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  async bootstrap(): Promise<void> {
-    if (!this.data) {
-      await this.fetchData()
-    } else {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.Role))
-      this.datasetFromData()
-    }
+export type RoleData = {
+  id: string
+  label: string
+  members: string[]
+}
+
+// ──────────────────────────
+// Read path: Dataset → RoleData
+// ──────────────────────────
+
+export async function loadRole(
+  iri: string,
+  factory: AuthorizationAgentFactory
+): Promise<RoleData> {
+  const dataset = await fetchDataset(iri, factory)
+  const node = DataFactory.namedNode(iri)
+  return {
+    id: iri,
+    label: getOneMatchingQuad(dataset, node, SKOS.prefLabel)?.object.value ?? '',
+    members: getAllMatchingQuads(dataset, node, INTEROP.hasMember).map((quad) => quad.object.value),
   }
+}
 
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: CRUDData
-  ): Promise<CRUDRole> {
-    const instance = new CRUDRole(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+// ──────────────────────────
+// Write path: RoleData → Dataset (PUT)
+// ──────────────────────────
 
-  get label(): string {
-    return this.getObject(SKOS.prefLabel)!.value
+export async function putRole(
+  data: RoleData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = new Store()
+  const node = DataFactory.namedNode(data.id)
+  dataset.add(DataFactory.quad(node, RDF.type, INTEROP.Role))
+  dataset.add(DataFactory.quad(node, SKOS.prefLabel, DataFactory.literal(data.label)))
+  for (const member of data.members) {
+    dataset.add(DataFactory.quad(node, INTEROP.hasMember, DataFactory.namedNode(member)))
   }
-
-  get members(): string[] {
-    return this.getObjectsArray(INTEROP.hasMember).map((object) => object.value)
-  }
-
-  protected datasetFromData(): void {
-    if (this.data.label) {
-      this.dataset.add(
-        DataFactory.quad(this.node, SKOS.prefLabel, DataFactory.literal(this.data.label as string))
-      )
-    }
-    const members = this.data.members
-    if (Array.isArray(members)) {
-      for (const member of members) {
-        this.dataset.add(
-          DataFactory.quad(this.node, INTEROP.hasMember, DataFactory.namedNode(member))
-        )
-      }
-    }
-  }
+  const resource = new CRUDResource(data.id, factory, data)
+  resource.dataset = dataset
+  await resource.update()
 }

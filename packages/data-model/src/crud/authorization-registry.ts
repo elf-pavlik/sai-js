@@ -1,90 +1,113 @@
 import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDContainer } from '.'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
-import type { CRUDData } from './resource'
+import { CRUDContainer, iriForContained as containerIriForContained } from './container'
+import { linkedIris } from './resource'
 
-export class CRUDAuthorizationRegistry extends CRUDContainer {
-  declare factory: AuthorizationAgentFactory
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  async bootstrap(): Promise<void> {
-    await this.fetchData()
-    if (this.data) {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.AuthorizationRegistry))
-    }
-  }
-
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: CRUDData
-  ): Promise<CRUDAuthorizationRegistry> {
-    const instance = new CRUDAuthorizationRegistry(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
-
-  public dataAuthorizations(): AsyncIterable<DataAuthorizationData> {
-    const { factory } = this
-    const iris = getDataAuthorizationIris(this)
-    return {
-      async *[Symbol.asyncIterator]() {
-        for (const iri of iris) {
-          yield factory.readable.dataAuthorization(iri)
-        }
-      },
-    }
-  }
-
-  public async findDataAuthorizations(grantee: string): Promise<DataAuthorizationData[]> {
-    const matching: DataAuthorizationData[] = []
-    for await (const dataAuthorization of this.dataAuthorizations()) {
-      if (dataAuthorization.grantee === grantee) {
-        matching.push(dataAuthorization)
-      }
-    }
-    return matching
-  }
-
-  public async findAuthorizationsDelegatingFromOwner(
-    dataOwner: string,
-    roleId: string
-  ): Promise<DataAuthorizationData[]> {
-    const matching: DataAuthorizationData[] = []
-    for await (const dataAuthorization of this.dataAuthorizations()) {
-      let matches = false
-      // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
-      if (dataAuthorization.grantee !== dataOwner) {
-        if (dataAuthorization.dataOwner === dataOwner) {
-          matches = true
-        }
-        if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
-          matches = true
-        }
-      }
-      if (matches) {
-        matching.push(dataAuthorization)
-      }
-    }
-    return matching
-  }
+export type AuthorizationRegistryData = {
+  id: string
 }
 
-// ---------------------------------------------------------------------------
-// Standalone functional helpers for reading the contained data authorizations
-// ---------------------------------------------------------------------------
+// ──────────────────────────
+// Functional helpers for reading the contained data authorizations
+// ──────────────────────────
 
-export function getDataAuthorizationIris(registry: CRUDAuthorizationRegistry): string[] {
-  return registry.getObjectsArray(LDP.contains).map((node) => node.value)
+export async function getDataAuthorizationIris(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<string[]> {
+  return linkedIris(data.id, factory, LDP.contains)
 }
 
-export function getGranted(registry: CRUDAuthorizationRegistry): boolean {
-  return getDataAuthorizationIris(registry).length > 0
+export async function getGranted(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<boolean> {
+  return (await getDataAuthorizationIris(data, factory)).length > 0
 }
 
 export async function getDataAuthorizations(
-  registry: CRUDAuthorizationRegistry
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
 ): Promise<DataAuthorizationData[]> {
-  const iris = getDataAuthorizationIris(registry)
-  return Promise.all(iris.map((iri) => registry.factory.readable.dataAuthorization(iri)))
+  const iris = await getDataAuthorizationIris(data, factory)
+  return Promise.all(iris.map((iri) => factory.readable.dataAuthorization(iri)))
+}
+
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
+
+export async function* dataAuthorizations(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
+): AsyncIterable<DataAuthorizationData> {
+  const iris = await getDataAuthorizationIris(data, factory)
+  for (const iri of iris) {
+    yield factory.readable.dataAuthorization(iri)
+  }
+}
+
+export async function findDataAuthorizations(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory,
+  grantee: string
+): Promise<DataAuthorizationData[]> {
+  const matching: DataAuthorizationData[] = []
+  for await (const dataAuthorization of dataAuthorizations(data, factory)) {
+    if (dataAuthorization.grantee === grantee) {
+      matching.push(dataAuthorization)
+    }
+  }
+  return matching
+}
+
+export async function findAuthorizationsDelegatingFromOwner(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory,
+  dataOwner: string,
+  roleId: string
+): Promise<DataAuthorizationData[]> {
+  const matching: DataAuthorizationData[] = []
+  for await (const dataAuthorization of dataAuthorizations(data, factory)) {
+    let matches = false
+    // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
+    if (dataAuthorization.grantee !== dataOwner) {
+      if (dataAuthorization.dataOwner === dataOwner) {
+        matches = true
+      }
+      if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
+        matches = true
+      }
+    }
+    if (matches) {
+      matching.push(dataAuthorization)
+    }
+  }
+  return matching
+}
+
+export async function createAuthorizationRegistry(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = new Store()
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.AuthorizationRegistry)
+  )
+  const container = new CRUDContainer(data.id, factory, {})
+  container.dataset = dataset
+  await container.create()
+}
+
+export function iriForContained(
+  data: AuthorizationRegistryData,
+  factory: AuthorizationAgentFactory,
+  container = false
+): string {
+  return containerIriForContained(data.id, factory, container)
 }

@@ -8,8 +8,9 @@ import {
   AccessNeedGroup as AccessNeedGroupModule,
   type AccessNeedData,
   type AccessNeedGroupData,
+  AgentRegistry,
   ShapeTree,
-  type CRUDSocialAgentRegistration,
+  type SocialAgentRegistrationData,
   type DataAuthorizationData,
   getDataGrantIris,
   getDataGrants,
@@ -67,13 +68,13 @@ async function findUserDataRegistrations(
   for (const dataRegistry of saiSession.registrySet.hasDataRegistry) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       const dataRegistration = await saiSession.findDataRegistration(
-        dataRegistry.iri,
+        dataRegistry.id,
         accessNeed.registeredShapeTree
       )
       if (dataRegistration)
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),
-          dataRegistry: IRI.make(dataRegistry.iri),
+          dataRegistry: IRI.make(dataRegistry.id),
           label: `${dataRegistration.id.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
           shapeTree: accessNeed.registeredShapeTree,
           count: dataRegistration.contains.length,
@@ -84,13 +85,13 @@ async function findUserDataRegistrations(
 }
 
 async function findSocialAgentDataRegistrations(
-  socialAgentRegistration: CRUDSocialAgentRegistration,
+  socialAgentRegistration: SocialAgentRegistrationData,
   accessNeedGroup: AccessNeedGroupData,
   saiSession: AuthorizationAgent
 ) {
   const dataRegistrations = []
-  if (getDataGrantIris(socialAgentRegistration).length === 0) return []
-  const dataGrants = await getDataGrants(socialAgentRegistration)
+  if ((await getDataGrantIris(socialAgentRegistration, saiSession.factory)).length === 0) return []
+  const dataGrants = await getDataGrants(socialAgentRegistration, saiSession.factory)
   for (const dataGrant of dataGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
@@ -177,7 +178,7 @@ export const getDescriptions = async (
       if (dataRegistrations.length) {
         dataOwners.push({
           id: IRI.make(socialAgentRegistration.registeredAgent),
-          label: socialAgentRegistration.label,
+          label: socialAgentRegistration.prefLabel,
           dataRegistrations,
         })
       }
@@ -338,7 +339,9 @@ export const recordAuthorization = async (
     // we need to ensure that Application Registration exists before generating Access Grant!
     // TODO: extract
     if (!(await saiSession.findApplicationRegistration(authorization.grantee))) {
-      await saiSession.registrySet.hasAgentRegistry.addApplicationRegistration(
+      await AgentRegistry.addApplicationRegistration(
+        saiSession.registrySet.hasAgentRegistry,
+        saiSession.factory,
         authorization.grantee
       )
     }

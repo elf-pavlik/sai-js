@@ -1,8 +1,31 @@
-import { INTEROP, XSD } from '@janeirodigital/interop-utils'
+import { INTEROP, XSD, getAllMatchingQuads } from '@janeirodigital/interop-utils'
+import type { DatasetCore, NamedNode } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
 import { type AuthorizationAgentFactory, type InteropFactory, ReadableResource } from '..'
 
 export type CRUDData = { [key: string]: string | string[] }
+
+/** Fetch the Turtle dataset of a resource (used by CRUD read paths). */
+export async function fetchDataset(
+  iri: string,
+  factory: InteropFactory
+): Promise<DatasetCore> {
+  const response = await factory.fetch(iri)
+  if (!response.ok) throw new Error(`failed to fetch dataset for ${iri}`)
+  return response.dataset()
+}
+
+/** Collect the object IRIs of a predicate on the given resource. */
+export async function linkedIris(
+  iri: string,
+  factory: InteropFactory,
+  property: NamedNode
+): Promise<string[]> {
+  const dataset = await fetchDataset(iri, factory)
+  return getAllMatchingQuads(dataset, DataFactory.namedNode(iri), property).map(
+    (quad) => quad.object.value
+  )
+}
 
 // TODO (elf-pavlik) implement creating new resource
 export class CRUDResource extends ReadableResource {

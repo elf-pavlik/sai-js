@@ -27,7 +27,7 @@ No `instanceof` checks remain in consumers (purged during the earlier migrations
 | `packages/authorization-agent` | Nearly everything: `factory.readable.{shapeTree, dataRegistration, webIdProfile, dataInstance}`, `registrySet.hasAgentRegistry.find*`, `hasRoleRegistry.roles`, `hasAuthorizationRegistry.dataAuthorizations/findDataAuthorizations`, `dataRegistry.storageIri()`, `socialAgentRegistration.reciprocalRegistration`, `registration.registeredAgent`, `dataInstance.dataRegistration.*`, role/invitation fields | Largest — touched by every phase |
 | `packages/components` | `ApplicationFactory`, `factory.readable.clientIdDocument` (`doc.hasAccessNeedGroup`), `ReadableAccessNeed/Group` (`.getDescription()`, `.shapeTree`, `.children`, `.accessNeeds`, `.required`, `.accessMode`), `CRUDDataRegistry` (`.registrations`, `.storageIri`, `.iri`), CRUD registration types (field reads only), grant/authorization POJOs | Medium — Phase 1, 3, 4 |
 
-Root integration tests (`test/*.ts`) only import the already-stable POJO exports `getGranted`, `GrantData`, `getDataGrants`, `getDataGrantIris` — they are unaffected as long as those exports are kept.
+Root integration tests (`test/*.ts`) import the POJO exports `getGranted`, `GrantData`, `getDataGrants`, `getDataGrantIris` — the exports survived Phase 4, but their signatures changed (`(data, factory)`, async), so `test/roles.test.ts` and `test/authorization.test.ts` needed small adaptations (see Phase 4 notes).
 
 ## Classes that never become POJOs
 
@@ -41,7 +41,7 @@ Root integration tests (`test/*.ts`) only import the already-stable POJO exports
 - `packages/data-model`: 202 tests passing
 - `packages/application`: 7 passing / 13 skipped
 - `packages/authorization-agent`: tests are `describe.skip`-gated (server-dependent) — the gate for this package is **typecheck/build**
-**Updated after Phase 3 (current):** data-model 199 pass / 11 skip / 10 todo; application 7 pass / 13 skip; authorization-agent gate is typecheck/build; root integration tests unaffected (stable POJO imports only). (The pre-Phase-1 baseline said 202; Phases 1–2 removed redundant `toBeInstanceOf` tests, and Phase 3 kept test counts identical — no tests were dropped by it.)
+**Updated after Phase 4 (current):** data-model 193 pass / 10 skip / 10 todo (36 files); application 7 pass / 13 skip; authorization-agent gate is typecheck/build; root integration tests adapted minimally in Phase 4 (`test/roles.test.ts`, `test/authorization.test.ts` — new `(data, factory)` signatures, see Phase 4 notes). (Pre-Phase-1 baseline 202; Phases 1–2 removed redundant `toBeInstanceOf` tests; Phase 3 kept counts identical; Phase 4 dropped/restructured some CRUD tests — 4 dropped-test decision items from the previous session remain open.)
 
 ---
 
@@ -158,7 +158,7 @@ Converts the composite readable layer (shape tree + access needs + readable data
 
 ---
 
-# Phase 4 — CRUD cluster
+# Phase 4 — CRUD cluster ✅ DONE
 
 Converts the remaining write-side domain classes. The low-level write plumbing stays.
 
@@ -172,18 +172,18 @@ Converts the remaining write-side domain classes. The low-level write plumbing s
 
 | Class | POJO type | Behavior that becomes module fns |
 |-------|-----------|----------------------------------|
-| `CRUDAgentRegistration` (abstract) | `AgentRegistrationData` | `setAcr(...)`, `datasetFromData` → `toDataset`; **`addDataGrant`/`removeDataGrant`/`removeAllDataGrants`/`getDataGrantIris`/`getDataGrants`/`getGranted` already exist** in `crud/agent-registration.ts` — keep |
-| `CRUDApplicationRegistration` | `ApplicationRegistrationData` (crud) | reads from application node: `accessNeedGroup`, `hasAuthorizationCallbackEndpoint`, `name`, `logo` |
-| `CRUDSocialAgentRegistration` | `SocialAgentRegistrationData` | `discoverReciprocal`, `updateReciprocal`, `discoverAndUpdateReciprocal`, `setAccessNeedGroup`, reciprocal link handling |
+| `CRUDAgentRegistration` (abstract) | `AgentRegistrationData` | `setAcr(...)`, `datasetFromData` → `toDataset`; data-grant helpers **adapted to `(data, factory)`** (not merely kept — see notes): `addDataGrant`/`removeDataGrant`/`removeAllDataGrants`, and `getDataGrantIris`/`getDataGrants`/`getGranted` — the latter three now async with a dataset fallback |
+| `CRUDApplicationRegistration` | `ApplicationRegistrationData` (**unified with the Phase 2 readable type** — top-level `application-registration.ts` re-exports the crud type) | reads from application node: `accessNeedGroup`, `hasAuthorizationCallbackEndpoint`, `name`, `logo` |
+| `CRUDSocialAgentRegistration` | `SocialAgentRegistrationData` | `discoverReciprocal`, `discoverAndUpdateReciprocal` (`updateReciprocal` is internal, not exported), `setAccessNeedGroup`, reciprocal link handling |
 | `CRUDSocialAgentInvitation` | `SocialAgentInvitationData` | `capabilityUrl`, `prefLabel`, `note`, `registeredAgent?` |
 | `CRUDRole` | `RoleData` | `label`, `members` |
 | `CRUDRoleRegistry` | `RoleRegistryData` | `roles`, `createRole`, `updateRole`, `deleteRole` |
 | `CRUDAgentRegistry` | `AgentRegistryData` | `applicationRegistrations`, `socialAgentRegistrations`, `socialAgentInvitations`, `find*`, `addApplicationRegistration` (Client ID harvesting + ACR), `addSocialAgentRegistration` (auth-agent discovery + ACR), `addSocialAgentInvitation` |
-| `CRUDAuthorizationRegistry` | `AuthorizationRegistryData` | `dataAuthorizations`, `findDataAuthorizations`, `findAuthorizationsDelegatingFromOwner`; **`getDataAuthorizationIris`/`getGranted`/`getDataAuthorizations` already exist** — keep |
+| `CRUDAuthorizationRegistry` | `AuthorizationRegistryData` | `dataAuthorizations`, `findDataAuthorizations`, `findAuthorizationsDelegatingFromOwner`; **`getDataAuthorizationIris`/`getGranted`/`getDataAuthorizations` kept** as module fns (`getGranted` adapted to `(data, factory)`) |
 | `CRUDGrantRegistry` | `GrantRegistryData` | trivial |
 | `CRUDDataRegistry` | `DataRegistryData` | `hasDataRegistration`, `registrations`, `storageIri`, `createRegistration`, `registeredShapeTrees` |
 | `CRUDDataRegistration` | `DataRegistrationData` (write side; same type as Phase 2) | `datasetFromData` → `toDataset` |
-| `CRUDRegistrySet` | `RegistrySetData` | `loadRegistrySet(data, factory)` resolving the five sub-registries |
+| `CRUDRegistrySet` | `RegistrySetData` (carries a `factory` ref; the create input is `RegistrySetDataInput`) | `loadRegistrySet(data, factory, data?)`, `updateRegistrySet(data, factory)` |
 
 `AgentRegistrationGetters` mixin is folded into the contexts and deleted.
 
@@ -195,8 +195,20 @@ Converts the remaining write-side domain classes. The low-level write plumbing s
    - `packages/authorization-agent` — CRUD types → POJO types; method calls → module fns (`findApplicationRegistration`/`findSocialAgentRegistration`, `roles`, `dataAuthorizations`/`findDataAuthorizations`, `storageIri`, `reciprocalRegistration`, `registeredAgent`, `members`, `capabilityUrl`)
    - `packages/components` — `CRUDDataRegistry` type → `DataRegistryData` + module fns (`registrations`, `storageIri`, `iri`); CRUD registration types → POJO types (field reads unchanged)
 4. **Delete old classes:** all `crud/*.ts` domain classes (keep `crud/resource.ts`, `crud/container.ts`)
-5. **Tests:** rewrite `crud/{agent-registration, agent-registry, application-registration, container, data-registration, data-registry, registry-set, social-agent-invitation, social-agent-registration, access-consent-registry, resoruce}.test.ts` and `authorization-agent.test.ts`. Root integration tests unaffected.
+5. **Tests:** rewrite `crud/{agent-registration, agent-registry, application-registration, container, data-registration, data-registry, registry-set, social-agent-invitation, social-agent-registration, access-consent-registry, resoruce}.test.ts` and `authorization-agent.test.ts`. Root integration tests adapted minimally (`roles.test.ts`, `authorization.test.ts` — see notes).
 6. **Verify:** full `turbo run test --concurrency=1` + build
+
+### What actually happened (implementation notes)
+
+- **Registries are exported as namespaces, registry POJO types stay top-level** — `export * as {AgentRegistry, RoleRegistry, DataRegistry, AuthorizationRegistry, GrantRegistry, RegistrySet}` plus top-level `AgentRegistryData`/`RoleRegistryData`/`DataRegistryData`/`AuthorizationRegistryData`/`GrantRegistryData`/`RegistrySetData`/`RegistrySetDataInput`. Required because every registry module defines `iriForContained` (and `getGranted`/`getDataGrants` collide between `agent-registration.ts` and `authorization-registry.ts` — `crud/index.ts` resolves that pair with explicit re-exports). Non-registry crud modules export plain top-level fns (`createApplicationRegistration`, `loadApplicationRegistration`, `createSocialAgentRegistration`, `setRegisteredAgent`, `updateSocialAgentInvitation`, `createDataRegistration`, `getDataAuthorizationIris`, `getDataAuthorizations`).
+- **`RegistrySetData` carries a `factory` reference** — `{ hasAgentRegistry, hasRoleRegistry, hasDataRegistry, hasAuthorizationRegistry, hasGrantRegistry, factory: AuthorizationAgentFactory }`; the create input is `RegistrySetDataInput` (same minus `factory`). The factory ref is what lets `data-authorization.ts`'s nested-authorization generators resolve registries from a registry-set POJO.
+- **`ApplicationRegistrationData` was unified, not duplicated** — the Phase 2 readable module (`src/application-registration.ts`) now re-exports the Phase 4 crud type; the crud type is `AgentRegistrationData & { hasDataGrant: string[], granted, accessNeedGroup?, hasAuthorizationCallbackEndpoint?, name?, logo? }`. The readable path (`factory.readable.applicationRegistration`) keeps filling `registeredAgent`/`hasDataGrant`/`granted`; the crud path adds the application-node reads.
+- **The data-grant helpers were adapted, not just "kept"** — `getDataGrantIris`/`getDataGrants`/`getGranted` (and `authorization-registry.getGranted`) moved to `(data, factory)` signatures and became async: when a freshly loaded/created registration POJO has no `hasDataGrant` field they fall back to fetching the registration's dataset and re-extract the IRIs. Hence the root integration tests were **not** untouched: `test/roles.test.ts` (`getDataGrants(data, factory)`, `await getDataGrantIris(data, factory)`) and `test/authorization.test.ts` (`await getGranted(data, factory)`, `AuthorizationRegistry.findDataAuthorizations(reg, factory, clientId)`).
+- **`updateReciprocal` is internal** — folded into `discoverAndUpdateReciprocal`; not exported. `AgentRegistrationGetters` mixin deleted as planned.
+- **`factory.crud.*` surface** — `applicationRegistration`, `socialAgentRegistration`, `socialAgentInvitation`, `role`, `roleRegistry`, `dataRegistry`, `dataRegistration`, `authorizationRegistry`, `grantRegistry`, `agentRegistry`, `registrySet`; `immutable.dataGrant` unchanged.
+- **`packages/repl` was in the blast radius** — `cli.ts`/`repl.ts` import the `CRUDRegistrySet` namespace and were adapted; not typechecked (no `tsc` gate) but must compile.
+- **Consumer gotcha (Phase 3 interplay):** `factory.readable.dataInstance(iri, shapeTreeIri?, descriptionLang?)` only populates `label`/`children` **when `descriptionLang` is passed** (the old `ReadableDataInstance.label` getter always computed it). Components' `listDataInstances` consequently returned `label: undefined` → RPC `ParseError` (`label: S.String` is required). Fix: `ApiHandler.ts` passes `'en'` → `listDataInstances(session, agentId, registrationId, 'en')` (service param `descriptionsLang = 'en'`, threaded into both `readable.dataInstance` calls). Follow-up: add `lang` to the `ListDataInstances` payload (mirroring `ListDataRegistries`) and drop the hardcoded default.
+- **Test outcome:** data-model 193 pass / 10 skip / 10 todo (36 files). A few CRUD tests were dropped rather than rewritten; restoring them in an alternative form is still pending user decision (see conversation).
 
 ---
 

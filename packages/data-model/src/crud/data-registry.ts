@@ -2,90 +2,108 @@ import {
   INTEROP,
   RDF,
   SPACE,
-  asyncIterableToArray,
   discoverStorageDescription,
   getOneMatchingQuad,
 } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
-import { DataFactory } from 'n3'
-import { CRUDContainer, type CRUDDataRegistration } from '.'
-import type { AuthorizationAgentFactory } from '..'
-import type { DataRegistrationData, ShapeTreeData } from '..'
-import type { CRUDData } from './resource'
+import { DataFactory, Store } from 'n3'
+import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
+import { CRUDContainer, addStatement, iriForContained as containerIriForContained } from './container'
+import { linkedIris } from './resource'
+import { createDataRegistration } from './data-registration'
 
-export class CRUDDataRegistry extends CRUDContainer {
-  declare factory: AuthorizationAgentFactory
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  get hasDataRegistration(): string[] {
-    return this.getObjectsArray('hasDataRegistration').map((obj) => obj.value)
+export type DataRegistryData = {
+  id: string
+}
+
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
+
+export async function hasDataRegistration(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<string[]> {
+  return linkedIris(data.id, factory, INTEROP.hasDataRegistration)
+}
+
+export async function* registrations(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory
+): AsyncIterable<DataRegistrationData> {
+  const iris = await hasDataRegistration(data, factory)
+  for (const iri of iris) {
+    yield factory.readable.dataRegistration(iri)
   }
+}
 
-  async registeredShapeTrees(): Promise<ShapeTreeData[]> {
-    const registrations = await asyncIterableToArray(this.registrations)
-    return Promise.all(
-      registrations.map((registration) =>
-        this.factory.readable.shapeTree(registration.registeredShapeTree)
-      )
-    )
+export async function registeredShapeTrees(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<ShapeTreeData[]> {
+  const trees: ShapeTreeData[] = []
+  for await (const registration of registrations(data, factory)) {
+    trees.push(await factory.readable.shapeTree(registration.registeredShapeTree))
   }
+  return trees
+}
 
-  get registrations(): AsyncIterable<DataRegistrationData> {
-    const { factory } = this
-    const dataRegistry = this
-    return {
-      async *[Symbol.asyncIterator]() {
-        for (const registrationIri of dataRegistry.hasDataRegistration) {
-          yield factory.readable.dataRegistration(registrationIri)
-        }
-      },
+export async function createRegistration(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory,
+  registeredShapeTree: string
+): Promise<DataRegistrationData> {
+  for await (const registration of registrations(data, factory)) {
+    if (registration.registeredShapeTree === registeredShapeTree) {
+      throw new Error('registration already exists')
     }
   }
+  const iri = iriForContained(data, factory, true)
+  const dataRegistration = await factory.crud.dataRegistration(iri, {
+    id: iri,
+    registeredShapeTree,
+    contains: [],
+  })
+  await createDataRegistration(dataRegistration, factory)
 
-  async createRegistration(registeredShapeTree: string): Promise<CRUDDataRegistration> {
-    for await (const registration of this.registrations) {
-      if (registration.registeredShapeTree === registeredShapeTree) {
-        throw new Error('registration already exists')
-      }
-    }
-    const iri = this.iriForContained(true)
-    const dataRegistration = await this.factory.crud.dataRegistration(iri, {
-      id: iri,
-      registeredShapeTree,
-      contains: [],
-    })
-    await dataRegistration.create()
+  // link to created data registration
+  const quad = DataFactory.quad(
+    DataFactory.namedNode(data.id),
+    INTEROP.hasDataRegistration,
+    DataFactory.namedNode(dataRegistration.id)
+  )
+  await addStatement(data.id, factory, quad)
+  return dataRegistration
+}
 
-    // link to create data registration
-    const quad = DataFactory.quad(this.node, INTEROP.hasDataRegistration, dataRegistration.node)
-    this.dataset.add(quad)
-    await this.addStatement(quad)
-    return dataRegistration
-  }
+export async function storageIri(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<string> {
+  const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch.raw)
+  const response = await factory.fetch(storageDescriptionIri)
+  const storageDescription = await response.dataset()
+  return getOneMatchingQuad(storageDescription, null, RDF.type, SPACE.Storage).subject.value
+}
 
-  private async fetchStorageDescription(): Promise<DatasetCore> {
-    const storageDescriptionIri = await discoverStorageDescription(this.iri, this.fetch.raw)
-    return this.fetch(storageDescriptionIri).then((res) => res.dataset())
-  }
+export async function createDataRegistry(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = new Store()
+  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.DataRegistry))
+  const container = new CRUDContainer(data.id, factory, {})
+  container.dataset = dataset
+  await container.create()
+}
 
-  public async storageIri(): Promise<string> {
-    const storageDescription = await this.fetchStorageDescription()
-    return getOneMatchingQuad(storageDescription, null, RDF.type, SPACE.Storage).subject.value
-  }
-
-  async bootstrap(): Promise<void> {
-    await this.fetchData()
-    if (this.data) {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.DataRegistry))
-    }
-  }
-
-  static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: CRUDData
-  ): Promise<CRUDDataRegistry> {
-    const instance = new CRUDDataRegistry(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+export function iriForContained(
+  data: DataRegistryData,
+  factory: AuthorizationAgentFactory,
+  container = false
+): string {
+  return containerIriForContained(data.id, factory, container)
 }

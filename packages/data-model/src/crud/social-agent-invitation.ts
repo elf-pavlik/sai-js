@@ -1,82 +1,79 @@
-import { INTEROP, SKOS } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDResource } from '.'
+import { INTEROP, SKOS, getOneMatchingQuad } from '@janeirodigital/interop-utils'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import { CRUDResource } from './resource'
+import { fetchDataset } from './resource'
+
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
 export type SocialAgentInvitationData = {
+  id: string
   capabilityUrl: string
   prefLabel: string
   note?: string
+  registeredAgent?: string
 }
 
-export class CRUDSocialAgentInvitation extends CRUDResource {
-  declare data?: SocialAgentInvitationData
+// ──────────────────────────
+// Read path: Dataset → SocialAgentInvitationData
+// ──────────────────────────
 
-  // TODO: handle missing labels
-  get label(): string {
-    return this.getObject(SKOS.prefLabel)!.value
+export async function loadSocialAgentInvitation(
+  iri: string,
+  factory: AuthorizationAgentFactory
+): Promise<SocialAgentInvitationData> {
+  const dataset = await fetchDataset(iri, factory)
+  const node = DataFactory.namedNode(iri)
+  return {
+    id: iri,
+    capabilityUrl: getOneMatchingQuad(dataset, node, INTEROP.hasCapabilityUrl)?.object.value ?? '',
+    prefLabel: getOneMatchingQuad(dataset, node, SKOS.prefLabel)?.object.value ?? '',
+    note: getOneMatchingQuad(dataset, node, SKOS.note)?.object.value,
+    registeredAgent: getOneMatchingQuad(dataset, node, INTEROP.registeredAgent)?.object.value,
   }
+}
 
-  get note(): string | undefined {
-    return this.getObject(SKOS.note)?.value
+// ──────────────────────────
+// Write path: SocialAgentInvitationData → Dataset
+// ──────────────────────────
+
+export async function toDataset(data: SocialAgentInvitationData): Promise<Store> {
+  const store = new Store()
+  const node = DataFactory.namedNode(data.id)
+  store.add(DataFactory.quad(node, INTEROP.hasCapabilityUrl, DataFactory.literal(data.capabilityUrl)))
+  store.add(DataFactory.quad(node, SKOS.prefLabel, DataFactory.literal(data.prefLabel)))
+  if (data.note) {
+    store.add(DataFactory.quad(node, SKOS.note, DataFactory.literal(data.note)))
   }
-
-  get capabilityUrl(): string {
-    return this.getObject(INTEROP.hasCapabilityUrl)!.value
-  }
-
-  get registeredAgent(): string | undefined {
-    return this.getObject(INTEROP.registeredAgent)?.value
-  }
-
-  set registeredAgent(webId: string) {
-    this.deleteQuad('registeredAgent')
-    this.dataset.add(
-      DataFactory.quad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.registeredAgent,
-        DataFactory.namedNode(webId)
-      )
+  if (data.registeredAgent) {
+    store.add(
+      DataFactory.quad(node, INTEROP.registeredAgent, DataFactory.namedNode(data.registeredAgent))
     )
   }
+  return store
+}
 
-  protected datasetFromData(): void {
-    this.dataset.add(
-      DataFactory.quad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.hasCapabilityUrl,
-        DataFactory.literal(this.data.capabilityUrl)
-      )
-    )
-    const props: (keyof SocialAgentInvitationData)[] = ['prefLabel', 'note']
-    for (const prop of props) {
-      if (this.data[prop]) {
-        this.dataset.add(
-          DataFactory.quad(
-            DataFactory.namedNode(this.iri),
-            SKOS[prop],
-            DataFactory.literal(this.data[prop])
-          )
-        )
-      }
-    }
-  }
+export async function updateSocialAgentInvitation(
+  data: SocialAgentInvitationData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = await toDataset(data)
+  const resource = new CRUDResource(data.id, factory, data)
+  resource.dataset = dataset
+  await resource.update()
+}
 
-  protected async bootstrap(): Promise<void> {
-    if (!this.data) {
-      await this.fetchData()
-    } else {
-      this.datasetFromData()
-    }
-  }
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
 
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: SocialAgentInvitationData
-  ): Promise<CRUDSocialAgentInvitation> {
-    const instance = new CRUDSocialAgentInvitation(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+export async function setRegisteredAgent(
+  data: SocialAgentInvitationData,
+  factory: AuthorizationAgentFactory,
+  webId: string
+): Promise<void> {
+  data.registeredAgent = webId
+  await updateSocialAgentInvitation(data, factory)
 }

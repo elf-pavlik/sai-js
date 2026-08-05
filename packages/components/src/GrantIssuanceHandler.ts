@@ -1,4 +1,8 @@
-import type { GrantData, FinalGrantData } from '@janeirodigital/interop-data-model'
+import {
+  type GrantData,
+  type FinalGrantData,
+  GrantRegistry,
+} from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
@@ -59,7 +63,10 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // Incoming payload embeds child grant data. Assign IRIs and build FinalGrantData for each.
     // hasInheritingGrant comes in as embedded objects; we treat them as partial GrantData.
     const childrenPayload = (topGrant as any).hasInheritingGrant ?? []
-    const grantId = sai.registrySet.hasGrantRegistry.iriForContained()
+    const grantId = GrantRegistry.iriForContained(
+      sai.registrySet.hasGrantRegistry,
+      sai.factory
+    )
     const inheritingGrants: FinalGrantData[] = childrenPayload.map(
       (childData: Record<string, unknown>) => ({
         grantee: childData.grantee as string,
@@ -73,7 +80,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
         creatorAccessMode: childData.creatorAccessMode as string[] | undefined,
         hasDataInstance: childData.hasDataInstance as string[] | undefined,
         delegationOfGrant: childData.delegationOfGrant as string | undefined,
-        id: sai.registrySet.hasGrantRegistry.iriForContained(),
+        id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory),
         inheritsFromGrant: grantId,
       })
     )

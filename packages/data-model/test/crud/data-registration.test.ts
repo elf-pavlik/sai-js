@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { INTEROP, RDF } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, CRUDDataRegistration } from '../../src'
+import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -13,31 +11,28 @@ const snippetIri = 'https://pro.alice.example/773605f0-b5bf-4d46-878d-5c167eac8b
 const newSnippetIri = 'https://auth.alice.example/bd2bb0a3-e95a-4981-a30b-5b6a7358435c'
 
 const data = {
+  id: newSnippetIri,
   registeredShapeTree: 'https://solidshapes.example/tree/Other',
+  contains: [],
 }
 
 describe('build', () => {
-  test('should return instance of Data Registration', async () => {
-    const dataRegistration = await CRUDDataRegistration.build(snippetIri, factory)
-    expect(dataRegistration).toBeInstanceOf(CRUDDataRegistration)
+  test('should return data registration', async () => {
+    const dataRegistration = await factory.crud.dataRegistration(snippetIri)
+    expect(dataRegistration).toHaveProperty('id', snippetIri)
+    expect(dataRegistration).toHaveProperty('registeredShapeTree')
   })
 
   test('should fetch its data if none passed', async () => {
-    const dataRegistration = await CRUDDataRegistration.build(snippetIri, factory)
-    expect(dataRegistration.dataset.size).toBe(7)
+    const dataRegistration = await factory.crud.dataRegistration(snippetIri)
+    expect(dataRegistration.registeredShapeTree).toBe('https://solidshapes.example/trees/Project')
+    expect(dataRegistration.contains).toHaveLength(2)
   })
 
-  test('should set dataset if data passed', async () => {
-    const quads = [
-      DataFactory.quad(DataFactory.namedNode(newSnippetIri), RDF.type, INTEROP.DataRegistration),
-      DataFactory.quad(
-        DataFactory.namedNode(newSnippetIri),
-        INTEROP.registeredShapeTree,
-        DataFactory.namedNode(data.registeredShapeTree)
-      ),
-    ]
-    const dataRegistration = await CRUDDataRegistration.build(newSnippetIri, factory, data)
-    expect(dataRegistration.dataset.size).toBe(2)
-    expect(dataRegistration.dataset).toBeRdfDatasetContaining(...quads)
+  test('should set data if passed', async () => {
+    const dataRegistration = await factory.crud.dataRegistration(newSnippetIri, data)
+    expect(dataRegistration.id).toBe(newSnippetIri)
+    expect(dataRegistration.registeredShapeTree).toBe(data.registeredShapeTree)
+    expect(dataRegistration.contains).toEqual([])
   })
 })

@@ -59,7 +59,7 @@ export class AgentIdHandler extends OperationHttpHandler {
       if (registration) {
         const info = {
           agent: credentials.client.clientId,
-          registration: registration.iri,
+          registration: registration.id,
         }
         const link = `<${info.agent}>; anchor="${info.registration}"; rel="${INTEROP.registeredAgent}"`
         addHeader(response, 'Link', link)

@@ -1,3 +1,6 @@
+import {
+  discoverAndUpdateReciprocal,
+} from '@janeirodigital/interop-data-model'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'
@@ -34,7 +37,7 @@ export async function reciprocalRegistration(
     )
   }
   if (!registration.reciprocalRegistration) {
-    await registration.discoverAndUpdateReciprocal(session.rawFetch)
+    await discoverAndUpdateReciprocal(registration, session.factory, session.rawFetch)
   }
   if (!registration.reciprocalRegistration) {
     throw new Error(`reciprocal registration from ${payload.peerId} was not found`)
@@ -43,7 +46,7 @@ export async function reciprocalRegistration(
     accountId: payload.accountId,
     webId: payload.webId,
     peerId: payload.peerId,
-    topic: registration.reciprocalRegistration.iri,
+    topic: registration.reciprocalRegistration.id,
   }
 }
 

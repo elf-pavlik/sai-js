@@ -1,41 +1,29 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDContainer } from '.'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import type { DataRegistrationData } from '../data-registration'
+import { CRUDContainer } from './container'
 
-export class CRUDDataRegistration extends CRUDContainer {
-  declare data: DataRegistrationData
+// ──────────────────────────
+// Write path: DataRegistrationData → Dataset
+// ──────────────────────────
 
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: DataRegistrationData
-  ): Promise<CRUDDataRegistration> {
-    const instance = new CRUDDataRegistration(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+export async function toDataset(data: DataRegistrationData): Promise<Store> {
+  const store = new Store()
+  const node = DataFactory.namedNode(data.id)
+  store.add(
+    DataFactory.quad(node, INTEROP.registeredShapeTree, DataFactory.namedNode(data.registeredShapeTree))
+  )
+  return store
+}
 
-  private datasetFromData(): void {
-    const props = ['registeredShapeTree'] as const
-    for (const prop of props) {
-      this.dataset.add(
-        DataFactory.quad(
-          DataFactory.namedNode(this.iri),
-          INTEROP[prop],
-          DataFactory.namedNode(this.data[prop])
-        )
-      )
-    }
-  }
-
-  protected async bootstrap(): Promise<void> {
-    if (!this.data) {
-      await this.fetchData()
-    } else {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.DataRegistration))
-      this.datasetFromData()
-    }
-  }
+export async function createDataRegistration(
+  data: DataRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = await toDataset(data)
+  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.DataRegistration))
+  const container = new CRUDContainer(data.id, factory, {})
+  container.dataset = dataset
+  await container.create()
 }

@@ -1,6 +1,13 @@
 import repl from 'node:repl'
 import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type { CRUDRegistrySet, CRUDRegistrySetData } from '@janeirodigital/interop-data-model'
+import {
+  AgentRegistry,
+  AuthorizationRegistry,
+  DataRegistry,
+  GrantRegistry,
+  type RegistrySetData,
+  RoleRegistry,
+} from '@janeirodigital/interop-data-model'
 import { init } from '@paralleldrive/cuid2'
 
 import {
@@ -18,7 +25,7 @@ global.cuid = init({ length: 6 })
 global.bootstrapAccount = async function bootstrapAccount(
   account: Account,
   session: AuthorizationAgent
-): Promise<CRUDRegistrySet> {
+): Promise<RegistrySetData> {
   const uriForContained = function uriForContained(containerId: string, container = false): string {
     const id = containerId + global.cuid()
     return container ? `${id}/` : id
@@ -26,34 +33,44 @@ global.bootstrapAccount = async function bootstrapAccount(
 
   // create Agent Registry
   const agentRegistryId = uriForContained(account.auth, true)
-  const agentRegistry = await session.factory.crud.agentRegistry(agentRegistryId, {})
-  await agentRegistry.create()
+  const agentRegistry = await session.factory.crud.agentRegistry(agentRegistryId)
+  await AgentRegistry.createAgentRegistry(agentRegistry, session.factory)
 
   // create Authorization Registry
   const authorizationRegistryId = uriForContained(account.auth, true)
   const authorizationRegistry = await session.factory.crud.authorizationRegistry(
-    authorizationRegistryId,
-    {}
+    authorizationRegistryId
   )
-  await authorizationRegistry.create()
+  await AuthorizationRegistry.createAuthorizationRegistry(authorizationRegistry, session.factory)
 
-  const registrySetData: CRUDRegistrySetData = {
-    hasAgentRegistry: agentRegistry.iri,
-    hasAuthorizationRegistry: authorizationRegistry.iri,
-    hasDataRegistry: [],
+  // create Role Registry
+  const roleRegistryId = uriForContained(account.auth, true)
+  const roleRegistry = await session.factory.crud.roleRegistry(roleRegistryId)
+  await RoleRegistry.createRoleRegistry(roleRegistry, session.factory)
+
+  // create Grant Registry
+  const grantRegistryId = uriForContained(account.auth, true)
+  const grantRegistry = await session.factory.crud.grantRegistry(grantRegistryId)
+  await GrantRegistry.createGrantRegistry(grantRegistry, session.factory)
+
+  const registrySetData = {
+    hasAgentRegistry: agentRegistry.id,
+    hasAuthorizationRegistry: authorizationRegistry.id,
+    hasRoleRegistry: roleRegistry.id,
+    hasGrantRegistry: grantRegistry.id,
+    hasDataRegistry: [] as string[],
   }
 
   // create Data registries
   for (const resourceServer of Object.values(account.data)) {
     const dataRegistryId = uriForContained(resourceServer, true)
-    const dataRegistry = await session.factory.crud.dataRegistry(dataRegistryId, {})
-    await dataRegistry.create()
-    registrySetData.hasDataRegistry.push(dataRegistry.iri)
+    const dataRegistry = await session.factory.crud.dataRegistry(dataRegistryId)
+    await DataRegistry.createDataRegistry(dataRegistry, session.factory)
+    registrySetData.hasDataRegistry.push(dataRegistry.id)
   }
 
   const registrySetId = uriForContained(account.auth)
   const registrySet = await session.factory.crud.registrySet(registrySetId, registrySetData)
-  await registrySet.update()
 
   return registrySet
 }

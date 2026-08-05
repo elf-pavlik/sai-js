@@ -7,6 +7,49 @@ import {
 import type { Quad } from '@rdfjs/types'
 import { Store } from 'n3'
 import { CRUDResource } from '.'
+import type { AuthorizationAgentFactory } from '..'
+
+/** Generate an IRI for a resource contained in the given container. */
+export function iriForContained(
+  containerIri: string,
+  factory: { randomUUID(): string },
+  container = false
+): string {
+  let containedIri = `${containerIri}${factory.randomUUID()}`
+  if (container) containedIri += '/'
+  return containedIri
+}
+
+/** Add a statement to a container via SPARQL patch. */
+export async function addStatement(
+  containerIri: string,
+  factory: AuthorizationAgentFactory,
+  quad: Quad
+): Promise<void> {
+  const container = new CRUDContainer(containerIri, factory)
+  await container.addStatement(quad)
+}
+
+/** Remove a statement from a container via SPARQL patch. */
+export async function removeStatement(
+  containerIri: string,
+  factory: AuthorizationAgentFactory,
+  quad: Quad
+): Promise<void> {
+  const container = new CRUDContainer(containerIri, factory)
+  await container.removeStatement(quad)
+}
+
+/** Replace a statement in a container via SPARQL patch. */
+export async function replaceStatement(
+  containerIri: string,
+  factory: AuthorizationAgentFactory,
+  whichQuad: Quad,
+  withQuad: Quad
+): Promise<void> {
+  const container = new CRUDContainer(containerIri, factory)
+  await container.replaceStatement(whichQuad, withQuad)
+}
 
 // TODO combine with ReadableContainer as mixin
 export class CRUDContainer extends CRUDResource {

@@ -1,110 +1,155 @@
-import { INTEROP, discoverAccessResource, parseTurtle } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { Mixin } from 'ts-mixer'
+import {
+  INTEROP,
+  getAllMatchingQuads,
+  getOneMatchingQuad,
+  discoverAccessResource,
+  parseTurtle,
+} from '@janeirodigital/interop-utils'
+import type { DatasetCore } from '@rdfjs/types'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, GrantData } from '..'
-import { AgentRegistrationGetters } from '../mixins/agent-registration-getters'
 import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
 import type { AgentAndClient } from '../templates/types'
-import { CRUDContainer } from './container'
+import { addStatement, removeStatement } from './container'
+import { fetchDataset } from './resource'
+
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
 export type AgentRegistrationData = {
+  id: string
   registeredAgent: string
   hasDataGrant?: string[]
 }
 
-export abstract class CRUDAgentRegistration extends Mixin(CRUDContainer, AgentRegistrationGetters) {
-  declare data?: AgentRegistrationData
+// ──────────────────────────
+// Read path: Dataset → AgentRegistrationData
+// ──────────────────────────
 
-  declare factory: AuthorizationAgentFactory
+export function fromDataset(dataset: DatasetCore, iri: string): AgentRegistrationData {
+  const node = DataFactory.namedNode(iri)
+  const hasDataGrant = getAllMatchingQuads(dataset, node, INTEROP.hasDataGrant).map(
+    (quad) => quad.object.value
+  )
+  return {
+    id: iri,
+    registeredAgent: getOneMatchingQuad(dataset, node, INTEROP.registeredAgent)?.object.value,
+    hasDataGrant,
+  }
+}
 
-  async setAcr(owner: AgentAndClient, peer: AgentAndClient): Promise<void> {
-    const acrLocation = await discoverAccessResource(this.iri, this.factory.fetch)
-    const dataset = await parseTurtle(
-      agentRegistrationAcrTemplate({
-        id: this.iri,
-        owner,
-        peer,
-      })
+export async function loadAgentRegistration(
+  iri: string,
+  factory: AuthorizationAgentFactory
+): Promise<AgentRegistrationData> {
+  const dataset = await fetchDataset(iri, factory)
+  return fromDataset(dataset, iri)
+}
+
+// ──────────────────────────
+// Write path: AgentRegistrationData → Dataset
+// ──────────────────────────
+
+export async function toDataset(data: AgentRegistrationData): Promise<Store> {
+  const store = new Store()
+  const node = DataFactory.namedNode(data.id)
+  if (data.registeredAgent) {
+    store.add(
+      DataFactory.quad(node, INTEROP.registeredAgent, DataFactory.namedNode(data.registeredAgent))
     )
-    const response = await this.fetch(acrLocation, {
-      method: 'PUT',
-      dataset,
+  }
+  if (data.hasDataGrant) {
+    for (const grantIri of data.hasDataGrant) {
+      store.add(DataFactory.quad(node, INTEROP.hasDataGrant, DataFactory.namedNode(grantIri)))
+    }
+  }
+  return store
+}
+
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
+
+export async function setAcr(
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  owner: AgentAndClient,
+  peer: AgentAndClient
+): Promise<void> {
+  const acrLocation = await discoverAccessResource(data.id, factory.fetch)
+  const dataset = await parseTurtle(
+    agentRegistrationAcrTemplate({
+      id: data.id,
+      owner,
+      peer,
     })
-    if (!response.ok) throw new Error(await response.text())
-  }
-
-  protected datasetFromData(): void {
-    if (this.data.registeredAgent) {
-      this.dataset.add(
-        DataFactory.quad(
-          DataFactory.namedNode(this.iri),
-          INTEROP.registeredAgent,
-          DataFactory.namedNode(this.data.registeredAgent)
-        )
-      )
-    }
-    if (this.data.hasDataGrant) {
-      for (const grantIri of this.data.hasDataGrant) {
-        this.dataset.add(
-          DataFactory.quad(
-            DataFactory.namedNode(this.iri),
-            INTEROP.hasDataGrant,
-            DataFactory.namedNode(grantIri)
-          )
-        )
-      }
-    }
-  }
+  )
+  const response = await factory.fetch(acrLocation, {
+    method: 'PUT',
+    dataset,
+  })
+  if (!response.ok) throw new Error(await response.text())
 }
 
-// ---------------------------------------------------------------------------
-// Standalone functional helpers for managing hasDataGrant on registrations
-// ---------------------------------------------------------------------------
-
-export function getDataGrantIris(registration: CRUDAgentRegistration): string[] {
-  return registration.getObjectsArray(INTEROP.hasDataGrant).map((node) => node.value)
+export async function getDataGrantIris(
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<string[]> {
+  if (data.hasDataGrant) return data.hasDataGrant
+  const dataset = await fetchDataset(data.id, factory)
+  return getAllMatchingQuads(dataset, DataFactory.namedNode(data.id), INTEROP.hasDataGrant).map(
+    (quad) => quad.object.value
+  )
 }
 
-export function getGranted(registration: CRUDAgentRegistration): boolean {
-  return getDataGrantIris(registration).length > 0
+export async function getGranted(
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<boolean> {
+  return (await getDataGrantIris(data, factory)).length > 0
 }
 
 export async function getDataGrants(
-  registration: CRUDAgentRegistration
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory
 ): Promise<GrantData[]> {
-  const iris = getDataGrantIris(registration)
-  return Promise.all(iris.map((iri) => registration.factory.readable.dataGrant(iri)))
+  const iris = await getDataGrantIris(data, factory)
+  return Promise.all(iris.map((iri) => factory.readable.dataGrant(iri)))
 }
 
 export async function addDataGrant(
-  registration: CRUDAgentRegistration,
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory,
   grantIri: string
 ): Promise<void> {
   const quad = DataFactory.quad(
-    DataFactory.namedNode(registration.iri),
+    DataFactory.namedNode(data.id),
     INTEROP.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
-  await registration.addStatement(quad)
+  await addStatement(data.id, factory, quad)
+  data.hasDataGrant = [...(data.hasDataGrant ?? []), grantIri]
 }
 
 export async function removeDataGrant(
-  registration: CRUDAgentRegistration,
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory,
   grantIri: string
 ): Promise<void> {
-  const quad = registration.getQuad(
-    DataFactory.namedNode(registration.iri),
+  const quad = DataFactory.quad(
+    DataFactory.namedNode(data.id),
     INTEROP.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
-  if (quad) {
-    await registration.removeStatement(quad)
-  }
+  await removeStatement(data.id, factory, quad)
+  data.hasDataGrant = (data.hasDataGrant ?? []).filter((iri) => iri !== grantIri)
 }
 
 export async function removeAllDataGrants(
-  registration: CRUDAgentRegistration
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
-  const iris = getDataGrantIris(registration)
-  await Promise.all(iris.map((iri) => removeDataGrant(registration, iri)))
+  const iris = await getDataGrantIris(data, factory)
+  await Promise.all(iris.map((iri) => removeDataGrant(data, factory, iri)))
 }

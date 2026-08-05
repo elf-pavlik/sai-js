@@ -1,10 +1,12 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
-  type CRUDApplicationRegistration,
-  type CRUDSocialAgentInvitation,
-  type CRUDSocialAgentRegistration,
+  AgentRegistry,
+  type ApplicationRegistrationData,
+  discoverAndUpdateReciprocal,
   getDataGrantIris,
   getDataGrants,
+  type SocialAgentInvitationData,
+  type SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
 import {
   Application,
@@ -16,11 +18,11 @@ import {
 import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
 
-export const buildSocialAgentProfile = (registration: CRUDSocialAgentRegistration) =>
+export const buildSocialAgentProfile = (registration: SocialAgentRegistrationData) =>
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
   SocialAgent.make({
     id: IRI.make(registration.registeredAgent),
-    label: registration.label,
+    label: registration.prefLabel,
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
@@ -37,8 +39,9 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
   const seenIds = new Set(profiles.map((p) => p.id))
   for await (const registration of saiSession.socialAgentRegistrations) {
     const reciprocalReg = registration.reciprocalRegistration
-    if (!reciprocalReg || getDataGrantIris(reciprocalReg).length === 0) continue
-    const dataGrants = await getDataGrants(reciprocalReg)
+    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, saiSession.factory)).length === 0)
+      continue
+    const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
       if (seenIds.has(ownerIri)) continue
@@ -72,7 +75,9 @@ export const addSocialAgent = async (
     // logger.error('SocialAgentRegistration already exists', { webId: data.webId })
     return buildSocialAgentProfile(existing)
   }
-  const registration = await saiSession.registrySet.hasAgentRegistry.addSocialAgentRegistration(
+  const registration = await AgentRegistry.addSocialAgentRegistration(
+    saiSession.registrySet.hasAgentRegistry,
+    saiSession.factory,
     data.webId,
     data.label,
     data.note
@@ -81,7 +86,7 @@ export const addSocialAgent = async (
   return buildSocialAgentProfile(registration)
 }
 
-const buildApplicationProfile = (registration: CRUDApplicationRegistration) =>
+const buildApplicationProfile = (registration: ApplicationRegistrationData) =>
   // TODO (angel) data validation and how to handle when the applications profile is missing some components?
   Application.make({
     id: IRI.make(registration.registeredAgent),
@@ -119,11 +124,11 @@ export const getUnregisteredApplication = async (agent: AuthorizationAgent, id: 
   return UnregisteredApplication.make({ id: IRI.make(id), name, logo, accessNeedGroup })
 }
 
-function buildSocialAgentInvitation(socialAgentInvitation: CRUDSocialAgentInvitation) {
+function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitationData) {
   return SocialAgentInvitation.make({
-    id: IRI.make(socialAgentInvitation.iri),
+    id: IRI.make(socialAgentInvitation.id),
     capabilityUrl: socialAgentInvitation.capabilityUrl,
-    label: socialAgentInvitation.label,
+    label: socialAgentInvitation.prefLabel,
     note: socialAgentInvitation.note,
   })
 }
@@ -143,12 +148,13 @@ export async function createInvitation(
   base: { label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
   const id = invitationUrl(saiSession.webId)
-  const socialAgentInvitation =
-    await saiSession.registrySet.hasAgentRegistry.addSocialAgentInvitation(
-      id,
-      base.label,
-      base.note
-    )
+  const socialAgentInvitation = await AgentRegistry.addSocialAgentInvitation(
+    saiSession.registrySet.hasAgentRegistry,
+    saiSession.factory,
+    id,
+    base.label,
+    base.note
+  )
   return buildSocialAgentInvitation(socialAgentInvitation)
 }
 
@@ -168,16 +174,21 @@ export async function acceptInvitation(
   let socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
   if (!socialAgentRegistration) {
     // create new social agent registration
-    socialAgentRegistration =
-      await saiSession.registrySet.hasAgentRegistry.addSocialAgentRegistration(
-        webId,
-        invitation.label,
-        invitation.note
-      )
+    socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
+      saiSession.registrySet.hasAgentRegistry,
+      saiSession.factory,
+      webId,
+      invitation.label,
+      invitation.note
+    )
   }
   // discover and add reciprocal
   if (!socialAgentRegistration.reciprocalRegistration) {
-    socialAgentRegistration.discoverAndUpdateReciprocal(saiSession.fetch.raw)
+    discoverAndUpdateReciprocal(
+      socialAgentRegistration,
+      saiSession.factory,
+      saiSession.fetch.raw
+    )
   }
 
   // currently api-handler creates job for reciprocal registration

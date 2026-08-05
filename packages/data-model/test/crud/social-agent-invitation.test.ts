@@ -20,7 +20,7 @@ describe('build', () => {
   test('getters', async () => {
     const socialAgentInvitation = await factory.crud.socialAgentInvitation(snippetIri, data)
     expect(socialAgentInvitation.capabilityUrl).toBe(data.capabilityUrl)
-    expect(socialAgentInvitation.label).toBe(data.prefLabel)
+    expect(socialAgentInvitation.prefLabel).toBe(data.prefLabel)
     expect(socialAgentInvitation.note).toBe(data.note)
   })
 

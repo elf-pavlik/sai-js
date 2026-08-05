@@ -1,7 +1,10 @@
 import type { DatasetCore } from '@rdfjs/types'
 import { Store } from 'n3'
 import type { GrantData, BaseFactory } from '.'
+import type { ApplicationRegistrationData } from './crud/application-registration'
 import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+
+export type { ApplicationRegistrationData } from './crud/application-registration'
 
 const applicationRegistrationContext = {
   id: '@id',
@@ -15,19 +18,6 @@ const applicationRegistrationContext = {
     '@type': '@id',
     '@container': '@set',
   },
-}
-
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
-/** Plain JSON representation of an Application Registration. */
-export type ApplicationRegistrationData = {
-  id: string
-  registeredAgent: string
-  hasDataGrant: string[]
-  /** Whether the registration has any data grants (derived from hasDataGrant). */
-  granted: boolean
 }
 
 // ──────────────────────────

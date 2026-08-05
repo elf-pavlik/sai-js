@@ -23,6 +23,7 @@ import {
   shapeTree,
 } from '@janeirodigital/css-test-utils'
 import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { AgentRegistry, DataRegistry } from '@janeirodigital/interop-data-model'
 import { init } from '@paralleldrive/cuid2'
 
 const cuid = init({ length: 6 })
@@ -85,18 +86,20 @@ const getSession = Effect.gen(function* () {
 const createDataRegistration = (session: AuthorizationAgent) =>
   Effect.gen(function* () {
     const registryId = yield* createSelectDataRegistryPrompt(
-      session.registrySet.hasDataRegistry.map(({ iri }) => iri)
+      session.registrySet.hasDataRegistry.map(({ id }) => id)
     )
-    const registry = session.registrySet.hasDataRegistry.find(({ iri }) => iri === registryId)!
+    const registry = session.registrySet.hasDataRegistry.find(({ id }) => id === registryId)!
     const existingShapeTrees = yield* Effect.promise(async () =>
-      (await registry.registeredShapeTrees()).map(({ id }) => id)
+      (await DataRegistry.registeredShapeTrees(registry, session.factory)).map(({ id }) => id)
     )
     const remainingShapeTrees = [
       ...new Set(Object.values(shapeTree)).difference(new Set(existingShapeTrees)),
     ]
     const shapeTreeId = yield* createSelectShapeTreePrompt(remainingShapeTrees)
 
-    yield* Effect.promise(async () => registry.createRegistration(shapeTreeId))
+    yield* Effect.promise(async () =>
+      DataRegistry.createRegistration(registry, session.factory, shapeTreeId)
+    )
   })
 
 const createSocialAgentRegistration = (session: AuthorizationAgent) =>
@@ -106,7 +109,13 @@ const createSocialAgentRegistration = (session: AuthorizationAgent) =>
     const note = yield* Prompt.text({ message: 'Enter social agent note (optional)' })
 
     yield* Effect.promise(async () =>
-      session.registrySet.hasAgentRegistry.addSocialAgentRegistration(webId, label, note)
+      AgentRegistry.addSocialAgentRegistration(
+        session.registrySet.hasAgentRegistry,
+        session.factory,
+        webId,
+        label,
+        note
+      )
     )
   })
 
@@ -115,7 +124,11 @@ const createApplicationRegistration = (session: AuthorizationAgent) =>
     const clientId = yield* Prompt.text({ message: 'Enter clientId' })
 
     yield* Effect.promise(async () =>
-      session.registrySet.hasAgentRegistry.addApplicationRegistration(clientId)
+      AgentRegistry.addApplicationRegistration(
+        session.registrySet.hasAgentRegistry,
+        session.factory,
+        clientId
+      )
     )
   })
 

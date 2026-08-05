@@ -32,8 +32,8 @@ describe('findInLanguage', () => {
   test('finds description set in language given a resource', async () => {
     const lang = 'en'
     const accessNeedIri = 'https://projectron.example/access-needs#need-project'
-    const accessNeed = await factory.readable.accessNeed(accessNeedIri)
-    const descriptionSetIri = AccessDescriptionSet.findInLanguage(accessNeed.dataset, lang)
+    const dataset = await (await factory.fetch(accessNeedIri)).dataset()
+    const descriptionSetIri = AccessDescriptionSet.findInLanguage(dataset, lang)
     expect(descriptionSetIri).toBe('https://projectron.example/descriptions-en')
   })
 })

@@ -4,14 +4,18 @@ import type {
   NestedDataAuthorizationData,
 } from '@janeirodigital/interop-authorization-agent'
 import {
+  AccessNeed as AccessNeedModule,
+  AccessNeedGroup as AccessNeedGroupModule,
+  type AccessNeedData,
+  type AccessNeedGroupData,
+  ShapeTree,
   type CRUDSocialAgentRegistration,
   type DataAuthorizationData,
   getDataGrantIris,
   getDataGrants,
   type GrantData,
-  type ReadableAccessNeed,
-  type ReadableAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
+import type { AuthorizationAgentFactory } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   type AccessAuthorization,
@@ -28,33 +32,35 @@ import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 const formatAccessNeed = async (
-  accessNeed: ReadableAccessNeed,
-  descriptionsLang: string
+  accessNeed: AccessNeedData,
+  descriptionsLang: string,
+  factory: AuthorizationAgentFactory
 ): Promise<S.Schema.Type<typeof AccessNeed>> => {
-  const description = await accessNeed.getDescription(descriptionsLang)
-  const shapeTreeDescription = await accessNeed.shapeTree.getDescription(descriptionsLang)
+  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, factory)
+  const shapeTree = await factory.readable.shapeTree(accessNeed.registeredShapeTree)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, factory)
 
   return AccessNeed.make({
-    id: IRI.make(accessNeed.iri),
+    id: IRI.make(accessNeed.id),
     label: description.label,
     description: description.definition,
     required: accessNeed.required,
     access: accessNeed.accessMode.map((mode) => IRI.make(mode)),
     shapeTree: {
-      id: IRI.make(accessNeed.shapeTree.iri),
+      id: IRI.make(accessNeed.registeredShapeTree),
       label: shapeTreeDescription.label,
     },
     parent: accessNeed.inheritsFromNeed ? IRI.make(accessNeed.inheritsFromNeed) : undefined,
     children: accessNeed.children
       ? await Promise.all(
-          accessNeed.children.map((child) => formatAccessNeed(child, descriptionsLang))
+          accessNeed.children.map((child) => formatAccessNeed(child, descriptionsLang, factory))
         )
       : undefined,
   })
 }
 
 async function findUserDataRegistrations(
-  accessNeedGroup: ReadableAccessNeedGroup,
+  accessNeedGroup: AccessNeedGroupData,
   saiSession: AuthorizationAgent
 ) {
   const dataRegistrations = []
@@ -62,14 +68,14 @@ async function findUserDataRegistrations(
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       const dataRegistration = await saiSession.findDataRegistration(
         dataRegistry.iri,
-        accessNeed.shapeTree.iri
+        accessNeed.registeredShapeTree
       )
       if (dataRegistration)
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),
           dataRegistry: IRI.make(dataRegistry.iri),
           label: `${dataRegistration.id.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
-          shapeTree: accessNeed.shapeTree.iri,
+          shapeTree: accessNeed.registeredShapeTree,
           count: dataRegistration.contains.length,
         })
     }
@@ -79,7 +85,7 @@ async function findUserDataRegistrations(
 
 async function findSocialAgentDataRegistrations(
   socialAgentRegistration: CRUDSocialAgentRegistration,
-  accessNeedGroup: ReadableAccessNeedGroup,
+  accessNeedGroup: AccessNeedGroupData,
   saiSession: AuthorizationAgent
 ) {
   const dataRegistrations = []
@@ -88,13 +94,13 @@ async function findSocialAgentDataRegistrations(
   for (const dataGrant of dataGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
-        dataGrant.registeredShapeTree === accessNeed.shapeTree.iri &&
+        dataGrant.registeredShapeTree === accessNeed.registeredShapeTree &&
         dataGrant.scopeOfGrant !== INTEROP.Inherited.value // TODO clarify case when this could happen
       ) {
         dataRegistrations.push({
           id: IRI.make(dataGrant.hasDataRegistration),
           label: `${dataGrant.hasDataRegistration.split('/').slice(0, 4).join('/')}/`, // TODO get proper label
-          shapeTree: accessNeed.shapeTree.iri,
+          shapeTree: accessNeed.registeredShapeTree,
           // @ts-ignore
           count: dataGrant.hasDataInstance
             ? // @ts-ignore
@@ -177,11 +183,21 @@ export const getDescriptions = async (
       }
     }
   }
-  const descriptionLanguages = [...accessNeedGroup.reliableDescriptionLanguages]
-  const descriptionsLang = accessNeedGroup.reliableDescriptionLanguages.has(preferredLang)
+  const descriptionLanguages = [
+    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(accessNeedGroup, saiSession.factory)),
+  ]
+  const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
+    accessNeedGroup,
+    saiSession.factory
+  )
+  const descriptionsLang = reliableDescriptionLanguages.has(preferredLang)
     ? preferredLang
     : descriptionLanguages[0]
-  const descriptions = await accessNeedGroup.getDescription(descriptionsLang)
+  const descriptions = await AccessNeedGroupModule.getDescription(
+    accessNeedGroup,
+    descriptionsLang,
+    saiSession.factory
+  )
 
   return {
     // TODO if the id is the unique id of something then it should not be its own id. It should refer by a different name,
@@ -189,11 +205,11 @@ export const getDescriptions = async (
     id: IRI.make(agentIri), // TODO change to agentID
     agentType,
     accessNeedGroup: {
-      id: IRI.make(accessNeedGroup.iri),
+      id: IRI.make(accessNeedGroup.id),
       label: descriptions.label,
       description: descriptions.definition,
       needs: await Promise.all(
-        accessNeedGroup.accessNeeds.map((need) => formatAccessNeed(need, descriptionsLang))
+        accessNeedGroup.accessNeeds.map((need) => formatAccessNeed(need, descriptionsLang, saiSession.factory))
       ),
       descriptionLanguages,
       lang: descriptionsLang,
@@ -207,21 +223,21 @@ export const getDescriptions = async (
 // TODO validate all scopes
 function buildDataAuthorizations(
   authorization: S.Schema.Type<typeof GrantedAuthorization>,
-  accessNeedGroup: ReadableAccessNeedGroup,
+  accessNeedGroup: AccessNeedGroupData,
   grantedBy: string
 ): NestedDataAuthorizationData[] {
   const structuredDataAuthorizations = authorization.dataAuthorizations.map((dataAuthorization) => {
     const accessNeed = accessNeedGroup.accessNeeds
       .flatMap((need) => [need, ...(need.children ?? [])])
-      .find((need) => need.iri === dataAuthorization.accessNeed)
+      .find((need) => need.id === dataAuthorization.accessNeed)
     if (!accessNeed) {
       throw new Error(`missing access need: ${dataAuthorization.accessNeed}`)
     }
     const saiReady: DataAuthorizationData = {
-      satisfiesAccessNeed: accessNeed.iri,
+      satisfiesAccessNeed: accessNeed.id,
       grantee: authorization.grantee,
       grantedBy,
-      registeredShapeTree: accessNeed.shapeTree.iri,
+      registeredShapeTree: accessNeed.registeredShapeTree,
       scopeOfAuthorization: INTEROP[dataAuthorization.scope].value,
       accessMode: accessNeed!.accessMode,
     }
@@ -254,7 +270,7 @@ function buildDataAuthorizations(
       .filter((childDataAuthorization) => {
         const accessNeed = accessNeedGroup.accessNeeds
           .flatMap((need) => [need, ...(need.children ?? [])])
-          .find((need) => need.iri === childDataAuthorization.satisfiesAccessNeed)!
+          .find((need) => need.id === childDataAuthorization.satisfiesAccessNeed)!
 
         return accessNeed.inheritsFromNeed === parentDataAuthorization.satisfiesAccessNeed
       })

@@ -6,16 +6,22 @@ export interface FactoryDependencies {
   fetch: RdfFetch
   randomUUID(): string
 }
-export * from './base-factory'
 export * from './resource'
-
 export * from './readable'
+export * from './base-factory'
 export * from './crud'
 export * from './templates'
 export { ApplicationFactory } from './application-factory'
 export { AuthorizationAgentFactory } from './authorization-agent-factory'
 export type InteropFactory = ApplicationFactory | AuthorizationAgentFactory
 export { DataInstance } from './data-instance'
+export type { DataInstanceData, ChildInfo } from './data-instance'
+export type { ShapeTreeData, ShapeTreeReference } from './shape-tree'
+export * as ShapeTree from './shape-tree'
+export type { AccessNeedData } from './access-need'
+export * as AccessNeed from './access-need'
+export type { AccessNeedGroupData } from './access-need-group'
+export * as AccessNeedGroup from './access-need-group'
 export { ReadableDataRegistrationProxy } from './data-registration-proxy'
 export type { GrantData, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'

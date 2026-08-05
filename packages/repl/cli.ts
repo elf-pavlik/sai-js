@@ -89,7 +89,7 @@ const createDataRegistration = (session: AuthorizationAgent) =>
     )
     const registry = session.registrySet.hasDataRegistry.find(({ iri }) => iri === registryId)!
     const existingShapeTrees = yield* Effect.promise(async () =>
-      (await registry.registeredShapeTrees()).map(({ iri }) => iri)
+      (await registry.registeredShapeTrees()).map(({ id }) => id)
     )
     const remainingShapeTrees = [
       ...new Set(Object.values(shapeTree)).difference(new Set(existingShapeTrees)),

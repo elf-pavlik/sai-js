@@ -1,6 +1,11 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import type { CRUDDataRegistry, GrantData } from '@janeirodigital/interop-data-model'
-import { getDataGrantIris, getDataGrants, Grant } from '@janeirodigital/interop-data-model'
+import {
+  getDataGrantIris,
+  getDataGrants,
+  Grant,
+  ShapeTree,
+} from '@janeirodigital/interop-data-model'
 import { DataInstance, DataRegistration, DataRegistry, IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 
@@ -11,17 +16,17 @@ const buildDataRegistry = async (
 ) => {
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for await (const registration of registry.registrations) {
-    const shapeTree = await saiSession.factory.readable.shapeTree(
-      registration.registeredShapeTree,
-      descriptionsLang
-    )
+    const shapeTree = await saiSession.factory.readable.shapeTree(registration.registeredShapeTree)
+    const shapeTreeDescription = descriptionsLang
+      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, saiSession.factory)
+      : undefined
     registrations.push(
       DataRegistration.make({
         id: IRI.make(registration.id),
         shapeTree: registration.registeredShapeTree,
         dataRegistry: registry.iri,
         count: registration.contains.length,
-        label: shapeTree.descriptions[descriptionsLang]?.label,
+        label: shapeTreeDescription?.label,
       })
     )
   }
@@ -43,16 +48,16 @@ const buildDataRegistryForGrant = async (
   for (const dataGrant of dataGrants) {
     if (seen.has(dataGrant.hasDataRegistration)) continue
     seen.add(dataGrant.hasDataRegistration)
-    const shapeTree = await saiSession.factory.readable.shapeTree(
-      dataGrant.registeredShapeTree,
-      descriptionsLang
-    )
+    const shapeTree = await saiSession.factory.readable.shapeTree(dataGrant.registeredShapeTree)
+    const shapeTreeDescription = descriptionsLang
+      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, saiSession.factory)
+      : undefined
     registrations.push(
       DataRegistration.make({
         id: IRI.make(dataGrant.hasDataRegistration),
         shapeTree: dataGrant.registeredShapeTree,
         dataRegistry: registryIri,
-        label: shapeTree.descriptions[descriptionsLang]?.label,
+        label: shapeTreeDescription?.label,
       })
     )
   }
@@ -133,7 +138,7 @@ export const listDataInstances = async (
       const dataInstance = await saiSession.factory.readable.dataInstance(dataInstanceIri)
       dataInstances.push(
         DataInstance.make({
-          id: IRI.make(dataInstance.iri),
+          id: IRI.make(dataInstance.id),
           label: dataInstance.label,
         })
       )
@@ -164,7 +169,7 @@ export const listDataInstances = async (
           )
           dataInstances.push(
             DataInstance.make({
-              id: IRI.make(dataInstance.iri),
+              id: IRI.make(dataInstance.id),
               label: dataInstance.label,
             })
           )

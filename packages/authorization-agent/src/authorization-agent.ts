@@ -8,10 +8,10 @@ import {
   type DataAuthorizationData,
   type DataGrant,
   type DataRegistrationData,
+  type DataInstanceData,
+  type ShapeTreeData,
   type FinalDataAuthorizationData,
   type GeneratedGrants,
-  type ReadableDataInstance,
-  type ReadableShapeTree,
   type WebIdProfileData,
   generateGrantsForAuthorization,
   getDataGrants,
@@ -204,7 +204,7 @@ export class AuthorizationAgent {
     return this.factory.readable.dataRegistration(registrationId)
   }
 
-  public async findShapeTreeForResource(resourceId: string): Promise<ReadableShapeTree> {
+  public async findShapeTreeForResource(resourceId: string): Promise<ShapeTreeData> {
     let shapeTreeId: string
     const ownerId = await this.findResourceOwner(resourceId)
     if (ownerId === this.webId) {
@@ -342,7 +342,7 @@ export class AuthorizationAgent {
 
   private async formatAuthorization(
     agent: string,
-    dataInstance: ReadableDataInstance,
+    dataInstance: DataInstanceData,
     details: ShareDataInstanceStructure
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
@@ -353,7 +353,7 @@ export class AuthorizationAgent {
       dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
       hasDataRegistration: dataInstance.dataRegistration!.id,
       accessMode: details.accessMode,
-      hasDataInstance: [dataInstance.iri],
+      hasDataInstance: [dataInstance.id],
       children: await Promise.all(
         details.children.map(async (child) => ({
           grantee: agent,

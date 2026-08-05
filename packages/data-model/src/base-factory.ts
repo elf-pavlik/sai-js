@@ -6,8 +6,8 @@ import {
   type ApplicationRegistrationData,
   type FactoryDependencies,
   fromJsonLd,
-  ReadableDataInstance,
-  ReadableShapeTree,
+  type DataInstanceData,
+  type ShapeTreeData,
   type ClientIdDocumentData,
   type ShapeTreeDescriptionData,
   type WebIdProfileData,
@@ -17,12 +17,24 @@ import { fromJsonLd as dataRegistrationFromJsonLd } from './data-registration'
 import { fromJsonLd as applicationRegistrationFromJsonLd } from './application-registration'
 import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description'
 import { fromJsonLd as webIdProfileFromJsonLd } from './web-id-profile'
+import { fromJsonLd as shapeTreeFromJsonLd } from './shape-tree'
+import {
+  computeChildren,
+  computeLabel,
+  discoverDescriptionResource,
+  fetchDataInstanceDataset,
+  isBlob,
+} from './data-instance'
 
 export interface BaseReadableFactory {
-  dataInstance(iri: string, shapeTreeIri?: string, descriptionLang?: string): Promise<ReadableDataInstance>
+  dataInstance(
+    iri: string,
+    shapeTreeIri?: string,
+    descriptionLang?: string
+  ): Promise<DataInstanceData>
   applicationRegistration(iri: string): Promise<ApplicationRegistrationData>
   dataRegistration(iri: string): Promise<DataRegistrationData>
-  shapeTree(iri: string, descriptionLang?: string): Promise<ReadableShapeTree>
+  shapeTree(iri: string, descriptionLang?: string): Promise<ShapeTreeData>
   shapeTreeDescription(iri: string): Promise<ShapeTreeDescriptionData>
   dataGrant(iri: string): Promise<GrantData>
   webIdProfile(iri: string): Promise<WebIdProfileData>
@@ -50,8 +62,34 @@ export class BaseFactory {
         iri: string,
         shapeTreeIri?: string,
         descriptionLang?: string
-      ): Promise<ReadableDataInstance> {
-        return ReadableDataInstance.build(iri, factory, shapeTreeIri, descriptionLang)
+      ): Promise<DataInstanceData> {
+        let dataRegistration: DataRegistrationData | undefined
+        let resolvedShapeTreeIri = shapeTreeIri
+        if (!resolvedShapeTreeIri) {
+          const dataRegistrationIri = `${iri.split('/').slice(0, -1).join('/')}/`
+          dataRegistration = await factory.readable.dataRegistration(dataRegistrationIri)
+          resolvedShapeTreeIri = dataRegistration.registeredShapeTree
+        }
+        const shapeTree = await factory.readable.shapeTree(resolvedShapeTreeIri)
+        const blob = isBlob(shapeTree)
+        const data: DataInstanceData = {
+          id: iri,
+          shapeTreeIri: resolvedShapeTreeIri,
+          isBlob: blob,
+          children: [],
+          dataRegistration,
+        }
+        if (descriptionLang) {
+          const dataset = !blob
+            ? await fetchDataInstanceDataset(iri, factory)
+            : await fetchDataInstanceDataset(
+                await discoverDescriptionResource(iri, factory.fetch),
+                factory
+              )
+          data.label = computeLabel(dataset, iri, shapeTree)
+          data.children = await computeChildren(dataset, iri, shapeTree, factory, descriptionLang)
+        }
+        return data
       },
       applicationRegistration: async function applicationRegistration(
         iri: string
@@ -73,9 +111,13 @@ export class BaseFactory {
       },
       shapeTree: async function shapeTree(
         iri: string,
-        descriptionLang?: string
-      ): Promise<ReadableShapeTree> {
-        return ReadableShapeTree.build(iri, factory, descriptionLang)
+        _descriptionLang?: string
+      ): Promise<ShapeTreeData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        return shapeTreeFromJsonLd(doc, iri)
       },
       shapeTreeDescription: async function shapeTreeDescription(
         iri: string

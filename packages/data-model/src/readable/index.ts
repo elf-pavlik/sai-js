@@ -15,9 +15,9 @@ export type {
 export type { AccessDescriptionSetData } from '../access-description-set'
 export type { DataRegistrationData } from '../data-registration'
 export type { ApplicationRegistrationData } from '../application-registration'
+export type { ShapeTreeData, ShapeTreeReference } from '../shape-tree'
+export type { AccessNeedData } from '../access-need'
+export type { AccessNeedGroupData } from '../access-need-group'
+export type { DataInstanceData, ChildInfo } from '../data-instance'
 
 export { ReadableResource } from './resource'
-export { ReadableShapeTree } from './shape-tree'
-export { ReadableAccessNeed } from './access-need'
-export { ReadableAccessNeedGroup } from './access-need-group'
-export { ReadableDataInstance } from './data-instance'

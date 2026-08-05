@@ -238,8 +238,15 @@ describe('addNode', () => {
 describe('fetchBlob', () => {
   test('', async () => {
     const mockedResponse = { blob: vi.fn() }
+    const originalRaw = factory.fetch.raw
     // @ts-ignore
-    factory.fetch.raw = vi.fn().mockResolvedValueOnce(mockedResponse)
+    factory.fetch.raw = vi.fn(async (iri: string, options?: RequestInit) => {
+      if (options) {
+        // delegate requests with options (e.g. shape tree JSON-LD fetch during bootstrap)
+        return originalRaw(iri, options)
+      }
+      return mockedResponse
+    })
     const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
     await dataInstance.fetchBlob()
     // @ts-ignore

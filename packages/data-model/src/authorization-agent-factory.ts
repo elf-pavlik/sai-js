@@ -16,13 +16,13 @@ import {
   type AccessDescriptionSetData,
   type AccessNeedDescriptionData,
   type AccessNeedGroupDescriptionData,
+  type AccessNeedData,
+  type AccessNeedGroupData,
   type DataAuthorizationData,
   type DataRegistrationData,
   type FactoryDependencies,
   type FinalGrantData,
   type GrantData,
-  ReadableAccessNeed,
-  ReadableAccessNeedGroup,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
@@ -30,6 +30,8 @@ import {
   accessNeedDescriptionFromJsonLd,
   accessNeedGroupDescriptionFromJsonLd,
 } from './access-description'
+import { fromJsonLd as accessNeedFromJsonLd } from './access-need'
+import { fromJsonLd as accessNeedGroupFromJsonLd } from './access-need-group'
 import { fromJsonLd as dataAuthorizationFromJsonLd } from './data-authorization'
 import type { CRUDRegistrySetData } from './crud/registry-set'
 import type { CRUDData } from './crud/resource'
@@ -39,8 +41,8 @@ interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
   accessNeedDescription(iri: string): Promise<AccessNeedDescriptionData>
   accessNeedGroupDescription(iri: string): Promise<AccessNeedGroupDescriptionData>
   accessDescriptionSet(iri: string): Promise<AccessDescriptionSetData>
-  accessNeed(iri: string, descriptionLang?: string): Promise<ReadableAccessNeed>
-  accessNeedGroup(iri: string, descriptionLang?: string): Promise<ReadableAccessNeedGroup>
+  accessNeed(iri: string, descriptionLang?: string): Promise<AccessNeedData>
+  accessNeedGroup(iri: string, descriptionLang?: string): Promise<AccessNeedGroupData>
 }
 interface CRUDFactory {
   applicationRegistration(
@@ -212,14 +214,34 @@ export class AuthorizationAgentFactory extends BaseFactory {
       accessNeed: async function accessNeed(
         iri: string,
         descriptionLang?: string
-      ): Promise<ReadableAccessNeed> {
-        return ReadableAccessNeed.build(iri, factory, descriptionLang)
+      ): Promise<AccessNeedData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        const need = await accessNeedFromJsonLd(doc, iri)
+        if (need.hasInheritingNeed.length) {
+          need.children = await Promise.all(
+            need.hasInheritingNeed.map((childIri) =>
+              factory.readable.accessNeed(childIri, descriptionLang)
+            )
+          )
+        }
+        return need
       },
       accessNeedGroup: async function accessNeedGroup(
         iri: string,
         descriptionLang?: string
-      ): Promise<ReadableAccessNeedGroup> {
-        return ReadableAccessNeedGroup.build(iri, factory, descriptionLang)
+      ): Promise<AccessNeedGroupData> {
+        const response = await factory.fetch.raw(iri, {
+          headers: { Accept: 'application/ld+json' },
+        })
+        const doc = await response.json()
+        const group = await accessNeedGroupFromJsonLd(doc, iri)
+        group.accessNeeds = await Promise.all(
+          group.hasAccessNeed.map((needIri) => factory.readable.accessNeed(needIri, descriptionLang))
+        )
+        return group
       },
       ...super.readableFactory(),
     }

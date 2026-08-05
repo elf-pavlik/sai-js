@@ -10,7 +10,7 @@ import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { CRUDContainer, type CRUDDataRegistration } from '.'
 import type { AuthorizationAgentFactory } from '..'
-import type { DataRegistrationData, ReadableShapeTree } from '..'
+import type { DataRegistrationData, ShapeTreeData } from '..'
 import type { CRUDData } from './resource'
 
 export class CRUDDataRegistry extends CRUDContainer {
@@ -20,7 +20,7 @@ export class CRUDDataRegistry extends CRUDContainer {
     return this.getObjectsArray('hasDataRegistration').map((obj) => obj.value)
   }
 
-  async registeredShapeTrees(): Promise<ReadableShapeTree[]> {
+  async registeredShapeTrees(): Promise<ShapeTreeData[]> {
     const registrations = await asyncIterableToArray(this.registrations)
     return Promise.all(
       registrations.map((registration) =>

@@ -1,19 +1,147 @@
 import {
   INTEROP,
   SHAPETREES,
+  buildNamespace,
+  getAllMatchingQuads,
   getDescriptionResource,
+  getOneMatchingQuad,
   insertPatch,
+  parseJsonld,
   targetDataRegistrationLink,
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory, type NamedNode } from 'n3'
+import type { ApplicationFactory, InteropFactory } from '.'
+import type { DataRegistrationData } from './data-registration'
+import type { GrantData } from './grant'
+import type { ShapeTreeData } from './shape-tree'
+import { ReadableResource } from './readable/resource'
 import {
-  type ApplicationFactory,
-  type GrantData,
-  ReadableResource,
-  type ReadableShapeTree,
-} from '.'
+  getDescription as getShapeTreeDescription,
+  getPredicateForReferenced,
+  expectsType,
+} from './shape-tree'
 import * as Grant from './grant'
+
+const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#')
+
+// ──────────────────────────
+// DataInstanceData (readable POJO)
+// ──────────────────────────
+
+export type ChildInfo = {
+  shapeTree: {
+    iri: string
+    label: string
+  }
+  count: number
+}
+
+/** Plain JSON representation of a data instance. */
+export type DataInstanceData = {
+  id: string
+  shapeTreeIri?: string
+  label?: string
+  isBlob: boolean
+  children: ChildInfo[]
+  dataRegistration?: DataRegistrationData
+}
+
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
+
+/** Whether the shape tree expects non-RDF resources (blobs). */
+export function isBlob(shapeTree: ShapeTreeData): boolean {
+  return shapeTree.expectsType === SHAPETREES.NonRDFResource.value
+}
+
+/** Fetch the data instance's RDF dataset (or blob description resource). */
+export async function fetchDataInstanceDataset(
+  iri: string,
+  factory: InteropFactory
+): Promise<DatasetCore> {
+  const response = await factory.fetch.raw(iri, {
+    headers: { Accept: 'application/ld+json' },
+  })
+  const doc = await response.json()
+  return parseJsonld(JSON.stringify(doc), iri)
+}
+
+/** Resolve the description resource IRI of a blob from its Link header. */
+export async function discoverDescriptionResource(
+  iri: string,
+  fetch: InteropFactory['fetch']
+): Promise<string> {
+  const response = await fetch.raw(iri, { method: 'HEAD' })
+  return getDescriptionResource(response.headers.get('Link'))
+}
+
+export function computeLabel(
+  dataset: DatasetCore,
+  id: string,
+  shapeTree: ShapeTreeData
+): string | undefined {
+  const node = DataFactory.namedNode(id)
+  let label: string | undefined
+  const describesInstance = shapeTree.describesInstance
+  if (describesInstance) {
+    label = getOneMatchingQuad(dataset, node, DataFactory.namedNode(describesInstance))?.object
+      .value
+  }
+  return label || getOneMatchingQuad(dataset, node, NFO.fileName)?.object.value
+}
+
+export async function computeChildren(
+  dataset: DatasetCore,
+  id: string,
+  shapeTree: ShapeTreeData,
+  factory: InteropFactory,
+  lang: string
+): Promise<ChildInfo[]> {
+  return Promise.all(
+    shapeTree.references.map(async (reference) => {
+      const childTree = await factory.readable.shapeTree(reference.shapeTree)
+      const description = await getShapeTreeDescription(childTree, lang, factory)
+      return {
+        count: getAllMatchingQuads(dataset, DataFactory.namedNode(id), reference.viaPredicate)
+          .length,
+        shapeTree: { iri: reference.shapeTree, label: description?.label },
+      }
+    })
+  )
+}
+
+/** The data instance's label (describesInstance value or nfo:fileName). */
+export async function label(
+  data: DataInstanceData,
+  factory: InteropFactory
+): Promise<string | undefined> {
+  if (!data.shapeTreeIri) return undefined
+  const [shapeTree, dataset] = await Promise.all([
+    factory.readable.shapeTree(data.shapeTreeIri),
+    fetchDataInstanceDataset(data.id, factory),
+  ])
+  return computeLabel(dataset, data.id, shapeTree)
+}
+
+/** Count the children of the data instance for each referenced shape tree. */
+export async function buildChildrenInfo(
+  data: DataInstanceData,
+  factory: InteropFactory,
+  lang: string
+): Promise<ChildInfo[]> {
+  if (!data.shapeTreeIri) return []
+  const [shapeTree, dataset] = await Promise.all([
+    factory.readable.shapeTree(data.shapeTreeIri),
+    fetchDataInstanceDataset(data.id, factory),
+  ])
+  return computeChildren(dataset, data.id, shapeTree, factory, lang)
+}
+
+// ──────────────────────────
+// DataInstance (write-side active record)
+// ──────────────────────────
 
 export class DataInstance extends ReadableResource {
   dataGrant: GrantData
@@ -22,7 +150,7 @@ export class DataInstance extends ReadableResource {
 
   draft: boolean
 
-  shapeTree: ReadableShapeTree
+  shapeTree: ShapeTreeData
 
   public constructor(
     iri: string,
@@ -52,13 +180,7 @@ export class DataInstance extends ReadableResource {
 
   // TODO: extract as mixin from container
   async discoverDescriptionResource(): Promise<string> {
-    // @ts-ignore
-    const response = await this.fetch.raw(this.iri, {
-      method: 'HEAD',
-    })
-
-    // get value of describedby Link
-    return getDescriptionResource(response.headers.get('Link'))
+    return discoverDescriptionResource(this.iri, this.fetch)
   }
 
   public static async build(
@@ -155,7 +277,7 @@ export class DataInstance extends ReadableResource {
   }
 
   async getChildReferencesForShapeTree(shapeTree: string): Promise<string[]> {
-    const predicate = this.shapeTree.getPredicateForReferenced(shapeTree)
+    const predicate = getPredicateForReferenced(this.shapeTree, shapeTree)
     return this.getObjectsArray(predicate).map((object) => object.value)
   }
 
@@ -197,7 +319,7 @@ export class DataInstance extends ReadableResource {
   }
 
   public async updateAddingChildReference(child: DataInstance): Promise<void> {
-    const predicate = this.shapeTree.getPredicateForReferenced(child.dataGrant.registeredShapeTree)
+    const predicate = getPredicateForReferenced(this.shapeTree, child.dataGrant.registeredShapeTree)
 
     const referenceQuad = DataFactory.quad(
       DataFactory.namedNode(this.iri),
@@ -210,7 +332,7 @@ export class DataInstance extends ReadableResource {
   }
 
   public async updateRemovingChildReference(child: DataInstance): Promise<void> {
-    const predicate = this.shapeTree.getPredicateForReferenced(child.dataGrant.registeredShapeTree)
+    const predicate = getPredicateForReferenced(this.shapeTree, child.dataGrant.registeredShapeTree)
 
     const referenceQuad = DataFactory.quad(
       DataFactory.namedNode(this.iri),
@@ -229,7 +351,7 @@ export class DataInstance extends ReadableResource {
   }
 
   get isBlob(): boolean {
-    return this.shapeTree.expectsType.value === SHAPETREES.NonRDFResource.value
+    return expectsType(this.shapeTree).value === SHAPETREES.NonRDFResource.value
   }
 
   async fetchBlob(): Promise<Blob> {

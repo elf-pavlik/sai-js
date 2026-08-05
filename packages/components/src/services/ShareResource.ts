@@ -8,6 +8,7 @@ import {
   type ShareAuthorization,
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
+import { ShapeTree } from '@janeirodigital/interop-data-model'
 import type * as S from 'effect/Schema'
 import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
@@ -15,14 +16,16 @@ import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
   const resource = await saiSession.factory.readable.dataInstance(iri, undefined, lang)
   if (!resource) throw new Error(`Resource not found: ${iri}`)
+  const shapeTree = await saiSession.factory.readable.shapeTree(resource.shapeTreeIri)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, saiSession.factory)
   return Resource.make({
-    id: IRI.make(resource.iri),
+    id: IRI.make(resource.id),
     label: resource.label,
     shapeTree: {
-      id: IRI.make(resource.shapeTree.iri),
-      label: resource.shapeTree.label,
+      id: IRI.make(resource.shapeTreeIri),
+      label: shapeTreeDescription?.label,
     },
-    accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.iri)).map(({ agent }) =>
+    accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
       IRI.make(agent)
     ),
     children: resource.children.map((child) => ({

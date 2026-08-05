@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { test } from 'vitest'
-import { ApplicationFactory, ReadableShapeTree } from '../../src'
-import type { ShapeTreeReference } from '../../src/readable/shape-tree'
+import { ApplicationFactory, ShapeTree } from '../../src'
+import type { ShapeTreeReference } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
@@ -11,7 +11,7 @@ const taskTreeIri = 'https://solidshapes.example/trees/Task'
 
 test('factory should build a shape tree', async () => {
   const shapeTree = await factory.readable.shapeTree(snippetIri)
-  expect(shapeTree).toBeInstanceOf(ReadableShapeTree)
+  expect(shapeTree.id).toBe(snippetIri)
 })
 
 test.todo('provides describesInstance predicate')
@@ -33,35 +33,37 @@ test('provides references', async () => {
 test('should allow to get Predicate for a referenced tree', async () => {
   const shapeTree = await factory.readable.shapeTree(snippetIri)
   const expectedPredicate = 'https://vocab.example/project-management/hasTask'
-  const predicateToTask = shapeTree.getPredicateForReferenced(taskTreeIri)
+  const predicateToTask = ShapeTree.getPredicateForReferenced(shapeTree, taskTreeIri)
   expect(predicateToTask.value).toBe(expectedPredicate)
 })
 
 test('should get description for language', async () => {
   const lang = 'en'
-  const shapeTree = await factory.readable.shapeTree(snippetIri, lang)
-  expect(shapeTree.descriptions[lang]).toBeDefined()
-  expect(shapeTree.descriptions[lang].label).toBe('Projects')
+  const shapeTree = await factory.readable.shapeTree(snippetIri)
+  const en = await ShapeTree.getDescription(shapeTree, lang, factory)
+  expect(en).toBeDefined()
+  expect(en?.label).toBe('Projects')
   const otherLang = 'pl'
-  shapeTree.descriptions[otherLang] = (await shapeTree.getDescription(otherLang))!
-  expect(shapeTree.descriptions[otherLang]).toBeDefined()
-  expect(shapeTree.descriptions[otherLang].label).toBe('Projekty')
+  const pl = await ShapeTree.getDescription(shapeTree, otherLang, factory)
+  expect(pl).toBeDefined()
+  expect(pl?.label).toBe('Projekty')
 })
 
 test('should gracefully fail if no description set for language', async () => {
   const lang = 'fr'
-  const shapeTree = await factory.readable.shapeTree(snippetIri, lang)
-  expect(shapeTree.descriptions[lang]).toBeUndefined()
+  const shapeTree = await factory.readable.shapeTree(snippetIri)
+  const description = await ShapeTree.getDescription(shapeTree, lang, factory)
+  expect(description).toBeNull()
 })
 
 test('should gracefully fail if description set with missing description for language', async () => {
   const lang = 'de'
-  const shapeTree = await factory.readable.shapeTree(snippetIri, lang)
-  expect(shapeTree.descriptions[lang]).toBeUndefined()
+  const shapeTree = await factory.readable.shapeTree(snippetIri)
+  const description = await ShapeTree.getDescription(shapeTree, lang, factory)
+  expect(description).toBeNull()
 })
 
 test('should get description languages', async () => {
-  const lang = 'fr'
-  const shapeTree = await factory.readable.shapeTree(snippetIri, lang)
-  expect([...shapeTree.descriptionLanguages]).toStrictEqual(['en', 'pl', 'de'])
+  const shapeTree = await factory.readable.shapeTree(snippetIri)
+  expect([...shapeTree.descriptionLanguages].sort()).toStrictEqual(['de', 'en', 'pl'])
 })

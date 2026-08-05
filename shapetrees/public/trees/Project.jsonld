@@ -1,0 +1,139 @@
+[
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/Project",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#ShapeTree"
+    ],
+    "http://www.w3.org/ns/shapetrees#expectsType": [
+      {
+        "@id": "http://www.w3.org/ns/shapetrees#Resource"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#shape": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/shapes/Project"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describesInstance": [
+      {
+        "@id": "http://www.w3.org/2000/01/rdf-schema#label"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#references": [
+      {
+        "@id": "urn:uuid:54b5e4f6-c6b5-4c9a-b885-cbf69d08370d"
+      },
+      {
+        "@id": "urn:uuid:86d54925-eeb5-4360-bca4-d53009bae8c7"
+      },
+      {
+        "@id": "urn:uuid:85a1d32b-5c91-4900-9bc8-f271117675ed"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-en",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "en",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-en#Project",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-en"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Project"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "es",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#Project",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Project"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "pl",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#Project",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Project"
+      }
+    ]
+  },
+  {
+    "@id": "urn:uuid:54b5e4f6-c6b5-4c9a-b885-cbf69d08370d",
+    "http://www.w3.org/ns/shapetrees#hasShapeTree": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Task"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#viaPredicate": [
+      {
+        "@id": "https://vocab.example/project-management/hasTask"
+      }
+    ]
+  },
+  {
+    "@id": "urn:uuid:85a1d32b-5c91-4900-9bc8-f271117675ed",
+    "http://www.w3.org/ns/shapetrees#hasShapeTree": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/File"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#viaPredicate": [
+      {
+        "@id": "https://vocab.example/project-management/hasFile"
+      }
+    ]
+  },
+  {
+    "@id": "urn:uuid:86d54925-eeb5-4360-bca4-d53009bae8c7",
+    "http://www.w3.org/ns/shapetrees#hasShapeTree": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Image"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#viaPredicate": [
+      {
+        "@id": "https://vocab.example/project-management/hasImage"
+      }
+    ]
+  }
+]

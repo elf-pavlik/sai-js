@@ -4,6 +4,7 @@ import {
   getOneMatchingQuad,
   discoverAccessResource,
   parseTurtle,
+  serializeTurtle,
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
@@ -85,9 +86,10 @@ export async function setAcr(
       peer,
     })
   )
-  const response = await factory.fetch(acrLocation, {
+  const response = await factory.fetch.raw(acrLocation, {
     method: 'PUT',
-    dataset,
+    body: await serializeTurtle(dataset),
+    headers: { 'Content-Type': 'text/turtle' },
   })
   if (!response.ok) throw new Error(await response.text())
 }

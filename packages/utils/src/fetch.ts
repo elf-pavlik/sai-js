@@ -1,5 +1,11 @@
 import type { DatasetCore } from '@rdfjs/types'
-import { parseTurtle, serializeTurtle } from '.'
+import * as jsonldNs from 'jsonld'
+import { parseJsonld, parseTurtle } from '.'
+
+// CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
+// has the full exports only on .default, while named exports like `fromRDF`
+// are hoisted. Grab the full object so that `fromRDF` is available.
+const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 export interface RdfRequestInit extends RequestInit {
   dataset?: DatasetCore
@@ -25,21 +31,24 @@ async function unwrappedRdfFetch(
   let requestInit: RequestInit
   if (options?.dataset) {
     const { dataset, ...request } = options
-    request.body = await serializeTurtle(options.dataset)
-    request.headers = { 'Content-Type': 'text/turtle', ...request.headers }
+    request.body = JSON.stringify(await jsonld.fromRDF(dataset))
+    request.headers = { 'Content-Type': 'application/ld+json', ...request.headers }
     requestInit = request
   } else {
     requestInit = { ...options } as RequestInit
-    requestInit.headers = { Accept: 'text/turtle', ...requestInit.headers }
+    requestInit.headers = { Accept: 'application/ld+json', ...requestInit.headers }
   }
   const response = await whatwgFetch(iri, requestInit)
   const rdfResponse = response.clone() as RdfResponse
   rdfResponse.dataset = async function dataset() {
     const contentType = response.headers.get('Content-Type')
-    if (contentType === null || !contentType.match('text/turtle')) {
-      throw Error(`Content-Type was ${contentType}`)
+    if (contentType?.includes('application/ld+json')) {
+      return parseJsonld(await response.text(), response.url)
     }
-    return parseTurtle(await response.text(), response.url)
+    if (contentType?.includes('text/turtle')) {
+      return parseTurtle(await response.text(), response.url)
+    }
+    throw Error(`Content-Type was ${contentType}`)
   }
   rdfResponse.text = response.text
   return rdfResponse

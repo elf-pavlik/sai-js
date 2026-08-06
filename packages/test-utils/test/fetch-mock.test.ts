@@ -19,6 +19,12 @@ describe('common', () => {
   test('should provide Content-Type header', async () => {
     const url = 'https://solidshapes.example/shapes/Project'
     const response = await statelessFetch(url)
+    expect(response.headers.get('Content-Type')).toBe('application/ld+json')
+  })
+
+  test('should serve Turtle for explicit text/turtle Accept', async () => {
+    const url = 'https://alice.example/'
+    const response = await statelessFetch(url, { headers: { Accept: 'text/turtle' } })
     expect(response.headers.get('Content-Type')).toBe('text/turtle')
   })
 

@@ -42,6 +42,7 @@ Root integration tests (`test/*.ts`) import the POJO exports `getGranted`, `Gran
 - `packages/application`: 7 passing / 13 skipped
 - `packages/authorization-agent`: tests are `describe.skip`-gated (server-dependent) — the gate for this package is **typecheck/build**
 **Updated after Phase 4 (current):** data-model 193 pass / 10 skip / 10 todo (36 files); application 7 pass / 13 skip; authorization-agent gate is typecheck/build; root integration tests adapted minimally in Phase 4 (`test/roles.test.ts`, `test/authorization.test.ts` — new `(data, factory)` signatures, see Phase 4 notes). (Pre-Phase-1 baseline 202; Phases 1–2 removed redundant `toBeInstanceOf` tests; Phase 3 kept counts identical; Phase 4 dropped/restructured some CRUD tests — 4 dropped-test decision items from the previous session remain open.)
+**Phase 5 (reworked) in progress — see Phase 5 section.** Wire format flipped to JSON-LD (wrapper, mock, data.json, setAcr) with all package tests unchanged (utils 40, test-utils 10, data-model 193/10/10, application 7/13); turbo build 9/9 + test 14/14. Next: convert CRUD domain modules to POJO GET/PUT (role.ts first).
 
 ---
 
@@ -212,54 +213,36 @@ Converts the remaining write-side domain classes. The low-level write plumbing s
 
 ---
 
-# Phase 5 — Move the wire format from Turtle to JSON-LD (optional follow-up)
+# Phase 5 — JSON-LD wire format + POJO GET/PUT (in progress, reworked)
 
-> Independent from Phases 1–4 and best done **after** them. The POJO layer already speaks JSON-LD on both read and write paths (factory reads use raw fetch + `fromJsonLd`; components' grant writes use `JSON.stringify(toJsonLd)` + `application/ld+json`). The Turtle holdouts are the class-layer remnants and the test fixtures. Real servers (CSS storage fixture, `registry.trig` quadstore) already content-negotiate JSON-LD, so **only `packages/test-utils` fixtures need conversion**.
+> **Reworked:** remaining CRUD domain resources become compacted & framed JSON-LD POJOs; their GET/PUT bypasses `fetchWrapper`:
+> - GET → `fetch.raw(iri, { headers: { Accept: 'application/ld+json' } })` → `.json()` → `fromJsonLd(doc, iri)` (via `frameDoc`)
+> - PUT → `fetch.raw(iri, { method: 'PUT', body: JSON.stringify(toJsonLd(data)), headers: { 'Content-Type': 'application/ld+json' } })`
+>
+> (Patterns already exist: base-factory readable methods; components `storeDataGrant`.) The wrapper stays **only for quad-level infra**, flipped JSON-LD-first.
 
-Doing this before Phases 1–4 would require an atomic big-bang (the mock and `fetchWrapper` must flip together or every readable/CRUD test breaks) and would migrate class code that Phases 1–4 then delete.
+## Stays on quads (keeps wrapper + `.dataset()`)
 
-## Wire-format inventory
+- `Resource` / `ReadableResource` / `CRUDResource` / `CRUDContainer` — quad getters, timestamps, SPARQL patches
+- `DataInstance` class — `this.dataset`, blob/child-reference PATCHes
+- `discoverAuthorizationAgent` (utils/discovery), `storageIri` (crud/data-registry), `fetchDataset`/`linkedIris` (crud/resource) — until each crud module converts
 
-| Path | Today | Phase 5 |
-|------|-------|---------|
-| Grant **reads** (`base-factory.dataGrant`) | JSON-LD | unchanged |
-| Grant **writes** (components `storeDataGrant`) | JSON-LD | unchanged |
-| Authorization **reads** | JSON-LD | unchanged |
-| Authorization **writes** (`authorization.ts`) | Turtle (`toDataset` + PUT `dataset`) | JSON-LD (optional symmetry: `toJsonLd` + raw PUT) |
-| `ReadableClientIdDocument` | JSON-LD | unchanged |
-| `ReadableResource.fetchData` + readable classes | Turtle (via `fetchWrapper`) | deleted in Phases 1–3 |
-| `CRUDResource.update` / `DataInstance.update` / `fetchStorageDescription` | Turtle (via `fetchWrapper`) | JSON-LD via `fetchWrapper` swap |
-| `setAcr` (ACL) | Turtle | stays Turtle (ACL) |
-| SPARQL patches (`insertPatch`/`deletePatch`) | Turtle | stays Turtle (SPARQL protocol) |
-| `data.json` / `fetch-mock.ts` | Turtle | JSON-LD |
+## Done (this session)
 
-## The single lever: `packages/utils/src/fetch.ts` (in-repo interop-utils)
+1. **`fetchWrapper`** (`packages/utils/src/fetch.ts`) — JSON-LD-first w/ Turtle fallback: GET `Accept: application/ld+json` (overridable); `dataset()` content-type aware (`application/ld+json` → `parseJsonld`, `text/turtle` → `parseTurtle`, else throw); `PUT { dataset }` → `JSON.stringify(await jsonld.fromRDF(dataset))` + `application/ld+json`. (Fixed regex bug: `+` in `application/ld+json` — use `includes`, not `match`.)
+2. **`setAcr`** (`crud/agent-registration.ts`) → `fetch.raw` + `serializeTurtle(dataset)` body + `Content-Type: text/turtle` (ACR stays Turtle; required once the wrapper serializes JSON-LD).
+3. **`data.json`** → JSON-LD expanded form (mechanical per-entry conversion: `parseTurtle(text, key)` → N3 Store → `jsonld.fromRDF` → `JSON.stringify`). **98 converted; 10 kept raw** (don't parse as Turtle, all unused by package tests): already-JSON-LD `https://auth.alice.example/`, 3 ShEx shapes, 4 invalid-Turtle bob entries, 1 truncated, 1 empty. Keys unchanged.
+4. **`fetch-mock.ts`** — JSON-LD-first: `json()` returns the stored doc verbatim (`JSON.parse`), PUT stores body verbatim (round-trips work), storage-description special case JSON-LD; Turtle only for explicit `Accept: text/turtle`. Dropped `turtleToJsonLd`.
+5. **Rewrote** `packages/utils/test/fetch.test.ts` + `packages/test-utils/test/fetch-mock.test.ts`.
 
-`@janeirodigital/interop-utils` is a **workspace package** (`packages/utils`), so `fetchWrapper` is editable in-repo. It hard-codes Turtle in three places:
+### Gate after this session
 
-- GET sets `Accept: text/turtle`
-- `response.dataset()` **throws unless Content-Type matches text/turtle**, then `parseTurtle`
-- PUT with `{ dataset }` serializes to Turtle, `Content-Type: text/turtle`
+- utils 40 pass; test-utils 10 pass; data-model **193 pass / 10 skip / 10 todo — unchanged**; application 7 pass / 13 skip (unchanged); authorization-agent all skip-gated (gate = typecheck/build ✓)
+- `tsc -b` clean for utils, test-utils, data-model, application, authorization-agent, components; `turbo run build` 9/9; `turbo run test` 14/14
 
-Change it to **JSON-LD-first with Turtle fallback**:
+## Next — convert CRUD domain modules to POJO GET/PUT (start: `role.ts`)
 
-- GET: `Accept: application/ld+json` (still overridable via headers)
-- `dataset()`: content-type aware — `application/ld+json` → `parseJsonld` (already exists in `packages/utils/src/jsonld-parser.ts`, with `localDocumentLoader` for the OIDC/notifications contexts), `text/turtle` → `parseTurtle`
-- PUT `{ dataset }`: body = `JSON.stringify(await jsonld.fromRDF(dataset))`, `Content-Type: application/ld+json`
-
-This one change migrates the entire class layer transparently: `parseJsonld` also returns an N3 `Store`, so `Resource.dataset` and all quad getters are untouched.
-
-## Steps
-
-1. **`fetchWrapper`** (`packages/utils/src/fetch.ts`) — JSON-LD-first as above.
-2. **`packages/utils/test/fetch.test.ts`** — rewrite (currently asserts `Accept: text/turtle`, Turtle Content-Type, `dataset()` throwing on non-Turtle).
-3. **`CRUDAgentRegistration.setAcr`** → switch to `fetch.raw` + `serializeTurtle(dataset)` body + explicit `Content-Type: text/turtle` (ACL resources stay Turtle; the ACR templates are ACL Turtle).
-4. **`authorization-agent/src/authorization.ts`** write → optional `toJsonLd` + raw PUT for symmetry with grants (works either way once `fetchWrapper` is JSON-LD).
-5. **Fixtures** (the only fixture work):
-   - `packages/test-utils/src/data.json` — convert all ~110 Turtle entries to JSON-LD, mechanically (per entry: `parseTurtle(text, key)` → N3 Store → `jsonld.fromRDF` → `JSON.stringify`, expanded form). Watch-outs: the one already-JSON-LD entry (`https://auth.alice.example/`), escaped `\#` fragments become plain `#` in `@id`, bob's relative-IRI entries resolve against their base, shape-tree blank nodes (`uuid:...`) become `_:` ids. Keys stay URLs; the mock's fragment-stripping lookup is unchanged.
-   - `packages/test-utils/src/fetch-mock.ts` — serve `application/ld+json` always (`json()` returns the doc, `text()` the JSON string), drop `turtleToJsonLd`, storage-description special case → JSON-LD, PUT stores the JSON-LD body verbatim so round-trips work. Keep serving Turtle for explicit `Accept: text/turtle` during the transition (e.g. `test/policy-engine.test.ts`).
-   - `packages/test-utils/test/fetch-mock.test.ts` — rewrite (currently asserts `text/turtle` Content-Type).
-6. **RDF content is identical** — all existing test expectations stay valid; only the serialization changes. **Caveat (learned in Phase 3):** JSON-LD roundtrips do not preserve quad *order* — the shape tree's `descriptionLanguages` came back `['de','en','pl']` instead of Turtle document order `['en','pl','de']`. Order-sensitive expectations (`descriptionLanguages`, `reliableDescriptionLanguages`) must compare sorted / order-independently; the Phase 3 readable tests already do.
+Per module: add a JSON-LD context (registry style — `@type: '@id'` + `@container: '@set'` for arrays), `fromJsonLd(doc, iri)` via `frameDoc`, `toJsonLd(data)` via `withContext`; `loadX` = raw JSON-LD GET + `fromJsonLd`; `putX` = raw JSON-LD PUT. Drop `CRUDResource` + timestamp machinery where fixtures carry no timestamps (roles don't — confirmed in `registry.trig`). Modules: `role.ts` (first) → `agent-registration.ts`, `application-registration.ts`, `social-agent-registration.ts`, `social-agent-invitation.ts`, `registry-set.ts`; registry listing modules can stay on `linkedIris` until each converts.
 
 ## Stays Turtle by definition (the "fully JSON-LD" boundary)
 
@@ -268,14 +251,12 @@ This one change migrates the entire class layer transparently: `parseJsonld` als
 - **shex shapes** — not RDF (`solid/shapes/*.shex`, FHIR `CarePlan-shapes`).
 - **(optional)** `application/src/notification-manager.ts` (`parseTurtle` on inbox notifications) — server-dependent payloads; can stay Turtle.
 
-## Verify
+## Remaining open items
 
-- `packages/utils` tests (`fetch.test.ts` rewritten; `turtle-serializer`/`sparql-update` unchanged)
-- data-model + application tests; authorization-agent typecheck; components build
-- Root integration tests against the docker stack (registry.trig + CSS serve JSON-LD via content negotiation)
+- **`authorization-agent/src/authorization.ts`** write — works either way now (wrapper PUT `dataset` → JSON-LD). Optional symmetry: `toJsonLd` + raw PUT (like grants). Pending user decision.
+- **Order caveat (learned in Phase 3):** JSON-LD roundtrips do not preserve quad *order* — order-sensitive expectations (`descriptionLanguages`, `reliableDescriptionLanguages`) must compare sorted / order-independently.
 
 ---
-
 # Phase 6 — Test infrastructure consolidation (optional follow-up)
 
 > Independent from Phases 1–5 and can land any time (before, after, or parallel to them). It touches **no data-model code** — only fixtures, test servers, and where tests live. Its two goals: (1) delete the file-backed data-pod fixtures (`packages/css-storage-fixture/test/data/` and `dev/data`) and the S3 client-id seeding in `test/setup.ts`, and (2) stop starting a live CSS server from package tests (`@janeirodigital/css-test-utils` `SolidTestUtils`), moving those integration-style tests to the root `test/` directory with `packages/css-storage-fixture/test/registry.trig` as the single fixture source.

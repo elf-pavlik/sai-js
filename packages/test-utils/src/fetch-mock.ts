@@ -1,31 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { type RdfFetch, type WhatwgFetch, fetchWrapper } from '@janeirodigital/interop-utils'
-import * as jsonldNs from 'jsonld'
-import { Parser, Store } from 'n3'
-
-// CJS/ESM interop: jsonld is a CJS package
-const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 const STORAGE_DESCRIPTION_IRI = 'https://fake.example/storage-desription'
 const dataFile = new URL('data.json', import.meta.url)
 const data = JSON.parse(readFileSync(dataFile, 'utf-8'))
 
-/** Parse Turtle string into expanded JSON-LD array. */
-async function turtleToJsonLd(turtle: string, baseIRI: string): Promise<unknown[]> {
-  const store = new Store()
-  const parser = new Parser({ baseIRI })
-  return new Promise((resolve, reject) => {
-    parser.parse(turtle, (error: Error, quad) => {
-      if (error) {
-        reject(error)
-      } else if (quad) {
-        store.add(quad)
-      } else {
-        resolve(jsonld.fromRDF(store))
-      }
-    })
-  })
-}
+const storageDescriptionJsonLd = JSON.stringify([
+  {
+    '@id': STORAGE_DESCRIPTION_IRI,
+    '@type': ['http://www.w3.org/ns/pim/space#Storage'],
+  },
+])
 
 async function common(
   url: string,
@@ -37,9 +22,10 @@ async function common(
     return {
       clone: () => ({}) as unknown as Response,
       headers: {
-        get: () => 'text/turtle',
+        get: () => 'application/ld+json',
       },
-      text: async () => `<${STORAGE_DESCRIPTION_IRI}> a <http://www.w3.org/ns/pim/space#Storage> .`,
+      text: async () => storageDescriptionJsonLd,
+      json: async () => JSON.parse(storageDescriptionJsonLd),
     } as unknown as Response
   }
 
@@ -47,9 +33,9 @@ async function common(
   const strippedUrl = url.replace(/#.*$/, '')
   // Access Accept header via type assertion since RequestInit.headers is HeadersInit
   const accept = (options?.headers as Record<string, string> | undefined)?.Accept
-  // If Accept is not set or includes text/turtle, serve Turtle (backward compat).
-  // If Accept is exactly application/ld+json, serve JSON-LD.
-  const acceptsJsonLd = accept === 'application/ld+json'
+  // JSON-LD by default; serve Turtle only for an explicit text/turtle Accept
+  // (ACL resources, and any transitional callers that still ask for it).
+  const acceptsTurtle = accept === 'text/turtle'
 
   async function getData(): Promise<string> {
     const value = state?.[strippedUrl] ?? data[strippedUrl]
@@ -60,7 +46,7 @@ async function common(
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': acceptsJsonLd ? 'application/ld+json' : 'text/turtle',
+    'Content-Type': acceptsTurtle ? 'text/turtle' : 'application/ld+json',
     Link: `<http://just.en.example/description-resource>; rel="describedby", <${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription`,
   }
 
@@ -74,12 +60,12 @@ async function common(
       },
     } as Headers,
     text: async () => getData(),
-    json: acceptsJsonLd
-      ? async () => {
-          const turtle = await getData()
-          return turtleToJsonLd(turtle, strippedUrl)
-        }
-      : undefined,
+    json: acceptsTurtle
+      ? undefined
+      : async () => {
+          const raw = await getData()
+          return JSON.parse(raw)
+        },
   }
   response.clone = () => ({ ...response })
   return response

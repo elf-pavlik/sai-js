@@ -1,8 +1,8 @@
 import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
-import { CRUDContainer, iriForContained as containerIriForContained } from './container'
-import { linkedIris } from './resource'
+import { createContainer, iriForContained as containerIriForContained } from './container'
+import { linkedIrisJsonLd } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -20,7 +20,7 @@ export async function getDataAuthorizationIris(
   data: AuthorizationRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string[]> {
-  return linkedIris(data.id, factory, LDP.contains)
+  return linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
 }
 
 export async function getGranted(
@@ -99,9 +99,7 @@ export async function createAuthorizationRegistry(
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.AuthorizationRegistry)
   )
-  const container = new CRUDContainer(data.id, factory, {})
-  container.dataset = dataset
-  await container.create()
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

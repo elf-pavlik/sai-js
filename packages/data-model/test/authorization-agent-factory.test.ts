@@ -14,7 +14,6 @@ describe('crud', () => {
     const agentRegistration = await factory.crud.applicationRegistration(agentRegistrationUrl)
     expect(agentRegistration).toHaveProperty('id', agentRegistrationUrl)
     expect(agentRegistration).toHaveProperty('registeredAgent', 'https://projectron.example/#app')
-    expect(agentRegistration).toHaveProperty('name', 'Projectron')
   })
 
   test('builds social agent registration', async () => {
@@ -48,6 +47,19 @@ describe('crud', () => {
     expect(socialAgentRegistration).toHaveProperty('id', snippetIri)
     expect(socialAgentRegistration).toHaveProperty('reciprocalRegistration')
   })
+  test('dataRegistration with passed data', async () => {
+    const snippetIri = 'https://auth.alice.example/bd2bb0a3-e95a-4981-a30b-5b6a7358435c'
+    const data = {
+      id: snippetIri,
+      type: ['http://www.w3.org/ns/solid/interop#DataRegistration'],
+      registeredShapeTree: 'https://solidshapes.example/tree/Other',
+      contains: [],
+    }
+    const dataRegistration = await factory.crud.dataRegistration(snippetIri, data)
+    expect(dataRegistration.id).toBe(snippetIri)
+    expect(dataRegistration.registeredShapeTree).toBe(data.registeredShapeTree)
+    expect(dataRegistration.contains).toEqual([])
+  })
   test.skip('registrySet', async () => {
     const snippetIri = 'https://auth.alice.example/13e60d32-77a6-4239-864d-cfe2c90807c8'
     const registrySet = await factory.crud.registrySet(snippetIri)
@@ -58,6 +70,7 @@ describe('crud', () => {
 describe('immutable', () => {
   describe('data grant', () => {
     const commonData = {
+      type: [INTEROP.DataGrant.value],
       dataOwner: 'https://alice.example/#id',
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       hasDataRegistration: 'https://pro.alice.example/123',

@@ -8,14 +8,14 @@ import {
   insertPatch,
   parseJsonld,
   targetDataRegistrationLink,
+  type RdfFetch,
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
-import { DataFactory, type NamedNode } from 'n3'
+import { DataFactory, Store, type NamedNode } from 'n3'
 import type { ApplicationFactory, InteropFactory } from '.'
 import type { DataRegistrationData } from './data-registration'
 import type { GrantData } from './grant'
 import type { ShapeTreeData } from './shape-tree'
-import { ReadableResource } from './readable/resource'
 import {
   getDescription as getShapeTreeDescription,
   getPredicateForReferenced,
@@ -143,7 +143,17 @@ export async function buildChildrenInfo(
 // DataInstance (write-side active record)
 // ──────────────────────────
 
-export class DataInstance extends ReadableResource {
+export class DataInstance {
+  iri: string
+
+  node: NamedNode
+
+  factory: ApplicationFactory
+
+  fetch: RdfFetch
+
+  dataset: DatasetCore
+
   dataGrant: GrantData
 
   parent: DataInstance
@@ -159,7 +169,11 @@ export class DataInstance extends ReadableResource {
     parent?: DataInstance,
     draft = false
   ) {
-    super(iri, factory)
+    this.iri = iri
+    this.node = DataFactory.namedNode(iri)
+    this.factory = factory
+    this.fetch = factory.fetch
+    this.dataset = new Store()
     this.dataGrant = dataGrant
     this.parent = parent
     this.draft = draft
@@ -169,7 +183,7 @@ export class DataInstance extends ReadableResource {
     this.shapeTree = await this.factory.readable.shapeTree(this.dataGrant.registeredShapeTree)
     if (!this.draft) {
       if (!this.isBlob) {
-        await this.fetchData()
+        this.dataset = await fetchDataInstanceDataset(this.iri, this.factory)
       } else {
         const descriptionIri = await this.discoverDescriptionResource()
         const response = await this.fetch(descriptionIri)
@@ -196,7 +210,7 @@ export class DataInstance extends ReadableResource {
   }
 
   public replaceValue(predicate: NamedNode, value: string) {
-    const oldQuad = this.getQuad(this.node, predicate)
+    const oldQuad = getOneMatchingQuad(this.dataset, this.node, predicate)
     if (oldQuad) this.dataset.delete(oldQuad)
     const newQuad = DataFactory.quad(this.node, predicate, DataFactory.literal(value))
     this.dataset.add(newQuad)
@@ -278,7 +292,9 @@ export class DataInstance extends ReadableResource {
 
   async getChildReferencesForShapeTree(shapeTree: string): Promise<string[]> {
     const predicate = getPredicateForReferenced(this.shapeTree, shapeTree)
-    return this.getObjectsArray(predicate).map((object) => object.value)
+    return getAllMatchingQuads(this.dataset, this.node, predicate).map(
+      (quad) => quad.object.value
+    )
   }
 
   async findChildGrant(shapeTree: string): Promise<GrantData | undefined> {

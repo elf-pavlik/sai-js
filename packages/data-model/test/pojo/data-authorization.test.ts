@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { DataAuthorization, type FinalDataAuthorizationData } from '../../src'
+import { DataAuthorization, type FinalDataAuthorizationData, toStore } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
 const snippetIri = 'https://some.iri/'
 const commonData = {
+  type: [INTEROP.DataAuthorization.value],
   grantee: 'https://projectron.example/#app',
   grantedBy: webId,
   registeredShapeTree: 'https://solidshapes.example/tree/Project',
@@ -16,6 +17,11 @@ const commonData = {
   accessMode: [ACL.Read.value],
 }
 const commonQuads = [
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    RDF.type,
+    INTEROP.DataAuthorization
+  ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
     INTEROP.grantee,
@@ -39,16 +45,16 @@ const commonQuads = [
   DataFactory.quad(DataFactory.namedNode(snippetIri), INTEROP.accessMode, ACL.Read),
 ]
 
-async function toDatasetAndCheck(
+async function toJsonLdAndCheck(
   data: Omit<FinalDataAuthorizationData, 'id'>,
   expectedQuads: any[]
 ) {
   const finalData: FinalDataAuthorizationData = { id: snippetIri, ...data }
-  const dataset = await DataAuthorization.toDataset(finalData)
+  const dataset = await toStore(DataAuthorization.toJsonLd(finalData), snippetIri)
   expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
 }
 
-describe('toDataset', () => {
+describe('toJsonLd', () => {
   test('should set dataset for AllFromRegistry scope', async () => {
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
@@ -69,7 +75,7 @@ describe('toDataset', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
+    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('should set dataset for SelectedFromRegistry scope', async () => {
@@ -103,7 +109,7 @@ describe('toDataset', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
+    await toJsonLdAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
   })
 
   test('should set dataset for Inherited scope', async () => {
@@ -132,7 +138,7 @@ describe('toDataset', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(inheritedData, inheritedQuads)
+    await toJsonLdAndCheck(inheritedData, inheritedQuads)
   })
 
   test('should set dataset with creatorAccessMode', async () => {
@@ -161,7 +167,7 @@ describe('toDataset', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
+    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('links back to children', async () => {
@@ -175,7 +181,7 @@ describe('toDataset', () => {
     }
 
     const finalData: FinalDataAuthorizationData = { id: snippetIri, ...allFromRegistryData }
-    const dataset = await DataAuthorization.toDataset(finalData)
+    const dataset = await toStore(DataAuthorization.toJsonLd(finalData), snippetIri)
 
     const linkBackQuad = DataFactory.quad(
       DataFactory.namedNode(childIri),

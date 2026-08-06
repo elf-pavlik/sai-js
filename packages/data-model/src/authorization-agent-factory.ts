@@ -1,3 +1,4 @@
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   type AgentRegistrationData,
   BaseFactory,
@@ -18,20 +19,19 @@ import {
   type GrantData,
   type GrantRegistryData,
   type RegistrySetData,
-  type RegistrySetDataInput,
   type RoleData,
   type RoleRegistryData,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
 import {
-  accessNeedDescriptionFromJsonLd,
-  accessNeedGroupDescriptionFromJsonLd,
+  loadAccessNeedDescription,
+  loadAccessNeedGroupDescription,
 } from './access-description'
-import { fromJsonLd as accessNeedFromJsonLd } from './access-need'
-import { fromJsonLd as accessNeedGroupFromJsonLd } from './access-need-group'
-import { fromJsonLd as dataAuthorizationFromJsonLd } from './data-authorization'
-import { loadApplicationRegistration } from './crud/application-registration'
+import { loadAccessNeed } from './access-need'
+import { loadAccessNeedGroup } from './access-need-group'
+import { loadDataAuthorization } from './data-authorization'
+import { loadApplicationRegistration } from './application-registration'
 import { loadSocialAgentInvitation } from './crud/social-agent-invitation'
 import { loadSocialAgentRegistration } from './crud/social-agent-registration'
 import { loadRole } from './crud/role'
@@ -48,11 +48,10 @@ interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
 interface CRUDFactory {
   applicationRegistration(
     iri: string,
-    data?: Omit<AgentRegistrationData, 'id'>
+    data?: Omit<AgentRegistrationData, 'id' | 'type'>
   ): Promise<ApplicationRegistrationData>
   socialAgentRegistration(
     iri: string,
-    reciprocal?: boolean,
     data?: Omit<SocialAgentRegistrationData, 'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'>
   ): Promise<SocialAgentRegistrationData>
   socialAgentInvitation(
@@ -66,7 +65,7 @@ interface CRUDFactory {
   authorizationRegistry(iri: string): Promise<AuthorizationRegistryData>
   grantRegistry(iri: string): Promise<GrantRegistryData>
   agentRegistry(iri: string): Promise<AgentRegistryData>
-  registrySet(iri: string, data?: RegistrySetDataInput): Promise<RegistrySetData>
+  registrySet(iri: string): Promise<RegistrySetData>
 }
 
 interface ImmutableFactory {
@@ -97,28 +96,28 @@ export class AuthorizationAgentFactory extends BaseFactory {
     return {
       applicationRegistration: async function applicationRegistration(
         iri: string,
-        data?: Omit<AgentRegistrationData, 'id'>
+        data?: Omit<AgentRegistrationData, 'id' | 'type'>
       ): Promise<ApplicationRegistrationData> {
         if (data) {
           const hasDataGrant = data.hasDataGrant ?? []
           return {
             ...data,
             id: iri,
+            type: [INTEROP.ApplicationRegistration.value],
             hasDataGrant,
             granted: hasDataGrant.length > 0,
           }
         }
-        return loadApplicationRegistration(iri, factory)
+        return loadApplicationRegistration(iri, factory.fetch.raw)
       },
       socialAgentRegistration: async function socialAgentRegistration(
         iri: string,
-        reciprocal = false,
         data?: Omit<SocialAgentRegistrationData, 'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'>
       ): Promise<SocialAgentRegistrationData> {
         if (data) {
           return { ...data, id: iri }
         }
-        return loadSocialAgentRegistration(iri, factory, reciprocal)
+        return loadSocialAgentRegistration(iri, factory.fetch.raw)
       },
       socialAgentInvitation: async function socialAgentInvitation(
         iri: string,
@@ -127,16 +126,16 @@ export class AuthorizationAgentFactory extends BaseFactory {
         if (data) {
           return { ...data, id: iri }
         }
-        return loadSocialAgentInvitation(iri, factory)
+        return loadSocialAgentInvitation(iri, factory.fetch.raw)
       },
       role: async function role(
         iri: string,
         data?: Omit<RoleData, 'id'>
       ): Promise<RoleData> {
         if (data) {
-          return { id: iri, label: data.label, members: data.members }
+          return { id: iri, label: data.label, members: data.members, type: data.type }
         }
-        return loadRole(iri, factory)
+        return loadRole(iri, factory.fetch.raw)
       },
       roleRegistry: async function roleRegistry(
         iri: string
@@ -173,10 +172,9 @@ export class AuthorizationAgentFactory extends BaseFactory {
         return { id: iri }
       },
       registrySet: async function registrySet(
-        iri: string,
-        data?: RegistrySetDataInput
+        iri: string
       ): Promise<RegistrySetData> {
-        return loadRegistrySet(iri, factory, data)
+        return loadRegistrySet(iri, factory)
       },
     }
   }
@@ -196,29 +194,17 @@ export class AuthorizationAgentFactory extends BaseFactory {
       dataAuthorization: async function dataAuthorization(
         iri: string
       ): Promise<DataAuthorizationData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return dataAuthorizationFromJsonLd(doc, iri)
+        return loadDataAuthorization(iri, factory.fetch.raw)
       },
       accessNeedDescription: async function accessNeedDescription(
         iri: string
       ): Promise<AccessNeedDescriptionData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return accessNeedDescriptionFromJsonLd(doc, iri)
+        return loadAccessNeedDescription(iri, factory.fetch.raw)
       },
       accessNeedGroupDescription: async function accessNeedGroupDescription(
         iri: string
       ): Promise<AccessNeedGroupDescriptionData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return accessNeedGroupDescriptionFromJsonLd(doc, iri)
+        return loadAccessNeedGroupDescription(iri, factory.fetch.raw)
       },
       accessDescriptionSet: async function accessDescriptionSet(
         iri: string
@@ -231,11 +217,7 @@ export class AuthorizationAgentFactory extends BaseFactory {
         iri: string,
         descriptionLang?: string
       ): Promise<AccessNeedData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        const need = await accessNeedFromJsonLd(doc, iri)
+        const need = await loadAccessNeed(iri, factory.fetch.raw)
         if (need.hasInheritingNeed.length) {
           need.children = await Promise.all(
             need.hasInheritingNeed.map((childIri) =>
@@ -249,11 +231,7 @@ export class AuthorizationAgentFactory extends BaseFactory {
         iri: string,
         descriptionLang?: string
       ): Promise<AccessNeedGroupData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        const group = await accessNeedGroupFromJsonLd(doc, iri)
+        const group = await loadAccessNeedGroup(iri, factory.fetch.raw)
         group.accessNeeds = await Promise.all(
           group.hasAccessNeed.map((needIri) => factory.readable.accessNeed(needIri, descriptionLang))
         )

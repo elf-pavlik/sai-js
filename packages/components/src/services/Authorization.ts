@@ -90,7 +90,7 @@ async function findSocialAgentDataRegistrations(
   saiSession: AuthorizationAgent
 ) {
   const dataRegistrations = []
-  if ((await getDataGrantIris(socialAgentRegistration, saiSession.factory)).length === 0) return []
+  if ((await getDataGrantIris(socialAgentRegistration)).length === 0) return []
   const dataGrants = await getDataGrants(socialAgentRegistration, saiSession.factory)
   for (const dataGrant of dataGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
@@ -139,7 +139,12 @@ export const getDescriptions = async (
   } else if (agentType === AgentType.SocialAgent) {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
-    accessNeedGroupIriResolved = socialAgentRegistration.reciprocalRegistration?.hasAccessNeedGroup
+    const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
+      ? await saiSession.factory.crud.socialAgentRegistration(
+          socialAgentRegistration.reciprocalRegistration
+        )
+      : undefined
+    accessNeedGroupIriResolved = reciprocalRegistration?.hasAccessNeedGroup
     if (!accessNeedGroupIriResolved) return null
   } else if (agentType === AgentType.Role) {
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
@@ -170,8 +175,11 @@ export const getDescriptions = async (
 
   for await (const socialAgentRegistration of saiSession.socialAgentRegistrations) {
     if (socialAgentRegistration.reciprocalRegistration) {
+      const reciprocalRegistration = await saiSession.factory.crud.socialAgentRegistration(
+        socialAgentRegistration.reciprocalRegistration
+      )
       const dataRegistrations = await findSocialAgentDataRegistrations(
-        socialAgentRegistration.reciprocalRegistration,
+        reciprocalRegistration,
         accessNeedGroup,
         saiSession
       )
@@ -235,6 +243,7 @@ function buildDataAuthorizations(
       throw new Error(`missing access need: ${dataAuthorization.accessNeed}`)
     }
     const saiReady: DataAuthorizationData = {
+      type: [INTEROP.DataAuthorization.value],
       satisfiesAccessNeed: accessNeed.id,
       grantee: authorization.grantee,
       grantedBy,

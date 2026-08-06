@@ -84,7 +84,7 @@ export class InvitationHandler extends OperationHttpHandler {
     // update invitation with agent who accepted it
     await setRegisteredAgent(
       socialAgentInvitation,
-      sai.factory,
+      sai.factory.fetch.raw,
       socialAgentRegistration.registeredAgent
     )
 

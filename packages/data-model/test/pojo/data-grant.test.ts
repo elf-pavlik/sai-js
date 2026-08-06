@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, type FinalGrantData, Grant } from '../../src'
+import { AuthorizationAgentFactory, type FinalGrantData, Grant, toStore } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -11,12 +11,18 @@ const agentId = 'https://jarvis.alice.example/#agent'
 const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
 const snippetIri = 'https://some.iri/'
 const commonData = {
+  type: [INTEROP.DataGrant.value],
   dataOwner: 'https://alice.example/#id',
   registeredShapeTree: 'https://solidshapes.example/tree/Project',
   hasDataRegistration: 'https://pro.alice.example/123',
   accessMode: [ACL.Read.value],
 }
 const commonQuads = [
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    RDF.type,
+    INTEROP.DataGrant
+  ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
     INTEROP.dataOwner,
@@ -39,13 +45,13 @@ const commonQuads = [
   ),
 ]
 
-async function toDatasetAndCheck(data: Omit<FinalGrantData, 'id'>, expectedQuads: any[]) {
+async function toJsonLdAndCheck(data: Omit<FinalGrantData, 'id'>, expectedQuads: any[]) {
   const finalGrant = factory.immutable.dataGrant(snippetIri, data)
-  const dataset = await Grant.toDataset(finalGrant)
+  const dataset = await toStore(Grant.toJsonLd(finalGrant), snippetIri)
   expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
 }
 
-describe('constructor', () => {
+describe('toJsonLd', () => {
   test('should set dataset for AllFromRegistry scope', async () => {
     const allFromRegistryData = {
       scopeOfGrant: INTEROP.AllFromRegistry.value,
@@ -60,7 +66,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
+    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('should set dataset for SelectedFromRegistry scope', async () => {
@@ -88,7 +94,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
+    await toJsonLdAndCheck(selectedFromRegistryData, selectedFromRegistryQuads)
   })
 
   test('should set dataset for Inherited scope', async () => {
@@ -107,7 +113,7 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(inheritedData, inheritedQuads)
+    await toJsonLdAndCheck(inheritedData, inheritedQuads)
   })
 
   test('should set dataset with creatorAccessMode', async () => {
@@ -126,6 +132,6 @@ describe('constructor', () => {
       ...commonQuads,
     ]
 
-    await toDatasetAndCheck(allFromRegistryData, allFromRegistryQuads)
+    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 })

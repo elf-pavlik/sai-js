@@ -1,4 +1,4 @@
-import { localDocumentLoader } from '@janeirodigital/interop-utils'
+import { localDocumentLoader, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
@@ -77,6 +77,96 @@ export async function frameDoc(
 }
 
 /**
+ * Collect the values of a predicate on the resource at `iri` from a raw
+ * JSON-LD GET — the JSON-LD replacement for `linkedIris` (no N3 / quad
+ * lookups). Node references are coerced to IRI strings (arrays via
+ * `@container: '@set'`); an absent predicate yields `[]`.
+ */
+export async function linkedIrisJsonLd(
+  iri: string,
+  fetch: WhatwgFetch,
+  property: string
+): Promise<string[]> {
+  const context = {
+    id: '@id',
+    items: { '@id': property, '@type': '@id', '@container': '@set' },
+  }
+  const node = (await frameDoc(await fetchJsonLd(iri, fetch), context, iri)) as any
+  return node.items ?? []
+}
+
+/**
+ * Collect the string values (literal `@value` / node `@id`) of a predicate
+ * across every node of a JSON-LD document (expanded form, walked recursively).
+ *
+ * Replaces document-wide quad scans where the values live on other nodes than
+ * the framed one (e.g. `interop:usesLanguage` on the description sets of an
+ * access need document).
+ */
+/**
+ * Find the `@id` of the first node in a JSON-LD document whose `@type`
+ * includes `typeIri` — the JSON-LD replacement for
+ * `getOneMatchingQuad(dataset, null, RDF.type, typeIri).subject`.
+ * Throws when no such node exists.
+ */
+export async function findNodeIdByType(
+  doc: unknown,
+  typeIri: string,
+  base?: string
+): Promise<string> {
+  const options: any = { documentLoader }
+  if (base) options.base = base
+  const expanded = (await jsonld.expand(doc, options)) as any[]
+  const nodes: any[] = []
+  const collectNodes = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(collectNodes)
+      return
+    }
+    if (value && typeof value === 'object') {
+      nodes.push(value)
+      for (const nested of Object.values(value)) collectNodes(nested)
+    }
+  }
+  collectNodes(expanded)
+  const node = nodes.find((n) => (n['@type'] ?? []).includes(typeIri))
+  if (!node) throw new Error(`no node of type ${typeIri} in document`)
+  return node['@id'] as string
+}
+
+export async function documentValues(
+  doc: unknown,
+  iri: string,
+  predicate: string
+): Promise<string[]> {
+  const expanded = (await jsonld.expand(doc, { base: iri, documentLoader })) as any[]
+  const values = new Set<string>()
+  const nodes: any[] = []
+  const collectNodes = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(collectNodes)
+      return
+    }
+    if (value && typeof value === 'object') {
+      nodes.push(value)
+      for (const nested of Object.values(value)) collectNodes(nested)
+    }
+  }
+  collectNodes(expanded)
+  for (const node of nodes) {
+    const matches = node[predicate]
+    if (Array.isArray(matches)) {
+      for (const match of matches) {
+        if (typeof match === 'string') values.add(match)
+        else if (typeof match?.['@value'] === 'string') values.add(match['@value'])
+        else if (typeof match?.['@id'] === 'string') values.add(match['@id'])
+      }
+    }
+  }
+  return [...values]
+}
+
+/**
  * Convert a JSON-LD document (with embedded context) to an N3 Store.
  *
  * Uses jsonld.toRDF to convert the JSON-LD object directly to RDF quads
@@ -104,6 +194,40 @@ export function withContext(
   return {
     '@context': context,
     ...node,
+  }
+}
+
+/**
+ * Raw JSON-LD GET — returns the parsed document (expanded, compacted, or
+ * flattened form). Throws if the request fails.
+ */
+export async function fetchJsonLd(iri: string, fetch: WhatwgFetch): Promise<unknown> {
+  const response = await fetch(iri, {
+    headers: { Accept: 'application/ld+json' },
+  })
+  if (!response.ok) {
+    throw new Error(`failed to fetch ${iri}: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Raw JSON-LD PUT of a document (with embedded context). Throws if the request
+ * fails. Extra headers (e.g. If-None-Match) can be passed through.
+ */
+export async function putJsonLd(
+  iri: string,
+  fetch: WhatwgFetch,
+  doc: Record<string, unknown>,
+  headers?: Record<string, string>
+): Promise<void> {
+  const response = await fetch(iri, {
+    method: 'PUT',
+    body: JSON.stringify(doc),
+    headers: { 'Content-Type': 'application/ld+json', ...headers },
+  })
+  if (!response.ok) {
+    throw new Error(`failed to put ${iri}: ${response.status}`)
   }
 }
 

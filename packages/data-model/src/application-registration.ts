@@ -1,10 +1,7 @@
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
-import type { GrantData, BaseFactory } from '.'
-import type { ApplicationRegistrationData } from './crud/application-registration'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
-
-export type { ApplicationRegistrationData } from './crud/application-registration'
+import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import type { AuthorizationAgentFactory, BaseFactory, GrantData } from '.'
+import { createContainer } from './crud/container'
+import { fetchJsonLd, frameDoc, toStore, withContext } from './jsonld-utils'
 
 const applicationRegistrationContext = {
   id: '@id',
@@ -21,21 +18,29 @@ const applicationRegistrationContext = {
 }
 
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → ApplicationRegistrationData
+// Types
 // ──────────────────────────
 
 /**
- * Convert a parsed RDF dataset into an ApplicationRegistrationData POJO.
- * Uses jsonld.frame with the applicationRegistrationContext.
+ * Plain JSON representation of an application registration.
+ *
+ * Design B: single-node resource — the denormalized client-ID-document fields
+ * (name/logo/accessNeedGroup/hasAuthorizationCallbackEndpoint) are not part of
+ * the data model; consumers read them via `factory.readable.clientIdDocument(registeredAgent)`.
  */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<ApplicationRegistrationData> {
-  return compactNodeToApplicationRegistrationData(
-    (await frameDataset(dataset, applicationRegistrationContext, iri)) as any
-  )
+export type ApplicationRegistrationData = {
+  id: string
+  /** rdf:type IRIs — captured from framing on read, written on create */
+  type: string[]
+  registeredAgent: string
+  hasDataGrant: string[]
+  /** Derived: whether the registration has any data grants. */
+  granted: boolean
 }
+
+// ──────────────────────────
+// Read path: JSON-LD → ApplicationRegistrationData
+// ──────────────────────────
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
@@ -43,42 +48,41 @@ export async function fromDataset(
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<ApplicationRegistrationData> {
-  return compactNodeToApplicationRegistrationData(
-    (await frameDoc(doc, applicationRegistrationContext, iri)) as any
-  )
-}
-
-function compactNodeToApplicationRegistrationData(node: any): ApplicationRegistrationData {
+  const node = (await frameDoc(doc, applicationRegistrationContext, iri)) as any
   const hasDataGrant = node.hasDataGrant ?? []
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredAgent: node.registeredAgent,
     hasDataGrant,
     granted: hasDataGrant.length > 0,
   }
 }
 
-// ──────────────────────────
-// Write path: ApplicationRegistrationData → Dataset / JSON-LD
-// ──────────────────────────
-
-/** Convert an ApplicationRegistrationData to an N3 Store (DatasetCore). */
-export async function toDataset(data: ApplicationRegistrationData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
-}
-
-/**
- * Build a JSON-LD document (with embedded context) ready for PUT as
- * application/ld+json. The derived `granted` field is not an RDF property,
- * so it is stripped from the serialized document.
- */
-export function toJsonLd(data: ApplicationRegistrationData): Record<string, unknown> {
-  const { granted: _granted, ...rest } = data
-  return withContext(applicationRegistrationContext, rest)
+export async function loadApplicationRegistration(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<ApplicationRegistrationData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
 // ──────────────────────────
-// Behavior functions (replacing class methods)
+// Write path: ApplicationRegistrationData → container (container.create)
+// ──────────────────────────
+
+export async function createApplicationRegistration(
+  data: ApplicationRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
+  // quad comes from `data.type` (captured from framing on read), no hand-built
+  // DataFactory quads; only the container.create hand-off stays N3-based
+  const dataset = await toStore(withContext(applicationRegistrationContext, data))
+  await createContainer(data.id, factory, dataset)
+}
+
+// ──────────────────────────
+// Behavior functions
 // ──────────────────────────
 
 /** Whether the registration has any data grants. */

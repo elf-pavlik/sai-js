@@ -1,9 +1,9 @@
 import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import { CRUDContainer } from './container'
+import { createContainer } from './container'
 import { iriForContained as containerIriForContained } from './container'
-import { linkedIris } from './resource'
+import { linkedIrisJsonLd } from '../jsonld-utils'
 import { type RoleData, putRole } from './role'
 
 // ──────────────────────────
@@ -22,7 +22,7 @@ export async function* roles(
   data: RoleRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<RoleData> {
-  const iris = await linkedIris(data.id, factory, LDP.contains)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
   for (const iri of iris) {
     yield factory.crud.role(iri)
   }
@@ -33,7 +33,7 @@ export async function containedIncludes(
   factory: AuthorizationAgentFactory,
   id: string
 ): Promise<boolean> {
-  const iris = await linkedIris(data.id, factory, LDP.contains)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
   return iris.includes(id)
 }
 
@@ -44,8 +44,8 @@ export async function createRole(
   members: string[]
 ): Promise<RoleData> {
   const iri = iriForContained(data, factory)
-  const role: RoleData = { id: iri, label, members }
-  await putRole(role, factory)
+  const role: RoleData = { id: iri, label, members, type: [INTEROP.Role.value] }
+  await putRole(role, factory.fetch.raw)
   return role
 }
 
@@ -56,8 +56,8 @@ export async function updateRole(
   label: string,
   members: string[]
 ): Promise<RoleData> {
-  const role: RoleData = { id: roleId, label, members }
-  await putRole(role, factory)
+  const role: RoleData = { id: roleId, label, members, type: [INTEROP.Role.value] }
+  await putRole(role, factory.fetch.raw)
   return role
 }
 
@@ -78,9 +78,7 @@ export async function createRoleRegistry(
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.RoleRegistry))
-  const container = new CRUDContainer(data.id, factory, {})
-  container.dataset = dataset
-  await container.create()
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

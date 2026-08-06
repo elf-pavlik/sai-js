@@ -59,11 +59,18 @@ describe('getters', () => {
     const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.accessMode).toEqual([ACL.Read.value, ACL.Write.value])
   })
+
+  test('should provide type', async () => {
+    const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
+    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    expect(dataAuthorization.type).toEqual([INTEROP.DataAuthorization.value])
+  })
 })
 
 describe('round-trip', () => {
   const allFromRegistryData: FinalDataAuthorizationData = {
     id: 'https://some.iri/da',
+    type: [INTEROP.DataAuthorization.value],
     grantee: 'https://projectron.example/#app',
     grantedBy: webId,
     registeredShapeTree: 'https://solidshapes.example/trees/Project',
@@ -73,37 +80,31 @@ describe('round-trip', () => {
     accessMode: [ACL.Read.value, ACL.Write.value],
   }
 
-  test('toDataset + fromDataset', async () => {
-    const dataset = await DataAuthorization.toDataset(allFromRegistryData)
-    const result = await DataAuthorization.fromDataset(dataset, allFromRegistryData.id)
+  test('toJsonLd + fromJsonLd', async () => {
+    const doc = DataAuthorization.toJsonLd(allFromRegistryData)
+    const result = await DataAuthorization.fromJsonLd(doc, allFromRegistryData.id)
     expect(result).toMatchObject(allFromRegistryData)
   })
 
-  test('toDataset + fromDataset with hasDataInstance', async () => {
+  test('toJsonLd + fromJsonLd with hasDataInstance', async () => {
     const data: FinalDataAuthorizationData = {
       ...allFromRegistryData,
       scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
       hasDataInstance: ['https://some.iri/a', 'https://some.iri/b'],
     }
-    const dataset = await DataAuthorization.toDataset(data)
-    const result = await DataAuthorization.fromDataset(dataset, data.id)
+    const doc = DataAuthorization.toJsonLd(data)
+    const result = await DataAuthorization.fromJsonLd(doc, data.id)
     expect(result).toMatchObject(data)
   })
 
-  test('toDataset + fromDataset links back to children', async () => {
+  test('toJsonLd + fromJsonLd links back to children', async () => {
     const childIri = 'https://some.iri/child'
     const data: FinalDataAuthorizationData = {
       ...allFromRegistryData,
       hasInheritingAuthorization: [childIri],
     }
-    const dataset = await DataAuthorization.toDataset(data)
-    const result = await DataAuthorization.fromDataset(dataset, data.id)
+    const doc = DataAuthorization.toJsonLd(data)
+    const result = await DataAuthorization.fromJsonLd(doc, data.id)
     expect(result.hasInheritingAuthorization).toEqual([childIri])
-  })
-
-  test('toJsonLd + fromJsonLd', async () => {
-    const doc = DataAuthorization.toJsonLd(allFromRegistryData)
-    const result = await DataAuthorization.fromJsonLd(doc, allFromRegistryData.id)
-    expect(result).toMatchObject(allFromRegistryData)
   })
 })

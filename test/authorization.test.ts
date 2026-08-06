@@ -133,6 +133,6 @@ describe('denied', () => {
       )
     expect(dataAuthorizations.length).toBe(0)
     const registration = await session.findApplicationRegistration(clientId)
-    expect(registration && (await getGranted(registration, session.factory))).toBeFalsy()
+    expect(registration && (await getGranted(registration))).toBeFalsy()
   })
 })

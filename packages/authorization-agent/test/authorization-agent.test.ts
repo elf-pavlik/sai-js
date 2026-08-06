@@ -117,6 +117,7 @@ describe.skip('authorization agent', () => {
       hasAccessNeedGroup: 'https://projectron.example/#some-access-group',
     } as const
     const validDataAuthorizationData = {
+      type: [INTEROP.DataAuthorization.value],
       grantee: 'https://acme.example/#corp',
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
@@ -125,6 +126,7 @@ describe.skip('authorization agent', () => {
       scopeOfAuthorization: INTEROP.AllFromAgent.value,
       children: [
         {
+          type: [INTEROP.DataAuthorization.value],
           grantee: 'https://acme.example/#corp',
           grantedBy: webId,
           registeredShapeTree: 'https://solidshapes.example/tree/Task',
@@ -135,6 +137,7 @@ describe.skip('authorization agent', () => {
       ],
     }
     const invalidDataAuthorizationData = {
+      type: [INTEROP.DataAuthorization.value],
       grantee: 'https://acme.example/#corp',
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
@@ -204,6 +207,7 @@ describe.skip('authorization agent', () => {
 
     test('should extend existing access authorization when overlaping registry', async () => {
       const dataAuthorization = {
+        type: [INTEROP.DataAuthorization.value],
         grantee: 'https://acme.example/#corp',
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
@@ -284,6 +288,7 @@ describe.skip('authorization agent', () => {
 
     test('should throw if overlaping data authorization has unexpected scope', async () => {
       const dataAuthorization = {
+        type: [INTEROP.DataAuthorization.value],
         grantee: 'https://acme.example/#corp',
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
@@ -592,6 +597,7 @@ describe.skip('authorization agent', () => {
           granted: true,
           dataAuthorizations: [
             {
+              type: [INTEROP.DataAuthorization.value],
               grantee: details.agents[0],
               registeredShapeTree: shapeTree,
               scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
@@ -601,6 +607,7 @@ describe.skip('authorization agent', () => {
               hasDataInstance: [dataInstance.iri],
               children: [
                 {
+                  type: [INTEROP.DataAuthorization.value],
                   grantee: details.agents[0],
                   registeredShapeTree: details.children[0].shapeTree,
                   scopeOfAuthorization: INTEROP.Inherited.value,

@@ -1,10 +1,8 @@
-import { INTEROP, parseJsonld } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
+import { parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AccessNeedGroupDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import type { AccessNeedData } from './access-need'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+import { fetchJsonLd, frameDoc } from './jsonld-utils'
 import { reliableDescriptionLanguages as needReliableDescriptionLanguages } from './access-need'
 
 const accessNeedGroupContext = {
@@ -24,27 +22,16 @@ const accessNeedGroupContext = {
 /** Plain JSON representation of an access need group. */
 export type AccessNeedGroupData = {
   id: string
+  /** rdf:type IRIs — captured from framing on read */
+  type: string[]
   hasAccessNeed: string[]
   /** The group's access needs, loaded recursively by the factory. */
   accessNeeds: AccessNeedData[]
 }
 
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → AccessNeedGroupData
+// Read path: JSON-LD → AccessNeedGroupData
 // ──────────────────────────
-
-/**
- * Convert a parsed RDF dataset into an AccessNeedGroupData POJO.
- * Uses jsonld.frame with the accessNeedGroupContext.
- */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<AccessNeedGroupData> {
-  return compactNodeToAccessNeedGroupData(
-    (await frameDataset(dataset, accessNeedGroupContext, iri)) as any
-  )
-}
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
@@ -52,40 +39,24 @@ export async function fromDataset(
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedGroupData> {
-  return compactNodeToAccessNeedGroupData(
-    (await frameDoc(doc, accessNeedGroupContext, iri)) as any
-  )
-}
-
-function compactNodeToAccessNeedGroupData(node: any): AccessNeedGroupData {
+  const node = (await frameDoc(doc, accessNeedGroupContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     hasAccessNeed: node.hasAccessNeed ?? [],
     accessNeeds: [],
   }
 }
 
-// ──────────────────────────
-// Write path: AccessNeedGroupData → Dataset / JSON-LD
-// ──────────────────────────
-
-/** Convert an AccessNeedGroupData to an N3 Store (DatasetCore). */
-export async function toDataset(data: AccessNeedGroupData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
-}
-
-/**
- * Build a JSON-LD document (with embedded context) ready for PUT as
- * application/ld+json. The derived `accessNeeds` field is not an RDF property,
- * so it is stripped from the serialized document.
- */
-export function toJsonLd(data: AccessNeedGroupData): Record<string, unknown> {
-  const { accessNeeds: _accessNeeds, ...rest } = data
-  return withContext(accessNeedGroupContext, rest)
+export async function loadAccessNeedGroup(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<AccessNeedGroupData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
 // ──────────────────────────
-// Behavior functions (replacing class methods)
+// Behavior functions
 // ──────────────────────────
 
 /**

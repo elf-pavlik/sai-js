@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { RDFS } from '@janeirodigital/interop-utils'
+import { RDFS, getOneMatchingQuad } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import { beforeAll, describe, expect, test, vi } from 'vitest'
@@ -212,24 +212,24 @@ test('updateRemovingChildReference', async () => {
 describe('replaceValue', () => {
   test('replace existing value', async () => {
     const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
-    expect(dataInstance.getObject(RDFS.label)?.value).toBe('P-Ap-2')
+    expect(getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.label)?.object.value).toBe('P-Ap-2')
     dataInstance.replaceValue(RDFS.label, 'New label')
-    expect(dataInstance.getObject(RDFS.label)?.value).toBe('New label')
+    expect(getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.label)?.object.value).toBe('New label')
   })
   test('replace non-existing value', async () => {
     const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
-    expect(dataInstance.getObject(RDFS.fake)?.value).toBeUndefined()
+    expect(getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.fake)?.object.value).toBeUndefined()
     dataInstance.replaceValue(RDFS.fake, 'something')
-    expect(dataInstance.getObject(RDFS.fake)?.value).toBe('something')
+    expect(getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.fake)?.object.value).toBe('something')
   })
 })
 
 describe('addNode', () => {
   test('adds triple to dataset', async () => {
     const dataInstance = await DataInstance.build(snippetIri, defaultDataGrant, factory)
-    expect(dataInstance.getObject(RDFS.fake)?.value).toBeUndefined()
+    expect(getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.fake)?.object.value).toBeUndefined()
     dataInstance.addNode(RDFS.fake.value, 'https://iri.example')
-    const node = dataInstance.getObject(RDFS.fake)!
+    const node = getOneMatchingQuad(dataInstance.dataset, dataInstance.node, RDFS.fake)!.object
     expect(node.value).toBe('https://iri.example')
     expect(node.termType).toBe('NamedNode')
   })

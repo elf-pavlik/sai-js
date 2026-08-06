@@ -46,7 +46,7 @@ export async function reciprocalRegistration(
     accountId: payload.accountId,
     webId: payload.webId,
     peerId: payload.peerId,
-    topic: registration.reciprocalRegistration.id,
+    topic: registration.reciprocalRegistration,
   }
 }
 

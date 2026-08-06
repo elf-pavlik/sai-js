@@ -1,6 +1,4 @@
-import { INTEROP, asyncIterableToArray } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
+import { INTEROP, asyncIterableToArray, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory, RegistrySetData } from '.'
 import * as AgentRegistry from './crud/agent-registry'
 import * as DataRegistry from './crud/data-registry'
@@ -8,7 +6,7 @@ import * as GrantRegistry from './crud/grant-registry'
 import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
 import dataAuthorizationContext from './data-authorization-context'
 import type { GeneratedGrants, GrantData, FinalGrantData } from './grant'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 import type { DataRegistrationData } from './data-registration'
 
 // ──────────────────────────
@@ -19,6 +17,9 @@ import type { DataRegistrationData } from './data-registration'
 export type DataAuthorizationData = {
   /** IRI of the data authorization resource; absent until assigned by the registry */
   id?: string
+
+  /** rdf:type IRIs — captured from framing on read, written on PUT */
+  type: string[]
 
   // String properties (single-value named nodes)
   grantee: string
@@ -49,24 +50,8 @@ export interface SourceAndDelegatedGrants {
 }
 
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → DataAuthorizationData
+// Read path: JSON-LD → DataAuthorizationData
 // ──────────────────────────
-
-/**
- * Convert a parsed RDF dataset into a DataAuthorizationData POJO.
- *
- * Uses jsonld.frame with the data authorization context to resolve @reverse
- * relationships (hasInheritingAuthorization) automatically, without
- * embedding child nodes.
- */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<DataAuthorizationData> {
-  return compactNodeToDataAuthorizationData(
-    (await frameDataset(dataset, dataAuthorizationContext, iri)) as any
-  )
-}
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
@@ -92,6 +77,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<DataAuthori
 function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     grantee: node.grantee,
     grantedBy: node.grantedBy,
     registeredShapeTree: node.registeredShapeTree,
@@ -107,19 +93,19 @@ function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
   }
 }
 
-// ──────────────────────────
-// Write path: DataAuthorizationData → Dataset / JSON-LD
-// ──────────────────────────
-
 /**
- * Convert a FinalDataAuthorizationData to an N3 Store (DatasetCore).
- *
- * The resulting dataset can be passed directly to an RdfFetch call
- * as the `dataset` option (the wrapper serializes it to turtle).
+ * Fetch and load a data authorization resource as a DataAuthorizationData POJO.
  */
-export async function toDataset(data: FinalDataAuthorizationData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
+export async function loadDataAuthorization(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<DataAuthorizationData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
+
+// ──────────────────────────
+// Write path: DataAuthorizationData → JSON-LD
+// ──────────────────────────
 
 /**
  * Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json.
@@ -171,6 +157,7 @@ async function generateChildDelegatedGrantData(
 
     const childData: GrantData = {
       // no id — delegation endpoint assigns IRIs
+      type: [INTEROP.DataGrant.value],
       grantee,
       grantedBy: data.grantedBy,
       dataOwner: childSourceGrant.dataOwner,
@@ -214,9 +201,13 @@ async function generateDelegatedDataGrants(
     if (grantee === agentRegistration.registeredAgent) {
       continue
     }
-    const reciprocalReg = agentRegistration.reciprocalRegistration
+    // only inspect registrations that have a reciprocal registration
+    if (!agentRegistration.reciprocalRegistration) continue
+    const reciprocalReg = await registrySet.factory.crud.socialAgentRegistration(
+      agentRegistration.reciprocalRegistration
+    )
 
-    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, registrySet.factory)).length === 0) continue
+    if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
 
     const reciprocalDataGrants = await getDataGrants(reciprocalReg, registrySet.factory)
 
@@ -248,6 +239,7 @@ async function generateDelegatedDataGrants(
           ? INTEROP.SelectedFromRegistry.value
           : INTEROP.AllFromRegistry.value
       const grant: GrantData = {
+        type: [INTEROP.DataGrant.value],
         grantee,
         grantedBy: data.grantedBy,
         dataOwner: sourceGrant.dataOwner,
@@ -259,7 +251,7 @@ async function generateDelegatedDataGrants(
         accessMode: data.accessMode.filter((mode) => sourceGrant.accessMode.includes(mode)),
       }
       if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) {
-        if (data.hasDataInstance && data.hasDataInstance.length) {
+        if (data.hasDataInstance?.length) {
           grant.hasDataInstance = [...data.hasDataInstance]
         } else {
           grant.hasDataInstance = [...(sourceGrant.hasDataInstance ?? [])]
@@ -299,6 +291,7 @@ async function generateChildSourceGrantData(
 
     const childData: FinalGrantData = {
       id: childGrantIri,
+      type: [INTEROP.DataGrant.value],
       grantee,
       grantedBy: childAuthorization.grantedBy,
       dataOwner: childAuthorization.grantedBy,
@@ -371,6 +364,7 @@ async function generateSourceDataGrants(
       scopeOfGrant = INTEROP.SelectedFromRegistry.value
     const grant: FinalGrantData = {
       id: regularGrantIri,
+      type: [INTEROP.DataGrant.value],
       grantee,
       grantedBy: data.grantedBy,
       dataOwner: data.grantedBy,
@@ -380,7 +374,7 @@ async function generateSourceDataGrants(
       scopeOfGrant,
       accessMode: data.accessMode,
     }
-    if (data.hasDataInstance && data.hasDataInstance.length) {
+    if (data.hasDataInstance?.length) {
       grant.hasDataInstance = data.hasDataInstance
     }
     if (childGrantData.length) {

@@ -13,6 +13,11 @@ test('should set the iri', async () => {
   expect(dataGrant.id).toBe(dataGrantIri)
 })
 
+test('should set the type', async () => {
+  const dataGrant = await factory.readable.dataGrant(dataGrantIri)
+  expect(dataGrant.type).toContain('http://www.w3.org/ns/solid/interop#DataGrant')
+})
+
 test('should set the accessMode', async () => {
   const dataGrant = await factory.readable.dataGrant(dataGrantIri)
   expect(dataGrant.accessMode).toContain(ACL.Read.value)

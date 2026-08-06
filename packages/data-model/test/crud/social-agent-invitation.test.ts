@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
@@ -15,6 +16,7 @@ describe('build', () => {
     capabilityUrl: 'https://auth.alice.example/some-secret-url',
     prefLabel: 'Yori',
     note: 'A cage fighter',
+    type: [INTEROP.SocialAgentInvitation.value],
   }
 
   test('getters', async () => {

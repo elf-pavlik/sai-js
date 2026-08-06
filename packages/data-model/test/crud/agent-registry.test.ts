@@ -158,5 +158,4 @@ describe('addApplicationRegistration', () => {
     const registration = await AgentRegistry.addApplicationRegistration(registry, factory, gigaApp)
     expect(registration.registeredAgent).toBe(gigaApp)
   })
-  test.todo('gets data from ClientID Document')
 })

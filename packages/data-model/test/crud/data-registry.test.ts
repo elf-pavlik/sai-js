@@ -56,6 +56,7 @@ describe('createRegistration', () => {
     const dataRegistrationMock = vi.fn(
       async (iri: string, data?: DataRegistrationData): Promise<DataRegistrationData> => ({
         id: iri,
+        type: data?.type ?? [],
         registeredShapeTree: data?.registeredShapeTree ?? '',
         contains: data?.contains ?? [],
       })

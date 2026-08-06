@@ -1,7 +1,7 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import { CRUDContainer, iriForContained as containerIriForContained } from './container'
+import { createContainer, iriForContained as containerIriForContained } from './container'
 
 // ──────────────────────────
 // Types
@@ -21,9 +21,7 @@ export async function createGrantRegistry(
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.GrantRegistry))
-  const container = new CRUDContainer(data.id, factory, {})
-  container.dataset = dataset
-  await container.create()
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

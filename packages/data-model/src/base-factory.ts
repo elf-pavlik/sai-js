@@ -5,18 +5,18 @@ import {
   type DataRegistrationData,
   type ApplicationRegistrationData,
   type FactoryDependencies,
-  fromJsonLd,
   type DataInstanceData,
   type ShapeTreeData,
   type ClientIdDocumentData,
   type ShapeTreeDescriptionData,
   type WebIdProfileData,
 } from '.'
-import { fromJsonLd as clientIdDocumentFromJsonLd } from './client-id-document'
-import { fromJsonLd as dataRegistrationFromJsonLd } from './data-registration'
-import { fromJsonLd as applicationRegistrationFromJsonLd } from './application-registration'
-import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description'
-import { fromJsonLd as webIdProfileFromJsonLd } from './web-id-profile'
+import { loadClientIdDocument } from './client-id-document'
+import { loadDataRegistration } from './data-registration'
+import { loadApplicationRegistration } from './application-registration'
+import { loadGrant } from './grant'
+import { loadShapeTreeDescription } from './shape-tree-description'
+import { loadWebIdProfile } from './web-id-profile'
 import { fromJsonLd as shapeTreeFromJsonLd } from './shape-tree'
 import {
   computeChildren,
@@ -94,20 +94,12 @@ export class BaseFactory {
       applicationRegistration: async function applicationRegistration(
         iri: string
       ): Promise<ApplicationRegistrationData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return applicationRegistrationFromJsonLd(doc, iri)
+        return loadApplicationRegistration(iri, factory.fetch.raw)
       },
       dataRegistration: async function dataRegistration(
         iri: string
       ): Promise<DataRegistrationData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return dataRegistrationFromJsonLd(doc, iri)
+        return loadDataRegistration(iri, factory.fetch.raw)
       },
       shapeTree: async function shapeTree(
         iri: string,
@@ -122,34 +114,18 @@ export class BaseFactory {
       shapeTreeDescription: async function shapeTreeDescription(
         iri: string
       ): Promise<ShapeTreeDescriptionData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return shapeTreeDescriptionFromJsonLd(doc, iri)
+        return loadShapeTreeDescription(iri, factory.fetch.raw)
       },
       webIdProfile: async function webIdProfile(iri: string): Promise<WebIdProfileData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return webIdProfileFromJsonLd(doc, iri)
+        return loadWebIdProfile(iri, factory.fetch.raw)
       },
       clientIdDocument: async function clientIdDocument(
         iri: string
       ): Promise<ClientIdDocumentData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return clientIdDocumentFromJsonLd(doc, iri)
+        return loadClientIdDocument(iri, factory.fetch.raw)
       },
       dataGrant: async function dataGrant(iri: string): Promise<GrantData> {
-        const response = await factory.fetch.raw(iri, {
-          headers: { Accept: 'application/ld+json' },
-        })
-        const doc = await response.json()
-        return fromJsonLd(doc, iri)
+        return loadGrant(iri, factory.fetch.raw)
       },
     }
   }

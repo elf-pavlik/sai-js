@@ -36,7 +36,9 @@ describe('build', () => {
   test('should return social agent registration, with reciprocal', async () => {
     const socialAgentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
     expect(socialAgentRegistration).toHaveProperty('id', snippetIri)
-    expect(socialAgentRegistration.reciprocalRegistration).toHaveProperty('id')
+    expect(socialAgentRegistration.reciprocalRegistration).toBe(
+      'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
+    )
   })
 
   test('should return social agent registration, without reciprocal based on data', async () => {
@@ -55,8 +57,7 @@ describe('build', () => {
 
   test('should build reciprocal registration', async () => {
     const socialAgentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
-    expect(socialAgentRegistration.reciprocalRegistration).toHaveProperty(
-      'id',
+    expect(socialAgentRegistration.reciprocalRegistration).toBe(
       'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
     )
   })
@@ -64,7 +65,7 @@ describe('build', () => {
     const acme2bobRegistrationIri = 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
     const socialAgentRegistration =
       await factory.crud.socialAgentRegistration(acme2bobRegistrationIri)
-    const iris = await getDataGrantIris(socialAgentRegistration, factory)
+    const iris = await getDataGrantIris(socialAgentRegistration)
     expect(iris.length).toBeGreaterThan(0)
   })
 })
@@ -115,7 +116,7 @@ describe('reciprocal registration discovery', () => {
         await factory.crud.socialAgentRegistration(withoutReciprocalIri)
       expect(socialAgentRegistration.reciprocalRegistration).toBeUndefined()
       await discoverAndUpdateReciprocal(socialAgentRegistration, factory, statelessFetch)
-      expect(socialAgentRegistration.reciprocalRegistration?.id).toBe(agentRegistrationIri)
+      expect(socialAgentRegistration.reciprocalRegistration).toBe(agentRegistrationIri)
     })
 
     test('should update reciprocal if discovered (with prior)', async () => {
@@ -124,17 +125,17 @@ describe('reciprocal registration discovery', () => {
       const priorAgentRegistrationIri =
         'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
       const socialAgentRegistration = await factory.crud.socialAgentRegistration(customSnippetIri)
-      expect(socialAgentRegistration.reciprocalRegistration?.id).toBe(priorAgentRegistrationIri)
+      expect(socialAgentRegistration.reciprocalRegistration).toBe(priorAgentRegistrationIri)
       await discoverAndUpdateReciprocal(socialAgentRegistration, factory, statelessFetch)
-      expect(socialAgentRegistration.reciprocalRegistration?.id).toBe(agentRegistrationIri)
+      expect(socialAgentRegistration.reciprocalRegistration).toBe(agentRegistrationIri)
     })
 
     test('should not update reciprocal if not discovered', async () => {
       vi.mocked(discoverAgentRegistration).mockResolvedValue(undefined)
       const socialAgentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
-      const priorReciprocal = socialAgentRegistration.reciprocalRegistration?.id
+      const priorReciprocal = socialAgentRegistration.reciprocalRegistration
       await discoverAndUpdateReciprocal(socialAgentRegistration, factory, statelessFetch)
-      expect(socialAgentRegistration.reciprocalRegistration?.id).toBe(priorReciprocal)
+      expect(socialAgentRegistration.reciprocalRegistration).toBe(priorReciprocal)
     })
   })
 })

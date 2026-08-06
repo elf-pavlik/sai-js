@@ -1,9 +1,7 @@
-import { INTEROP, getAllMatchingQuads, parseJsonld } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
+import { INTEROP, parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AccessNeedDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+import { documentValues, fetchJsonLd, frameDoc } from './jsonld-utils'
 
 const accessNeedContext = {
   id: '@id',
@@ -36,6 +34,8 @@ const accessNeedContext = {
 /** Plain JSON representation of an access need. */
 export type AccessNeedData = {
   id: string
+  /** rdf:type IRIs — captured from framing on read */
+  type: string[]
   registeredShapeTree: string
   inheritsFromNeed?: string
   hasInheritingNeed: string[]
@@ -49,78 +49,43 @@ export type AccessNeedData = {
 }
 
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → AccessNeedData
+// Read path: JSON-LD → AccessNeedData
 // ──────────────────────────
-
-/**
- * Convert a parsed RDF dataset into an AccessNeedData POJO.
- *
- * Uses jsonld.frame with the accessNeedContext to resolve the @reverse
- * relationship (hasInheritingNeed) automatically. `descriptionLanguages` is
- * extracted directly from the quads since it lives on the description sets in
- * the document, not on the need node itself.
- */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<AccessNeedData> {
-  const node = (await frameDataset(dataset, accessNeedContext, iri)) as any
-  const data = compactNodeToAccessNeedData(node)
-  data.descriptionLanguages = getAllMatchingQuads(dataset, null, INTEROP.usesLanguage).map(
-    (quad) => quad.object.value
-  )
-  return data
-}
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
  * AccessNeedData POJO. The document can be in expanded, compacted, or
  * flattened form.
+ *
+ * Uses jsonld.frame with the accessNeedContext to resolve the @reverse
+ * relationship (hasInheritingNeed) automatically. `descriptionLanguages` is
+ * collected from the whole document (flattened), since it lives on the
+ * description sets, not on the need node itself.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedData> {
-  const dataset = await parseJsonld(JSON.stringify(doc), iri)
-  const node = (await frameDataset(dataset, accessNeedContext, iri)) as any
-  const data = compactNodeToAccessNeedData(node)
-  data.descriptionLanguages = getAllMatchingQuads(dataset, null, INTEROP.usesLanguage).map(
-    (quad) => quad.object.value
-  )
-  return data
-}
-
-function compactNodeToAccessNeedData(node: any): AccessNeedData {
+  const node = (await frameDoc(doc, accessNeedContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredShapeTree: node.registeredShapeTree,
     inheritsFromNeed: node.inheritsFromNeed ?? undefined,
     hasInheritingNeed: node.hasInheritingNeed ?? [],
     accessMode: node.accessMode ?? [],
     required: node.required === INTEROP.AccessRequired.value,
     children: [],
-    descriptionLanguages: [],
+    descriptionLanguages: await documentValues(doc, iri, INTEROP.usesLanguage.value),
   }
 }
 
-// ──────────────────────────
-// Write path: AccessNeedData → Dataset / JSON-LD
-// ──────────────────────────
-
-/** Convert an AccessNeedData to an N3 Store (DatasetCore). */
-export async function toDataset(data: AccessNeedData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
-}
-
-/**
- * Build a JSON-LD document (with embedded context) ready for PUT as
- * application/ld+json. The derived `children` and `descriptionLanguages`
- * fields are not stored RDF properties, so they are stripped.
- */
-export function toJsonLd(data: AccessNeedData): Record<string, unknown> {
-  const { children: _children, descriptionLanguages: _descriptionLanguages, ...rest } = data
-  return withContext(accessNeedContext, rest)
+export async function loadAccessNeed(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<AccessNeedData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
 // ──────────────────────────
-// Behavior functions (replacing class methods)
+// Behavior functions
 // ──────────────────────────
 
 /**

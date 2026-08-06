@@ -1,7 +1,17 @@
-import { INTEROP, RDF, SKOS, getAllMatchingQuads, getOneMatchingQuad } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
-import { CRUDResource, fetchDataset } from './resource'
+import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import { fetchJsonLd, frameDoc, putJsonLd, withContext } from '../jsonld-utils'
+
+// ──────────────────────────
+// JSON-LD context (only used by this module)
+// ──────────────────────────
+
+const roleContext = {
+  id: '@id',
+  type: '@type',
+
+  label: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+  members: { '@id': 'http://www.w3.org/ns/solid/interop#hasMember', '@type': '@id', '@container': '@set' },
+}
 
 // ──────────────────────────
 // Types
@@ -11,41 +21,46 @@ export type RoleData = {
   id: string
   label: string
   members: string[]
+  /** rdf:type IRIs — captured from framing on read, written via compaction on write */
+  type: string[]
 }
 
 // ──────────────────────────
-// Read path: Dataset → RoleData
+// Read path: JSON-LD → RoleData
 // ──────────────────────────
 
-export async function loadRole(
-  iri: string,
-  factory: AuthorizationAgentFactory
-): Promise<RoleData> {
-  const dataset = await fetchDataset(iri, factory)
-  const node = DataFactory.namedNode(iri)
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a RoleData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form.
+ * Uses jsonld.frame with the role context: `members` is coerced to a string
+ * array via @type: @id + @container: @set, `label` to a plain string, and
+ * the rdf:type (from framing) to a string array.
+ */
+export async function fromJsonLd(doc: unknown, iri: string): Promise<RoleData> {
+  const node = (await frameDoc(doc, roleContext, iri)) as any
   return {
     id: iri,
-    label: getOneMatchingQuad(dataset, node, SKOS.prefLabel)?.object.value ?? '',
-    members: getAllMatchingQuads(dataset, node, INTEROP.hasMember).map((quad) => quad.object.value),
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    label: node.label ?? '',
+    members: node.members ?? [],
   }
 }
 
+export async function loadRole(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<RoleData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+}
+
 // ──────────────────────────
-// Write path: RoleData → Dataset (PUT)
+// Write path: RoleData → JSON-LD (PUT)
 // ──────────────────────────
 
 export async function putRole(
   data: RoleData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
-  const dataset = new Store()
-  const node = DataFactory.namedNode(data.id)
-  dataset.add(DataFactory.quad(node, RDF.type, INTEROP.Role))
-  dataset.add(DataFactory.quad(node, SKOS.prefLabel, DataFactory.literal(data.label)))
-  for (const member of data.members) {
-    dataset.add(DataFactory.quad(node, INTEROP.hasMember, DataFactory.namedNode(member)))
-  }
-  const resource = new CRUDResource(data.id, factory, data)
-  resource.dataset = dataset
-  await resource.update()
+  await putJsonLd(data.id, fetch, withContext(roleContext, data))
 }

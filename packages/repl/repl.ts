@@ -5,7 +5,6 @@ import {
   AuthorizationRegistry,
   DataRegistry,
   GrantRegistry,
-  type RegistrySetData,
   RoleRegistry,
 } from '@janeirodigital/interop-data-model'
 import { init } from '@paralleldrive/cuid2'
@@ -25,7 +24,7 @@ global.cuid = init({ length: 6 })
 global.bootstrapAccount = async function bootstrapAccount(
   account: Account,
   session: AuthorizationAgent
-): Promise<RegistrySetData> {
+) {
   const uriForContained = function uriForContained(containerId: string, container = false): string {
     const id = containerId + global.cuid()
     return container ? `${id}/` : id
@@ -69,10 +68,10 @@ global.bootstrapAccount = async function bootstrapAccount(
     registrySetData.hasDataRegistry.push(dataRegistry.id)
   }
 
-  const registrySetId = uriForContained(account.auth)
-  const registrySet = await session.factory.crud.registrySet(registrySetId, registrySetData)
-
-  return registrySet
+  // the registry set document itself is created at account bootstrap
+  // (components/Account.ts bootstrapAccount); here we only create its
+  // leaf registries and collect their IRIs
+  return registrySetData
 }
 
 global.buildSession = async function buildSession(account: Account): Promise<AuthorizationAgent> {

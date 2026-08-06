@@ -1,8 +1,25 @@
-import { INTEROP, SKOS, getOneMatchingQuad } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
-import { CRUDResource } from './resource'
-import { fetchDataset } from './resource'
+import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import { fetchJsonLd, frameDoc, putJsonLd, withContext } from '../jsonld-utils'
+
+// ──────────────────────────
+// JSON-LD context (only used by this module)
+// ──────────────────────────
+
+const invitationContext = {
+  id: '@id',
+  type: '@type',
+
+  capabilityUrl: {
+    '@id': 'http://www.w3.org/ns/solid/interop#hasCapabilityUrl',
+    '@type': '@id',
+  },
+  prefLabel: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+  note: { '@id': 'http://www.w3.org/2004/02/skos/core#note' },
+  registeredAgent: {
+    '@id': 'http://www.w3.org/ns/solid/interop#registeredAgent',
+    '@type': '@id',
+  },
+}
 
 // ──────────────────────────
 // Types
@@ -10,6 +27,8 @@ import { fetchDataset } from './resource'
 
 export type SocialAgentInvitationData = {
   id: string
+  /** rdf:type IRIs — captured from framing on read, written via compaction on write */
+  type: string[]
   capabilityUrl: string
   prefLabel: string
   note?: string
@@ -17,52 +36,51 @@ export type SocialAgentInvitationData = {
 }
 
 // ──────────────────────────
-// Read path: Dataset → SocialAgentInvitationData
+// Read path: JSON-LD → SocialAgentInvitationData
 // ──────────────────────────
+
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * SocialAgentInvitationData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form.
+ * Uses jsonld.frame with the invitation context: node references
+ * (`capabilityUrl`, `registeredAgent`) are coerced to strings via
+ * `@type: '@id'`, literals to plain strings, and the rdf:type (from framing)
+ * to a string array.
+ */
+export async function fromJsonLd(
+  doc: unknown,
+  iri: string
+): Promise<SocialAgentInvitationData> {
+  const node = (await frameDoc(doc, invitationContext, iri)) as any
+  return {
+    id: iri,
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    capabilityUrl: node.capabilityUrl ?? '',
+    prefLabel: node.prefLabel ?? '',
+    // framing emits `null` for framed-but-absent properties — normalize to undefined
+    note: node.note ?? undefined,
+    registeredAgent: node.registeredAgent ?? undefined,
+  }
+}
 
 export async function loadSocialAgentInvitation(
   iri: string,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<SocialAgentInvitationData> {
-  const dataset = await fetchDataset(iri, factory)
-  const node = DataFactory.namedNode(iri)
-  return {
-    id: iri,
-    capabilityUrl: getOneMatchingQuad(dataset, node, INTEROP.hasCapabilityUrl)?.object.value ?? '',
-    prefLabel: getOneMatchingQuad(dataset, node, SKOS.prefLabel)?.object.value ?? '',
-    note: getOneMatchingQuad(dataset, node, SKOS.note)?.object.value,
-    registeredAgent: getOneMatchingQuad(dataset, node, INTEROP.registeredAgent)?.object.value,
-  }
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
 // ──────────────────────────
-// Write path: SocialAgentInvitationData → Dataset
+// Write path: SocialAgentInvitationData → JSON-LD (PUT)
 // ──────────────────────────
 
-export async function toDataset(data: SocialAgentInvitationData): Promise<Store> {
-  const store = new Store()
-  const node = DataFactory.namedNode(data.id)
-  store.add(DataFactory.quad(node, INTEROP.hasCapabilityUrl, DataFactory.literal(data.capabilityUrl)))
-  store.add(DataFactory.quad(node, SKOS.prefLabel, DataFactory.literal(data.prefLabel)))
-  if (data.note) {
-    store.add(DataFactory.quad(node, SKOS.note, DataFactory.literal(data.note)))
-  }
-  if (data.registeredAgent) {
-    store.add(
-      DataFactory.quad(node, INTEROP.registeredAgent, DataFactory.namedNode(data.registeredAgent))
-    )
-  }
-  return store
-}
-
-export async function updateSocialAgentInvitation(
+export async function putSocialAgentInvitation(
   data: SocialAgentInvitationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
-  const dataset = await toDataset(data)
-  const resource = new CRUDResource(data.id, factory, data)
-  resource.dataset = dataset
-  await resource.update()
+  await putJsonLd(data.id, fetch, withContext(invitationContext, data))
 }
 
 // ──────────────────────────
@@ -71,9 +89,9 @@ export async function updateSocialAgentInvitation(
 
 export async function setRegisteredAgent(
   data: SocialAgentInvitationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   webId: string
 ): Promise<void> {
   data.registeredAgent = webId
-  await updateSocialAgentInvitation(data, factory)
+  await putSocialAgentInvitation(data, fetch)
 }

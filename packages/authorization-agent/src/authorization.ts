@@ -2,9 +2,11 @@ import {
   type AuthorizationAgentFactory,
   type AuthorizationRegistryData,
   AuthorizationRegistry,
-  DataAuthorization,
+  dataAuthorizationContext,
   type DataAuthorizationData,
   type FinalDataAuthorizationData,
+  putJsonLd,
+  withContext,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 
@@ -180,19 +182,14 @@ export async function generateAuthorization(
       factory
     )
 
-    // store data authorizations
+    // store data authorizations — raw JSON-LD PUT (withContext + putJsonLd)
     for (const dataAuthorization of dataAuthorizations) {
-      const store = await DataAuthorization.toDataset(dataAuthorization)
-      const response = await factory.fetch(dataAuthorization.id, {
-        method: 'PUT',
-        dataset: store,
-        headers: {
-          'If-None-Match': '*',
-        },
-      })
-      if (!response.ok) {
-        throw new Error(`failed to store data authorization: ${response.status}`)
-      }
+      await putJsonLd(
+        dataAuthorization.id,
+        factory.fetch.raw,
+        withContext(dataAuthorizationContext, dataAuthorization),
+        { 'If-None-Match': '*' }
+      )
     }
 
     // delete the grantee's existing data authorization resources which are not reused

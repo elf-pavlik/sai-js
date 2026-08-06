@@ -1,4 +1,4 @@
-<https://alice.pod.docker/agentRegistry/vuejectron/1d49125e-719a-422a-a30f-e62ef74a17d6> a <http://www.w3.org/ns/solid/interop#DelegatedDataGrant>;
+<https://alice.pod.docker/agentRegistry/vuejectron/1d49125e-719a-422a-a30f-e62ef74a17d6> a <http://www.w3.org/ns/solid/interop#DataGrant>;
     <http://www.w3.org/ns/solid/interop#dataOwner> <https://acme.pod.docker/profile/card#me>;
     <http://www.w3.org/ns/solid/interop#registeredShapeTree> <https://shapetrees.pod.docker/trees/Project>;
     <http://www.w3.org/ns/solid/interop#hasDataRegistration> <https://acme-hr.pod.docker/dataRegistry/projects/>;

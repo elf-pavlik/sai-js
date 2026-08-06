@@ -75,8 +75,11 @@ async function findDataGrantIndex(
 ): Promise<Record<string, GrantData[]>> {
   const dataGrantIndex: Record<string, GrantData[]> = {}
   for await (const registration of saiSession.socialAgentRegistrations) {
-    const reciprocalReg = registration.reciprocalRegistration
-    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, saiSession.factory)).length === 0) continue
+    if (!registration.reciprocalRegistration) continue
+    const reciprocalReg = await saiSession.factory.crud.socialAgentRegistration(
+      registration.reciprocalRegistration
+    )
+    if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
     const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     for (const dataGrant of dataGrants) {
       if (dataGrant.dataOwner !== agentId) continue
@@ -103,15 +106,14 @@ export const getDataRegistries = async (
     )
   }
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
+  const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
+    ? await saiSession.factory.crud.socialAgentRegistration(
+        socialAgentRegistration.reciprocalRegistration
+      )
+    : undefined
   let dataGrantIndex: Record<string, GrantData[]>
-  if (
-    socialAgentRegistration?.reciprocalRegistration &&
-    (await getDataGrantIris(socialAgentRegistration.reciprocalRegistration, saiSession.factory)).length > 0
-  ) {
-    const dataGrants = await getDataGrants(
-      socialAgentRegistration.reciprocalRegistration,
-      saiSession.factory
-    )
+  if (reciprocalReg && (await getDataGrantIris(reciprocalReg)).length > 0) {
+    const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     dataGrantIndex = dataGrants.reduce(
       (acc, dataGrant) => {
         const regIri = Grant.dataRegistryIri(dataGrant)
@@ -157,15 +159,14 @@ export const listDataInstances = async (
     }
   } else {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
+    const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
+      ? await saiSession.factory.crud.socialAgentRegistration(
+          socialAgentRegistration.reciprocalRegistration
+        )
+      : undefined
     let dataGrants: GrantData[]
-    if (
-      socialAgentRegistration?.reciprocalRegistration &&
-      (await getDataGrantIris(socialAgentRegistration.reciprocalRegistration, saiSession.factory)).length > 0
-    ) {
-      dataGrants = await getDataGrants(
-        socialAgentRegistration.reciprocalRegistration,
-        saiSession.factory
-      )
+    if (reciprocalReg && (await getDataGrantIris(reciprocalReg)).length > 0) {
+      dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     } else {
       const dataGrantIndex = await findDataGrantIndex(saiSession, agentId)
       dataGrants = Object.values(dataGrantIndex).flat()

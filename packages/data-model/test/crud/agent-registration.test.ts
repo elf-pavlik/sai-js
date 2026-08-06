@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
 import {
@@ -18,6 +19,7 @@ const data = {
   registeredAgent: 'https://different.iri/',
   hasDataGrant: [dataGrantIri],
   prefLabel: 'Someone',
+  type: [INTEROP.SocialAgentRegistration.value],
 }
 
 describe('build', () => {
@@ -33,11 +35,7 @@ describe('build', () => {
   })
 
   test('should set data if passed', async () => {
-    const agentRegistration = await factory.crud.socialAgentRegistration(
-      newSnippetIri,
-      false,
-      data
-    )
+    const agentRegistration = await factory.crud.socialAgentRegistration(newSnippetIri, data)
     expect(agentRegistration).toMatchObject(data)
     expect(agentRegistration.id).toBe(newSnippetIri)
   })
@@ -46,7 +44,7 @@ describe('build', () => {
 describe('getDataGrantIris', () => {
   test('should return data grant IRIs from dataset', async () => {
     const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
-    const iris = await getDataGrantIris(agentRegistration, factory)
+    const iris = await getDataGrantIris(agentRegistration)
     expect(iris).toContain(dataGrantIri)
   })
 })
@@ -62,7 +60,7 @@ describe('addDataGrant', () => {
   test('adds new data grant IRI to dataset', async () => {
     const agentRegistration = await factory.crud.socialAgentRegistration(snippetIri)
     const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    const beforeIris = await getDataGrantIris(agentRegistration, factory)
+    const beforeIris = await getDataGrantIris(agentRegistration)
     expect(beforeIris).not.toContain(newGrantIri)
     await addDataGrant(agentRegistration, factory, newGrantIri)
     expect(agentRegistration.hasDataGrant).toContain(newGrantIri)

@@ -79,6 +79,7 @@ export const lukaForInspector = {
   hasAccessNeedGroup: `${host}/solid/inspector/access-needs`,
   dataAuthorizations: [
     {
+      type: [INTEROP.DataAuthorization.value],
       grantee: inspector.clientId,
       grantedBy: luka.webId,
       registeredShapeTree: shapeTree.Gadget,
@@ -86,6 +87,7 @@ export const lukaForInspector = {
       scopeOfAuthorization: INTEROP.All.value,
       children: [
         {
+          type: [INTEROP.DataAuthorization.value],
           grantee: inspector.clientId,
           grantedBy: luka.webId,
           registeredShapeTree: shapeTree.Widget,
@@ -104,6 +106,7 @@ export const vaporcgForLuka = {
   grantedWith: 'https://auth.example/luka',
   dataAuthorizations: [
     {
+      type: [INTEROP.DataAuthorization.value],
       grantee: luka.webId,
       grantedBy: vaporcg.webId,
       registeredShapeTree: shapeTree.Gadget,
@@ -111,6 +114,7 @@ export const vaporcgForLuka = {
       scopeOfAuthorization: INTEROP.All.value,
       children: [
         {
+          type: [INTEROP.DataAuthorization.value],
           grantee: luka.webId,
           grantedBy: vaporcg.webId,
           registeredShapeTree: shapeTree.Widget,

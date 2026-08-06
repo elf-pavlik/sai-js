@@ -1,26 +1,25 @@
-export { CRUDResource } from './resource'
-export type { CRUDData } from './resource'
-export { CRUDContainer } from './container'
+export { createContainer } from './container'
 export * from './agent-registration'
 export {
   type ApplicationRegistrationData,
   createApplicationRegistration,
   loadApplicationRegistration,
-} from './application-registration'
+} from '../application-registration'
 export {
   type SocialAgentRegistrationData,
   discoverReciprocal,
   discoverAndUpdateReciprocal,
+  loadReciprocalRegistration,
   setAccessNeedGroup,
   createSocialAgentRegistration,
 } from './social-agent-registration'
 export {
   type SocialAgentInvitationData,
   setRegisteredAgent,
-  updateSocialAgentInvitation,
+  putSocialAgentInvitation,
 } from './social-agent-invitation'
 export { type RoleData } from './role'
-export { createDataRegistration } from './data-registration'
+export { createDataRegistration } from '../data-registration'
 // explicit re-export to resolve getGranted ambiguity with ./agent-registration
 export {
   getDataAuthorizationIris,
@@ -40,4 +39,4 @@ export type { RoleRegistryData } from './role-registry'
 export type { DataRegistryData } from './data-registry'
 export type { AuthorizationRegistryData } from './authorization-registry'
 export type { GrantRegistryData } from './grant-registry'
-export type { RegistrySetData, RegistrySetDataInput } from './registry-set'
+export type { RegistrySetData } from './registry-set'

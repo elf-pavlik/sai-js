@@ -7,7 +7,7 @@ import {
   type RegistrySetData,
   type RoleData,
   type DataAuthorizationData,
-  type DataGrant,
+  type GrantData,
   type DataRegistrationData,
   type DataInstanceData,
   type ShapeTreeData,
@@ -170,9 +170,11 @@ export class AuthorizationAgent {
     }
     if (!ownerId) {
       for await (const socialAgentRegistration of this.socialAgentRegistrations) {
-        const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
-        if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, this.factory)).length === 0)
-          continue
+        if (!socialAgentRegistration?.reciprocalRegistration) continue
+        const reciprocalReg = await this.factory.crud.socialAgentRegistration(
+          socialAgentRegistration.reciprocalRegistration
+        )
+        if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
         const dataGrants = await getDataGrants(reciprocalReg, this.factory)
         const grant = dataGrants.find((dataGrant) => dataGrant.hasStorage === resourceServerId)
         if (grant) ownerId = socialAgentRegistration.registeredAgent
@@ -192,11 +194,15 @@ export class AuthorizationAgent {
     return this.findResourceServerOwner(storageRoot)
   }
 
-  public async findGrantForResource(resourceId: string, ownerId: string): Promise<DataGrant> {
+  public async findGrantForResource(resourceId: string, ownerId: string): Promise<GrantData> {
     const socialAgentRegistration = await this.findSocialAgentRegistration(ownerId)
     const dataRegistrationIri = `${resourceId.split('/').slice(0, -1).join('/')}/`
-    const reciprocalReg = socialAgentRegistration.reciprocalRegistration
-    if (!reciprocalReg) throw new Error(`no reciprocal registration for ${ownerId}`)
+    if (!socialAgentRegistration?.reciprocalRegistration) {
+      throw new Error(`no reciprocal registration for ${ownerId}`)
+    }
+    const reciprocalReg = await this.factory.crud.socialAgentRegistration(
+      socialAgentRegistration.reciprocalRegistration
+    )
     const dataGrants = await getDataGrants(reciprocalReg, this.factory)
     return dataGrants.find(
       (dataGrant) => dataGrant.hasDataRegistration === dataRegistrationIri
@@ -358,6 +364,7 @@ export class AuthorizationAgent {
     details: ShareDataInstanceStructure
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
+      type: [INTEROP.DataAuthorization.value],
       grantee: agent,
       grantedBy: this.webId,
       registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
@@ -368,6 +375,7 @@ export class AuthorizationAgent {
       hasDataInstance: [dataInstance.id],
       children: await Promise.all(
         details.children.map(async (child) => ({
+          type: [INTEROP.DataAuthorization.value],
           grantee: agent,
           grantedBy: this.webId,
           registeredShapeTree: child.shapeTree,

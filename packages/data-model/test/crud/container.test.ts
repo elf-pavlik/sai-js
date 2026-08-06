@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { type RdfResponse, insertPatch } from '@janeirodigital/interop-utils'
+import { type RdfResponse, INTEROP, XSD, getAllMatchingQuads, getOneMatchingQuad, insertPatch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import { beforeEach, describe, test, vi } from 'vitest'
-import { AuthorizationAgentFactory, CRUDContainer } from '../../src'
+import { AuthorizationAgentFactory } from '../../src'
+import { applyPatch, replaceStatement, setTimestampsAndAgents } from '../../src/crud/container'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -27,16 +28,13 @@ describe('replaceStatement', () => {
       DataFactory.namedNode(`${iri}beep`)
     )
 
-    const container = new CRUDContainer(iri, factory)
-    container.dataset.add(priorQuad)
-
     const quad = DataFactory.quad(
       DataFactory.namedNode(iri),
       DataFactory.namedNode(predicate),
       DataFactory.namedNode(`${iri}boop`)
     )
 
-    await container.replaceStatement(priorQuad, quad)
+    await replaceStatement(iri, factory, priorQuad, quad)
     expect(mockedFetch).toBeCalledWith(
       expect.any(String),
       expect.objectContaining({ body: expect.stringContaining('DELETE DATA') })
@@ -56,10 +54,65 @@ describe('applyPatch', () => {
       DataFactory.namedNode(`${iri}boop`)
     )
     const sparqlUpdate = await insertPatch(new Store([quad]))
-    const container = new CRUDContainer(iri, factory)
-    container.descriptionResourceIri = `${iri}.meta`
     mockedFetch.mockResolvedValueOnce({ ok: false } as unknown as RdfResponse)
 
-    expect(container.applyPatch(sparqlUpdate)).rejects.toThrow('failed to patch')
+    await expect(applyPatch(iri, factory, sparqlUpdate, `${iri}.meta`)).rejects.toThrow(
+      'failed to patch'
+    )
+  })
+})
+
+describe('setTimestampsAndAgents', () => {
+  const timestampIri = 'https://work.alice.example/something/'
+
+  test('when includeRegistered is true sets registeredBy and registeredWith', () => {
+    const dataset = new Store()
+    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    expect(dataset).toBeRdfDatasetContaining(
+      DataFactory.quad(
+        DataFactory.namedNode(timestampIri),
+        INTEROP.registeredBy,
+        DataFactory.literal(webId, XSD.string)
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(timestampIri),
+        INTEROP.registeredWith,
+        DataFactory.literal(agentId, XSD.string)
+      )
+    )
+  })
+
+  test('when includeRegistered is true sets registeredAt and updatedAt as dateTime literals', () => {
+    const dataset = new Store()
+    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    for (const predicate of [INTEROP.registeredAt, INTEROP.updatedAt]) {
+      const quad = getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), predicate)
+      expect(quad).toBeDefined()
+      expect(quad!.object.termType).toBe('Literal')
+      expect(quad!.object.datatype.value).toBe(XSD.dateTime.value)
+    }
+  })
+
+  test('when includeRegistered is false sets only updatedAt', () => {
+    const dataset = new Store()
+    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, false)
+    expect(
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredBy)
+    ).toBeUndefined()
+    expect(
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredAt)
+    ).toBeUndefined()
+    expect(
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.updatedAt)
+    ).toBeDefined()
+  })
+
+  test('replaces existing values', () => {
+    const dataset = new Store()
+    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    expect(
+      getAllMatchingQuads(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredBy)
+    ).toHaveLength(1)
   })
 })

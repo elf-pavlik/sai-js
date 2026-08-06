@@ -1,10 +1,8 @@
-import { INTEROP, ACL } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
+import { INTEROP, ACL, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import grantContext from './grant-context'
 import type { BaseFactory } from './base-factory'
 import { DataInstance } from './data-instance'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -14,6 +12,9 @@ import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
 export type GrantData = {
   /** IRI of the grant resource; absent until assigned by registry */
   id?: string
+
+  /** rdf:type IRIs — captured from framing on read, written on PUT */
+  type: string[]
 
   // String properties (single-value named nodes)
   grantee: string
@@ -46,18 +47,8 @@ export interface GeneratedGrants {
 }
 
 // ──────────────────────────
-// Read path: Dataset → GrantData
+// Read path: JSON-LD → GrantData
 // ──────────────────────────
-
-/**
- * Convert a parsed RDF dataset into a GrantData POJO.
- *
- * Uses jsonld.frame with the grant context to resolve @reverse relationships
- * (hasInheritingGrant) automatically, without embedding child nodes.
- */
-export async function fromDataset(dataset: DatasetCore, iri: string): Promise<GrantData> {
-  return compactNodeToGrantData((await frameDataset(dataset, grantContext, iri)) as any)
-}
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a GrantData POJO.
@@ -80,6 +71,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<GrantData> 
 function compactNodeToGrantData(node: any): GrantData {
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     grantee: node.grantee,
     grantedBy: node.grantedBy,
     dataOwner: node.dataOwner,
@@ -96,24 +88,16 @@ function compactNodeToGrantData(node: any): GrantData {
   }
 }
 
-// ──────────────────────────
-// Write path: GrantData → Dataset / JSON-LD
-// ──────────────────────────
-
 /**
- * Convert a FinalGrantData to an N3 Store (DatasetCore).
- *
- * Steps:
- *   1. Attach the local context to the grant POJO
- *   2. Use jsonld.toRDF to convert the JSON-LD object directly to RDF quads
- *   3. Collect quads into an N3 Store
- *
- * The resulting dataset can be passed directly to an RdfFetch call
- * as the `dataset` option (the wrapper serializes it to turtle).
+ * Fetch and load a grant resource as a GrantData POJO.
  */
-export async function toDataset(grant: FinalGrantData): Promise<Store> {
-  return toStore(toJsonLd(grant), grant.id)
+export async function loadGrant(iri: string, fetch: WhatwgFetch): Promise<GrantData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
+
+// ──────────────────────────
+// Write path: GrantData → JSON-LD
+// ──────────────────────────
 
 /**
  * Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json.

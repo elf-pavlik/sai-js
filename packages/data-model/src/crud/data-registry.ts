@@ -3,13 +3,12 @@ import {
   RDF,
   SPACE,
   discoverStorageDescription,
-  getOneMatchingQuad,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
-import { CRUDContainer, addStatement, iriForContained as containerIriForContained } from './container'
-import { linkedIris } from './resource'
-import { createDataRegistration } from './data-registration'
+import { addStatement, createContainer, iriForContained as containerIriForContained } from './container'
+import { createDataRegistration } from '../data-registration'
+import { fetchJsonLd, findNodeIdByType, linkedIrisJsonLd } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -27,7 +26,7 @@ export async function hasDataRegistration(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string[]> {
-  return linkedIris(data.id, factory, INTEROP.hasDataRegistration)
+  return linkedIrisJsonLd(data.id, factory.fetch.raw, INTEROP.hasDataRegistration.value)
 }
 
 export async function* registrations(
@@ -64,6 +63,7 @@ export async function createRegistration(
   const iri = iriForContained(data, factory, true)
   const dataRegistration = await factory.crud.dataRegistration(iri, {
     id: iri,
+    type: [INTEROP.DataRegistration.value],
     registeredShapeTree,
     contains: [],
   })
@@ -84,9 +84,8 @@ export async function storageIri(
   factory: AuthorizationAgentFactory
 ): Promise<string> {
   const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch.raw)
-  const response = await factory.fetch(storageDescriptionIri)
-  const storageDescription = await response.dataset()
-  return getOneMatchingQuad(storageDescription, null, RDF.type, SPACE.Storage).subject.value
+  const doc = await fetchJsonLd(storageDescriptionIri, factory.fetch.raw)
+  return findNodeIdByType(doc, SPACE.Storage.value, storageDescriptionIri)
 }
 
 export async function createDataRegistry(
@@ -95,9 +94,7 @@ export async function createDataRegistry(
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.DataRegistry))
-  const container = new CRUDContainer(data.id, factory, {})
-  container.dataset = dataset
-  await container.create()
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

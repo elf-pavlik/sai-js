@@ -18,11 +18,14 @@ async function verifyAccessGrant(
   expect(granteeRegForGrantedBy).toBeDefined()
   expect(granteeRegForGrantedBy!.registeredAgent).toBe(grantedById)
 
-  const grantedByRegForGrantee = granteeRegForGrantedBy!.reciprocalRegistration
-  expect(grantedByRegForGrantee).toBeDefined()
-  expect(grantedByRegForGrantee!.registeredAgent).toBe(granteeId)
+  // reciprocal registration is stored as an IRI — load it on demand
+  expect(granteeRegForGrantedBy!.reciprocalRegistration).toBeDefined()
+  const grantedByRegForGrantee = await granteeSession.factory.crud.socialAgentRegistration(
+    granteeRegForGrantedBy!.reciprocalRegistration!
+  )
+  expect(grantedByRegForGrantee.registeredAgent).toBe(granteeId)
 
-  const dataGrants = await getDataGrants(grantedByRegForGrantee!, granteeSession.factory)
+  const dataGrants = await getDataGrants(grantedByRegForGrantee, granteeSession.factory)
 
   const dataGrant = dataGrants.find(
     (grant) =>
@@ -32,7 +35,7 @@ async function verifyAccessGrant(
   )
 
   if (expectGrant) {
-    expect((await getDataGrantIris(grantedByRegForGrantee!, granteeSession.factory)).length).toBeGreaterThan(0)
+    expect((await getDataGrantIris(grantedByRegForGrantee)).length).toBeGreaterThan(0)
     expect(dataGrant).toBeDefined()
     expect(dataGrant!.scopeOfGrant).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
     expect(dataGrant!.dataOwner).toBe(dataOwnerId)

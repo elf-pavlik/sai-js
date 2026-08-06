@@ -69,6 +69,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     )
     const inheritingGrants: FinalGrantData[] = childrenPayload.map(
       (childData: Record<string, unknown>) => ({
+        type: (childData.type as string[] | undefined) ?? [INTEROP.DataGrant],
         grantee: childData.grantee as string,
         grantedBy: childData.grantedBy as string,
         dataOwner: childData.dataOwner as string,
@@ -155,6 +156,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
 
     const finalGrant: FinalGrantData = {
       ...topGrant,
+      type: topGrant.type ?? [INTEROP.DataGrant],
       id: grantId,
       hasInheritingGrant: inheritingGrants.map((g) => g.id!),
     }

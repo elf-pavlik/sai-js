@@ -1,6 +1,7 @@
-import type { DatasetCore } from '@rdfjs/types'
-import { Store } from 'n3'
-import { frameDataset, frameDoc, toStore, withContext } from './jsonld-utils'
+import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import type { AuthorizationAgentFactory } from '.'
+import { createContainer } from './crud/container'
+import { fetchJsonLd, frameDoc, toStore, withContext } from './jsonld-utils'
 
 const dataRegistrationContext = {
   id: '@id',
@@ -23,27 +24,16 @@ const dataRegistrationContext = {
 /** Plain JSON representation of a Data Registration. */
 export type DataRegistrationData = {
   id: string
+  /** rdf:type IRIs — captured from framing on read, written on create */
+  type: string[]
   registeredShapeTree: string
   /** Resources contained in the registration (LDP containment, server-managed). */
   contains: string[]
 }
 
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → DataRegistrationData
+// Read path: JSON-LD → DataRegistrationData
 // ──────────────────────────
-
-/**
- * Convert a parsed RDF dataset into a DataRegistrationData POJO.
- * Uses jsonld.frame with the dataRegistrationContext.
- */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<DataRegistrationData> {
-  return compactNodeToDataRegistrationData(
-    (await frameDataset(dataset, dataRegistrationContext, iri)) as any
-  )
-}
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
@@ -51,27 +41,34 @@ export async function fromDataset(
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<DataRegistrationData> {
-  return compactNodeToDataRegistrationData((await frameDoc(doc, dataRegistrationContext, iri)) as any)
-}
-
-function compactNodeToDataRegistrationData(node: any): DataRegistrationData {
+  const node = (await frameDoc(doc, dataRegistrationContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredShapeTree: node.registeredShapeTree,
     contains: node.contains ?? [],
   }
 }
 
-// ──────────────────────────
-// Write path: DataRegistrationData → Dataset / JSON-LD
-// ──────────────────────────
-
-/** Convert a DataRegistrationData to an N3 Store (DatasetCore). */
-export async function toDataset(data: DataRegistrationData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
+export async function loadDataRegistration(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<DataRegistrationData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
-/** Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json. */
-export function toJsonLd(data: DataRegistrationData): Record<string, unknown> {
-  return withContext(dataRegistrationContext, data)
+// ──────────────────────────
+// Write path: DataRegistrationData → container (container.create)
+// ──────────────────────────
+
+export async function createDataRegistration(
+  data: DataRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
+  // quads come from data.type (no hand-built DataFactory quads); only the
+  // container.create hand-off (PUT empty container + SPARQL patch of the
+  // description resource) stays N3-based in the container module
+  const dataset = await toStore(withContext(dataRegistrationContext, data), data.id)
+  await createContainer(data.id, factory, dataset)
 }

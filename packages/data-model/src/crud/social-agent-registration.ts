@@ -3,16 +3,43 @@ import {
   RDF,
   SKOS,
   type WhatwgFetch,
-  getAllMatchingQuads,
-  getOneMatchingQuad,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { type AgentRegistrationData, toDataset as registrationToDataset } from './agent-registration'
-import { CRUDContainer, addStatement, replaceStatement } from './container'
-import { fetchDataset } from './resource'
+import { addStatement, createContainer, replaceStatement } from './container'
+import { fetchJsonLd, frameDoc } from '../jsonld-utils'
+
+// ──────────────────────────
+// JSON-LD context (only used by this module)
+// ──────────────────────────
+
+const socialAgentRegistrationContext = {
+  id: '@id',
+  type: '@type',
+
+  registeredAgent: {
+    '@id': 'http://www.w3.org/ns/solid/interop#registeredAgent',
+    '@type': '@id',
+  },
+  hasDataGrant: {
+    '@id': 'http://www.w3.org/ns/solid/interop#hasDataGrant',
+    '@type': '@id',
+    '@container': '@set',
+  },
+  prefLabel: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+  note: { '@id': 'http://www.w3.org/2004/02/skos/core#note' },
+  hasAccessNeedGroup: {
+    '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeedGroup',
+    '@type': '@id',
+  },
+  reciprocalRegistration: {
+    '@id': 'http://www.w3.org/ns/solid/interop#reciprocalRegistration',
+    '@type': '@id',
+  },
+}
 
 // ──────────────────────────
 // Types
@@ -22,42 +49,61 @@ export type SocialAgentRegistrationData = AgentRegistrationData & {
   prefLabel: string
   note?: string
   hasAccessNeedGroup?: string
-  reciprocalRegistration?: SocialAgentRegistrationData
+  /** IRI of the peer's reciprocal registration — loaded lazily, see `loadReciprocalRegistration` */
+  reciprocalRegistration?: string
 }
 
 // ──────────────────────────
-// Read path: Dataset → SocialAgentRegistrationData
+// Read path: JSON-LD → SocialAgentRegistrationData
 // ──────────────────────────
+
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * SocialAgentRegistrationData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form. Uses
+ * jsonld.frame with the social-agent-registration context: node references
+ * (`registeredAgent`, `hasAccessNeedGroup`, `reciprocalRegistration`) are
+ * coerced to strings via `@type: '@id'`, `hasDataGrant` to a string array via
+ * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
+ * rdf:type (from framing) to a string array.
+ */
+export async function fromJsonLd(
+  doc: unknown,
+  iri: string
+): Promise<SocialAgentRegistrationData> {
+  const node = (await frameDoc(doc, socialAgentRegistrationContext, iri)) as any
+  return {
+    id: iri,
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    registeredAgent: node.registeredAgent,
+    hasDataGrant: node.hasDataGrant ?? [],
+    prefLabel: node.prefLabel ?? '',
+    // framing emits `null` for framed-but-absent properties — normalize to undefined
+    note: node.note ?? undefined,
+    hasAccessNeedGroup: node.hasAccessNeedGroup ?? undefined,
+    reciprocalRegistration: node.reciprocalRegistration ?? undefined,
+  }
+}
 
 export async function loadSocialAgentRegistration(
   iri: string,
-  factory: AuthorizationAgentFactory,
-  reciprocal = false
+  fetch: WhatwgFetch
 ): Promise<SocialAgentRegistrationData> {
-  const dataset = await fetchDataset(iri, factory)
-  const node = DataFactory.namedNode(iri)
-  const hasDataGrant = getAllMatchingQuads(dataset, node, INTEROP.hasDataGrant).map(
-    (quad) => quad.object.value
-  )
-  const data: SocialAgentRegistrationData = {
-    id: iri,
-    registeredAgent: getOneMatchingQuad(dataset, node, INTEROP.registeredAgent)?.object.value,
-    hasDataGrant,
-    prefLabel: getOneMatchingQuad(dataset, node, SKOS.prefLabel)?.object.value ?? '',
-    note: getOneMatchingQuad(dataset, node, SKOS.note)?.object.value,
-    hasAccessNeedGroup: getOneMatchingQuad(dataset, node, INTEROP.hasAccessNeedGroup)?.object.value,
-  }
-  if (!reciprocal) {
-    const reciprocalIri = getOneMatchingQuad(dataset, node, INTEROP.reciprocalRegistration)?.object
-      .value
-    if (reciprocalIri) {
-      data.reciprocalRegistration = await factory.crud.socialAgentRegistration(
-        reciprocalIri,
-        true
-      )
-    }
-  }
-  return data
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+}
+
+/**
+ * Lazily load the peer's reciprocal registration — only consumers that need its
+ * data (`hasAccessNeedGroup`, data grants) call this. The leaf read
+ * (`loadSocialAgentRegistration`) no longer recurses into the reciprocal.
+ */
+export async function loadReciprocalRegistration(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<SocialAgentRegistrationData | undefined> {
+  if (!data.reciprocalRegistration) return undefined
+  return factory.crud.socialAgentRegistration(data.reciprocalRegistration)
 }
 
 // ──────────────────────────
@@ -87,9 +133,7 @@ export async function createSocialAgentRegistration(
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.SocialAgentRegistration)
   )
-  const container = new CRUDContainer(data.id, factory, {})
-  container.dataset = dataset
-  await container.create()
+  await createContainer(data.id, factory, dataset)
 }
 
 // ──────────────────────────
@@ -117,16 +161,13 @@ async function updateReciprocal(
     const priorQuad = DataFactory.quad(
       node,
       INTEROP.reciprocalRegistration,
-      DataFactory.namedNode(data.reciprocalRegistration.id)
+      DataFactory.namedNode(data.reciprocalRegistration)
     )
     await replaceStatement(data.id, factory, priorQuad, quad)
   } else {
     await addStatement(data.id, factory, quad)
   }
-  data.reciprocalRegistration = await factory.crud.socialAgentRegistration(
-    reciprocalRegistrationIri,
-    true
-  )
+  data.reciprocalRegistration = reciprocalRegistrationIri
 }
 
 export async function discoverAndUpdateReciprocal(

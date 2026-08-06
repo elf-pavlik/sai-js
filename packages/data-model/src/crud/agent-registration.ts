@@ -1,18 +1,14 @@
 import {
   INTEROP,
-  getAllMatchingQuads,
-  getOneMatchingQuad,
   discoverAccessResource,
   parseTurtle,
   serializeTurtle,
 } from '@janeirodigital/interop-utils'
-import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, GrantData } from '..'
 import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
 import type { AgentAndClient } from '../templates/types'
 import { addStatement, removeStatement } from './container'
-import { fetchDataset } from './resource'
 
 // ──────────────────────────
 // Types
@@ -20,32 +16,10 @@ import { fetchDataset } from './resource'
 
 export type AgentRegistrationData = {
   id: string
+  /** rdf:type IRIs — captured from framing on read (via the derived modules), written via compaction on write */
+  type: string[]
   registeredAgent: string
   hasDataGrant?: string[]
-}
-
-// ──────────────────────────
-// Read path: Dataset → AgentRegistrationData
-// ──────────────────────────
-
-export function fromDataset(dataset: DatasetCore, iri: string): AgentRegistrationData {
-  const node = DataFactory.namedNode(iri)
-  const hasDataGrant = getAllMatchingQuads(dataset, node, INTEROP.hasDataGrant).map(
-    (quad) => quad.object.value
-  )
-  return {
-    id: iri,
-    registeredAgent: getOneMatchingQuad(dataset, node, INTEROP.registeredAgent)?.object.value,
-    hasDataGrant,
-  }
-}
-
-export async function loadAgentRegistration(
-  iri: string,
-  factory: AuthorizationAgentFactory
-): Promise<AgentRegistrationData> {
-  const dataset = await fetchDataset(iri, factory)
-  return fromDataset(dataset, iri)
 }
 
 // ──────────────────────────
@@ -94,29 +68,19 @@ export async function setAcr(
   if (!response.ok) throw new Error(await response.text())
 }
 
-export async function getDataGrantIris(
-  data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory
-): Promise<string[]> {
-  if (data.hasDataGrant) return data.hasDataGrant
-  const dataset = await fetchDataset(data.id, factory)
-  return getAllMatchingQuads(dataset, DataFactory.namedNode(data.id), INTEROP.hasDataGrant).map(
-    (quad) => quad.object.value
-  )
+export async function getDataGrantIris(data: AgentRegistrationData): Promise<string[]> {
+  return data.hasDataGrant ?? []
 }
 
-export async function getGranted(
-  data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory
-): Promise<boolean> {
-  return (await getDataGrantIris(data, factory)).length > 0
+export async function getGranted(data: AgentRegistrationData): Promise<boolean> {
+  return (await getDataGrantIris(data)).length > 0
 }
 
 export async function getDataGrants(
   data: AgentRegistrationData,
   factory: AuthorizationAgentFactory
 ): Promise<GrantData[]> {
-  const iris = await getDataGrantIris(data, factory)
+  const iris = await getDataGrantIris(data)
   return Promise.all(iris.map((iri) => factory.readable.dataGrant(iri)))
 }
 
@@ -152,6 +116,6 @@ export async function removeAllDataGrants(
   data: AgentRegistrationData,
   factory: AuthorizationAgentFactory
 ): Promise<void> {
-  const iris = await getDataGrantIris(data, factory)
+  const iris = await getDataGrantIris(data)
   await Promise.all(iris.map((iri) => removeDataGrant(data, factory, iri)))
 }

@@ -18,7 +18,10 @@ import {
 import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
 
-export const buildSocialAgentProfile = (registration: SocialAgentRegistrationData) =>
+export const buildSocialAgentProfile = async (
+  registration: SocialAgentRegistrationData,
+  saiSession: AuthorizationAgent
+) =>
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
   SocialAgent.make({
     id: IRI.make(registration.registeredAgent),
@@ -27,20 +30,25 @@ export const buildSocialAgentProfile = (registration: SocialAgentRegistrationDat
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
     accessRequested: !!registration.hasAccessNeedGroup,
-    accessNeedGroup: registration.reciprocalRegistration?.hasAccessNeedGroup,
+    accessNeedGroup: registration.reciprocalRegistration
+      ? (await saiSession.factory.crud.socialAgentRegistration(registration.reciprocalRegistration))
+          .hasAccessNeedGroup
+      : undefined,
   })
 
 export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
   const profiles = []
   for await (const registration of saiSession.socialAgentRegistrations) {
-    profiles.push(buildSocialAgentProfile(registration))
+    profiles.push(await buildSocialAgentProfile(registration, saiSession))
   }
 
   const seenIds = new Set(profiles.map((p) => p.id))
   for await (const registration of saiSession.socialAgentRegistrations) {
-    const reciprocalReg = registration.reciprocalRegistration
-    if (!reciprocalReg || (await getDataGrantIris(reciprocalReg, saiSession.factory)).length === 0)
-      continue
+    if (!registration.reciprocalRegistration) continue
+    const reciprocalReg = await saiSession.factory.crud.socialAgentRegistration(
+      registration.reciprocalRegistration
+    )
+    if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
     const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
     for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
@@ -73,7 +81,7 @@ export const addSocialAgent = async (
   const existing = await saiSession.findSocialAgentRegistration(data.webId)
   if (existing) {
     // logger.error('SocialAgentRegistration already exists', { webId: data.webId })
-    return buildSocialAgentProfile(existing)
+    return buildSocialAgentProfile(existing, saiSession)
   }
   const registration = await AgentRegistry.addSocialAgentRegistration(
     saiSession.registrySet.hasAgentRegistry,
@@ -83,20 +91,29 @@ export const addSocialAgent = async (
     data.note
   )
 
-  return buildSocialAgentProfile(registration)
+  return buildSocialAgentProfile(registration, saiSession)
 }
 
-const buildApplicationProfile = (registration: ApplicationRegistrationData) =>
+const buildApplicationProfile = async (
+  saiSession: AuthorizationAgent,
+  registration: ApplicationRegistrationData
+) => {
+  // Design B: the registration resource is single-node — name/logo/accessNeedGroup/
+  // callbackEndpoint come from the client ID document (the canonical source)
+  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(
+    registration.registeredAgent
+  )
   // TODO (angel) data validation and how to handle when the applications profile is missing some components?
-  Application.make({
+  return Application.make({
     id: IRI.make(registration.registeredAgent),
-    name: registration.name!,
-    logo: registration.logo,
+    name: clientIdDocument.clientName!,
+    logo: clientIdDocument.logoUri,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessNeedGroup: registration.accessNeedGroup!,
-    callbackEndpoint: registration.hasAuthorizationCallbackEndpoint,
+    accessNeedGroup: clientIdDocument.hasAccessNeedGroup!,
+    callbackEndpoint: clientIdDocument.callbackEndpoint,
   })
+}
 /**
  * Returns all the registered applications for the currently authenticated agent
  * @param saiSession
@@ -104,7 +121,7 @@ const buildApplicationProfile = (registration: ApplicationRegistrationData) =>
 export const getApplications = async (saiSession: AuthorizationAgent) => {
   const profiles = []
   for await (const registration of saiSession.applicationRegistrations) {
-    profiles.push(buildApplicationProfile(registration))
+    profiles.push(await buildApplicationProfile(saiSession, registration))
   }
   return profiles
 }
@@ -193,5 +210,5 @@ export async function acceptInvitation(
 
   // currently api-handler creates job for reciprocal registration
 
-  return buildSocialAgentProfile(socialAgentRegistration)
+  return buildSocialAgentProfile(socialAgentRegistration, saiSession)
 }

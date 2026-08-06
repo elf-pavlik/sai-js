@@ -6,8 +6,6 @@ export interface FactoryDependencies {
   fetch: RdfFetch
   randomUUID(): string
 }
-export * from './resource'
-export * from './readable'
 export * from './base-factory'
 export * from './crud'
 export * from './templates'
@@ -25,7 +23,7 @@ export * as AccessNeedGroup from './access-need-group'
 export { ReadableDataRegistrationProxy } from './data-registration-proxy'
 export type { GrantData, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
-export { fromDataset, toDataset, fromJsonLd, toJsonLd } from './grant'
+export { toJsonLd } from './grant'
 export { default as grantContext } from './grant-context'
 export type { DataAuthorizationData, FinalDataAuthorizationData } from './data-authorization'
 export * as DataAuthorization from './data-authorization'

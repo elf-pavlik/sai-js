@@ -103,7 +103,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(body.id)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Test Role')
+    expect(role!.prefLabel).toBe('Test Role')
     expect(role!.members).toEqual([])
   })
 
@@ -142,7 +142,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(chumsRoleId)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Chums')
+    expect(role!.prefLabel).toBe('Chums')
     expect(role!.members).toEqual([bobId])
   })
 
@@ -211,7 +211,7 @@ describe('role-based access', () => {
         rpcPayload({
           _tag: 'UpdateRole',
           id: whizRoleId,
-          label: initialRole?.label ?? 'Whiz',
+          label: initialRole?.prefLabel ?? 'Whiz',
           members: [...initialMembers, danId],
         }),
         bobCookie

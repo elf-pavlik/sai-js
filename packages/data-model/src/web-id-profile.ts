@@ -1,12 +1,6 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { dataModelContext } from './context'
 import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
-
-const webIdProfileContext = {
-  id: '@id',
-  type: '@type',
-  label: { '@id': 'http://www.w3.org/2000/01/rdf-schema#label' },
-  oidcIssuer: { '@id': 'http://www.w3.org/ns/solid/terms#oidcIssuer' },
-}
 
 // ──────────────────────────
 // Types
@@ -31,12 +25,14 @@ export type WebIdProfileData = {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<WebIdProfileData> {
-  const node = (await frameDoc(doc, webIdProfileContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    // rdfs:label — literal
     label: framedValue(node.label),
-    oidcIssuer: framedValue(node.oidcIssuer),
+    // node reference — @type: '@id' coerced
+    oidcIssuer: node.oidcIssuer ?? undefined,
   }
 }
 

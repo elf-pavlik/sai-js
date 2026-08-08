@@ -1,12 +1,6 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { dataModelContext } from './context'
 import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
-
-const shapeTreeDescriptionContext = {
-  id: '@id',
-  type: '@type',
-  label: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
-  definition: { '@id': 'http://www.w3.org/2004/02/skos/core#definition' },
-}
 
 // ──────────────────────────
 // Types
@@ -18,7 +12,7 @@ export type ShapeTreeDescriptionData = {
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
   // TODO: handle missing labels
-  label: string
+  prefLabel: string
   definition?: string
 }
 
@@ -32,11 +26,11 @@ export type ShapeTreeDescriptionData = {
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<ShapeTreeDescriptionData> {
-  const node = (await frameDoc(doc, shapeTreeDescriptionContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
+    prefLabel: framedValue(node.prefLabel)!,
     definition: framedValue(node.definition),
   }
 }

@@ -1,31 +1,8 @@
 import { INTEROP, parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AccessNeedDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
+import { dataModelContext } from './context'
 import { documentValues, fetchJsonLd, frameDoc } from './jsonld-utils'
-
-const accessNeedContext = {
-  id: '@id',
-  type: '@type',
-  registeredShapeTree: {
-    '@id': 'http://www.w3.org/ns/solid/interop#registeredShapeTree',
-    '@type': '@id',
-  },
-  inheritsFromNeed: {
-    '@id': 'http://www.w3.org/ns/solid/interop#inheritsFromNeed',
-    '@type': '@id',
-  },
-  hasInheritingNeed: {
-    '@reverse': 'http://www.w3.org/ns/solid/interop#inheritsFromNeed',
-    '@type': '@id',
-    '@container': '@set',
-  },
-  accessMode: {
-    '@id': 'http://www.w3.org/ns/solid/interop#accessMode',
-    '@type': '@id',
-    '@container': '@set',
-  },
-  required: { '@id': 'http://www.w3.org/ns/solid/interop#accessNecessity', '@type': '@id' },
-}
 
 // ──────────────────────────
 // Types
@@ -57,13 +34,13 @@ export type AccessNeedData = {
  * AccessNeedData POJO. The document can be in expanded, compacted, or
  * flattened form.
  *
- * Uses jsonld.frame with the accessNeedContext to resolve the @reverse
+ * Uses jsonld.frame with the dataModelContext to resolve the @reverse
  * relationship (hasInheritingNeed) automatically. `descriptionLanguages` is
  * collected from the whole document (flattened), since it lives on the
  * description sets, not on the need node itself.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedData> {
-  const node = (await frameDoc(doc, accessNeedContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],

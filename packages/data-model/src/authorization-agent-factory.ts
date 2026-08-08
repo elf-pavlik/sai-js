@@ -133,7 +133,7 @@ export class AuthorizationAgentFactory extends BaseFactory {
         data?: Omit<RoleData, 'id'>
       ): Promise<RoleData> {
         if (data) {
-          return { id: iri, label: data.label, members: data.members, type: data.type }
+          return { id: iri, prefLabel: data.prefLabel, members: data.members, type: data.type }
         }
         return loadRole(iri, factory.fetch.raw)
       },

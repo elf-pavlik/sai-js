@@ -2,7 +2,7 @@ import {
   type AuthorizationAgentFactory,
   type AuthorizationRegistryData,
   AuthorizationRegistry,
-  dataAuthorizationContext,
+  dataModelContext,
   type DataAuthorizationData,
   type FinalDataAuthorizationData,
   putJsonLd,
@@ -182,12 +182,12 @@ export async function generateAuthorization(
       factory
     )
 
-    // store data authorizations — raw JSON-LD PUT (withContext + putJsonLd)
+    // store data authorizations — raw JSON-LD PUT (expanded form, see putJsonLd)
     for (const dataAuthorization of dataAuthorizations) {
       await putJsonLd(
         dataAuthorization.id,
         factory.fetch.raw,
-        withContext(dataAuthorizationContext, dataAuthorization),
+        withContext(dataModelContext, dataAuthorization),
         { 'If-None-Match': '*' }
       )
     }

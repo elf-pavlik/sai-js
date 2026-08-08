@@ -7,6 +7,7 @@ import {
   AgentRegistry,
   AuthorizationRegistry,
   dataGrantTemplate,
+  expandedJsonLd,
   removeAllDataGrants,
   RoleRegistry,
   toJsonLd,
@@ -124,7 +125,7 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
-  const body = JSON.stringify(toJsonLd(payload))
+  const body = JSON.stringify(await expandedJsonLd(toJsonLd(payload)))
   const response = await session.fetch.raw(payload.id, {
     method: 'PUT',
     body,

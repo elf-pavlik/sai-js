@@ -28,7 +28,7 @@ describe('descriptions', () => {
     const needGroup = await factory.readable.accessNeedGroup(snippetIri)
     const description = await AccessNeedGroup.getDescription(needGroup, lang, factory)
     expect(description).toBeDefined()
-    expect(description?.label).toBe('Manage Projects')
+    expect(description?.prefLabel).toBe('Manage Projects')
     expect(description?.definition).toBe(
       'Allow Projectron to read the Projects you select, and Task in those projects.'
     )

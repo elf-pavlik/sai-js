@@ -27,7 +27,7 @@ const buildDataRegistry = async (
         shapeTree: registration.registeredShapeTree,
         dataRegistry: registry.id,
         count: registration.contains.length,
-        label: shapeTreeDescription?.label,
+        label: shapeTreeDescription?.prefLabel,
       })
     )
   }
@@ -58,7 +58,7 @@ const buildDataRegistryForGrant = async (
         id: IRI.make(dataGrant.hasDataRegistration),
         shapeTree: dataGrant.registeredShapeTree,
         dataRegistry: registryIri,
-        label: shapeTreeDescription?.label,
+        label: shapeTreeDescription?.prefLabel,
       })
     )
   }

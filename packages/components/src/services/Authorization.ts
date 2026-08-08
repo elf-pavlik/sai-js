@@ -43,13 +43,13 @@ const formatAccessNeed = async (
 
   return AccessNeed.make({
     id: IRI.make(accessNeed.id),
-    label: description.label,
+    label: description.prefLabel,
     description: description.definition,
     required: accessNeed.required,
     access: accessNeed.accessMode.map((mode) => IRI.make(mode)),
     shapeTree: {
       id: IRI.make(accessNeed.registeredShapeTree),
-      label: shapeTreeDescription.label,
+      label: shapeTreeDescription.prefLabel,
     },
     parent: accessNeed.inheritsFromNeed ? IRI.make(accessNeed.inheritsFromNeed) : undefined,
     children: accessNeed.children
@@ -215,7 +215,7 @@ export const getDescriptions = async (
     agentType,
     accessNeedGroup: {
       id: IRI.make(accessNeedGroup.id),
-      label: descriptions.label,
+      label: descriptions.prefLabel,
       description: descriptions.definition,
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) => formatAccessNeed(need, descriptionsLang, saiSession.factory))

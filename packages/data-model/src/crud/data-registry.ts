@@ -26,7 +26,7 @@ export async function hasDataRegistration(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch.raw, INTEROP.hasDataRegistration.value)
+  return linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasDataRegistration')
 }
 
 export async function* registrations(

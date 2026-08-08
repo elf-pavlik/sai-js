@@ -36,7 +36,7 @@ export async function* applicationRegistrations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<ApplicationRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, INTEROP.hasApplicationRegistration.value)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasApplicationRegistration')
   for (const iri of iris) {
     yield loadApplicationRegistration(iri, factory.fetch.raw)
   }
@@ -46,7 +46,7 @@ export async function* socialAgentRegistrations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<SocialAgentRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, INTEROP.hasSocialAgentRegistration.value)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasSocialAgentRegistration')
   for (const iri of iris) {
     yield loadSocialAgentRegistration(iri, factory.fetch.raw)
   }
@@ -56,7 +56,7 @@ export async function* socialAgentInvitations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<SocialAgentInvitationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, INTEROP.hasSocialAgentInvitation.value)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasSocialAgentInvitation')
   for (const iri of iris) {
     yield loadSocialAgentInvitation(iri, factory.fetch.raw)
   }

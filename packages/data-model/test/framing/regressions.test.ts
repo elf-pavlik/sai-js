@@ -1,0 +1,40 @@
+import { RDFS, SKOS } from '@janeirodigital/interop-utils'
+import { describe, test } from 'vitest'
+import { dataModelContext, frameDoc } from '../../src'
+import { expect } from '../expect'
+import { docFromGraphs } from './helpers'
+
+const GRANT_IRI = 'https://registry/acme/grant/p9m2vr'
+
+/**
+ * Framing regression guards for the shared-context refactor:
+ * - `@omitDefault: true` on every frame property (no `null` noise for
+ *   framed-but-absent properties)
+ * - `prefLabel` (skos) and `label` (rdfs) compact to their own keys even when
+ *   both IRIs appear in the same document (term-name collision guard)
+ */
+describe('framing regressions', () => {
+  test('framed output omits absent properties instead of emitting null', async () => {
+    const doc = await docFromGraphs([GRANT_IRI])
+    const framed = (await frameDoc(doc, dataModelContext, GRANT_IRI)) as any
+    // this grant has no inheritsFromGrant / delegationOfGrant — with
+    // @omitDefault they must be omitted, not `null`
+    expect(framed.inheritsFromGrant).toBeUndefined()
+    expect(framed.delegationOfGrant).toBeUndefined()
+    expect(Object.values(framed).some((value) => value === null)).toBe(false)
+  })
+
+  test('prefLabel (skos) and label (rdfs) compact to their own keys', async () => {
+    const doc = [
+      {
+        '@id': 'https://example.test/#node',
+        '@type': ['http://www.w3.org/ns/solid/interop#AccessNeedDescription'],
+        [SKOS.prefLabel.value]: [{ '@value': 'pref' }],
+        [RDFS.label.value]: [{ '@value': 'label' }],
+      },
+    ]
+    const framed = (await frameDoc(doc, dataModelContext, 'https://example.test/#node')) as any
+    expect(framed.prefLabel).toBe('pref')
+    expect(framed.label).toBe('label')
+  })
+})

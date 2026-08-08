@@ -1,18 +1,6 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import { dataModelContext } from './context'
 import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
-
-const clientIdDocumentContext = {
-  id: '@id',
-  type: '@type',
-  callbackEndpoint: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasAuthorizationCallbackEndpoint',
-  },
-  hasAccessNeedGroup: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeedGroup',
-  },
-  clientName: { '@id': 'http://www.w3.org/ns/solid/oidc#client_name' },
-  logoUri: { '@id': 'http://www.w3.org/ns/solid/oidc#logo_uri' },
-}
 
 // ──────────────────────────
 // Types
@@ -40,12 +28,21 @@ export type ClientIdDocumentData = {
  * from bundled local copies, never fetched over the network.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<ClientIdDocumentData> {
-  const node = (await frameDoc(doc, clientIdDocumentContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    callbackEndpoint: framedValue(node.callbackEndpoint),
-    hasAccessNeedGroup: framedValue(node.hasAccessNeedGroup),
+    // Compacted client id documents write IRI values as plain strings (the
+    // oidc-context types them as literals), so those frame under the raw IRI
+    // key instead of the @type:'@id' term key — check both. Expanded-form
+    // documents (node references) compact to the term key directly.
+    callbackEndpoint:
+      node.callbackEndpoint ??
+      node[INTEROP.hasAuthorizationCallbackEndpoint.value] ??
+      undefined,
+    hasAccessNeedGroup:
+      node.hasAccessNeedGroup ?? node[INTEROP.hasAccessNeedGroup.value] ?? undefined,
+    // literals — framedValue unwraps language-tagged / typed values
     clientName: framedValue(node.clientName),
     logoUri: framedValue(node.logoUri),
   }

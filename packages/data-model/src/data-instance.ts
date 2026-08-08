@@ -1,11 +1,10 @@
-import { SHAPETREES, buildNamespace, getDescriptionResource } from '@janeirodigital/interop-utils'
+import { SHAPETREES, getDescriptionResource } from '@janeirodigital/interop-utils'
 import type { InteropFactory } from '.'
+import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
 import type { ShapeTreeData } from './shape-tree'
 import { getDescription as getShapeTreeDescription } from './shape-tree'
 import { type JsonLdContext, fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
-
-const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#')
 
 // ──────────────────────────
 // DataInstanceData (readable POJO)
@@ -48,17 +47,22 @@ export async function discoverDescriptionResource(
 }
 
 /**
- * JSON-LD context for framing a data instance document: the shape tree's
- * `describesInstance` predicate maps to `label`, `nfo:fileName` to `fileName`,
- * and each reference's `viaPredicate` IRI is its own key (values are the
- * referenced child instance IRIs).
+ * JSON-LD context for framing a data instance document: the shared
+ * `dataModelContext` with per-shape-tree overrides — the tree's
+ * `describesInstance` predicate maps to `label`, `nfo:fileName` to
+ * `fileName`, and each reference's `viaPredicate` IRI is its own key (values
+ * are the referenced child instance IRIs).
  */
 function dataInstanceContext(shapeTree: ShapeTreeData): JsonLdContext {
-  const context: JsonLdContext = { id: '@id', type: '@type' }
+  const context: JsonLdContext = { ...dataModelContext }
   if (shapeTree.describesInstance) {
     context.label = { '@id': shapeTree.describesInstance }
+  } else {
+    // the shared context maps `label` to rdfs:label; without describesInstance
+    // the term must not pick up stray rdfs:label values on instance documents
+    delete context.label
   }
-  context.fileName = { '@id': NFO.fileName.value }
+  context.fileName = { '@id': 'http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName' }
   shapeTree.references.forEach((reference) => {
     context[reference.viaPredicate.value] = {
       '@id': reference.viaPredicate.value,
@@ -127,7 +131,7 @@ export async function computeChildren(
       const description = await getShapeTreeDescription(childTree, lang, factory)
       return {
         count: ((node[reference.viaPredicate.value] as string[] | undefined) ?? []).length,
-        shapeTree: { iri: reference.shapeTree, label: description?.label },
+        shapeTree: { iri: reference.shapeTree, label: description?.prefLabel },
       }
     })
   )

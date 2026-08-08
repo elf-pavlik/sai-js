@@ -23,7 +23,7 @@ export const getResource = async (saiSession: AuthorizationAgent, iri: string, l
     label: resource.label,
     shapeTree: {
       id: IRI.make(resource.shapeTreeIri),
-      label: shapeTreeDescription?.label,
+      label: shapeTreeDescription?.prefLabel,
     },
     accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
       IRI.make(agent)

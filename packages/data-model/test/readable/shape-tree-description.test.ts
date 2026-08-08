@@ -9,6 +9,6 @@ const snippetIri = 'https://solidshapes.example/trees/desc-en#Project'
 
 test('getters', async () => {
   const description = await factory.readable.shapeTreeDescription(snippetIri)
-  expect(description.label).toBe('Projects')
+  expect(description.prefLabel).toBe('Projects')
   expect(description.definition).toBe('Creative processes with specific goals')
 })

@@ -2,18 +2,9 @@ import { parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AccessNeedGroupDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import type { AccessNeedData } from './access-need'
+import { dataModelContext } from './context'
 import { fetchJsonLd, frameDoc } from './jsonld-utils'
 import { reliableDescriptionLanguages as needReliableDescriptionLanguages } from './access-need'
-
-const accessNeedGroupContext = {
-  id: '@id',
-  type: '@type',
-  hasAccessNeed: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeed',
-    '@type': '@id',
-    '@container': '@set',
-  },
-}
 
 // ──────────────────────────
 // Types
@@ -39,7 +30,7 @@ export type AccessNeedGroupData = {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedGroupData> {
-  const node = (await frameDoc(doc, accessNeedGroupContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],

@@ -8,29 +8,12 @@ import {
 import type { DatasetCore, NamedNode } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
 import type { InteropFactory, ShapeTreeDescriptionData } from '.'
+import { dataModelContext } from './context'
 import { toStore, withContext } from './jsonld-utils'
 
 export interface ShapeTreeReference {
   shapeTree: string
   viaPredicate: NamedNode
-}
-
-const shapeTreeContext = {
-  id: '@id',
-  type: '@type',
-  shape: { '@id': 'http://www.w3.org/ns/shapetrees#shape', '@type': '@id' },
-  describesInstance: {
-    '@id': 'http://www.w3.org/ns/shapetrees#describesInstance',
-    '@type': '@id',
-  },
-  expectsType: { '@id': 'http://www.w3.org/ns/shapetrees#expectsType', '@type': '@id' },
-  descriptionLanguages: {
-    '@id': 'http://www.w3.org/ns/shapetrees#usesLanguage',
-    '@container': '@set',
-  },
-  references: { '@id': 'http://www.w3.org/ns/shapetrees#references', '@container': '@set' },
-  hasShapeTree: { '@id': 'http://www.w3.org/ns/shapetrees#hasShapeTree', '@type': '@id' },
-  viaPredicate: { '@id': 'http://www.w3.org/ns/shapetrees#viaPredicate', '@type': '@id' },
 }
 
 // ──────────────────────────
@@ -113,7 +96,7 @@ export async function toDataset(data: ShapeTreeData): Promise<Store> {
 
 /** Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json. */
 export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
-  return withContext(shapeTreeContext, {
+  return withContext(dataModelContext, {
     ...data,
     references: data.references.map((reference) => ({
       hasShapeTree: reference.shapeTree,

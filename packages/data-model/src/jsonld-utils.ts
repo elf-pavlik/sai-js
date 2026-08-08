@@ -2,6 +2,7 @@ import { localDocumentLoader, type WhatwgFetch } from '@janeirodigital/interop-u
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
+import { dataModelContext } from './context'
 
 // CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
 // has the full exports only on .default.  Grab the full object so that all
@@ -35,7 +36,7 @@ export function buildFrame(context: JsonLdContext, iri: string): Record<string, 
   for (const [key, val] of Object.entries(context)) {
     if (key === 'id' || key === 'type' || key === '@version') continue
     if (typeof val === 'object' && val !== null) {
-      frame[key] = { '@embed': '@never' }
+      frame[key] = { '@embed': '@never', '@omitDefault': true }
     }
   }
   return frame
@@ -77,22 +78,19 @@ export async function frameDoc(
 }
 
 /**
- * Collect the values of a predicate on the resource at `iri` from a raw
- * JSON-LD GET — the JSON-LD replacement for `linkedIris` (no N3 / quad
- * lookups). Node references are coerced to IRI strings (arrays via
- * `@container: '@set'`); an absent predicate yields `[]`.
+ * Collect the values of a term (an interop/ldp property from the shared
+ * `dataModelContext`) on the resource at `iri` from a raw JSON-LD GET — the
+ * JSON-LD replacement for `linkedIris` (no N3 / quad lookups). Node references
+ * are coerced to IRI strings (`@container: '@set'` on the term); an absent
+ * property yields `[]`.
  */
 export async function linkedIrisJsonLd(
   iri: string,
   fetch: WhatwgFetch,
-  property: string
+  term: string
 ): Promise<string[]> {
-  const context = {
-    id: '@id',
-    items: { '@id': property, '@type': '@id', '@container': '@set' },
-  }
-  const node = (await frameDoc(await fetchJsonLd(iri, fetch), context, iri)) as any
-  return node.items ?? []
+  const node = (await frameDoc(await fetchJsonLd(iri, fetch), dataModelContext, iri)) as any
+  return node[term] ?? []
 }
 
 /**
@@ -212,8 +210,20 @@ export async function fetchJsonLd(iri: string, fetch: WhatwgFetch): Promise<unkn
 }
 
 /**
- * Raw JSON-LD PUT of a document (with embedded context). Throws if the request
- * fails. Extra headers (e.g. If-None-Match) can be passed through.
+ * Expand a JSON-LD document (with embedded context) to the expanded form —
+ * full-IRI property keys, node references as `{ '@id' }`, literals as
+ * `{ '@value' }` — with no `@context` on the result. The write path uses this
+ * so PUT bodies carry no context (and are context-version-proof).
+ */
+export async function expandedJsonLd(doc: Record<string, unknown>): Promise<unknown[]> {
+  return jsonld.expand(doc, { documentLoader }) as Promise<unknown[]>
+}
+
+/**
+ * Raw JSON-LD PUT of a document — the body is sent in expanded form (see
+ * `expandedJsonLd`; the document's embedded context is only used to expand).
+ * Throws if the request fails. Extra headers (e.g. If-None-Match) can be
+ * passed through.
  */
 export async function putJsonLd(
   iri: string,
@@ -223,7 +233,7 @@ export async function putJsonLd(
 ): Promise<void> {
   const response = await fetch(iri, {
     method: 'PUT',
-    body: JSON.stringify(doc),
+    body: JSON.stringify(await expandedJsonLd(doc)),
     headers: { 'Content-Type': 'application/ld+json', ...headers },
   })
   if (!response.ok) {

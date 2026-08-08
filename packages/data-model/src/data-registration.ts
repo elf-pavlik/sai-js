@@ -1,21 +1,8 @@
 import { type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory } from '.'
+import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
 import { fetchJsonLd, frameDoc, toStore, withContext } from './jsonld-utils'
-
-const dataRegistrationContext = {
-  id: '@id',
-  type: '@type',
-  registeredShapeTree: {
-    '@id': 'http://www.w3.org/ns/solid/interop#registeredShapeTree',
-    '@type': '@id',
-  },
-  contains: {
-    '@id': 'http://www.w3.org/ns/ldp#contains',
-    '@type': '@id',
-    '@container': '@set',
-  },
-}
 
 // ──────────────────────────
 // Types
@@ -41,7 +28,7 @@ export type DataRegistrationData = {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<DataRegistrationData> {
-  const node = (await frameDoc(doc, dataRegistrationContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -69,6 +56,6 @@ export async function createDataRegistration(
   // quads come from data.type (no hand-built DataFactory quads); only the
   // container.create hand-off (PUT empty container + SPARQL patch of the
   // description resource) stays N3-based in the container module
-  const dataset = await toStore(withContext(dataRegistrationContext, data), data.id)
+  const dataset = await toStore(withContext(dataModelContext, data), data.id)
   await createContainer(data.id, factory, dataset)
 }

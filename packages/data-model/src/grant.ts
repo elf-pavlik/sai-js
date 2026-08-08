@@ -1,5 +1,5 @@
 import { INTEROP, ACL, type WhatwgFetch } from '@janeirodigital/interop-utils'
-import grantContext from './grant-context'
+import { dataModelContext } from './context'
 import type { BaseFactory } from './base-factory'
 import { childIris, frameDataInstance } from './data-instance'
 import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
@@ -58,7 +58,7 @@ export interface GeneratedGrants {
  * automatically, without embedding child nodes.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<GrantData> {
-  return compactNodeToGrantData((await frameDoc(doc, grantContext, iri)) as any)
+  return compactNodeToGrantData((await frameDoc(doc, dataModelContext, iri)) as any)
 }
 
 /**
@@ -106,7 +106,7 @@ export async function loadGrant(iri: string, fetch: WhatwgFetch): Promise<GrantD
  * (hasInheritingGrant) produce the correct RDF quads on the server side.
  */
 export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
-  return withContext(grantContext, grant)
+  return withContext(dataModelContext, grant)
 }
 
 // ──────────────────────────

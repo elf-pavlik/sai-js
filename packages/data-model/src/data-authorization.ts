@@ -4,7 +4,7 @@ import * as AgentRegistry from './crud/agent-registry'
 import * as DataRegistry from './crud/data-registry'
 import * as GrantRegistry from './crud/grant-registry'
 import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
-import dataAuthorizationContext from './data-authorization-context'
+import { dataModelContext } from './context'
 import type { GeneratedGrants, GrantData, FinalGrantData } from './grant'
 import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 import type { DataRegistrationData } from './data-registration'
@@ -63,7 +63,7 @@ export interface SourceAndDelegatedGrants {
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<DataAuthorizationData> {
   return compactNodeToDataAuthorizationData(
-    (await frameDoc(doc, dataAuthorizationContext, iri)) as any
+    (await frameDoc(doc, dataModelContext, iri)) as any
   )
 }
 
@@ -115,7 +115,7 @@ export async function loadDataAuthorization(
  * on the server side.
  */
 export function toJsonLd(data: FinalDataAuthorizationData): Record<string, unknown> {
-  return withContext(dataAuthorizationContext, data)
+  return withContext(dataModelContext, data)
 }
 
 // ──────────────────────────

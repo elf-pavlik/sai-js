@@ -11,7 +11,7 @@ export const getRoles = async (saiSession: AuthorizationAgent) => {
     roles.push(
       Role.make({
         id: IRI.make(registration.id),
-        label: registration.label,
+        label: registration.prefLabel,
         members: registration.members.map((m) => IRI.make(m)),
       })
     )

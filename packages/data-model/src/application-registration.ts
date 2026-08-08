@@ -1,21 +1,8 @@
 import { type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory, BaseFactory, GrantData } from '.'
+import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
 import { fetchJsonLd, frameDoc, toStore, withContext } from './jsonld-utils'
-
-const applicationRegistrationContext = {
-  id: '@id',
-  type: '@type',
-  registeredAgent: {
-    '@id': 'http://www.w3.org/ns/solid/interop#registeredAgent',
-    '@type': '@id',
-  },
-  hasDataGrant: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasDataGrant',
-    '@type': '@id',
-    '@container': '@set',
-  },
-}
 
 // ──────────────────────────
 // Types
@@ -48,7 +35,7 @@ export type ApplicationRegistrationData = {
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<ApplicationRegistrationData> {
-  const node = (await frameDoc(doc, applicationRegistrationContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   const hasDataGrant = node.hasDataGrant ?? []
   return {
     id: node.id ?? node['@id'],
@@ -77,7 +64,7 @@ export async function createApplicationRegistration(
   // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
   // quad comes from `data.type` (captured from framing on read), no hand-built
   // DataFactory quads; only the container.create hand-off stays N3-based
-  const dataset = await toStore(withContext(applicationRegistrationContext, data))
+  const dataset = await toStore(withContext(dataModelContext, data))
   await createContainer(data.id, factory, dataset)
 }
 

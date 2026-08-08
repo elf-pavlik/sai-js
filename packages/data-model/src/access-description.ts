@@ -1,16 +1,6 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { dataModelContext } from './context'
 import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
-
-const accessDescriptionContext = {
-  id: '@id',
-  type: '@type',
-  label: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
-  definition: { '@id': 'http://www.w3.org/2004/02/skos/core#definition' },
-  hasAccessNeed: { '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeed' },
-  hasAccessNeedGroup: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeedGroup',
-  },
-}
 
 // ──────────────────────────
 // Types
@@ -22,7 +12,7 @@ export type AccessDescriptionData = {
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
   // TODO handle missing labels
-  label: string
+  prefLabel: string
   definition?: string
 }
 
@@ -51,13 +41,14 @@ export async function accessNeedDescriptionFromJsonLd(
   doc: unknown,
   iri: string
 ): Promise<AccessNeedDescriptionData> {
-  const node = (await frameDoc(doc, accessDescriptionContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
+    prefLabel: framedValue(node.prefLabel)!,
     definition: framedValue(node.definition),
-    hasAccessNeed: framedValue(node.hasAccessNeed)!,
+    // `hasAccessNeed` is @set in the shared context — unwrap the single value
+    hasAccessNeed: (node.hasAccessNeed ?? [])[0]!,
   }
 }
 
@@ -81,13 +72,13 @@ export async function accessNeedGroupDescriptionFromJsonLd(
   doc: unknown,
   iri: string
 ): Promise<AccessNeedGroupDescriptionData> {
-  const node = (await frameDoc(doc, accessDescriptionContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
+    prefLabel: framedValue(node.prefLabel)!,
     definition: framedValue(node.definition),
-    hasAccessNeedGroup: framedValue(node.hasAccessNeedGroup)!,
+    hasAccessNeedGroup: node.hasAccessNeedGroup!,
   }
 }
 

@@ -1,4 +1,4 @@
-import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
 import { createContainer, iriForContained as containerIriForContained } from './container'
@@ -20,7 +20,7 @@ export async function getDataAuthorizationIris(
   data: AuthorizationRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
+  return linkedIrisJsonLd(data.id, factory.fetch.raw, 'contains')
 }
 
 export async function getGranted(

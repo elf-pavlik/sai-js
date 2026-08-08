@@ -1,4 +1,4 @@
-import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { createContainer } from './container'
@@ -22,7 +22,7 @@ export async function* roles(
   data: RoleRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<RoleData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'contains')
   for (const iri of iris) {
     yield factory.crud.role(iri)
   }
@@ -33,7 +33,7 @@ export async function containedIncludes(
   factory: AuthorizationAgentFactory,
   id: string
 ): Promise<boolean> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, LDP.contains.value)
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'contains')
   return iris.includes(id)
 }
 
@@ -44,7 +44,7 @@ export async function createRole(
   members: string[]
 ): Promise<RoleData> {
   const iri = iriForContained(data, factory)
-  const role: RoleData = { id: iri, label, members, type: [INTEROP.Role.value] }
+  const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role.value] }
   await putRole(role, factory.fetch.raw)
   return role
 }
@@ -56,7 +56,7 @@ export async function updateRole(
   label: string,
   members: string[]
 ): Promise<RoleData> {
-  const role: RoleData = { id: roleId, label, members, type: [INTEROP.Role.value] }
+  const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role.value] }
   await putRole(role, factory.fetch.raw)
   return role
 }

@@ -45,7 +45,7 @@ describe('descriptions', () => {
     const need = await factory.readable.accessNeed(snippetIri)
     const description = await AccessNeed.getDescription(need, lang, factory)
     expect(description).toBeDefined()
-    expect(description?.label).toBe(
+    expect(description?.prefLabel).toBe(
       'Access to Projects is essential for Projectron to perform its core function of Project Management'
     )
   })

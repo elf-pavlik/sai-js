@@ -8,38 +8,10 @@ import {
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import { dataModelContext } from '../context'
 import { type AgentRegistrationData, toDataset as registrationToDataset } from './agent-registration'
 import { addStatement, createContainer, replaceStatement } from './container'
 import { fetchJsonLd, frameDoc } from '../jsonld-utils'
-
-// ──────────────────────────
-// JSON-LD context (only used by this module)
-// ──────────────────────────
-
-const socialAgentRegistrationContext = {
-  id: '@id',
-  type: '@type',
-
-  registeredAgent: {
-    '@id': 'http://www.w3.org/ns/solid/interop#registeredAgent',
-    '@type': '@id',
-  },
-  hasDataGrant: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasDataGrant',
-    '@type': '@id',
-    '@container': '@set',
-  },
-  prefLabel: { '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel' },
-  note: { '@id': 'http://www.w3.org/2004/02/skos/core#note' },
-  hasAccessNeedGroup: {
-    '@id': 'http://www.w3.org/ns/solid/interop#hasAccessNeedGroup',
-    '@type': '@id',
-  },
-  reciprocalRegistration: {
-    '@id': 'http://www.w3.org/ns/solid/interop#reciprocalRegistration',
-    '@type': '@id',
-  },
-}
 
 // ──────────────────────────
 // Types
@@ -62,7 +34,7 @@ export type SocialAgentRegistrationData = AgentRegistrationData & {
  * SocialAgentRegistrationData POJO.
  *
  * The document can be in expanded, compacted, or flattened form. Uses
- * jsonld.frame with the social-agent-registration context: node references
+ * jsonld.frame with the shared data model context: node references
  * (`registeredAgent`, `hasAccessNeedGroup`, `reciprocalRegistration`) are
  * coerced to strings via `@type: '@id'`, `hasDataGrant` to a string array via
  * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
@@ -72,14 +44,14 @@ export async function fromJsonLd(
   doc: unknown,
   iri: string
 ): Promise<SocialAgentRegistrationData> {
-  const node = (await frameDoc(doc, socialAgentRegistrationContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: iri,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredAgent: node.registeredAgent,
     hasDataGrant: node.hasDataGrant ?? [],
     prefLabel: node.prefLabel ?? '',
-    // framing emits `null` for framed-but-absent properties — normalize to undefined
+    // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
     note: node.note ?? undefined,
     hasAccessNeedGroup: node.hasAccessNeedGroup ?? undefined,
     reciprocalRegistration: node.reciprocalRegistration ?? undefined,

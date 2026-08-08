@@ -35,11 +35,11 @@ test('should get description for language', async () => {
   const shapeTree = await factory.readable.shapeTree(snippetIri)
   const en = await ShapeTree.getDescription(shapeTree, lang, factory)
   expect(en).toBeDefined()
-  expect(en?.label).toBe('Projects')
+  expect(en?.prefLabel).toBe('Projects')
   const otherLang = 'pl'
   const pl = await ShapeTree.getDescription(shapeTree, otherLang, factory)
   expect(pl).toBeDefined()
-  expect(pl?.label).toBe('Projekty')
+  expect(pl?.prefLabel).toBe('Projekty')
 })
 
 test('should gracefully fail if no description set for language', async () => {

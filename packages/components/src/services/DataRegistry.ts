@@ -177,13 +177,11 @@ export const listDataInstances = async (
     const seenInstances = new Set<string>()
     for (const dataGrant of dataGrants) {
       if (dataGrant.hasDataRegistration === registrationId) {
-        // TODO: optimize not to create crud data instances
-
-        for await (const instance of Grant.getDataInstanceIterator(dataGrant, saiSession.factory)) {
-          if (seenInstances.has(instance.iri)) continue
-          seenInstances.add(instance.iri)
+        for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, saiSession.factory)) {
+          if (seenInstances.has(instanceIri)) continue
+          seenInstances.add(instanceIri)
           const dataInstance = await saiSession.factory.readable.dataInstance(
-            instance.iri,
+            instanceIri,
             dataGrant.registeredShapeTree,
             descriptionsLang
           )

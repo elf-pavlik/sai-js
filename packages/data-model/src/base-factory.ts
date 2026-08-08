@@ -1,7 +1,6 @@
 import { type RdfFetch } from '@janeirodigital/interop-utils'
 import {
   type GrantData,
-  DataInstance,
   type DataRegistrationData,
   type ApplicationRegistrationData,
   type FactoryDependencies,
@@ -20,10 +19,10 @@ import { loadWebIdProfile } from './web-id-profile'
 import { fromJsonLd as shapeTreeFromJsonLd } from './shape-tree'
 import {
   computeChildren,
-  computeLabel,
   discoverDescriptionResource,
-  fetchDataInstanceDataset,
+  frameDataInstance,
   isBlob,
+  labelFromNode,
 } from './data-instance'
 
 export interface BaseReadableFactory {
@@ -80,14 +79,16 @@ export class BaseFactory {
           dataRegistration,
         }
         if (descriptionLang) {
-          const dataset = !blob
-            ? await fetchDataInstanceDataset(iri, factory)
-            : await fetchDataInstanceDataset(
-                await discoverDescriptionResource(iri, factory.fetch),
-                factory
+          const node = blob
+            ? await frameDataInstance(
+                iri,
+                factory,
+                shapeTree,
+                await discoverDescriptionResource(iri, factory.fetch)
               )
-          data.label = computeLabel(dataset, iri, shapeTree)
-          data.children = await computeChildren(dataset, iri, shapeTree, factory, descriptionLang)
+            : await frameDataInstance(iri, factory, shapeTree)
+          data.label = labelFromNode(node)
+          data.children = await computeChildren(node, shapeTree, factory, descriptionLang)
         }
         return data
       },
@@ -128,9 +129,5 @@ export class BaseFactory {
         return loadGrant(iri, factory.fetch.raw)
       },
     }
-  }
-
-  async dataInstance(iri: string, grant: GrantData, parent?: DataInstance): Promise<DataInstance> {
-    return DataInstance.build(iri, grant, this, parent)
   }
 }

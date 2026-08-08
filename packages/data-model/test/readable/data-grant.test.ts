@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { ACL } from '@janeirodigital/interop-utils'
-import { describe, test } from 'vitest'
-import { ApplicationFactory, DataInstance, Grant } from '../../src'
+import { test } from 'vitest'
+import { ApplicationFactory, Grant } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
@@ -34,18 +34,4 @@ test('should set registeredShapeTree', async () => {
   const dataGrant = await factory.readable.dataGrant(dataGrantIri)
   const projectShapeTree = 'https://solidshapes.example/trees/Project'
   expect(dataGrant.registeredShapeTree).toBe(projectShapeTree)
-})
-
-describe('newDataInstance', () => {
-  const allFromRegistryIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5126'
-  test('sets dataGrant on created data instance', async () => {
-    const dataGrant = await factory.readable.dataGrant(allFromRegistryIri)
-    const newInstance = await Grant.newDataInstance(dataGrant, factory, factory.randomUUID)
-    expect(newInstance.dataGrant.id).toBe(dataGrant.id)
-  })
-  test('sets draft to true', async () => {
-    const dataGrant = await factory.readable.dataGrant(allFromRegistryIri)
-    const newInstance = await Grant.newDataInstance(dataGrant, factory, factory.randomUUID)
-    expect(newInstance.draft).toBe(true)
-  })
 })

@@ -1,7 +1,7 @@
 import { INTEROP, ACL, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import grantContext from './grant-context'
 import type { BaseFactory } from './base-factory'
-import { DataInstance } from './data-instance'
+import { childIris, frameDataInstance } from './data-instance'
 import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 
 // ──────────────────────────
@@ -114,33 +114,32 @@ export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
 // ──────────────────────────
 
 /**
- * Iterate over data instances described by this grant.
+ * Iterate over the IRIs (ids) of the data instances described by this grant.
  * Dispatches based on scopeOfGrant.
  */
 export async function* getDataInstanceIterator(
   grant: GrantData,
   factory: BaseFactory
-): AsyncIterable<DataInstance> {
+): AsyncIterable<string> {
   const { readable } = factory
   switch (grant.scopeOfGrant) {
     case INTEROP.AllFromRegistry.value: {
       const registration = await readable.dataRegistration(grant.hasDataRegistration)
       for (const iri of registration.contains) {
-        yield factory.dataInstance(iri, grant)
+        yield iri
       }
       break
     }
     case INTEROP.SelectedFromRegistry.value: {
       for (const iri of grant.hasDataInstance ?? []) {
-        yield factory.dataInstance(iri, grant)
+        yield iri
       }
       break
     }
     case INTEROP.Inherited.value: {
-      const parent = await readable.dataGrant(grant.inheritsFromGrant!)
-      for await (const parentInstance of getDataInstanceIterator(parent, factory)) {
-        const childIterator = await parentInstance.getChildInstancesIterator(grant.registeredShapeTree)
-        yield* childIterator
+      const parentGrant = await readable.dataGrant(grant.inheritsFromGrant!)
+      for await (const parentIri of getDataInstanceIterator(parentGrant, factory)) {
+        yield* await getChildInstanceIris(parentGrant, parentIri, grant.registeredShapeTree, factory)
       }
       break
     }
@@ -150,30 +149,25 @@ export async function* getDataInstanceIterator(
 }
 
 /**
+ * Child instance IRIs referenced by a parent instance for a shape tree, via
+ * the parent shape tree's reference predicate.
+ */
+async function getChildInstanceIris(
+  parentGrant: GrantData,
+  parentIri: string,
+  childShapeTree: string,
+  factory: BaseFactory
+): Promise<string[]> {
+  const parentShapeTree = await factory.readable.shapeTree(parentGrant.registeredShapeTree)
+  const node = await frameDataInstance(parentIri, factory, parentShapeTree)
+  return childIris(node, parentShapeTree, childShapeTree)
+}
+
+/**
  * Generate a new IRI for a data instance within this grant's registration.
  */
 export function iriForNew(grant: GrantData, randomUUID: () => string): string {
   return `${grant.hasDataRegistration}${randomUUID()}`
-}
-
-/**
- * Create a new DataInstance under this grant.
- * Throws if the grant scope does not support creation.
- */
-export async function newDataInstance(
-  grant: GrantData,
-  factory: BaseFactory,
-  randomUUID: () => string,
-  parent?: DataInstance
-): Promise<DataInstance> {
-  if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) {
-    throw new Error('Cannot create instances from SelectedFromRegistry grant')
-  }
-  if (!parent && grant.scopeOfGrant === INTEROP.Inherited.value) {
-    throw new Error('Inherited grant requires a parent instance')
-  }
-  const iri = iriForNew(grant, randomUUID)
-  return DataInstance.build(iri, grant, factory, parent, true)
 }
 
 /**

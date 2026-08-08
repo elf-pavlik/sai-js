@@ -30,13 +30,6 @@ test('provides references', async () => {
   )
 })
 
-test('should allow to get Predicate for a referenced tree', async () => {
-  const shapeTree = await factory.readable.shapeTree(snippetIri)
-  const expectedPredicate = 'https://vocab.example/project-management/hasTask'
-  const predicateToTask = ShapeTree.getPredicateForReferenced(shapeTree, taskTreeIri)
-  expect(predicateToTask.value).toBe(expectedPredicate)
-})
-
 test('should get description for language', async () => {
   const lang = 'en'
   const shapeTree = await factory.readable.shapeTree(snippetIri)

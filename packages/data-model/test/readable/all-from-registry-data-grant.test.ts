@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { ApplicationFactory, DataInstance, Grant } from '../../src'
+import { ApplicationFactory, Grant } from '../../src'
 import { expect } from '../expect'
 
 const factory = new ApplicationFactory({ fetch, randomUUID })
@@ -33,17 +33,9 @@ test('should provide dataRegistryIri', async () => {
 test('should provide data instance iterator', async () => {
   const dataGrant = await factory.readable.dataGrant(snippetIri)
   let count = 0
-  for await (const instance of Grant.getDataInstanceIterator(dataGrant, factory)) {
-    expect(instance).toBeInstanceOf(DataInstance)
+  for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, factory)) {
+    expect(typeof instanceIri).toBe('string')
     count += 1
   }
   expect(count).toBe(1)
-})
-
-describe('newDataInstance', () => {
-  test('should create data instance', async () => {
-    const dataGrant = await factory.readable.dataGrant(snippetIri)
-    const newDataInstance = await Grant.newDataInstance(dataGrant, factory, factory.randomUUID)
-    expect(newDataInstance.iri).toMatch(dataGrant.hasDataRegistration)
-  })
 })

@@ -156,15 +156,6 @@ export async function getDescription(
   return descriptionIri ? factory.readable.shapeTreeDescription(descriptionIri) : null
 }
 
-/** The predicate through which the tree references the given shape tree. */
-export function getPredicateForReferenced(tree: ShapeTreeData, shapeTree: string): NamedNode {
-  const reference = tree.references.find((ref) => ref.shapeTree === shapeTree)
-  if (!reference) {
-    throw new Error(`shape tree ${tree.id} does not reference ${shapeTree}`)
-  }
-  return reference.viaPredicate
-}
-
 /** The type of resources the shape tree expects (as a NamedNode). */
 export function expectsType(tree: ShapeTreeData): NamedNode {
   if (!tree.expectsType) {

@@ -283,13 +283,15 @@ Per module: add a JSON-LD context (registry style — `@type: '@id'` + `@contain
 
 ### Phase 6 additions
 
-| Package | Files |
+> Status: **complete** — executed via [`docs/plans/test-infra-consolidation.md`](test-infra-consolidation.md) (steps 1–3 landed; the client-id quadstore move + S3-seeding drop were dropped by decision — the file-backed client id stays).
+
+| Package | Files / status |
 |---------|-------|
-| `packages/css-storage-fixture` | `test/registry.trig` (add client id + shapetrees graphs), delete `test/data/`, `dev/data`, `.internal/` (scope-dependent) |
-| `test/` (root) | `setup.ts` (drop S3 seeding), moved tests: application server blocks, `discovery` (from `packages/utils`), `cli` (from `packages/repl`) |
-| `packages/application` / `packages/utils` / `packages/repl` | tests: server-backed cases moved out, mock-based unit tests kept/extended |
-| `packages/css-test-utils` | delete if fully unused |
-| `docker-compose.yaml` | `data` service (if nothing file-backed remains under `https://data/`) |
+| `packages/css-storage-fixture` | `test/registry.trig` unchanged (client id **stays S3-seeded** — no client-id content graph added); shapetrees trees/descriptions already in the trig; `test/data/`, `dev/data`, `.internal/` **kept** (client id + dev fixture stay) |
+| `test/` (root) | `test/discovery.test.ts` (ported from `packages/utils`, mock-free); `setup.ts` **keeps** the S3 client-id seeding (`garage.putAnyObject`/`deleteObject`); application server blocks dropped (not moved); repl `cli` deleted |
+| `packages/application` / `packages/utils` / `packages/repl` | application: `describe.skip` server block dropped, mock-based describes kept; utils: discovery suite moved to root; repl: `cli.ts`/`repl.ts`/`cli.test.ts` deleted (keeps `cmd.ts`/`add-user.ts`) |
+| `packages/css-test-utils` | **deleted** (package + `localhost:3711` realm + `test/.internal/`), devDeps dropped from `application`/`utils`; remaining `.shex` files only in the out-of-scope root `shapetrees/` demo + `dev/pod/` fixture |
+| `docker-compose.yaml` | `data` service **kept** (client id remains file-backed via garage S3) |
 
 ## Key Design Decisions (Confirmed)
 

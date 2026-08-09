@@ -2,7 +2,8 @@
   "@context": [
     "https://www.w3.org/ns/solid/oidc-context.jsonld",
     {
-      "interop": "http://www.w3.org/ns/solid/interop#"
+      "interop": "http://www.w3.org/ns/solid/interop#",
+      "notify": "http://www.w3.org/ns/solid/notifications#"
     }
   ],
   "client_id": "https://data/test-client/public/id",
@@ -11,5 +12,8 @@
   "redirect_uris": ["https://data/test-client/public/id"],
   "grant_types": ["refresh_token", "authorization_code"],
   "interop:hasAccessNeedGroup": "https://data/test-client/public/access-needs#need-group-pm",
-  "interop:hasAuthorizationCallbackEndpoint": "https://test-client"
+  "interop:hasAuthorizationCallbackEndpoint": "https://test-client",
+  "interop:hasAuthorizationRedirectEndpoint": "https://ui.auth/authorize",
+  "interop:pushService": "https://auth/.sai/webpush",
+  "notify:vapidPublicKey": "BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY"
 }

@@ -5,11 +5,11 @@ import { DataFactory, Parser, type Quad, type Term } from 'n3'
 // CJS/ESM interop — same pattern as utils' jsonld.ts.
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
-// The css-storage-fixture registry TriG. Each GRAPH is a resource document;
+// The environments registry TriG. Each GRAPH is a resource document;
 // `meta:*` graphs carry the resource's rdf:type / properties (the CSS
 // container description resource), the plain graph the resource itself.
 const registryTrig = readFileSync(
-  new URL('../../../css-storage-fixture/test/registry.trig', import.meta.url),
+  new URL('../../../../environments/data/registry.trig', import.meta.url),
   'utf-8'
 )
 

@@ -21,8 +21,8 @@ const CSS_VAPID_PRIVATE_KEY = '8d8mM59L2VptBg5hX_2dHnQ7T5VpeUsftbaQ6PfuhGA'
 const CSS_PUSH_SENDER = 'mailto:example@yourdomain.org'
 const CSS_ENCODED_PRIVATE_JWK =
   'eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ'
-const CSS_HTTPS_KEY = '/sai/packages/css-storage-fixture/test/certs/key.pem'
-const CSS_HTTPS_CERT = '/sai/packages/css-storage-fixture/test/certs/cert.pem'
+const CSS_HTTPS_KEY = '/sai/environments/css/certs/key.pem'
+const CSS_HTTPS_CERT = '/sai/environments/css/certs/cert.pem'
 const NODE_TLS_REJECT_UNAUTHORIZED = '0'
 const CSS_SPARQL_ENDPOINT = 'http://sparql/sparql'
 const CSS_S3_ENDPOINT = 'http://garage:3900/sai-dev'
@@ -105,7 +105,7 @@ export class SaiJs {
       .from('nginx:alpine')
       .withMountedFile(
         '/etc/nginx/nginx.conf',
-        this.source.file('packages/css-storage-fixture/oxigraph.nginx.conf')
+        this.source.file('environments/css/oxigraph.nginx.conf')
       )
       .withServiceBinding('oxigraph', this.oxigraphService())
       .withExposedPort(80)
@@ -268,7 +268,7 @@ export class SaiJs {
       .container()
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/auth.json')
+      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/auth.json')
       .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
       .withEnvVariable('CSS_AUTHORIZATION_ENDPOINT', 'https://ui.auth/authorize')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
@@ -313,7 +313,7 @@ export class SaiJs {
       .container()
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/registry.json')
+      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/registry.json')
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)
@@ -345,8 +345,7 @@ export class SaiJs {
       .container()
       .from('node:24-alpine')
       .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/packages/css-storage-fixture/test/data.json')
-      .withEnvVariable('CSS_ROOT_FILE_PATH', '/sai/packages/css-storage-fixture/test/data')
+      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/data.json')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)

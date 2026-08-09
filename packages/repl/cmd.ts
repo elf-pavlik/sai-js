@@ -9,12 +9,12 @@ import { exportJWK, generateKeyPair } from 'jose'
 import { addUserCommand } from './add-user.js'
 
 const datasetSourcePath = fileURLToPath(
-  new URL('../css-storage-fixture/test/registry.trig', import.meta.url)
+  new URL('../../environments/data/registry.trig', import.meta.url)
 )
-const kvSourcePath = fileURLToPath(new URL('../css-storage-fixture/test/kv.json', import.meta.url))
+const kvSourcePath = fileURLToPath(new URL('../../environments/data/kv.json', import.meta.url))
 const mapPaths = {
-  dev: fileURLToPath(new URL('../css-storage-fixture/dev/map.json', import.meta.url)),
-  demo: fileURLToPath(new URL('../css-storage-fixture/demo/map.json', import.meta.url)),
+  dev: fileURLToPath(new URL('../../environments/dev/map.json', import.meta.url)),
+  demo: fileURLToPath(new URL('../../environments/demo/map.json', import.meta.url)),
 }
 
 const encode = (str: string): string => Buffer.from(str).toString('base64url')

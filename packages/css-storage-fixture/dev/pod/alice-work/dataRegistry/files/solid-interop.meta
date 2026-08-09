@@ -1,6 +1,0 @@
-PREFIX nfo: <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
-PREFIX ma: <http://www.w3.org/ns/ma-ont#>
-
-<https://alice-work.pod.docker/dataRegistry/files/solid-interop>
-  nfo:fileName "solid-interop.ics";
-  ma:format "text/calendar".

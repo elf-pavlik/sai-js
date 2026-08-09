@@ -5,8 +5,7 @@
       "**/dist/**",
       "**/src/**/*.d.ts",
       "**/test/**/*.d.ts",
-      ".devbox",
-      "packages/css-storage-fixture"
+      ".devbox"
     ]
   },
   "organizeImports": {

@@ -1,5 +1,0 @@
-PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-
-<https://bob.pod.docker/agentRegistry/>
-  interop:hasSocialAgentRegistration
-    <https://bob.pod.docker/agentRegistry/alice/> .

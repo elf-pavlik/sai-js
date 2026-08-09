@@ -1,7 +1,0 @@
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-
-<https://acme-rnd.pod.docker/dataRegistry/>
-  interop:hasDataRegistration
-   <https://acme-rnd.pod.docker/dataRegistry/projects/> ,
-   <https://acme-rnd.pod.docker/dataRegistry/tasks/> .

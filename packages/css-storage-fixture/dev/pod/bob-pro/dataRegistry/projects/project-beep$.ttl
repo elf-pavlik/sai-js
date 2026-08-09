@@ -1,8 +1,0 @@
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX pm: <https://vocab.example/project-management/>
-
-<https://bob-pro.pod.docker/dataRegistry/projects/project-beep>
-  rdfs:label "Project Beep" ;
-  pm:hasTask
-    <https://bob-pro.pod.docker/dataRegistry/tasks/task-zim> ,
-    <https://bob-pro.pod.docker/dataRegistry/tasks/task-zoom> .

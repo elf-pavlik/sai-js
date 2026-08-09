@@ -1,4 +1,0 @@
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
-<https://acme-rnd.pod.docker/dataRegistry/tasks/task-a>
-  rdfs:label "Task A" .

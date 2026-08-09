@@ -69,7 +69,6 @@ GRAPH <https://registry/acme/grant/> {
       <https://registry/acme/grant/hdaymz>,
       <https://registry/acme/grant/x4j8lm>,
       <https://registry/acme/grant/q2v9pt>,
-      <https://registry/acme/grant/cshspf>,
       <https://registry/acme/grant/vled83>,
       <https://registry/acme/grant/wegvwe>.
 
@@ -415,23 +414,6 @@ GRAPH <https://registry/acme/grant/qwvbcu> {
 
 GRAPH <meta:https://registry/acme/grant/qwvbcu> {
         <https://registry/acme/grant/qwvbcu> a ldp:Resource .
-}
-
-GRAPH <https://registry/acme/grant/cshspf> {
-  <https://registry/acme/grant/cshspf>
-    a interop:DataGrant;
-    interop:grantee acp:PublicClient;
-    interop:grantedBy acp:PublicAgent;
-    interop:dataOwner <https://id/acme>;
-    interop:registeredShapeTree shapetrees:Shape;
-    interop:hasStorage <https://data/shapetrees/>;
-    interop:scopeOfGrant interop:AllFromRegistry;
-    interop:hasDataRegistration <https://data/shapetrees/shapes/>;
-    interop:accessMode acl:Read.
-}
-
-GRAPH <meta:https://registry/acme/grant/cshspf> {
-        <https://registry/acme/grant/cshspf> a ldp:Resource .
 }
 
 GRAPH <https://registry/acme/grant/vled83> {
@@ -1661,43 +1643,6 @@ GRAPH <https://registry/kim/agent/plp3a3/.acr> {
         a acp:Matcher;
         acp:agent <https://id/alice>;
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ>
-      ]
-    ].
-}
-
-GRAPH <meta:https://registry/acme/grant/cshspf.acr> {
-        <https://registry/acme/grant/cshspf.acr> a ldp:Resource .
-}
-
-GRAPH <https://registry/acme/grant/cshspf.acr> {
-  <https://registry/acme/grant/cshspf.acr#root>
-    a acp:AccessControlResource;
-    acp:resource <https://registry/acme/grant/cshspf>;
-    acp:accessControl
-      <https://registry/acme/grant/cshspf.acr#fullOwnerAccess>,
-      <https://registry/acme/grant/cshspf.acr#peerReadAccess>.
-
-  <https://registry/acme/grant/cshspf.acr#fullOwnerAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read, acl:Write, acl:Control;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent <https://id/acme>;
-        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l>
-      ]
-    ].
-
-  <https://registry/acme/grant/cshspf.acr#peerReadAccess>
-    a acp:AccessControl;
-    acp:apply [
-      a acp:Policy;
-      acp:allow acl:Read;
-      acp:anyOf [
-        a acp:Matcher;
-        acp:agent acp:PublicAgent;
-        acp:client acp:PublicClient
       ]
     ].
 }
@@ -3718,30 +3663,6 @@ GRAPH <https://data/shapetrees/trees/desc-pl> {
     st:inDescriptionSet shapetrees:desc-pl ;
     st:describes shapetrees:File ;
     skos:prefLabel "Pliki"@pl .
-}
-
-GRAPH <meta:https://data/shapetrees/shapes/Project> {
-  <https://data/shapetrees/shapes/Project>
-    a ldp:Resource ;
-    ma:format "text/shex" .
-}
-
-GRAPH <meta:https://data/shapetrees/shapes/Task> {
-  <https://data/shapetrees/shapes/Task>
-    a ldp:Resource ;
-    ma:format "text/shex" .
-}
-
-GRAPH <meta:https://data/shapetrees/shapes/Image> {
-  <https://data/shapetrees/shapes/Image>
-    a ldp:Resource ;
-    ma:format "text/shex" .
-}
-
-GRAPH <meta:https://data/shapetrees/shapes/File> {
-  <https://data/shapetrees/shapes/File>
-    a ldp:Resource ;
-    ma:format "text/shex" .
 }
 
 GRAPH <https://id/acme> {

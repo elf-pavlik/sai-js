@@ -10,14 +10,14 @@ describe('common', () => {
   })
 
   test('should set text on response', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
-    const response = await statelessFetch(url, { headers: { Accept: 'text/shex' } })
+    const url = 'https://alice.example/'
+    const response = await statelessFetch(url)
     const text = await response.text()
     expect(text.length).toBeGreaterThan(0)
   })
 
   test('should provide Content-Type header', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
     expect(response.headers.get('Content-Type')).toBe('application/ld+json')
   })
@@ -29,13 +29,13 @@ describe('common', () => {
   })
 
   test('should provide fake Link header', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
     expect(response.headers.get('Link')).toBeTruthy()
   })
 
   test('should throw when getting header other than Content-Type', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
     expect(() => response.headers.get('Something-Else')).toThrow('Something-Else not supported')
   })

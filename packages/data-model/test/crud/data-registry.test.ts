@@ -4,8 +4,6 @@ import { describe, test, vi } from 'vitest'
 import { AuthorizationAgentFactory, type DataRegistrationData, DataRegistry } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
 const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://home.alice.example/2d3d97b4-a26d-434e-afa2-e3bc8e8e2b56/'
 
@@ -37,12 +35,7 @@ describe('createRegistration', () => {
   test('should throw if registration for given shape tree exists', async () => {
     const dataRegistry = await factory.dataRegistry(snippetIri)
     await expect(
-      DataRegistry.createRegistration(
-        dataRegistry,
-        factory,
-        { agent: webId, client: agentId },
-        projectShapeTree
-      )
+      DataRegistry.createRegistration(dataRegistry, factory, projectShapeTree)
     ).rejects.toThrow('registration already exists')
   })
 
@@ -52,7 +45,6 @@ describe('createRegistration', () => {
     const registration = await DataRegistry.createRegistration(
       dataRegistry,
       factory,
-      { agent: webId, client: agentId },
       otherShapeTree
     )
     expect(registration.registeredShapeTree).toBe(otherShapeTree)
@@ -73,12 +65,7 @@ describe('createRegistration', () => {
 
     const otherShapeTree = 'https://solidshapes.example/tree/Other'
     const dataRegistry = await localFactory.dataRegistry(snippetIri)
-    await DataRegistry.createRegistration(
-      dataRegistry,
-      localFactory,
-      { agent: webId, client: agentId },
-      otherShapeTree
-    )
+    await DataRegistry.createRegistration(dataRegistry, localFactory, otherShapeTree)
 
     expect(dataRegistrationMock).toBeCalledWith(
       expect.any(String),
@@ -97,7 +84,6 @@ describe('createRegistration', () => {
     const registration = await DataRegistry.createRegistration(
       dataRegistry,
       localFactory,
-      { agent: webId, client: agentId },
       otherShapeTree
     )
     expect(patchFetch).toBeCalledWith(

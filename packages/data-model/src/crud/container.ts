@@ -1,15 +1,7 @@
-import {
-  INTEROP,
-  XSD,
-  deletePatch,
-  getDescriptionResource,
-  getOneMatchingQuad,
-  insertPatch,
-} from '@janeirodigital/interop-utils'
-import type { DatasetCore, NamedNode, Quad, Quad_Object } from '@rdfjs/types'
+import { deletePatch, getDescriptionResource, insertPatch } from '@janeirodigital/interop-utils'
+import type { DatasetCore, Quad } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import type { AgentAndClient } from '../templates/types'
 
 /** Generate an IRI for a resource contained in the given container. */
 export function iriForContained(
@@ -20,37 +12,6 @@ export function iriForContained(
   let containedIri = `${containerIri}${factory.randomUUID()}`
   if (container) containedIri += '/'
   return containedIri
-}
-
-/**
- * Set registeredBy/registeredWith/registeredAt (when includeRegistered) and
- * updatedAt on the resource node of the given dataset, replacing any existing
- * values.
- */
-export function setTimestampsAndAgents(
-  dataset: DatasetCore,
-  iri: string,
-  creator: AgentAndClient,
-  includeRegistered: boolean
-): void {
-  const node = DataFactory.namedNode(iri)
-  const setQuad = (predicate: NamedNode, object: Quad_Object): void => {
-    const existing = getOneMatchingQuad(dataset, node, predicate)
-    if (existing) dataset.delete(existing)
-    dataset.add(DataFactory.quad(node, predicate, object))
-  }
-  if (includeRegistered) {
-    setQuad(INTEROP.terms.registeredBy, DataFactory.literal(creator.agent, XSD.terms.string))
-    setQuad(INTEROP.terms.registeredWith, DataFactory.literal(creator.client, XSD.terms.string))
-    setQuad(
-      INTEROP.terms.registeredAt,
-      DataFactory.literal(new Date().toISOString(), XSD.terms.dateTime)
-    )
-  }
-  setQuad(
-    INTEROP.terms.updatedAt,
-    DataFactory.literal(new Date().toISOString(), XSD.terms.dateTime)
-  )
 }
 
 /**
@@ -131,11 +92,8 @@ export async function replaceStatement(
 export async function createContainer(
   iri: string,
   factory: AuthorizationAgentFactory,
-  creator: AgentAndClient,
   dataset: DatasetCore
 ): Promise<void> {
-  setTimestampsAndAgents(dataset, iri, creator, true)
-
   // create empty container, CSS ignores body!
   const response = await factory.fetch(iri, { method: 'PUT' })
   if (!response.ok) {

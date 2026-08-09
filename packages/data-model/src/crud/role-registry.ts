@@ -2,7 +2,6 @@ import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { linkedIrisJsonLd } from '../context'
-import type { AgentAndClient } from '../templates/types'
 import { createContainer } from './container'
 import { iriForContained as containerIriForContained } from './container'
 import { type RoleData, putRole } from './role'
@@ -75,14 +74,13 @@ export async function deleteRole(
 
 export async function createRoleRegistry(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
   )
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

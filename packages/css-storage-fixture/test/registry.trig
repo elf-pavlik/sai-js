@@ -2341,7 +2341,6 @@ GRAPH <https://data/alice-home/pm1oxz/d2k6qt> {
 GRAPH <meta:https://data/bob/> {
 <https://data/bob/>
   a interop:DataRegistry, ldp:Resource, space:Storage ;
-  interop:registeredBy <https://id/bob> ;
   interop:hasDataRegistration
    <https://data/bob/avn9hv/> ,
    <https://data/bob/x6hx8e/> ,

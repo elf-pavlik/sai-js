@@ -10,7 +10,6 @@ import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
 import { linkedIrisJsonLd } from '../context'
 import { createDataRegistration } from '../data-registration'
-import type { AgentAndClient } from '../templates/types'
 import {
   addStatement,
   iriForContained as containerIriForContained,
@@ -60,7 +59,6 @@ export async function registeredShapeTrees(
 export async function createRegistration(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory,
-  creator: AgentAndClient,
   registeredShapeTree: string
 ): Promise<DataRegistrationData> {
   for await (const registration of registrations(data, factory)) {
@@ -75,7 +73,7 @@ export async function createRegistration(
     registeredShapeTree,
     contains: [],
   })
-  await createDataRegistration(dataRegistration, factory, creator)
+  await createDataRegistration(dataRegistration, factory)
 
   // link to created data registration
   const quad = DataFactory.quad(
@@ -98,14 +96,13 @@ export async function storageIri(
 
 export async function createDataRegistry(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.DataRegistry)
   )
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

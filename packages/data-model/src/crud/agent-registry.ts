@@ -128,7 +128,7 @@ export async function addApplicationRegistration(
   const registration = await factory.applicationRegistration(iri, {
     registeredAgent,
   })
-  await createApplicationRegistration(registration, factory, creator)
+  await createApplicationRegistration(registration, factory)
   // link to created application registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
@@ -162,7 +162,7 @@ export async function addSocialAgentRegistration(
     note,
     type: [INTEROP.SocialAgentRegistration],
   })
-  await createSocialAgentRegistration(registration, factory, creator)
+  await createSocialAgentRegistration(registration, factory)
   // link to created social agent registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
@@ -209,14 +209,13 @@ export async function addSocialAgentInvitation(
 
 export async function createAgentRegistry(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
   )
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

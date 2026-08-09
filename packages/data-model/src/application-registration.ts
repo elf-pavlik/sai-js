@@ -8,7 +8,6 @@ import {
 import type { ApplicationFactory, AuthorizationAgentFactory, GrantData } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
-import type { AgentAndClient } from './templates/types'
 
 // ──────────────────────────
 // Types
@@ -65,14 +64,13 @@ export async function loadApplicationRegistration(
 
 export async function createApplicationRegistration(
   data: ApplicationRegistrationData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
   // quad comes from `data.type` (captured from framing on read), no hand-built
   // DataFactory quads; only the container.create hand-off stays N3-based
   const dataset = await toStore(withContext(dataModelContext, data))
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 // ──────────────────────────

@@ -11,7 +11,6 @@ import {
 import { DataFactory, type Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
-import type { AgentAndClient } from '../templates/types'
 import {
   type AgentRegistrationData,
   toDataset as registrationToDataset,
@@ -105,8 +104,7 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
 
 export async function createSocialAgentRegistration(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = await toDataset(data)
   dataset.add(
@@ -116,7 +114,7 @@ export async function createSocialAgentRegistration(
       INTEROP.terms.SocialAgentRegistration
     )
   )
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 // ──────────────────────────

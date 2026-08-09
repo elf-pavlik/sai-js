@@ -2,7 +2,6 @@ import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
 import { linkedIrisJsonLd } from '../context'
-import type { AgentAndClient } from '../templates/types'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
@@ -94,8 +93,7 @@ export async function findAuthorizationsDelegatingFromOwner(
 
 export async function createAuthorizationRegistry(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
-  creator: AgentAndClient
+  factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
@@ -105,7 +103,7 @@ export async function createAuthorizationRegistry(
       INTEROP.terms.AuthorizationRegistry
     )
   )
-  await createContainer(data.id, factory, creator, dataset)
+  await createContainer(data.id, factory, dataset)
 }
 
 export function iriForContained(

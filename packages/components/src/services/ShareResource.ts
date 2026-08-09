@@ -14,9 +14,9 @@ import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
-  const resource = await saiSession.factory.readable.dataInstance(iri, undefined, lang)
+  const resource = await saiSession.factory.dataInstance(iri, undefined, lang)
   if (!resource) throw new Error(`Resource not found: ${iri}`)
-  const shapeTree = await saiSession.factory.readable.shapeTree(resource.shapeTreeIri)
+  const shapeTree = await saiSession.factory.shapeTree(resource.shapeTreeIri)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, saiSession.factory)
   return Resource.make({
     id: IRI.make(resource.id),
@@ -47,7 +47,7 @@ export const shareResource = async (
     shareAuthorization as unknown as ShareDataInstanceStructure
   )
 
-  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(
+  const clientIdDocument = await saiSession.factory.clientIdDocument(
     shareAuthorization.applicationId
   )
 
@@ -89,7 +89,7 @@ export async function requestAccessUsingApplicationNeeds(
   webId: string
 ): Promise<void> {
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
-  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(applicationIri)
+  const clientIdDocument = await saiSession.factory.clientIdDocument(applicationIri)
   await setAccessNeedGroup(
     socialAgentRegistration,
     saiSession.factory,

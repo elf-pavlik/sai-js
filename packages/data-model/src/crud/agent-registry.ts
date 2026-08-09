@@ -7,6 +7,7 @@ import {
   loadApplicationRegistration,
 } from '../application-registration'
 import { linkedIrisJsonLd } from '../context'
+import type { AgentAndClient } from '../templates/types'
 import { type AgentRegistrationData, setAcr } from './agent-registration'
 import {
   addStatement,
@@ -116,6 +117,7 @@ export async function findRegistration(
 export async function addApplicationRegistration(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory,
+  creator: AgentAndClient,
   registeredAgent: string
 ): Promise<ApplicationRegistrationData> {
   const existing = await findApplicationRegistration(data, factory, registeredAgent)
@@ -123,10 +125,10 @@ export async function addApplicationRegistration(
     throw new Error(`Application Registration for ${registeredAgent} already exists`)
   }
   const iri = iriForContained(data, factory, true)
-  const registration = await factory.crud.applicationRegistration(iri, {
+  const registration = await factory.applicationRegistration(iri, {
     registeredAgent,
   })
-  await createApplicationRegistration(registration, factory)
+  await createApplicationRegistration(registration, factory, creator)
   // link to created application registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
@@ -134,24 +136,17 @@ export async function addApplicationRegistration(
     DataFactory.namedNode(registration.id)
   )
   await addStatement(data.id, factory, quad)
-  await setAcr(
-    registration,
-    factory,
-    {
-      agent: factory.webId,
-      client: factory.agentId,
-    },
-    {
-      agent: factory.webId,
-      client: registeredAgent,
-    }
-  )
+  await setAcr(registration, factory, creator, {
+    agent: creator.agent,
+    client: registeredAgent,
+  })
   return registration
 }
 
 export async function addSocialAgentRegistration(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory,
+  creator: AgentAndClient,
   registeredAgent: string,
   prefLabel: string,
   note?: string
@@ -161,13 +156,13 @@ export async function addSocialAgentRegistration(
     throw new Error(`Social Agent Registration for ${registeredAgent} already exists`)
   }
   const iri = iriForContained(data, factory, true)
-  const registration = await factory.crud.socialAgentRegistration(iri, {
+  const registration = await factory.socialAgentRegistration(iri, {
     registeredAgent,
     prefLabel,
     note,
     type: [INTEROP.SocialAgentRegistration],
   })
-  await createSocialAgentRegistration(registration, factory)
+  await createSocialAgentRegistration(registration, factory, creator)
   // link to created social agent registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
@@ -176,18 +171,10 @@ export async function addSocialAgentRegistration(
   )
   await addStatement(data.id, factory, quad)
   const peerUas = await discoverAuthorizationAgent(registeredAgent, factory.fetch)
-  await setAcr(
-    registration,
-    factory,
-    {
-      agent: factory.webId,
-      client: factory.agentId,
-    },
-    {
-      agent: registeredAgent,
-      client: peerUas,
-    }
-  )
+  await setAcr(registration, factory, creator, {
+    agent: registeredAgent,
+    client: peerUas,
+  })
   return registration
 }
 
@@ -203,7 +190,7 @@ export async function addSocialAgentInvitation(
     throw new Error(`Social Agent Invitation with ${capabilityUrl} already exists`)
   }
   const iri = iriForContained(data, factory)
-  const invitation = await factory.crud.socialAgentInvitation(iri, {
+  const invitation = await factory.socialAgentInvitation(iri, {
     capabilityUrl,
     prefLabel,
     note,
@@ -222,13 +209,14 @@ export async function addSocialAgentInvitation(
 
 export async function createAgentRegistry(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 export function iriForContained(

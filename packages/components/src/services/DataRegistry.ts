@@ -17,7 +17,7 @@ const buildDataRegistry = async (
 ) => {
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for await (const registration of DataRegistry.registrations(registry, saiSession.factory)) {
-    const shapeTree = await saiSession.factory.readable.shapeTree(registration.registeredShapeTree)
+    const shapeTree = await saiSession.factory.shapeTree(registration.registeredShapeTree)
     const shapeTreeDescription = descriptionsLang
       ? await ShapeTree.getDescription(shapeTree, descriptionsLang, saiSession.factory)
       : undefined
@@ -49,7 +49,7 @@ const buildDataRegistryForGrant = async (
   for (const dataGrant of dataGrants) {
     if (seen.has(dataGrant.hasDataRegistration)) continue
     seen.add(dataGrant.hasDataRegistration)
-    const shapeTree = await saiSession.factory.readable.shapeTree(dataGrant.registeredShapeTree)
+    const shapeTree = await saiSession.factory.shapeTree(dataGrant.registeredShapeTree)
     const shapeTreeDescription = descriptionsLang
       ? await ShapeTree.getDescription(shapeTree, descriptionsLang, saiSession.factory)
       : undefined
@@ -76,7 +76,7 @@ async function findDataGrantIndex(
   const dataGrantIndex: Record<string, GrantData[]> = {}
   for await (const registration of saiSession.socialAgentRegistrations) {
     if (!registration.reciprocalRegistration) continue
-    const reciprocalReg = await saiSession.factory.crud.socialAgentRegistration(
+    const reciprocalReg = await saiSession.factory.socialAgentRegistration(
       registration.reciprocalRegistration
     )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
@@ -107,7 +107,7 @@ export const getDataRegistries = async (
   }
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
   const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
-    ? await saiSession.factory.crud.socialAgentRegistration(
+    ? await saiSession.factory.socialAgentRegistration(
         socialAgentRegistration.reciprocalRegistration
       )
     : undefined
@@ -143,9 +143,9 @@ export const listDataInstances = async (
 ) => {
   const dataInstances = []
   if (agentId === saiSession.webId) {
-    const dataRegistration = await saiSession.factory.readable.dataRegistration(registrationId)
+    const dataRegistration = await saiSession.factory.dataRegistration(registrationId)
     for (const dataInstanceIri of dataRegistration.contains) {
-      const dataInstance = await saiSession.factory.readable.dataInstance(
+      const dataInstance = await saiSession.factory.dataInstance(
         dataInstanceIri,
         undefined,
         descriptionsLang
@@ -160,7 +160,7 @@ export const listDataInstances = async (
   } else {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentId)
     const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
-      ? await saiSession.factory.crud.socialAgentRegistration(
+      ? await saiSession.factory.socialAgentRegistration(
           socialAgentRegistration.reciprocalRegistration
         )
       : undefined
@@ -180,7 +180,7 @@ export const listDataInstances = async (
         for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, saiSession.factory)) {
           if (seenInstances.has(instanceIri)) continue
           seenInstances.add(instanceIri)
-          const dataInstance = await saiSession.factory.readable.dataInstance(
+          const dataInstance = await saiSession.factory.dataInstance(
             instanceIri,
             dataGrant.registeredShapeTree,
             descriptionsLang

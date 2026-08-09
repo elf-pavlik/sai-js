@@ -10,6 +10,7 @@ import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
 import { linkedIrisJsonLd } from '../context'
 import { createDataRegistration } from '../data-registration'
+import type { AgentAndClient } from '../templates/types'
 import {
   addStatement,
   iriForContained as containerIriForContained,
@@ -41,7 +42,7 @@ export async function* registrations(
 ): AsyncIterable<DataRegistrationData> {
   const iris = await hasDataRegistration(data, factory)
   for (const iri of iris) {
-    yield factory.readable.dataRegistration(iri)
+    yield factory.dataRegistration(iri)
   }
 }
 
@@ -51,7 +52,7 @@ export async function registeredShapeTrees(
 ): Promise<ShapeTreeData[]> {
   const trees: ShapeTreeData[] = []
   for await (const registration of registrations(data, factory)) {
-    trees.push(await factory.readable.shapeTree(registration.registeredShapeTree))
+    trees.push(await factory.shapeTree(registration.registeredShapeTree))
   }
   return trees
 }
@@ -59,6 +60,7 @@ export async function registeredShapeTrees(
 export async function createRegistration(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory,
+  creator: AgentAndClient,
   registeredShapeTree: string
 ): Promise<DataRegistrationData> {
   for await (const registration of registrations(data, factory)) {
@@ -67,13 +69,13 @@ export async function createRegistration(
     }
   }
   const iri = iriForContained(data, factory, true)
-  const dataRegistration = await factory.crud.dataRegistration(iri, {
+  const dataRegistration = await factory.dataRegistration(iri, {
     id: iri,
     type: [INTEROP.DataRegistration],
     registeredShapeTree,
     contains: [],
   })
-  await createDataRegistration(dataRegistration, factory)
+  await createDataRegistration(dataRegistration, factory, creator)
 
   // link to created data registration
   const quad = DataFactory.quad(
@@ -96,13 +98,14 @@ export async function storageIri(
 
 export async function createDataRegistry(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.DataRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 export function iriForContained(

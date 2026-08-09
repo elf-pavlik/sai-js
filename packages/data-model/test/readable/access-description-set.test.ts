@@ -5,18 +5,16 @@ import { describe, test } from 'vitest'
 import { AccessDescriptionSet, AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://projectron.example/descriptions-en'
 
 test('factory should build an access description set', async () => {
-  const descriptionSet = await factory.readable.accessDescriptionSet(snippetIri)
+  const descriptionSet = await factory.accessDescriptionSet(snippetIri)
   expect(descriptionSet).toEqual({ id: snippetIri })
 })
 
 test('should build the descriptions', async () => {
-  const descriptionSet = await factory.readable.accessDescriptionSet(snippetIri)
+  const descriptionSet = await factory.accessDescriptionSet(snippetIri)
   const { accessNeedDescriptions, accessNeedGroupDescriptions } =
     await AccessDescriptionSet.loadDescriptions(descriptionSet, factory)
   expect(accessNeedDescriptions).toHaveLength(2)

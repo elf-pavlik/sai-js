@@ -2,6 +2,7 @@ import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { linkedIrisJsonLd } from '../context'
+import type { AgentAndClient } from '../templates/types'
 import { createContainer } from './container'
 import { iriForContained as containerIriForContained } from './container'
 import { type RoleData, putRole } from './role'
@@ -24,7 +25,7 @@ export async function* roles(
 ): AsyncIterable<RoleData> {
   const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'contains')
   for (const iri of iris) {
-    yield factory.crud.role(iri)
+    yield factory.role(iri)
   }
 }
 
@@ -74,13 +75,14 @@ export async function deleteRole(
 
 export async function createRoleRegistry(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 export function iriForContained(

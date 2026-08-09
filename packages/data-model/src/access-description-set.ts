@@ -99,11 +99,11 @@ export async function loadDescriptions(
   const dataset = await parseJsonld(JSON.stringify(doc), set.id)
   const [accessNeedDescriptions, accessNeedGroupDescriptions] = await Promise.all([
     Promise.all(
-      forAccessNeed(dataset, set.id).map((iri) => factory.readable.accessNeedDescription(iri))
+      forAccessNeed(dataset, set.id).map((iri) => factory.accessNeedDescription(iri))
     ),
     Promise.all(
       forAccessNeedGroup(dataset, set.id).map((iri) =>
-        factory.readable.accessNeedGroupDescription(iri)
+        factory.accessNeedGroupDescription(iri)
       )
     ),
   ])

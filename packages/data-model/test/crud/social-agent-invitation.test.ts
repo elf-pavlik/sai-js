@@ -5,12 +5,9 @@ import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-
 describe('build', () => {
   const snippetIri = 'https://auth.alice.example/some-inviation'
-  const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+  const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 
   const data = {
     capabilityUrl: 'https://auth.alice.example/some-secret-url',
@@ -20,7 +17,7 @@ describe('build', () => {
   }
 
   test('getters', async () => {
-    const socialAgentInvitation = await factory.crud.socialAgentInvitation(snippetIri, data)
+    const socialAgentInvitation = await factory.socialAgentInvitation(snippetIri, data)
     expect(socialAgentInvitation.capabilityUrl).toBe(data.capabilityUrl)
     expect(socialAgentInvitation.prefLabel).toBe(data.prefLabel)
     expect(socialAgentInvitation.note).toBe(data.note)
@@ -28,7 +25,7 @@ describe('build', () => {
 
   test('setting registerAgent', async () => {
     const bobId = 'https://bob.example'
-    const socialAgentInvitation = await factory.crud.socialAgentInvitation(snippetIri, data)
+    const socialAgentInvitation = await factory.socialAgentInvitation(snippetIri, data)
     socialAgentInvitation.registeredAgent = bobId
     expect(socialAgentInvitation.registeredAgent).toBe(bobId)
   })

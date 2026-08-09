@@ -2,11 +2,11 @@ import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-a
 import {
   AgentRegistry,
   type ApplicationRegistrationData,
+  type SocialAgentInvitationData,
+  type SocialAgentRegistrationData,
   discoverAndUpdateReciprocal,
   getDataGrantIris,
   getDataGrants,
-  type SocialAgentInvitationData,
-  type SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
 import {
   Application,
@@ -31,7 +31,7 @@ export const buildSocialAgentProfile = async (
     //lastUpdateDate: registration.updatedAt?.toISOString(),
     accessRequested: !!registration.hasAccessNeedGroup,
     accessNeedGroup: registration.reciprocalRegistration
-      ? (await saiSession.factory.crud.socialAgentRegistration(registration.reciprocalRegistration))
+      ? (await saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration))
           .hasAccessNeedGroup
       : undefined,
   })
@@ -45,7 +45,7 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
   const seenIds = new Set(profiles.map((p) => p.id))
   for await (const registration of saiSession.socialAgentRegistrations) {
     if (!registration.reciprocalRegistration) continue
-    const reciprocalReg = await saiSession.factory.crud.socialAgentRegistration(
+    const reciprocalReg = await saiSession.factory.socialAgentRegistration(
       registration.reciprocalRegistration
     )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
@@ -56,7 +56,7 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
       seenIds.add(ownerIri)
       let label = dataGrant.dataOwner
       try {
-        const profile = await saiSession.factory.readable.webIdProfile(ownerIri)
+        const profile = await saiSession.factory.webIdProfile(ownerIri)
         if (profile.label) label = profile.label
       } catch {
         /* fallback to IRI */
@@ -86,6 +86,7 @@ export const addSocialAgent = async (
   const registration = await AgentRegistry.addSocialAgentRegistration(
     saiSession.registrySet.hasAgentRegistry,
     saiSession.factory,
+    { agent: saiSession.webId, client: saiSession.agentId },
     data.webId,
     data.label,
     data.note
@@ -100,9 +101,7 @@ const buildApplicationProfile = async (
 ) => {
   // Design B: the registration resource is single-node — name/logo/accessNeedGroup/
   // callbackEndpoint come from the client ID document (the canonical source)
-  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(
-    registration.registeredAgent
-  )
+  const clientIdDocument = await saiSession.factory.clientIdDocument(registration.registeredAgent)
   // TODO (angel) data validation and how to handle when the applications profile is missing some components?
   return Application.make({
     id: IRI.make(registration.registeredAgent),
@@ -130,13 +129,11 @@ export const getApplications = async (saiSession: AuthorizationAgent) => {
  * Returns the application profile of an application that is _not_ registered for the given agent
  */
 export const getUnregisteredApplication = async (agent: AuthorizationAgent, id: IRI) => {
-  const { name, logo, accessNeedGroup } = await agent.factory.readable
-    .clientIdDocument(id)
-    .then((doc) => ({
-      name: doc.clientName,
-      logo: doc.logoUri,
-      accessNeedGroup: doc.hasAccessNeedGroup,
-    }))
+  const { name, logo, accessNeedGroup } = await agent.factory.clientIdDocument(id).then((doc) => ({
+    name: doc.clientName,
+    logo: doc.logoUri,
+    accessNeedGroup: doc.hasAccessNeedGroup,
+  }))
 
   return UnregisteredApplication.make({ id: IRI.make(id), name, logo, accessNeedGroup })
 }
@@ -194,6 +191,7 @@ export async function acceptInvitation(
     socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
       saiSession.registrySet.hasAgentRegistry,
       saiSession.factory,
+      { agent: saiSession.webId, client: saiSession.agentId },
       webId,
       invitation.label,
       invitation.note
@@ -201,11 +199,7 @@ export async function acceptInvitation(
   }
   // discover and add reciprocal
   if (!socialAgentRegistration.reciprocalRegistration) {
-    discoverAndUpdateReciprocal(
-      socialAgentRegistration,
-      saiSession.factory,
-      saiSession.fetch
-    )
+    discoverAndUpdateReciprocal(socialAgentRegistration, saiSession.factory, saiSession.fetch)
   }
 
   // currently api-handler creates job for reciprocal registration

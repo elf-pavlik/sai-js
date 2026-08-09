@@ -9,17 +9,17 @@ const snippetIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96
 
 describe('getters', () => {
   test('id', async () => {
-    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const applicationRegistration = await factory.applicationRegistration(snippetIri)
     expect(applicationRegistration.id).toEqual(snippetIri)
   })
 
   test('registeredAgent', async () => {
-    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const applicationRegistration = await factory.applicationRegistration(snippetIri)
     expect(applicationRegistration.registeredAgent).toEqual('https://projectron.example/#app')
   })
 
   test('hasDataGrant', async () => {
-    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const applicationRegistration = await factory.applicationRegistration(snippetIri)
     expect(applicationRegistration.hasDataGrant.length).toBeGreaterThan(0)
     for (const grantIri of applicationRegistration.hasDataGrant) {
       expect(typeof grantIri).toBe('string')
@@ -27,7 +27,7 @@ describe('getters', () => {
   })
 
   test('granted', async () => {
-    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const applicationRegistration = await factory.applicationRegistration(snippetIri)
     expect(applicationRegistration.granted).toBe(true)
     expect(ApplicationRegistration.getGranted(applicationRegistration)).toBe(true)
   })
@@ -35,7 +35,7 @@ describe('getters', () => {
 
 describe('getDataGrants', () => {
   test('should provide data grants', async () => {
-    const applicationRegistration = await factory.readable.applicationRegistration(snippetIri)
+    const applicationRegistration = await factory.applicationRegistration(snippetIri)
     const dataGrants = await ApplicationRegistration.getDataGrants(applicationRegistration, factory)
     expect(dataGrants.length).toBeGreaterThan(0)
   })

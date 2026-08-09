@@ -17,7 +17,7 @@ const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'
 const mockedFetch = vi.fn(fetch)
 // @ts-ignore
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch: mockedFetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch: mockedFetch, randomUUID })
 
 beforeEach(() => {
   mockedFetch.mockClear()
@@ -73,7 +73,7 @@ describe('setTimestampsAndAgents', () => {
 
   test('when includeRegistered is true sets registeredBy and registeredWith', () => {
     const dataset = new Store()
-    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    setTimestampsAndAgents(dataset, timestampIri, { agent: webId, client: agentId }, true)
     expect(dataset).toBeRdfDatasetContaining(
       DataFactory.quad(
         DataFactory.namedNode(timestampIri),
@@ -90,7 +90,7 @@ describe('setTimestampsAndAgents', () => {
 
   test('when includeRegistered is true sets registeredAt and updatedAt as dateTime literals', () => {
     const dataset = new Store()
-    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    setTimestampsAndAgents(dataset, timestampIri, { agent: webId, client: agentId }, true)
     for (const predicate of [INTEROP.terms.registeredAt, INTEROP.terms.updatedAt]) {
       const quad = getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), predicate)
       expect(quad).toBeDefined()
@@ -101,7 +101,7 @@ describe('setTimestampsAndAgents', () => {
 
   test('when includeRegistered is false sets only updatedAt', () => {
     const dataset = new Store()
-    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, false)
+    setTimestampsAndAgents(dataset, timestampIri, { agent: webId, client: agentId }, false)
     expect(
       getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.registeredBy)
     ).toBeUndefined()
@@ -115,8 +115,8 @@ describe('setTimestampsAndAgents', () => {
 
   test('replaces existing values', () => {
     const dataset = new Store()
-    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
-    setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
+    setTimestampsAndAgents(dataset, timestampIri, { agent: webId, client: agentId }, true)
+    setTimestampsAndAgents(dataset, timestampIri, { agent: webId, client: agentId }, true)
     expect(
       getAllMatchingQuads(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.registeredBy)
     ).toHaveLength(1)

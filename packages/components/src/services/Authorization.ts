@@ -38,7 +38,7 @@ const formatAccessNeed = async (
   factory: AuthorizationAgentFactory
 ): Promise<S.Schema.Type<typeof AccessNeed>> => {
   const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, factory)
-  const shapeTree = await factory.readable.shapeTree(accessNeed.registeredShapeTree)
+  const shapeTree = await factory.shapeTree(accessNeed.registeredShapeTree)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, factory)
 
   return AccessNeed.make({
@@ -106,8 +106,8 @@ async function findSocialAgentDataRegistrations(
           count: dataGrant.hasDataInstance
             ? // @ts-ignore
               dataGrant.hasDataInstance.length
-            : (await saiSession.factory.readable.dataRegistration(dataGrant.hasDataRegistration))
-                .contains.length,
+            : (await saiSession.factory.dataRegistration(dataGrant.hasDataRegistration)).contains
+                .length,
         })
       }
     }
@@ -133,14 +133,14 @@ export const getDescriptions = async (
   if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
   } else if (agentType === AgentType.Application) {
-    const clientIdDocument = await saiSession.factory.readable.clientIdDocument(agentIri)
+    const clientIdDocument = await saiSession.factory.clientIdDocument(agentIri)
     if (!clientIdDocument.hasAccessNeedGroup) return null
     accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
   } else if (agentType === AgentType.SocialAgent) {
     const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
     const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
-      ? await saiSession.factory.crud.socialAgentRegistration(
+      ? await saiSession.factory.socialAgentRegistration(
           socialAgentRegistration.reciprocalRegistration
         )
       : undefined
@@ -150,7 +150,7 @@ export const getDescriptions = async (
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')
 
-  const accessNeedGroup = await saiSession.factory.readable.accessNeedGroup(
+  const accessNeedGroup = await saiSession.factory.accessNeedGroup(
     accessNeedGroupIriResolved,
     preferredLang
   )
@@ -175,7 +175,7 @@ export const getDescriptions = async (
 
   for await (const socialAgentRegistration of saiSession.socialAgentRegistrations) {
     if (socialAgentRegistration.reciprocalRegistration) {
-      const reciprocalRegistration = await saiSession.factory.crud.socialAgentRegistration(
+      const reciprocalRegistration = await saiSession.factory.socialAgentRegistration(
         socialAgentRegistration.reciprocalRegistration
       )
       const dataRegistrations = await findSocialAgentDataRegistrations(
@@ -303,9 +303,7 @@ export const recordAuthorization = async (
 ): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
   let structure: AccessAuthorizationStructure
   if (authorization.granted) {
-    const accessNeedGroup = await saiSession.factory.readable.accessNeedGroup(
-      authorization.accessNeedGroup
-    )
+    const accessNeedGroup = await saiSession.factory.accessNeedGroup(authorization.accessNeedGroup)
     structure = {
       grantee: authorization.grantee,
       hasAccessNeedGroup: authorization.accessNeedGroup,
@@ -356,6 +354,7 @@ export const recordAuthorization = async (
       await AgentRegistry.addApplicationRegistration(
         saiSession.registrySet.hasAgentRegistry,
         saiSession.factory,
+        { agent: saiSession.webId, client: saiSession.agentId },
         authorization.grantee
       )
     }

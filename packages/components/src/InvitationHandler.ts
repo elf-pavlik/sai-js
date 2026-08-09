@@ -1,3 +1,4 @@
+import { AgentRegistry, setRegisteredAgent } from '@janeirodigital/interop-data-model'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -10,10 +11,6 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
-import {
-  AgentRegistry,
-  setRegisteredAgent,
-} from '@janeirodigital/interop-data-model'
 import type { CustomWebIdStore } from './CustomWebIdStore.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
@@ -54,6 +51,7 @@ export class InvitationHandler extends OperationHttpHandler {
       socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
         sai.registrySet.hasAgentRegistry,
         sai.factory,
+        { agent: sai.webId, client: sai.agentId },
         invitedId,
         socialAgentInvitation.prefLabel,
         socialAgentInvitation.note

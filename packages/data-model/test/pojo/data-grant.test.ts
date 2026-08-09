@@ -6,9 +6,7 @@ import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory, type FinalGrantData, Grant } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://some.iri/'
 const commonData = {
   type: [INTEROP.DataGrant],
@@ -42,7 +40,7 @@ const commonQuads = [
 ]
 
 async function toJsonLdAndCheck(data: Omit<FinalGrantData, 'id'>, expectedQuads: any[]) {
-  const finalGrant = factory.immutable.dataGrant(snippetIri, data)
+  const finalGrant = factory.dataGrant(snippetIri, data)
   const dataset = await toStore(Grant.toJsonLd(finalGrant), snippetIri)
   expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
 }

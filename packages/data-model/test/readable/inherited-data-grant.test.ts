@@ -14,28 +14,28 @@ const inheritsFromAllFromRegistryIri =
   'https://auth.alice.example/54b1a123-23ca-4733-9371-700b52b9c567'
 
 test('should set correct scopeOfGrant', async () => {
-  const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
+  const dataGrant = await factory.dataGrant(inheritsFromSelectedFromRegistryIri)
   expect(dataGrant.scopeOfGrant).toBe(INTEROP.Inherited)
 })
 
 test('should set correct canCreate', async () => {
-  const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
+  const dataGrant = await factory.dataGrant(inheritsFromSelectedFromRegistryIri)
   expect(Grant.canCreate(dataGrant)).toBeTruthy()
 })
 
 test('should set inheritsFromGrant', async () => {
-  const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
+  const dataGrant = await factory.dataGrant(inheritsFromSelectedFromRegistryIri)
   expect(dataGrant.inheritsFromGrant).toBe(selectedFromRegistryDataGrantIri)
 })
 
 // depends on slash semantics
 test('should provide dataRegistryIri', async () => {
-  const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
+  const dataGrant = await factory.dataGrant(inheritsFromSelectedFromRegistryIri)
   expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
 })
 
 test('should provide data instance iterator for Inherited of AllFromRegistry', async () => {
-  const inheritingGrant = await factory.readable.dataGrant(inheritsFromAllFromRegistryIri)
+  const inheritingGrant = await factory.dataGrant(inheritsFromAllFromRegistryIri)
   let count = 0
   for await (const instanceIri of Grant.getDataInstanceIterator(inheritingGrant, factory)) {
     expect(typeof instanceIri).toBe('string')
@@ -45,7 +45,7 @@ test('should provide data instance iterator for Inherited of AllFromRegistry', a
 })
 
 test('should provide data instance iterator for Inherited of SelectedFromRegistry', async () => {
-  const inheritingGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
+  const inheritingGrant = await factory.dataGrant(inheritsFromSelectedFromRegistryIri)
   let count = 0
   for await (const instanceIri of Grant.getDataInstanceIterator(inheritingGrant, factory)) {
     expect(typeof instanceIri).toBe('string')

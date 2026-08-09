@@ -10,45 +10,44 @@ import {
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 
 describe('getters', () => {
   test('should provide hasDataInstance', async () => {
     const selectedDataAuthorizationIri =
       'https://auth.alice.example/bee6bc10-2eb9-4b2d-b0c4-84c5d9039e53'
-    const dataAuthorization = await factory.readable.dataAuthorization(selectedDataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(selectedDataAuthorizationIri)
     expect(dataAuthorization.id).toBe(selectedDataAuthorizationIri)
     expect(dataAuthorization.hasDataInstance).toHaveLength(2)
   })
 
   test('should provide grantee', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.grantee).toBe('https://projectron.example/#app')
   })
 
   test('should provide grantedBy', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.grantedBy).toBe(webId)
   })
 
   test('should provide dataOwner', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.dataOwner).toBe('https://acme.example/#corp')
   })
 
   test('should provide scopeOfAuthorization', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent)
   })
 
   test('should provide hasInheritingAuthorization', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.hasInheritingAuthorization).toEqual([
       'https://auth.alice.example/6a9feb57-252b-43b2-8470-5a938888b2fa',
     ])
@@ -56,13 +55,13 @@ describe('getters', () => {
 
   test('should provide accessMode', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.accessMode).toEqual([ACL.Read, ACL.Write])
   })
 
   test('should provide type', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
-    const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
+    const dataAuthorization = await factory.dataAuthorization(dataAuthorizationIri)
     expect(dataAuthorization.type).toEqual([INTEROP.DataAuthorization])
   })
 })

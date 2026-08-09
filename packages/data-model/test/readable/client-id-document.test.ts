@@ -4,8 +4,6 @@ import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
 const snippetIri = 'https://acme.pod.docker/projectron/id'
 const snippetText = `
 {
@@ -27,27 +25,27 @@ const snippetText = `
 const fetch: WhatwgFetch = async () =>
   ({ ok: true, json: async () => JSON.parse(snippetText) }) as unknown as Response
 
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 
 describe('getters', () => {
   test('hasAccessNeedGroup', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.hasAccessNeedGroup).toBe(
       'https://acme.pod.docker/projectron/access-needs#need-group-pm'
     )
   })
   test('callbackEndpoint', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.callbackEndpoint).toBe('https://app.example')
   })
 
   test('clientName', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.clientName).toEqual('Projectron')
   })
 
   test('logoUri', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.logoUri).toEqual(
       'https://robohash.org/https://projectron.example/?set=set3'
     )

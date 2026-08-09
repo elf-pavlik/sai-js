@@ -9,6 +9,7 @@ import {
 import type { DatasetCore, NamedNode, Quad, Quad_Object } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import type { AgentAndClient } from '../templates/types'
 
 /** Generate an IRI for a resource contained in the given container. */
 export function iriForContained(
@@ -29,7 +30,7 @@ export function iriForContained(
 export function setTimestampsAndAgents(
   dataset: DatasetCore,
   iri: string,
-  factory: { webId: string; agentId: string },
+  creator: AgentAndClient,
   includeRegistered: boolean
 ): void {
   const node = DataFactory.namedNode(iri)
@@ -39,8 +40,8 @@ export function setTimestampsAndAgents(
     dataset.add(DataFactory.quad(node, predicate, object))
   }
   if (includeRegistered) {
-    setQuad(INTEROP.terms.registeredBy, DataFactory.literal(factory.webId, XSD.terms.string))
-    setQuad(INTEROP.terms.registeredWith, DataFactory.literal(factory.agentId, XSD.terms.string))
+    setQuad(INTEROP.terms.registeredBy, DataFactory.literal(creator.agent, XSD.terms.string))
+    setQuad(INTEROP.terms.registeredWith, DataFactory.literal(creator.client, XSD.terms.string))
     setQuad(
       INTEROP.terms.registeredAt,
       DataFactory.literal(new Date().toISOString(), XSD.terms.dateTime)
@@ -130,9 +131,10 @@ export async function replaceStatement(
 export async function createContainer(
   iri: string,
   factory: AuthorizationAgentFactory,
+  creator: AgentAndClient,
   dataset: DatasetCore
 ): Promise<void> {
-  setTimestampsAndAgents(dataset, iri, factory, true)
+  setTimestampsAndAgents(dataset, iri, creator, true)
 
   // create empty container, CSS ignores body!
   const response = await factory.fetch(iri, { method: 'PUT' })

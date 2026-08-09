@@ -2,6 +2,7 @@ import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
 import { linkedIrisJsonLd } from '../context'
+import type { AgentAndClient } from '../templates/types'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
@@ -35,7 +36,7 @@ export async function getDataAuthorizations(
   factory: AuthorizationAgentFactory
 ): Promise<DataAuthorizationData[]> {
   const iris = await getDataAuthorizationIris(data, factory)
-  return Promise.all(iris.map((iri) => factory.readable.dataAuthorization(iri)))
+  return Promise.all(iris.map((iri) => factory.dataAuthorization(iri)))
 }
 
 // ──────────────────────────
@@ -48,7 +49,7 @@ export async function* dataAuthorizations(
 ): AsyncIterable<DataAuthorizationData> {
   const iris = await getDataAuthorizationIris(data, factory)
   for (const iri of iris) {
-    yield factory.readable.dataAuthorization(iri)
+    yield factory.dataAuthorization(iri)
   }
 }
 
@@ -93,7 +94,8 @@ export async function findAuthorizationsDelegatingFromOwner(
 
 export async function createAuthorizationRegistry(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
@@ -103,7 +105,7 @@ export async function createAuthorizationRegistry(
       INTEROP.terms.AuthorizationRegistry
     )
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 export function iriForContained(

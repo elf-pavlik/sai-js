@@ -31,7 +31,7 @@ Root integration tests (`test/*.ts`) import the POJO exports `getGranted`, `Gran
 
 ## Classes that never become POJOs
 
-- **Factories** — `BaseFactory`, `AuthorizationAgentFactory`, `ApplicationFactory` (DI seams; they *return* POJOs)
+- **Factories** — `ApplicationFactory` (base), `AuthorizationAgentFactory` (extends it) — DI seams; they *return* POJOs. (`BaseFactory` was folded into `ApplicationFactory`, namespaces flattened — see [simplify-factories.md](simplify-factories.md))
 - **`Resource` / `ReadableResource`** — the dataset read helpers all getters are built on (stays, or dissolves into `jsonld-utils`-style helpers)
 - **`CRUDResource` / `CRUDContainer`** — the SPARQL patch/create/update/delete/timestamps plumbing (Phase 4 keeps them as the write layer)
 - **`DataInstance`** (`src/data-instance.ts`) — the one remaining stateful write object (`draft`, `parent`, dataset, blob update/delete); Phase 3 adapts its internals to POJOs but keeps the class

@@ -272,7 +272,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
       fetch,
       randomUUID: crypto.randomUUID,
     })
-    const shapeTree = await factory.readable.shapeTree(parentShapeTreeId)
+    const shapeTree = await factory.shapeTree(parentShapeTreeId)
     const shapeTreeReference = shapeTree.references.find(
       (stRef) => stRef.shapeTree === childShapeTreeId
     )

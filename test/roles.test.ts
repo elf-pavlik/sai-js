@@ -20,7 +20,7 @@ async function verifyAccessGrant(
 
   // reciprocal registration is stored as an IRI — load it on demand
   expect(granteeRegForGrantedBy!.reciprocalRegistration).toBeDefined()
-  const grantedByRegForGrantee = await granteeSession.factory.crud.socialAgentRegistration(
+  const grantedByRegForGrantee = await granteeSession.factory.socialAgentRegistration(
     granteeRegForGrantedBy!.reciprocalRegistration!
   )
   expect(grantedByRegForGrantee.registeredAgent).toBe(granteeId)

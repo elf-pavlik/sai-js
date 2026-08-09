@@ -6,7 +6,7 @@ import {
   framedValue,
   getDescriptionResource,
 } from '@janeirodigital/interop-utils'
-import type { InteropFactory } from '.'
+import type { ApplicationFactory } from '.'
 import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
 import type { ShapeTreeData } from './shape-tree'
@@ -46,7 +46,7 @@ export function isBlob(shapeTree: ShapeTreeData): boolean {
 /** Resolve the description resource IRI of a blob from its Link header. */
 export async function discoverDescriptionResource(
   iri: string,
-  fetch: InteropFactory['fetch']
+  fetch: ApplicationFactory['fetch']
 ): Promise<string> {
   const response = await fetch(iri, { method: 'HEAD' })
   return getDescriptionResource(response.headers.get('Link'))
@@ -90,7 +90,7 @@ function dataInstanceContext(shapeTree: ShapeTreeData): JsonLdContext {
  */
 export async function frameDataInstance(
   iri: string,
-  factory: InteropFactory,
+  factory: ApplicationFactory,
   shapeTree: ShapeTreeData,
   docIri?: string
 ): Promise<Record<string, unknown>> {
@@ -126,12 +126,12 @@ export function childIris(
 export async function computeChildren(
   node: Record<string, unknown>,
   shapeTree: ShapeTreeData,
-  factory: InteropFactory,
+  factory: ApplicationFactory,
   lang: string
 ): Promise<ChildInfo[]> {
   return Promise.all(
     shapeTree.references.map(async (reference) => {
-      const childTree = await factory.readable.shapeTree(reference.shapeTree)
+      const childTree = await factory.shapeTree(reference.shapeTree)
       const description = await getShapeTreeDescription(childTree, lang, factory)
       return {
         count: ((node[reference.viaPredicate.value] as string[] | undefined) ?? []).length,

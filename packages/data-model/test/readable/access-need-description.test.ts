@@ -4,13 +4,11 @@ import { test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://projectron.example/descriptions-en#en-need-project'
 
 test('getters', async () => {
-  const description = await factory.readable.accessNeedDescription(snippetIri)
+  const description = await factory.accessNeedDescription(snippetIri)
   const expectedAccessNeedIri = 'https://projectron.example/access-needs#need-project'
   expect(description.hasAccessNeed).toBe(expectedAccessNeedIri)
   const expectedLabel =

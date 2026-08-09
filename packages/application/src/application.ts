@@ -76,7 +76,7 @@ export class Application {
 
   public async buildRegistration(): Promise<void> {
     if (this.registrationIri) {
-      this.hasApplicationRegistration = await this.factory.readable.applicationRegistration(
+      this.hasApplicationRegistration = await this.factory.applicationRegistration(
         this.registrationIri
       )
     }
@@ -164,7 +164,7 @@ export class Application {
       list = grant.hasDataInstance ?? []
     }
     if (grant.scopeOfGrant === INTEROP.AllFromRegistry) {
-      const dataRegistration = await this.factory.readable.dataRegistration(
+      const dataRegistration = await this.factory.dataRegistration(
         grant.hasDataRegistration
       )
       list = dataRegistration.contains

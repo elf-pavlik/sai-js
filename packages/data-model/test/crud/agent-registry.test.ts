@@ -6,11 +6,11 @@ import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://auth.alice.example/1cf3e08b-ffe2-465a-ac5b-94ce165cb8f0'
 
 test('should provide applicationRegistrations', async () => {
-  const registry = await factory.crud.agentRegistry(snippetIri)
+  const registry = await factory.agentRegistry(snippetIri)
   let count = 0
   for await (const authorization of AgentRegistry.applicationRegistrations(registry, factory)) {
     count += 1
@@ -21,7 +21,7 @@ test('should provide applicationRegistrations', async () => {
 })
 
 test('should provide socialAgentRegistrations', async () => {
-  const registry = await factory.crud.agentRegistry(snippetIri)
+  const registry = await factory.agentRegistry(snippetIri)
   let count = 0
   for await (const authorization of AgentRegistry.socialAgentRegistrations(registry, factory)) {
     count += 1
@@ -33,7 +33,7 @@ test('should provide socialAgentRegistrations', async () => {
 
 // TODO: update snippets with some invitations
 test('should provide socialAgentInvitations', async () => {
-  const registry = await factory.crud.agentRegistry(snippetIri)
+  const registry = await factory.agentRegistry(snippetIri)
   let count = 0
   for await (const invitation of AgentRegistry.socialAgentInvitations(registry, factory)) {
     count += 1
@@ -45,7 +45,7 @@ test('should provide socialAgentInvitations', async () => {
 describe('findApplicationRegistration', () => {
   test('finds application registration', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
       await AgentRegistry.findApplicationRegistration(registry, factory, applicationIri)
     ).toHaveProperty('registeredAgent', applicationIri)
@@ -55,7 +55,7 @@ describe('findApplicationRegistration', () => {
 describe('findSocialAgentRegistration', () => {
   test('finds social agent registration', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
       await AgentRegistry.findSocialAgentRegistration(registry, factory, socialAgentIri)
     ).toHaveProperty('registeredAgent', socialAgentIri)
@@ -66,7 +66,7 @@ describe('findSocialAgentRegistration', () => {
 describe.skip('findSocialAgentInvitation', () => {
   test('finds social agent invitation', async () => {
     const socialAgentInvitationIri = 'TODO'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
       await AgentRegistry.findSocialAgentInvitation(registry, factory, socialAgentInvitationIri)
     ).toHaveProperty('capabilityUrl')
@@ -76,7 +76,7 @@ describe.skip('findSocialAgentInvitation', () => {
 describe('findRegistration', () => {
   test('finds application registration', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(await AgentRegistry.findRegistration(registry, factory, applicationIri)).toHaveProperty(
       'registeredAgent',
       applicationIri
@@ -85,7 +85,7 @@ describe('findRegistration', () => {
 
   test('finds social agent registration', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(await AgentRegistry.findRegistration(registry, factory, socialAgentIri)).toHaveProperty(
       'registeredAgent',
       socialAgentIri
@@ -98,17 +98,24 @@ describe('addSocialAgentRegistration', () => {
 
   test('throws if registration already exists', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
-      AgentRegistry.addSocialAgentRegistration(registry, factory, socialAgentIri, 'Someone')
+      AgentRegistry.addSocialAgentRegistration(
+        registry,
+        factory,
+        { agent: webId, client: agentId },
+        socialAgentIri,
+        'Someone'
+      )
     ).rejects.toThrow('already exists')
   })
 
   test.skip('returns added registration', async () => {
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     const registration = await AgentRegistry.addSocialAgentRegistration(
       registry,
       factory,
+      { agent: webId, client: agentId },
       jane,
       'Jane'
     )
@@ -120,14 +127,14 @@ describe('addSocialAgentInvitation', () => {
   const capabilityUrl = 'https://auth.jane.example/some-secret-url'
 
   test.skip('throws if invitation already exists', async () => {
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
       AgentRegistry.addSocialAgentInvitation(registry, factory, capabilityUrl, 'Someone')
     ).rejects.toThrow('already exists')
   })
 
   test('returns added invitation', async () => {
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     const invitation = await AgentRegistry.addSocialAgentInvitation(
       registry,
       factory,
@@ -144,15 +151,25 @@ describe('addApplicationRegistration', () => {
 
   test('throws if registration already exists', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.crud.agentRegistry(snippetIri)
+    const registry = await factory.agentRegistry(snippetIri)
     expect(
-      AgentRegistry.addApplicationRegistration(registry, factory, applicationIri)
+      AgentRegistry.addApplicationRegistration(
+        registry,
+        factory,
+        { agent: webId, client: agentId },
+        applicationIri
+      )
     ).rejects.toThrow('already exists')
   })
 
   test('returns added registration', async () => {
-    const registry = await factory.crud.agentRegistry(snippetIri)
-    const registration = await AgentRegistry.addApplicationRegistration(registry, factory, gigaApp)
+    const registry = await factory.agentRegistry(snippetIri)
+    const registration = await AgentRegistry.addApplicationRegistration(
+      registry,
+      factory,
+      { agent: webId, client: agentId },
+      gigaApp
+    )
     expect(registration.registeredAgent).toBe(gigaApp)
   })
 })

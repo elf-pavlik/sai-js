@@ -135,7 +135,7 @@ export async function inheritingAuthorizations(
   factory: AuthorizationAgentFactory
 ): Promise<DataAuthorizationData[]> {
   const childIris = data.hasInheritingAuthorization ?? []
-  return Promise.all(childIris.map((iri) => factory.readable.dataAuthorization(iri)))
+  return Promise.all(childIris.map((iri) => factory.dataAuthorization(iri)))
 }
 
 async function generateChildDelegatedGrantData(
@@ -151,7 +151,7 @@ async function generateChildDelegatedGrantData(
     // Find matching child grant by fetching each child IRI
     let childSourceGrant: GrantData | undefined
     for (const childIri of sourceGrant.hasInheritingGrant ?? []) {
-      const childGrant = await registrySet.factory.readable.dataGrant(childIri)
+      const childGrant = await registrySet.factory.dataGrant(childIri)
       if (childGrant.registeredShapeTree === childAuthorization.registeredShapeTree) {
         childSourceGrant = childGrant
         break
@@ -205,7 +205,7 @@ async function generateDelegatedDataGrants(
     }
     // only inspect registrations that have a reciprocal registration
     if (!agentRegistration.reciprocalRegistration) continue
-    const reciprocalReg = await registrySet.factory.crud.socialAgentRegistration(
+    const reciprocalReg = await registrySet.factory.socialAgentRegistration(
       agentRegistration.reciprocalRegistration
     )
 
@@ -404,7 +404,7 @@ export async function generateDataGrants(
   }
 
   if (data.dataOwner && data.scopeOfAuthorization === INTEROP.AllFromRole) {
-    const role = await registrySet.factory.crud.role(data.dataOwner)
+    const role = await registrySet.factory.role(data.dataOwner)
     for (const member of role.members) {
       if (member === data.grantedBy) {
         const sourceGrants = await generateSourceDataGrants(data, registrySet, grantee)

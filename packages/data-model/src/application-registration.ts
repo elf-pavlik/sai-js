@@ -5,9 +5,10 @@ import {
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgentFactory, BaseFactory, GrantData } from '.'
+import type { ApplicationFactory, AuthorizationAgentFactory, GrantData } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
+import type { AgentAndClient } from './templates/types'
 
 // ──────────────────────────
 // Types
@@ -18,7 +19,7 @@ import { createContainer } from './crud/container'
  *
  * Design B: single-node resource — the denormalized client-ID-document fields
  * (name/logo/accessNeedGroup/hasAuthorizationCallbackEndpoint) are not part of
- * the data model; consumers read them via `factory.readable.clientIdDocument(registeredAgent)`.
+ * the data model; consumers read them via `factory.clientIdDocument(registeredAgent)`.
  */
 export type ApplicationRegistrationData = {
   id: string
@@ -64,13 +65,14 @@ export async function loadApplicationRegistration(
 
 export async function createApplicationRegistration(
   data: ApplicationRegistrationData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
   // quad comes from `data.type` (captured from framing on read), no hand-built
   // DataFactory quads; only the container.create hand-off stays N3-based
   const dataset = await toStore(withContext(dataModelContext, data))
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 // ──────────────────────────
@@ -85,7 +87,7 @@ export function getGranted(data: ApplicationRegistrationData): boolean {
 /** Fetch all data grants of this application registration. */
 export async function getDataGrants(
   data: ApplicationRegistrationData,
-  factory: BaseFactory
+  factory: ApplicationFactory
 ): Promise<GrantData[]> {
-  return Promise.all(data.hasDataGrant.map((iri) => factory.readable.dataGrant(iri)))
+  return Promise.all(data.hasDataGrant.map((iri) => factory.dataGrant(iri)))
 }

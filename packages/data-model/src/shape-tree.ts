@@ -9,7 +9,7 @@ import {
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore, NamedNode } from '@rdfjs/types'
 import { DataFactory, type Store } from 'n3'
-import type { InteropFactory, ShapeTreeDescriptionData } from '.'
+import type { ApplicationFactory, ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'
 
 export interface ShapeTreeReference {
@@ -114,7 +114,7 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
 export async function getDescription(
   tree: ShapeTreeData,
   lang: string,
-  factory: InteropFactory
+  factory: ApplicationFactory
 ): Promise<ShapeTreeDescriptionData | null> {
   const response = await factory.fetch(tree.id, {
     headers: { Accept: 'application/ld+json' },
@@ -134,7 +134,7 @@ export async function getDescription(
   const descriptionIri = descriptionNodes.find((node) =>
     getOneMatchingQuad(dataset, node, SHAPETREES.terms.inDescriptionSet, descriptionSetNode)
   )?.value
-  return descriptionIri ? factory.readable.shapeTreeDescription(descriptionIri) : null
+  return descriptionIri ? factory.shapeTreeDescription(descriptionIri) : null
 }
 
 /** The type of resources the shape tree expects (as a NamedNode). */

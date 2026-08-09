@@ -1,6 +1,7 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import type { AgentAndClient } from '../templates/types'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
@@ -17,13 +18,14 @@ export type GrantRegistryData = {
 
 export async function createGrantRegistry(
   data: GrantRegistryData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.GrantRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 export function iriForContained(

@@ -9,23 +9,23 @@ const factory = new ApplicationFactory({ fetch, randomUUID })
 const snippetIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
 
 test('should set correct scopeOfGrant', async () => {
-  const dataGrant = await factory.readable.dataGrant(snippetIri)
+  const dataGrant = await factory.dataGrant(snippetIri)
   expect(dataGrant.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
 })
 
 test('should set correct canCreate', async () => {
-  const dataGrant = await factory.readable.dataGrant(snippetIri)
+  const dataGrant = await factory.dataGrant(snippetIri)
   expect(Grant.canCreate(dataGrant)).toBeFalsy()
 })
 
 test('should set hasDataRegistration', async () => {
-  const dataGrant = await factory.readable.dataGrant(snippetIri)
+  const dataGrant = await factory.dataGrant(snippetIri)
   const dataRegistrationIri = 'https://pro.alice.example/773605f0-b5bf-4d46-878d-5c167eac8b5d'
   expect(dataGrant.hasDataRegistration).toBe(dataRegistrationIri)
 })
 
 test('should provide data instance iterator', async () => {
-  const dataGrant = await factory.readable.dataGrant(snippetIri)
+  const dataGrant = await factory.dataGrant(snippetIri)
   let count = 0
   for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, factory)) {
     expect(typeof instanceIri).toBe('string')

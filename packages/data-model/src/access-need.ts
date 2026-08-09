@@ -84,7 +84,7 @@ export async function getDescription(
   const dataset = await parseJsonld(JSON.stringify(doc), need.id)
   const descriptionSetIri = findInLanguage(dataset, lang)
   if (!descriptionSetIri) return undefined
-  const descriptionSet = await factory.readable.accessDescriptionSet(descriptionSetIri)
+  const descriptionSet = await factory.accessDescriptionSet(descriptionSetIri)
   const { accessNeedDescriptions } = await loadDescriptions(descriptionSet, factory)
   return accessNeedDescriptions.find((description) => description.hasAccessNeed === need.id)
 }
@@ -96,7 +96,7 @@ export async function reliableDescriptionLanguages(
   need: AccessNeedData,
   factory: AuthorizationAgentFactory
 ): Promise<Set<string>> {
-  const shapeTree = await factory.readable.shapeTree(need.registeredShapeTree)
+  const shapeTree = await factory.shapeTree(need.registeredShapeTree)
   const shapeTreeLanguages = new Set(shapeTree.descriptionLanguages)
   return new Set(need.descriptionLanguages.filter((lang) => shapeTreeLanguages.has(lang)))
 }

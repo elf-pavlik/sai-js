@@ -10,7 +10,7 @@ const taskShapeTree = 'https://solidshapes.example/trees/Task'
 
 describe('build', () => {
   test('should return a data instance POJO', async () => {
-    const dataInstance = await factory.readable.dataInstance(projectIri, projectShapeTree)
+    const dataInstance = await factory.dataInstance(projectIri, projectShapeTree)
     expect(dataInstance.id).toBe(projectIri)
     expect(dataInstance.shapeTreeIri).toBe(projectShapeTree)
     expect(dataInstance.isBlob).toBe(false)
@@ -19,14 +19,14 @@ describe('build', () => {
 
   test('should throw if unable to build data registration', async () => {
     await expect(
-      factory.readable.dataInstance(
+      factory.dataInstance(
         'https://pro.alice.example/ccbd77ae-f769-4e07-b41f-5136501e13e7'
       )
     ).rejects.toThrow()
   })
 
   test('should provide label and children if language provided', async () => {
-    const dataInstance = await factory.readable.dataInstance(projectIri, projectShapeTree, 'en')
+    const dataInstance = await factory.dataInstance(projectIri, projectShapeTree, 'en')
     // Project tree does not define describesInstance, so no label is derived
     expect(dataInstance.label).toBeUndefined()
     expect(dataInstance.children).toHaveLength(1)

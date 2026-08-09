@@ -11,6 +11,7 @@ import {
 import { DataFactory, type Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
+import type { AgentAndClient } from '../templates/types'
 import {
   type AgentRegistrationData,
   toDataset as registrationToDataset,
@@ -76,7 +77,7 @@ export async function loadReciprocalRegistration(
   factory: AuthorizationAgentFactory
 ): Promise<SocialAgentRegistrationData | undefined> {
   if (!data.reciprocalRegistration) return undefined
-  return factory.crud.socialAgentRegistration(data.reciprocalRegistration)
+  return factory.socialAgentRegistration(data.reciprocalRegistration)
 }
 
 // ──────────────────────────
@@ -104,7 +105,8 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
 
 export async function createSocialAgentRegistration(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory
+  factory: AuthorizationAgentFactory,
+  creator: AgentAndClient
 ): Promise<void> {
   const dataset = await toDataset(data)
   dataset.add(
@@ -114,7 +116,7 @@ export async function createSocialAgentRegistration(
       INTEROP.terms.SocialAgentRegistration
     )
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, factory, creator, dataset)
 }
 
 // ──────────────────────────

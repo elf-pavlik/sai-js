@@ -86,7 +86,7 @@ export class AuthorizationAgent {
     public registrySetId?: string
   ) {
     this.fetch = dependencies.fetch
-    this.factory = new AuthorizationAgentFactory(webId, agentId, {
+    this.factory = new AuthorizationAgentFactory({
       fetch: this.fetch,
       randomUUID: dependencies.randomUUID,
     })
@@ -168,7 +168,7 @@ export class AuthorizationAgent {
     if (!ownerId) {
       for await (const socialAgentRegistration of this.socialAgentRegistrations) {
         if (!socialAgentRegistration?.reciprocalRegistration) continue
-        const reciprocalReg = await this.factory.crud.socialAgentRegistration(
+        const reciprocalReg = await this.factory.socialAgentRegistration(
           socialAgentRegistration.reciprocalRegistration
         )
         if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
@@ -195,7 +195,7 @@ export class AuthorizationAgent {
     if (!socialAgentRegistration?.reciprocalRegistration) {
       throw new Error(`no reciprocal registration for ${ownerId}`)
     }
-    const reciprocalReg = await this.factory.crud.socialAgentRegistration(
+    const reciprocalReg = await this.factory.socialAgentRegistration(
       socialAgentRegistration.reciprocalRegistration
     )
     const dataGrants = await getDataGrants(reciprocalReg, this.factory)
@@ -204,7 +204,7 @@ export class AuthorizationAgent {
 
   public async findDataRegistrationForResource(resourceId: string): Promise<DataRegistrationData> {
     const registrationId = `${resourceId.split('/').slice(0, -1).join('/')}/`
-    return this.factory.readable.dataRegistration(registrationId)
+    return this.factory.dataRegistration(registrationId)
   }
 
   public async findShapeTreeForResource(resourceId: string): Promise<ShapeTreeData> {
@@ -217,13 +217,13 @@ export class AuthorizationAgent {
       const dataGrant = await this.findGrantForResource(resourceId, ownerId)
       shapeTreeId = dataGrant.registeredShapeTree
     }
-    return this.factory.readable.shapeTree(shapeTreeId)
+    return this.factory.shapeTree(shapeTreeId)
   }
 
   private async bootstrap(): Promise<void> {
-    this.webIdProfile = await this.factory.readable.webIdProfile(this.webId)
+    this.webIdProfile = await this.factory.webIdProfile(this.webId)
     if (this.registrySetId) {
-      this.registrySet = await this.factory.crud.registrySet(this.registrySetId)
+      this.registrySet = await this.factory.registrySet(this.registrySetId)
     }
   }
 
@@ -266,7 +266,7 @@ export class AuthorizationAgent {
     grantee: string
   ): Promise<GeneratedGrants> {
     const dataAuthorizations = await Promise.all(
-      dataAuthorizationIris.map((iri) => this.factory.readable.dataAuthorization(iri))
+      dataAuthorizationIris.map((iri) => this.factory.dataAuthorization(iri))
     )
     return generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee)
   }
@@ -307,7 +307,7 @@ export class AuthorizationAgent {
   }
 
   public async findAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
-    const dataInstance = await this.factory.readable.dataInstance(dataInstanceIri)
+    const dataInstance = await this.factory.dataInstance(dataInstanceIri)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
     const iterator = AuthorizationRegistry.dataAuthorizations(
@@ -409,7 +409,7 @@ export class AuthorizationAgent {
 
     // TODO: ensure all agents have social agent registrations, throw error
 
-    const dataInstance = await this.factory.readable.dataInstance(details.resource)
+    const dataInstance = await this.factory.dataInstance(details.resource)
     const authorizations = await Promise.all(
       agents.map(async (agent) => {
         const authorization = await this.formatAuthorization(agent, dataInstance, details)

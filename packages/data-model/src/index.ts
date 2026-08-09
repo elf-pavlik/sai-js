@@ -1,17 +1,13 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
-import type { ApplicationFactory } from './application-factory'
-import type { AuthorizationAgentFactory } from './authorization-agent-factory'
 
 export interface FactoryDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
 }
-export * from './base-factory'
 export * from './crud'
 export * from './templates'
 export { ApplicationFactory } from './application-factory'
 export { AuthorizationAgentFactory } from './authorization-agent-factory'
-export type InteropFactory = ApplicationFactory | AuthorizationAgentFactory
 export type { DataInstanceData, ChildInfo } from './data-instance'
 export type { ShapeTreeData, ShapeTreeReference } from './shape-tree'
 export * as ShapeTree from './shape-tree'

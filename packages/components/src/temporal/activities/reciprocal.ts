@@ -30,7 +30,7 @@ export async function reciprocalRegistration(
 ): Promise<ReciprocalWebhookInput> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const registration = await session.factory.crud.socialAgentRegistration(payload.registrationId)
+  const registration = await session.factory.socialAgentRegistration(payload.registrationId)
   if (registration.registeredAgent !== payload.peerId) {
     throw new Error(
       `invalid payload - peerId: ${payload.peerId}, registrationId: ${payload.registrationId}, registeredAgent: ${registration.registeredAgent}`

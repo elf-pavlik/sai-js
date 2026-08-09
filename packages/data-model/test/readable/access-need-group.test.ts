@@ -4,18 +4,16 @@ import { describe, test } from 'vitest'
 import { AccessNeedGroup, AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 const snippetIri = 'https://projectron.example/access-needs#need-group-pm'
 
 test('factory should build an access need group', async () => {
-  const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+  const needGroup = await factory.accessNeedGroup(snippetIri)
   expect(needGroup.id).toBe(snippetIri)
 })
 
 test('access needs', async () => {
-  const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+  const needGroup = await factory.accessNeedGroup(snippetIri)
   const accessNeedIri = 'https://projectron.example/access-needs#need-project'
   expect(needGroup.hasAccessNeed).toEqual([accessNeedIri])
   expect(needGroup.accessNeeds).toHaveLength(1)
@@ -25,7 +23,7 @@ test('access needs', async () => {
 describe('descriptions', () => {
   test('should get description for language', async () => {
     const lang = 'en'
-    const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+    const needGroup = await factory.accessNeedGroup(snippetIri)
     const description = await AccessNeedGroup.getDescription(needGroup, lang, factory)
     expect(description).toBeDefined()
     expect(description?.prefLabel).toBe('Manage Projects')
@@ -36,20 +34,20 @@ describe('descriptions', () => {
 
   test('should gracefully fail if no description set for language', async () => {
     const lang = 'fr'
-    const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+    const needGroup = await factory.accessNeedGroup(snippetIri)
     const description = await AccessNeedGroup.getDescription(needGroup, lang, factory)
     expect(description).toBeUndefined()
   })
 
   test('should gracefully fail if description set with missing description for language', async () => {
     const lang = 'de'
-    const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+    const needGroup = await factory.accessNeedGroup(snippetIri)
     const description = await AccessNeedGroup.getDescription(needGroup, lang, factory)
     expect(description).toBeUndefined()
   })
 
   test('should get reliable description languages', async () => {
-    const needGroup = await factory.readable.accessNeedGroup(snippetIri)
+    const needGroup = await factory.accessNeedGroup(snippetIri)
     const languages = await AccessNeedGroup.reliableDescriptionLanguages(needGroup, factory)
     expect([...languages].sort()).toStrictEqual(['en', 'pl'])
   })

@@ -3,23 +3,23 @@ import { fetch } from '@janeirodigital/interop-test-utils'
 import { parseTurtle } from '@janeirodigital/interop-utils'
 import * as jsonldNs from 'jsonld'
 import { describe, expect, test } from 'vitest'
-import { BaseFactory, Grant } from '../src'
+import { ApplicationFactory, Grant } from '../src'
 
 // CJS/ESM interop
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 describe('constructor', () => {
   test('should set fetch', () => {
-    const factory = new BaseFactory({ fetch, randomUUID })
+    const factory = new ApplicationFactory({ fetch, randomUUID })
     expect(factory.fetch).toBe(fetch)
   })
 })
 
 test('builds application registration', async () => {
-  const factory = new BaseFactory({ fetch, randomUUID })
+  const factory = new ApplicationFactory({ fetch, randomUUID })
   const applicationRegistrationUrl =
     'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
-  const applicationRegistration = await factory.readable.applicationRegistration(
+  const applicationRegistration = await factory.applicationRegistration(
     applicationRegistrationUrl
   )
   expect(applicationRegistration.id).toEqual(applicationRegistrationUrl)
@@ -47,8 +47,8 @@ test('throws for grant with invalid scope', async () => {
       },
     }
   }
-  const factory = new BaseFactory({ fetch: rawFetch, randomUUID })
-  const grant = await factory.readable.dataGrant('https://foo.example/bar')
+  const factory = new ApplicationFactory({ fetch: rawFetch, randomUUID })
+  const grant = await factory.dataGrant('https://foo.example/bar')
   // getDataInstanceIterator is an async generator, error only surfaces on iteration
   const iterator = Grant.getDataInstanceIterator(grant, factory)
   await expect(iterator.next()).rejects.toThrow('Unknown scope')

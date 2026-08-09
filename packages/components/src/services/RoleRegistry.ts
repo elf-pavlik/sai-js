@@ -40,7 +40,7 @@ export const updateRole = async (
   label: string,
   members: readonly S.Schema.Type<typeof IRI>[]
 ): Promise<S.Schema.Type<typeof Role>> => {
-  const role = await saiSession.factory.crud.role(id)
+  const role = await saiSession.factory.role(id)
   await RoleRegistry.updateRole(
     saiSession.registrySet.hasRoleRegistry,
     saiSession.factory,
@@ -73,7 +73,7 @@ export const deleteRole = async (
   saiSession: AuthorizationAgent,
   id: S.Schema.Type<typeof IRI>
 ): Promise<void> => {
-  const role = await saiSession.factory.crud.role(id)
+  const role = await saiSession.factory.role(id)
   await RoleRegistry.deleteRole(
     saiSession.registrySet.hasRoleRegistry,
     saiSession.factory,

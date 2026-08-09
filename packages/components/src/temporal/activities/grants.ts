@@ -100,7 +100,7 @@ export async function getGrantees(payload: {
       payload.grantee
     )
   ) {
-    const role = await session.factory.crud.role(payload.grantee)
+    const role = await session.factory.role(payload.grantee)
     return role.members
   }
   throw new Error('agent or role registration for the grantee does not exist')
@@ -160,7 +160,7 @@ export async function ensurePeers(payload: { webId: string; peersOrRoles: string
           peerOrRole
         )
       ) {
-        const role = await session.factory.crud.role(peerOrRole)
+        const role = await session.factory.role(peerOrRole)
         peers = new Set([...peers, ...role.members])
       }
     }

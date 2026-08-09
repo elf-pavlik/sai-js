@@ -6,7 +6,7 @@ import {
   frameDoc,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { BaseFactory } from './base-factory'
+import type { ApplicationFactory } from './application-factory'
 import { dataModelContext } from './context'
 import { childIris, frameDataInstance } from './data-instance'
 
@@ -125,12 +125,11 @@ export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
  */
 export async function* getDataInstanceIterator(
   grant: GrantData,
-  factory: BaseFactory
+  factory: ApplicationFactory
 ): AsyncIterable<string> {
-  const { readable } = factory
   switch (grant.scopeOfGrant) {
     case INTEROP.AllFromRegistry: {
-      const registration = await readable.dataRegistration(grant.hasDataRegistration)
+      const registration = await factory.dataRegistration(grant.hasDataRegistration)
       for (const iri of registration.contains) {
         yield iri
       }
@@ -143,7 +142,7 @@ export async function* getDataInstanceIterator(
       break
     }
     case INTEROP.Inherited: {
-      const parentGrant = await readable.dataGrant(grant.inheritsFromGrant!)
+      const parentGrant = await factory.dataGrant(grant.inheritsFromGrant!)
       for await (const parentIri of getDataInstanceIterator(parentGrant, factory)) {
         yield* await getChildInstanceIris(
           parentGrant,
@@ -167,9 +166,9 @@ async function getChildInstanceIris(
   parentGrant: GrantData,
   parentIri: string,
   childShapeTree: string,
-  factory: BaseFactory
+  factory: ApplicationFactory
 ): Promise<string[]> {
-  const parentShapeTree = await factory.readable.shapeTree(parentGrant.registeredShapeTree)
+  const parentShapeTree = await factory.shapeTree(parentGrant.registeredShapeTree)
   const node = await frameDataInstance(parentIri, factory, parentShapeTree)
   return childIris(node, parentShapeTree, childShapeTree)
 }

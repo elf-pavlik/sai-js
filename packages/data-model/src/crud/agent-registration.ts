@@ -53,14 +53,14 @@ export async function toDataset(data: AgentRegistrationData): Promise<Store> {
 export async function setAcr(
   data: AgentRegistrationData,
   factory: AuthorizationAgentFactory,
-  owner: AgentAndClient,
+  creator: AgentAndClient,
   peer: AgentAndClient
 ): Promise<void> {
   const acrLocation = await discoverAccessResource(data.id, factory.fetch)
   const dataset = await parseTurtle(
     agentRegistrationAcrTemplate({
       id: data.id,
-      owner,
+      owner: creator,
       peer,
     })
   )
@@ -85,7 +85,7 @@ export async function getDataGrants(
   factory: AuthorizationAgentFactory
 ): Promise<GrantData[]> {
   const iris = await getDataGrantIris(data)
-  return Promise.all(iris.map((iri) => factory.readable.dataGrant(iri)))
+  return Promise.all(iris.map((iri) => factory.dataGrant(iri)))
 }
 
 export async function addDataGrant(

@@ -93,7 +93,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const owners = await session.resourceOwners()
     const profiles = await Promise.all(
-      [...owners].map((owner) => session.factory.readable.webIdProfile(owner))
+      [...owners].map((owner) => session.factory.webIdProfile(owner))
     )
 
     agents.value = profiles.map((profile) => ({

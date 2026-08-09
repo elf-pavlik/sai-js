@@ -10,7 +10,7 @@ const snippetIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5
 
 test('should set correct scopeOfGrant', async () => {
   const dataGrant = await factory.readable.dataGrant(snippetIri)
-  expect(dataGrant.scopeOfGrant).toBe(INTEROP.AllFromRegistry.value)
+  expect(dataGrant.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
 })
 
 test('should set correct canCreate', async () => {

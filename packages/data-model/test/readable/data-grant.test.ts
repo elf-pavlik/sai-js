@@ -20,8 +20,8 @@ test('should set the type', async () => {
 
 test('should set the accessMode', async () => {
   const dataGrant = await factory.readable.dataGrant(dataGrantIri)
-  expect(dataGrant.accessMode).toContain(ACL.Read.value)
-  expect(dataGrant.accessMode).toContain(ACL.Write.value)
+  expect(dataGrant.accessMode).toContain(ACL.Read)
+  expect(dataGrant.accessMode).toContain(ACL.Write)
 })
 
 test('should set the hasDataRegistration', async () => {

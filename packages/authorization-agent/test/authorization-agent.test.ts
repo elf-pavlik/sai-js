@@ -117,33 +117,33 @@ describe.skip('authorization agent', () => {
       hasAccessNeedGroup: 'https://projectron.example/#some-access-group',
     } as const
     const validDataAuthorizationData = {
-      type: [INTEROP.DataAuthorization.value],
+      type: [INTEROP.DataAuthorization],
       grantee: 'https://acme.example/#corp',
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       dataOwner: 'https://omni.example/#corp',
-      accessMode: [ACL.Read.value],
-      scopeOfAuthorization: INTEROP.AllFromAgent.value,
+      accessMode: [ACL.Read],
+      scopeOfAuthorization: INTEROP.AllFromAgent,
       children: [
         {
-          type: [INTEROP.DataAuthorization.value],
+          type: [INTEROP.DataAuthorization],
           grantee: 'https://acme.example/#corp',
           grantedBy: webId,
           registeredShapeTree: 'https://solidshapes.example/tree/Task',
           dataOwner: 'https://omni.example/#corp',
-          accessMode: [ACL.Read.value],
-          scopeOfAuthorization: INTEROP.Inherited.value,
+          accessMode: [ACL.Read],
+          scopeOfAuthorization: INTEROP.Inherited,
         },
       ],
     }
     const invalidDataAuthorizationData = {
-      type: [INTEROP.DataAuthorization.value],
+      type: [INTEROP.DataAuthorization],
       grantee: 'https://acme.example/#corp',
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       dataOwner: 'https://acme.example/#corp',
-      accessMode: [ACL.Read.value],
-      scopeOfAuthorization: INTEROP.AllFromAgent.value,
+      accessMode: [ACL.Read],
+      scopeOfAuthorization: INTEROP.AllFromAgent,
     }
 
     let agent: AuthorizationAgent
@@ -187,7 +187,7 @@ describe.skip('authorization agent', () => {
       authorizationRegistry.dataset.add(
         DataFactory.quad(
           authorizationRegistry.node,
-          INTEROP.hasAccessAuthorization,
+          INTEROP.terms.hasAccessAuthorization,
           DataFactory.namedNode(priorAuthorizationIri)
         )
       )
@@ -207,13 +207,13 @@ describe.skip('authorization agent', () => {
 
     test('should extend existing access authorization when overlaping registry', async () => {
       const dataAuthorization = {
-        type: [INTEROP.DataAuthorization.value],
+        type: [INTEROP.DataAuthorization],
         grantee: 'https://acme.example/#corp',
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
         dataOwner: 'https://omni.example/#corp',
-        accessMode: [ACL.Read.value],
-        scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+        accessMode: [ACL.Read],
+        scopeOfAuthorization: INTEROP.SelectedFromRegistry,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
         hasDataInstance: ['https://home.alice.example/06c7ac17-2825-411b-ad55-31bb46aa75cd'],
       }
@@ -258,7 +258,7 @@ describe.skip('authorization agent', () => {
       authorizationRegistry.dataset.add(
         DataFactory.quad(
           authorizationRegistry.node,
-          INTEROP.hasAccessAuthorization,
+          INTEROP.terms.hasAccessAuthorization,
           DataFactory.namedNode(priorAuthorizationIri)
         )
       )
@@ -288,13 +288,13 @@ describe.skip('authorization agent', () => {
 
     test('should throw if overlaping data authorization has unexpected scope', async () => {
       const dataAuthorization = {
-        type: [INTEROP.DataAuthorization.value],
+        type: [INTEROP.DataAuthorization],
         grantee: 'https://acme.example/#corp',
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
         dataOwner: 'https://omni.example/#corp',
-        accessMode: [ACL.Read.value],
-        scopeOfAuthorization: INTEROP.AllFromRegistry.value,
+        accessMode: [ACL.Read],
+        scopeOfAuthorization: INTEROP.AllFromRegistry,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
       }
       const matchingDataAuthorization = {
@@ -393,7 +393,7 @@ describe.skip('authorization agent', () => {
     const authorization = {
       grantee: 'https://omni.example/#corp',
       registeredShapeTree: 'https://shapetrees.example/tree/Project',
-      accessMode: [ACL.Read.value],
+      accessMode: [ACL.Read],
     }
     const dataInstance = {
       iri: 'https://home.alice.example/some-registration/some-resource',
@@ -416,7 +416,7 @@ describe.skip('authorization agent', () => {
     test('with scope All', async () => {
       const allAuthorization = {
         iri: 'mocked-all',
-        scopeOfAuthorization: INTEROP.All.value,
+        scopeOfAuthorization: INTEROP.All,
         ...authorization,
       }
       vi.spyOn(agent, 'accessAuthorizations', 'get').mockReturnValue([
@@ -438,7 +438,7 @@ describe.skip('authorization agent', () => {
     test('with scope AllFromAgent', async () => {
       const allAuthorization = {
         iri: 'mocked-all-from-agent',
-        scopeOfAuthorization: INTEROP.AllFromAgent.value,
+        scopeOfAuthorization: INTEROP.AllFromAgent,
         dataOwner: webId,
         ...authorization,
       }
@@ -462,7 +462,7 @@ describe.skip('authorization agent', () => {
     test('with scope AllFromRegistry', async () => {
       const allAuthorization = {
         iri: 'mocked-all-from-registry',
-        scopeOfAuthorization: INTEROP.AllFromRegistry.value,
+        scopeOfAuthorization: INTEROP.AllFromRegistry,
         dataOwner: webId,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
         ...authorization,
@@ -486,7 +486,7 @@ describe.skip('authorization agent', () => {
     test('with scope SelectedFromRegistry', async () => {
       const allAuthorization = {
         iri: 'mocked-selected-instances',
-        scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+        scopeOfAuthorization: INTEROP.SelectedFromRegistry,
         dataOwner: webId,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
         hasDataInstance: [dataInstance.iri],
@@ -560,11 +560,11 @@ describe.skip('authorization agent', () => {
       const details: ShareDataInstanceStructure = {
         applicationId: 'https://projectron.example/',
         resource: 'https://home.alice.example/some-registration/some-resource',
-        accessMode: [INTEROP.Read.value],
+        accessMode: [INTEROP.Read],
         children: [
           {
             shapeTree: 'https://shapetrees.example/tree/Task',
-            accessMode: [INTEROP.Read.value],
+            accessMode: [INTEROP.Read],
           },
         ],
         agents: ['https://bob.example/#id'],
@@ -597,20 +597,20 @@ describe.skip('authorization agent', () => {
           granted: true,
           dataAuthorizations: [
             {
-              type: [INTEROP.DataAuthorization.value],
+              type: [INTEROP.DataAuthorization],
               grantee: details.agents[0],
               registeredShapeTree: shapeTree,
-              scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+              scopeOfAuthorization: INTEROP.SelectedFromRegistry,
               dataOwner: webId,
               hasDataRegistration: dataInstance.dataRegistration.iri,
               accessMode: details.accessMode,
               hasDataInstance: [dataInstance.iri],
               children: [
                 {
-                  type: [INTEROP.DataAuthorization.value],
+                  type: [INTEROP.DataAuthorization],
                   grantee: details.agents[0],
                   registeredShapeTree: details.children[0].shapeTree,
-                  scopeOfAuthorization: INTEROP.Inherited.value,
+                  scopeOfAuthorization: INTEROP.Inherited,
                   dataOwner: webId,
                   hasDataRegistration: childDataRegistration.iri,
                   accessMode: details.children[0].accessMode,

@@ -42,9 +42,8 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<ClientIdDoc
     // key instead of the @type:'@id' term key — check both. Expanded-form
     // documents (node references) compact to the term key directly.
     callbackEndpoint:
-      node.callbackEndpoint ?? node[INTEROP.hasAuthorizationCallbackEndpoint.value] ?? undefined,
-    hasAccessNeedGroup:
-      node.hasAccessNeedGroup ?? node[INTEROP.hasAccessNeedGroup.value] ?? undefined,
+      node.callbackEndpoint ?? node[INTEROP.hasAuthorizationCallbackEndpoint] ?? undefined,
+    hasAccessNeedGroup: node.hasAccessNeedGroup ?? node[INTEROP.hasAccessNeedGroup] ?? undefined,
     // literals — framedValue unwraps language-tagged / typed values
     clientName: framedValue(node.clientName),
     logoUri: framedValue(node.logoUri),

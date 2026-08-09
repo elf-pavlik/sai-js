@@ -27,7 +27,7 @@ describe('ShapeTree framing', () => {
       id: TREE_IRI,
       shape: 'https://data/shapetrees/shapes/Project',
       describesInstance: 'http://www.w3.org/2000/01/rdf-schema#label',
-      expectsType: SHAPETREES.Resource.value,
+      expectsType: SHAPETREES.Resource,
       descriptionLanguages: ['en', 'es', 'pl'],
       references: [
         {

@@ -8,12 +8,15 @@ import {
   SKOS,
   SOLID,
   type WhatwgFetch,
-  buildNamespace,
+  createVocabulary,
   fetchJsonLd,
   frameDoc,
 } from '@janeirodigital/interop-utils'
 
-const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#')
+const NFO = createVocabulary(
+  'http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#',
+  'fileName'
+)
 
 /**
  * JSON-LD term definition with IRI coercion (`@type: '@id'`): values compact
@@ -22,14 +25,14 @@ const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22
  * namespaces instead of hand-written IRI strings (single source of truth).
  *
  * `@reverse` terms and literal terms (no coercion) stay explicit object
- * literals, e.g. `label: { '@id': RDFS.label.value }`.
+ * literals, e.g. `label: { '@id': RDFS.label }`.
  */
 export const iriTermDef = (
   ns: any,
   name: string,
   { set = false }: { set?: boolean } = {}
 ): Record<string, string> => ({
-  '@id': ns[name].value,
+  '@id': ns[name],
   '@type': '@id',
   ...(set ? { '@container': '@set' } : {}),
 })
@@ -87,17 +90,17 @@ export const dataModelContext: JsonLdContext = {
 
   // interop — reverse relationships (resolved by the framing algorithm)
   hasInheritingGrant: {
-    '@reverse': INTEROP.inheritsFromGrant.value,
+    '@reverse': INTEROP.inheritsFromGrant,
     '@type': '@id',
     '@container': '@set',
   },
   hasInheritingAuthorization: {
-    '@reverse': INTEROP.inheritsFromAuthorization.value,
+    '@reverse': INTEROP.inheritsFromAuthorization,
     '@type': '@id',
     '@container': '@set',
   },
   hasInheritingNeed: {
-    '@reverse': INTEROP.inheritsFromNeed.value,
+    '@reverse': INTEROP.inheritsFromNeed,
     '@type': '@id',
     '@container': '@set',
   },
@@ -112,23 +115,23 @@ export const dataModelContext: JsonLdContext = {
   hasShapeTree: iriTermDef(SHAPETREES, 'hasShapeTree'),
   viaPredicate: iriTermDef(SHAPETREES, 'viaPredicate'),
   // node objects (references) — no IRI coercion
-  references: { '@id': SHAPETREES.references.value, '@container': '@set' },
+  references: { '@id': SHAPETREES.references, '@container': '@set' },
   // literals (xsd:language) on the description sets
-  descriptionLanguages: { '@id': SHAPETREES.usesLanguage.value, '@container': '@set' },
+  descriptionLanguages: { '@id': SHAPETREES.usesLanguage, '@container': '@set' },
 
   // skos / rdfs — literals
-  prefLabel: { '@id': SKOS.prefLabel.value },
-  definition: { '@id': SKOS.definition.value },
-  note: { '@id': SKOS.note.value },
-  label: { '@id': RDFS.label.value },
+  prefLabel: { '@id': SKOS.prefLabel },
+  definition: { '@id': SKOS.definition },
+  note: { '@id': SKOS.note },
+  label: { '@id': RDFS.label },
 
   // solid / oidc
   oidcIssuer: iriTermDef(SOLID, 'oidcIssuer'),
-  clientName: { '@id': OIDC.client_name.value },
-  logoUri: { '@id': OIDC.logo_uri.value },
+  clientName: { '@id': OIDC.client_name },
+  logoUri: { '@id': OIDC.logo_uri },
 
   // nfo
-  fileName: { '@id': NFO.fileName.value },
+  fileName: { '@id': NFO.fileName },
 }
 
 /**

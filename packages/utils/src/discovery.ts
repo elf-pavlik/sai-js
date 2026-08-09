@@ -46,7 +46,7 @@ export async function discoverAuthorizationAgent(
   fetch: WhatwgFetch
 ): Promise<string | undefined> {
   const doc = await fetchJsonLd(webId, fetch)
-  return (await documentValues(doc, webId, INTEROP.hasAuthorizationAgent.value))[0]
+  return (await documentValues(doc, webId, INTEROP.hasAuthorizationAgent))[0]
 }
 
 export async function discoverDelegationIssuanceEndpoint(
@@ -55,7 +55,7 @@ export async function discoverDelegationIssuanceEndpoint(
 ): Promise<string> {
   const uasId = await discoverAuthorizationAgent(webId, fetch)
   const doc = await fetchJsonLd(uasId, fetch)
-  return (await documentValues(doc, uasId, INTEROP.hasDelegationIssuanceEndpoint.value))[0]
+  return (await documentValues(doc, uasId, INTEROP.hasDelegationIssuanceEndpoint))[0]
 }
 
 export async function discoverAgentRegistration(
@@ -108,7 +108,7 @@ export async function discoverAuthorizationRedirectEndpoint(
 ): Promise<string> {
   const doc = await fetchJsonLd(authorizationAgentIri, fetch)
   return (
-    await documentValues(doc, authorizationAgentIri, INTEROP.hasAuthorizationRedirectEndpoint.value)
+    await documentValues(doc, authorizationAgentIri, INTEROP.hasAuthorizationRedirectEndpoint)
   )[0]!
 }
 
@@ -117,12 +117,8 @@ export async function discoverWebPushService(
   fetch: WhatwgFetch
 ): Promise<{ id: string; vapidPublicKey: string } | undefined> {
   const doc = await fetchJsonLd(authorizationAgentIri, fetch)
-  const [id] = await documentValues(doc, authorizationAgentIri, INTEROP.pushService.value)
-  const [vapidPublicKey] = await documentValues(
-    doc,
-    authorizationAgentIri,
-    NOTIFY.vapidPublicKey.value
-  )
+  const [id] = await documentValues(doc, authorizationAgentIri, INTEROP.pushService)
+  const [vapidPublicKey] = await documentValues(doc, authorizationAgentIri, NOTIFY.vapidPublicKey)
   if (!id || !vapidPublicKey) return
   return { id, vapidPublicKey }
 }

@@ -54,9 +54,9 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedD
     inheritsFromNeed: node.inheritsFromNeed ?? undefined,
     hasInheritingNeed: node.hasInheritingNeed ?? [],
     accessMode: node.accessMode ?? [],
-    required: node.required === INTEROP.AccessRequired.value,
+    required: node.required === INTEROP.AccessRequired,
     children: [],
-    descriptionLanguages: await documentValues(doc, iri, INTEROP.usesLanguage.value),
+    descriptionLanguages: await documentValues(doc, iri, INTEROP.usesLanguage),
   }
 }
 

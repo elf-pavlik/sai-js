@@ -161,14 +161,14 @@ async function generateChildDelegatedGrantData(
 
     const childData: GrantData = {
       // no id — delegation endpoint assigns IRIs
-      type: [INTEROP.DataGrant.value],
+      type: [INTEROP.DataGrant],
       grantee,
       grantedBy: data.grantedBy,
       dataOwner: childSourceGrant.dataOwner,
       registeredShapeTree: childAuthorization.registeredShapeTree,
       hasDataRegistration: childSourceGrant.hasDataRegistration,
       hasStorage: childSourceGrant.hasStorage,
-      scopeOfGrant: INTEROP.Inherited.value,
+      scopeOfGrant: INTEROP.Inherited,
       accessMode: childAuthorization.accessMode.filter((mode) =>
         childSourceGrant.accessMode.includes(mode)
       ),
@@ -186,7 +186,7 @@ async function generateDelegatedDataGrants(
   grantee: string,
   dataOwner?: string
 ): Promise<GrantData[]> {
-  if (data.scopeOfAuthorization === INTEROP.Inherited.value) {
+  if (data.scopeOfAuthorization === INTEROP.Inherited) {
     throw new Error('this method should not be callend on data authorizations with Inherited scope')
   }
   const result: GrantData[] = []
@@ -236,12 +236,12 @@ async function generateDelegatedDataGrants(
         grantee
       )
       const scope: string =
-        data.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value ||
-        sourceGrant.scopeOfGrant === INTEROP.SelectedFromRegistry.value
-          ? INTEROP.SelectedFromRegistry.value
-          : INTEROP.AllFromRegistry.value
+        data.scopeOfAuthorization === INTEROP.SelectedFromRegistry ||
+        sourceGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
+          ? INTEROP.SelectedFromRegistry
+          : INTEROP.AllFromRegistry
       const grant: GrantData = {
-        type: [INTEROP.DataGrant.value],
+        type: [INTEROP.DataGrant],
         grantee,
         grantedBy: data.grantedBy,
         dataOwner: sourceGrant.dataOwner,
@@ -252,7 +252,7 @@ async function generateDelegatedDataGrants(
         delegationOfGrant: sourceGrant.id!,
         accessMode: data.accessMode.filter((mode) => sourceGrant.accessMode.includes(mode)),
       }
-      if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) {
+      if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) {
         if (data.hasDataInstance?.length) {
           grant.hasDataInstance = [...data.hasDataInstance]
         } else {
@@ -292,14 +292,14 @@ async function generateChildSourceGrantData(
 
     const childData: FinalGrantData = {
       id: childGrantIri,
-      type: [INTEROP.DataGrant.value],
+      type: [INTEROP.DataGrant],
       grantee,
       grantedBy: childAuthorization.grantedBy,
       dataOwner: childAuthorization.grantedBy,
       registeredShapeTree: childAuthorization.registeredShapeTree,
       hasDataRegistration: dataRegistration.id,
       hasStorage: storageIri,
-      scopeOfGrant: INTEROP.Inherited.value,
+      scopeOfGrant: INTEROP.Inherited,
       accessMode: childAuthorization.accessMode,
       inheritsFromGrant: parentGrantIri,
     }
@@ -313,7 +313,7 @@ async function generateSourceDataGrants(
   registrySet: RegistrySetData,
   grantee: string
 ): Promise<FinalGrantData[]> {
-  if (data.scopeOfAuthorization === INTEROP.Inherited.value) {
+  if (data.scopeOfAuthorization === INTEROP.Inherited) {
     throw new Error('this method should not be callend on data authorizations with Inherited scope')
   }
 
@@ -358,12 +358,12 @@ async function generateSourceDataGrants(
       await DataRegistry.storageIri(dataRegistry, registrySet.factory)
     )
 
-    let scopeOfGrant = INTEROP.AllFromRegistry.value
-    if (data.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value)
-      scopeOfGrant = INTEROP.SelectedFromRegistry.value
+    let scopeOfGrant: string = INTEROP.AllFromRegistry
+    if (data.scopeOfAuthorization === INTEROP.SelectedFromRegistry)
+      scopeOfGrant = INTEROP.SelectedFromRegistry
     const grant: FinalGrantData = {
       id: regularGrantIri,
-      type: [INTEROP.DataGrant.value],
+      type: [INTEROP.DataGrant],
       grantee,
       grantedBy: data.grantedBy,
       dataOwner: data.grantedBy,
@@ -403,7 +403,7 @@ export async function generateDataGrants(
     delegated: [],
   }
 
-  if (data.dataOwner && data.scopeOfAuthorization === INTEROP.AllFromRole.value) {
+  if (data.dataOwner && data.scopeOfAuthorization === INTEROP.AllFromRole) {
     const role = await registrySet.factory.crud.role(data.dataOwner)
     for (const member of role.members) {
       if (member === data.grantedBy) {
@@ -469,7 +469,7 @@ export async function generateGrantsForAuthorization(
   const delegatedGrants: GrantData[] = []
 
   for (const dataAuthorization of dataAuthorizations) {
-    if (dataAuthorization.scopeOfAuthorization === INTEROP.Inherited.value) {
+    if (dataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
       continue
     }
     const grants = await generateDataGrants(dataAuthorization, registrySet, grantee)

@@ -16,7 +16,7 @@ describe('build', () => {
     capabilityUrl: 'https://auth.alice.example/some-secret-url',
     prefLabel: 'Yori',
     note: 'A cage fighter',
-    type: [INTEROP.SocialAgentInvitation.value],
+    type: [INTEROP.SocialAgentInvitation],
   }
 
   test('getters', async () => {

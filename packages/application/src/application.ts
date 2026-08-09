@@ -1,8 +1,8 @@
 import {
   ApplicationFactory,
+  ApplicationRegistration,
   type ApplicationRegistrationData,
   type DataOwnerData,
-  ApplicationRegistration,
   Grant,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -157,13 +157,13 @@ export class Application {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
     let list: string[] = []
-    if (grant.scopeOfGrant === INTEROP.Inherited.value) {
+    if (grant.scopeOfGrant === INTEROP.Inherited) {
       throw new Error('Cannot list instances from Inherited grants')
     }
-    if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) {
+    if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) {
       list = grant.hasDataInstance ?? []
     }
-    if (grant.scopeOfGrant === INTEROP.AllFromRegistry.value) {
+    if (grant.scopeOfGrant === INTEROP.AllFromRegistry) {
       const dataRegistration = await this.factory.readable.dataRegistration(
         grant.hasDataRegistration
       )
@@ -199,25 +199,25 @@ export class Application {
 
   public async canCreate(resourceServer: string, scope: string): Promise<boolean> {
     const grant = await this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create.value)
+    return grant?.accessMode.includes(ACL.Create)
   }
 
   public async canCreateChild(parentId: string, scope: string): Promise<boolean> {
     const { resourceServer } = this.parentMap.get(parentId)
     const grant = await this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create.value)
+    return grant?.accessMode.includes(ACL.Create)
   }
 
   public async canUpdate(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Update.value)
+    return grant?.accessMode.includes(ACL.Update)
   }
 
   public async canDelete(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Delete.value)
+    return grant?.accessMode.includes(ACL.Delete)
   }
 
   // TODO: rename to idForNew

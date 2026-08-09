@@ -46,12 +46,12 @@ export type ShapeTreeData = {
  */
 export async function fromDataset(dataset: DatasetCore, iri: string): Promise<ShapeTreeData> {
   const node = DataFactory.namedNode(iri)
-  const referenceNodes = getAllMatchingQuads(dataset, node, SHAPETREES.references).map(
+  const referenceNodes = getAllMatchingQuads(dataset, node, SHAPETREES.terms.references).map(
     (quad) => quad.object
   )
   const references: ShapeTreeReference[] = referenceNodes.map((referenceNode) => {
-    const hasShapeTree = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.hasShapeTree)
-    const viaPredicate = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.viaPredicate)
+    const hasShapeTree = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.hasShapeTree)
+    const viaPredicate = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.viaPredicate)
     if (!hasShapeTree || !viaPredicate) {
       throw new Error(`shape tree ${iri} has a reference missing hasShapeTree/viaPredicate`)
     }
@@ -62,11 +62,11 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Sh
   })
   return {
     id: iri,
-    shape: getOneMatchingQuad(dataset, node, SHAPETREES.shape)?.object.value,
-    describesInstance: getOneMatchingQuad(dataset, node, SHAPETREES.describesInstance)?.object
+    shape: getOneMatchingQuad(dataset, node, SHAPETREES.terms.shape)?.object.value,
+    describesInstance: getOneMatchingQuad(dataset, node, SHAPETREES.terms.describesInstance)?.object
       .value,
-    expectsType: getOneMatchingQuad(dataset, node, SHAPETREES.expectsType)?.object.value,
-    descriptionLanguages: getAllMatchingQuads(dataset, null, SHAPETREES.usesLanguage).map(
+    expectsType: getOneMatchingQuad(dataset, node, SHAPETREES.terms.expectsType)?.object.value,
+    descriptionLanguages: getAllMatchingQuads(dataset, null, SHAPETREES.terms.usesLanguage).map(
       (quad) => quad.object.value
     ),
     references,
@@ -124,15 +124,15 @@ export async function getDescription(
   const descriptionSetNode = getOneMatchingQuad(
     dataset,
     null,
-    SHAPETREES.usesLanguage,
-    DataFactory.literal(lang, XSD.language)
+    SHAPETREES.terms.usesLanguage,
+    DataFactory.literal(lang, XSD.terms.language)
   )?.subject
   if (!descriptionSetNode) return null
-  const descriptionNodes = getAllMatchingQuads(dataset, null, SHAPETREES.describes).map(
+  const descriptionNodes = getAllMatchingQuads(dataset, null, SHAPETREES.terms.describes).map(
     (quad) => quad.subject
   )
   const descriptionIri = descriptionNodes.find((node) =>
-    getOneMatchingQuad(dataset, node, SHAPETREES.inDescriptionSet, descriptionSetNode)
+    getOneMatchingQuad(dataset, node, SHAPETREES.terms.inDescriptionSet, descriptionSetNode)
   )?.value
   return descriptionIri ? factory.readable.shapeTreeDescription(descriptionIri) : null
 }

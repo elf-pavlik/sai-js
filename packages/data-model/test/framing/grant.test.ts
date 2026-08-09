@@ -15,15 +15,15 @@ describe('Grant framing', () => {
     const grant = await Grant.fromJsonLd(doc, GRANT_IRI)
     expect(grant).toEqual({
       id: GRANT_IRI,
-      type: [INTEROP.DataGrant.value],
+      type: [INTEROP.DataGrant],
       grantee: 'https://id/bob',
       grantedBy: 'https://id/acme',
       dataOwner: 'https://id/acme',
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       hasDataRegistration: 'https://data/acme-rnd/reb39k/',
       hasStorage: 'https://data/acme-rnd/',
-      scopeOfGrant: INTEROP.AllFromRegistry.value,
-      accessMode: [ACL.Read.value, ACL.Create.value, ACL.Update.value, ACL.Delete.value],
+      scopeOfGrant: INTEROP.AllFromRegistry,
+      accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
       creatorAccessMode: [],
       hasDataInstance: [],
       inheritsFromGrant: undefined,

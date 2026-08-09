@@ -15,7 +15,7 @@ describe('ShapeTreeDescription framing', () => {
     const description = await ShapeTreeDescription.fromJsonLd(doc, DESCRIPTION_IRI)
     expect(description).toEqual({
       id: DESCRIPTION_IRI,
-      type: [SHAPETREES.Description.value],
+      type: [SHAPETREES.Description],
       prefLabel: 'Projects',
       definition: undefined,
     })

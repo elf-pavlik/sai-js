@@ -77,13 +77,13 @@ describe('setTimestampsAndAgents', () => {
     expect(dataset).toBeRdfDatasetContaining(
       DataFactory.quad(
         DataFactory.namedNode(timestampIri),
-        INTEROP.registeredBy,
-        DataFactory.literal(webId, XSD.string)
+        INTEROP.terms.registeredBy,
+        DataFactory.literal(webId, XSD.terms.string)
       ),
       DataFactory.quad(
         DataFactory.namedNode(timestampIri),
-        INTEROP.registeredWith,
-        DataFactory.literal(agentId, XSD.string)
+        INTEROP.terms.registeredWith,
+        DataFactory.literal(agentId, XSD.terms.string)
       )
     )
   })
@@ -91,11 +91,11 @@ describe('setTimestampsAndAgents', () => {
   test('when includeRegistered is true sets registeredAt and updatedAt as dateTime literals', () => {
     const dataset = new Store()
     setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
-    for (const predicate of [INTEROP.registeredAt, INTEROP.updatedAt]) {
+    for (const predicate of [INTEROP.terms.registeredAt, INTEROP.terms.updatedAt]) {
       const quad = getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), predicate)
       expect(quad).toBeDefined()
       expect(quad!.object.termType).toBe('Literal')
-      expect(quad!.object.datatype.value).toBe(XSD.dateTime.value)
+      expect(quad!.object.datatype.value).toBe(XSD.dateTime)
     }
   })
 
@@ -103,13 +103,13 @@ describe('setTimestampsAndAgents', () => {
     const dataset = new Store()
     setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, false)
     expect(
-      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredBy)
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.registeredBy)
     ).toBeUndefined()
     expect(
-      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredAt)
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.registeredAt)
     ).toBeUndefined()
     expect(
-      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.updatedAt)
+      getOneMatchingQuad(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.updatedAt)
     ).toBeDefined()
   })
 
@@ -118,7 +118,7 @@ describe('setTimestampsAndAgents', () => {
     setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
     setTimestampsAndAgents(dataset, timestampIri, { webId, agentId }, true)
     expect(
-      getAllMatchingQuads(dataset, DataFactory.namedNode(timestampIri), INTEROP.registeredBy)
+      getAllMatchingQuads(dataset, DataFactory.namedNode(timestampIri), INTEROP.terms.registeredBy)
     ).toHaveLength(1)
   })
 })

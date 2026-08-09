@@ -86,15 +86,15 @@ export async function loadReciprocalRegistration(
 export async function toDataset(data: SocialAgentRegistrationData): Promise<Store> {
   const store = await registrationToDataset(data)
   const node = DataFactory.namedNode(data.id)
-  store.add(DataFactory.quad(node, SKOS.prefLabel, DataFactory.literal(data.prefLabel)))
+  store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.prefLabel)))
   if (data.note) {
-    store.add(DataFactory.quad(node, SKOS.note, DataFactory.literal(data.note)))
+    store.add(DataFactory.quad(node, SKOS.terms.note, DataFactory.literal(data.note)))
   }
   if (data.hasAccessNeedGroup) {
     store.add(
       DataFactory.quad(
         node,
-        INTEROP.hasAccessNeedGroup,
+        INTEROP.terms.hasAccessNeedGroup,
         DataFactory.namedNode(data.hasAccessNeedGroup)
       )
     )
@@ -108,7 +108,11 @@ export async function createSocialAgentRegistration(
 ): Promise<void> {
   const dataset = await toDataset(data)
   dataset.add(
-    DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.SocialAgentRegistration)
+    DataFactory.quad(
+      DataFactory.namedNode(data.id),
+      RDF.terms.type,
+      INTEROP.terms.SocialAgentRegistration
+    )
   )
   await createContainer(data.id, factory, dataset)
 }
@@ -135,13 +139,13 @@ async function updateReciprocal(
   const node = DataFactory.namedNode(data.id)
   const quad = DataFactory.quad(
     node,
-    INTEROP.reciprocalRegistration,
+    INTEROP.terms.reciprocalRegistration,
     DataFactory.namedNode(reciprocalRegistrationIri)
   )
   if (data.reciprocalRegistration) {
     const priorQuad = DataFactory.quad(
       node,
-      INTEROP.reciprocalRegistration,
+      INTEROP.terms.reciprocalRegistration,
       DataFactory.namedNode(data.reciprocalRegistration)
     )
     await replaceStatement(data.id, factory, priorQuad, quad)
@@ -170,13 +174,13 @@ export async function setAccessNeedGroup(
   const node = DataFactory.namedNode(data.id)
   const quad = DataFactory.quad(
     node,
-    INTEROP.hasAccessNeedGroup,
+    INTEROP.terms.hasAccessNeedGroup,
     DataFactory.namedNode(accessNeedGroupIri)
   )
   if (data.hasAccessNeedGroup) {
     const priorQuad = DataFactory.quad(
       node,
-      INTEROP.hasAccessNeedGroup,
+      INTEROP.terms.hasAccessNeedGroup,
       DataFactory.namedNode(data.hasAccessNeedGroup)
     )
     await replaceStatement(data.id, factory, priorQuad, quad)

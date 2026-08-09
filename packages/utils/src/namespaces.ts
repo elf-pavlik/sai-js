@@ -1,27 +1,144 @@
-import type { NamedNode } from '@rdfjs/types'
-import { DataFactory } from 'n3'
+import { createVocabulary } from 'rdf-vocabulary'
 
-// TODO find a way to type the namespace
-export function buildNamespace(base: string): any {
-  const handler = {
-    get: (target: { base: string }, property: string): NamedNode =>
-      DataFactory.namedNode(target.base + property),
-  }
-  return new Proxy({ base }, handler)
-}
+export const INTEROP = createVocabulary(
+  'http://www.w3.org/ns/solid/interop#',
+  'accessMode',
+  'AccessNeed',
+  'AccessNeedDescription',
+  'AccessNeedGroup',
+  'AccessNeedGroupDescription',
+  'AccessRequired',
+  'accessNecessity',
+  'AgentRegistry',
+  'All',
+  'AllFromAgent',
+  'AllFromRegistry',
+  'AllFromRole',
+  'ApplicationRegistration',
+  'AuthorizationRegistry',
+  'creatorAccessMode',
+  'DataAuthorization',
+  'DataGrant',
+  'dataOwner',
+  'DataRegistration',
+  'DataRegistry',
+  'delegationOfGrant',
+  'grantedBy',
+  'grantee',
+  'GrantRegistry',
+  'hasAccessAuthorization',
+  'hasAccessDescriptionSet',
+  'hasAccessNeed',
+  'hasAccessNeedGroup',
+  'hasAgentRegistry',
+  'hasApplicationRegistration',
+  'hasAuthorizationAgent',
+  'hasAuthorizationCallbackEndpoint',
+  'hasAuthorizationRedirectEndpoint',
+  'hasAuthorizationRegistry',
+  'hasCapabilityUrl',
+  'hasDataGrant',
+  'hasDataInstance',
+  'hasDataRegistration',
+  'hasDataRegistry',
+  'hasDelegationIssuanceEndpoint',
+  'hasGrantRegistry',
+  'hasMember',
+  'hasRoleRegistry',
+  'hasSocialAgentInvitation',
+  'hasSocialAgentRegistration',
+  'hasStorage',
+  'inAccessDescriptionSet',
+  'Inherited',
+  'inheritsFromAuthorization',
+  'inheritsFromGrant',
+  'inheritsFromNeed',
+  'pushService',
+  'Read',
+  'reciprocalRegistration',
+  'registeredAgent',
+  'registeredAt',
+  'registeredBy',
+  'registeredShapeTree',
+  'registeredWith',
+  'RegistrySet',
+  'Role',
+  'RoleRegistry',
+  'satisfiesAccessNeed',
+  'scopeOfAuthorization',
+  'scopeOfGrant',
+  'SelectedFromRegistry',
+  'SocialAgentInvitation',
+  'SocialAgentRegistration',
+  'updatedAt',
+  'usesLanguage'
+)
 
-export const INTEROP = buildNamespace('http://www.w3.org/ns/solid/interop#')
-export const NOTIFY = buildNamespace('http://www.w3.org/ns/solid/notifications#')
-export const RDF = buildNamespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#')
-export const RDFS = buildNamespace('http://www.w3.org/2000/01/rdf-schema#')
-export const LDP = buildNamespace('http://www.w3.org/ns/ldp#')
-export const ACL = buildNamespace('http://www.w3.org/ns/auth/acl#')
-export const SHAPETREES = buildNamespace('http://www.w3.org/ns/shapetrees#')
-export const XSD = buildNamespace('http://www.w3.org/2001/XMLSchema#')
-export const SKOS = buildNamespace('http://www.w3.org/2004/02/skos/core#')
-export const ACP = buildNamespace('http://www.w3.org/ns/solid/acp#')
-export const SOLID = buildNamespace('http://www.w3.org/ns/solid/terms#')
-export const OIDC = buildNamespace('http://www.w3.org/ns/solid/oidc#')
-export const DC = buildNamespace('http://purl.org/dc/terms/')
-export const SPACE = buildNamespace('http://www.w3.org/ns/pim/space#')
-export const AS = buildNamespace('https://www.w3.org/ns/activitystreams#')
+export const NOTIFY = createVocabulary(
+  'http://www.w3.org/ns/solid/notifications#',
+  'vapidPublicKey'
+)
+
+export const RDF = createVocabulary('http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'type')
+
+export const RDFS = createVocabulary('http://www.w3.org/2000/01/rdf-schema#', 'label')
+
+export const LDP = createVocabulary('http://www.w3.org/ns/ldp#', 'contains', 'Resource')
+
+export const ACL = createVocabulary(
+  'http://www.w3.org/ns/auth/acl#',
+  'Create',
+  'Delete',
+  'Read',
+  'Update',
+  'Write'
+)
+
+export const SHAPETREES = createVocabulary(
+  'http://www.w3.org/ns/shapetrees#',
+  'describes',
+  'describesInstance',
+  'Description',
+  'expectsType',
+  'hasShapeTree',
+  'inDescriptionSet',
+  'NonRDFResource',
+  'references',
+  'Resource',
+  'shape',
+  'usesLanguage',
+  'viaPredicate'
+)
+
+export const XSD = createVocabulary(
+  'http://www.w3.org/2001/XMLSchema#',
+  'dateTime',
+  'language',
+  'string'
+)
+
+export const SKOS = createVocabulary(
+  'http://www.w3.org/2004/02/skos/core#',
+  'definition',
+  'note',
+  'prefLabel'
+)
+
+export const ACP = createVocabulary(
+  'http://www.w3.org/ns/solid/acp#',
+  'PublicAgent',
+  'PublicClient'
+)
+
+export const SOLID = createVocabulary(
+  'http://www.w3.org/ns/solid/terms#',
+  'oidcIssuer',
+  'storageDescription',
+  'updatesViaStreamingHttp2023'
+)
+
+export const OIDC = createVocabulary('http://www.w3.org/ns/solid/oidc#', 'client_name', 'logo_uri')
+
+export const SPACE = createVocabulary('http://www.w3.org/ns/pim/space#', 'Storage')
+
+export const AS = createVocabulary('https://www.w3.org/ns/activitystreams#', 'object', 'Update')

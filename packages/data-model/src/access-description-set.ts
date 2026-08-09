@@ -37,7 +37,7 @@ function descriptionIrisInSet(dataset: DatasetCore, setIri: string): string[] {
   return getAllMatchingQuads(
     dataset,
     null,
-    INTEROP.inAccessDescriptionSet,
+    INTEROP.terms.inAccessDescriptionSet,
     DataFactory.namedNode(setIri)
   ).map((quad) => quad.subject.value)
 }
@@ -49,7 +49,7 @@ function descriptionIrisInSet(dataset: DatasetCore, setIri: string): string[] {
  */
 export function forAccessNeed(dataset: DatasetCore, setIri: string): string[] {
   return descriptionIrisInSet(dataset, setIri).filter(
-    (iri) => dataset.match(DataFactory.namedNode(iri), INTEROP.hasAccessNeed).size > 0
+    (iri) => dataset.match(DataFactory.namedNode(iri), INTEROP.terms.hasAccessNeed).size > 0
   )
 }
 
@@ -60,7 +60,7 @@ export function forAccessNeed(dataset: DatasetCore, setIri: string): string[] {
  */
 export function forAccessNeedGroup(dataset: DatasetCore, setIri: string): string[] {
   return descriptionIrisInSet(dataset, setIri).filter(
-    (iri) => dataset.match(DataFactory.namedNode(iri), INTEROP.hasAccessNeedGroup).size > 0
+    (iri) => dataset.match(DataFactory.namedNode(iri), INTEROP.terms.hasAccessNeedGroup).size > 0
   )
 }
 
@@ -70,12 +70,12 @@ export function forAccessNeedGroup(dataset: DatasetCore, setIri: string): string
  * resource).
  */
 export function findInLanguage(dataset: DatasetCore, descriptionLang: string): string | undefined {
-  // we can skip matching on INTEROP.hasAccessDescriptionSet since nothing else uses INTEROP.usesLanguage
+  // we can skip matching on INTEROP.hasAccessDescriptionSet since nothing else uses INTEROP.terms.usesLanguage
   return getOneMatchingQuad(
     dataset,
     null,
-    INTEROP.usesLanguage,
-    DataFactory.literal(descriptionLang, XSD.language)
+    INTEROP.terms.usesLanguage,
+    DataFactory.literal(descriptionLang, XSD.terms.language)
   )?.subject.value
 }
 

@@ -129,20 +129,20 @@ export async function* getDataInstanceIterator(
 ): AsyncIterable<string> {
   const { readable } = factory
   switch (grant.scopeOfGrant) {
-    case INTEROP.AllFromRegistry.value: {
+    case INTEROP.AllFromRegistry: {
       const registration = await readable.dataRegistration(grant.hasDataRegistration)
       for (const iri of registration.contains) {
         yield iri
       }
       break
     }
-    case INTEROP.SelectedFromRegistry.value: {
+    case INTEROP.SelectedFromRegistry: {
       for (const iri of grant.hasDataInstance ?? []) {
         yield iri
       }
       break
     }
-    case INTEROP.Inherited.value: {
+    case INTEROP.Inherited: {
       const parentGrant = await readable.dataGrant(grant.inheritsFromGrant!)
       for await (const parentIri of getDataInstanceIterator(parentGrant, factory)) {
         yield* await getChildInstanceIris(
@@ -185,8 +185,8 @@ export function iriForNew(grant: GrantData, randomUUID: () => string): string {
  * Whether the grant allows creating new data instances.
  */
 export function canCreate(grant: GrantData): boolean {
-  if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry.value) return false
-  return grant.accessMode.includes(ACL.Write.value)
+  if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) return false
+  return grant.accessMode.includes(ACL.Write)
 }
 
 /**

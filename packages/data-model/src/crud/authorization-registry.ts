@@ -80,7 +80,7 @@ export async function findAuthorizationsDelegatingFromOwner(
       if (dataAuthorization.dataOwner === dataOwner) {
         matches = true
       }
-      if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All.value) {
+      if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All) {
         matches = true
       }
     }
@@ -97,7 +97,11 @@ export async function createAuthorizationRegistry(
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
-    DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.AuthorizationRegistry)
+    DataFactory.quad(
+      DataFactory.namedNode(data.id),
+      RDF.terms.type,
+      INTEROP.terms.AuthorizationRegistry
+    )
   )
   await createContainer(data.id, factory, dataset)
 }

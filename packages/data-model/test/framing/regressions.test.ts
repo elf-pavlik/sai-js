@@ -29,8 +29,8 @@ describe('framing regressions', () => {
       {
         '@id': 'https://example.test/#node',
         '@type': ['http://www.w3.org/ns/solid/interop#AccessNeedDescription'],
-        [SKOS.prefLabel.value]: [{ '@value': 'pref' }],
-        [RDFS.label.value]: [{ '@value': 'label' }],
+        [SKOS.prefLabel]: [{ '@value': 'pref' }],
+        [RDFS.label]: [{ '@value': 'label' }],
       },
     ]
     const framed = (await frameDoc(doc, dataModelContext, 'https://example.test/#node')) as any

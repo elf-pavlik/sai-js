@@ -100,7 +100,7 @@ export class AuthorizationAgentFactory extends BaseFactory {
           return {
             ...data,
             id: iri,
-            type: [INTEROP.ApplicationRegistration.value],
+            type: [INTEROP.ApplicationRegistration],
             hasDataGrant,
             granted: hasDataGrant.length > 0,
           }

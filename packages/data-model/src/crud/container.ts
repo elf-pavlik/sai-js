@@ -39,11 +39,17 @@ export function setTimestampsAndAgents(
     dataset.add(DataFactory.quad(node, predicate, object))
   }
   if (includeRegistered) {
-    setQuad(INTEROP.registeredBy, DataFactory.literal(factory.webId, XSD.string))
-    setQuad(INTEROP.registeredWith, DataFactory.literal(factory.agentId, XSD.string))
-    setQuad(INTEROP.registeredAt, DataFactory.literal(new Date().toISOString(), XSD.dateTime))
+    setQuad(INTEROP.terms.registeredBy, DataFactory.literal(factory.webId, XSD.terms.string))
+    setQuad(INTEROP.terms.registeredWith, DataFactory.literal(factory.agentId, XSD.terms.string))
+    setQuad(
+      INTEROP.terms.registeredAt,
+      DataFactory.literal(new Date().toISOString(), XSD.terms.dateTime)
+    )
   }
-  setQuad(INTEROP.updatedAt, DataFactory.literal(new Date().toISOString(), XSD.dateTime))
+  setQuad(
+    INTEROP.terms.updatedAt,
+    DataFactory.literal(new Date().toISOString(), XSD.terms.dateTime)
+  )
 }
 
 /**

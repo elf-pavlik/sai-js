@@ -15,7 +15,7 @@ const inheritsFromAllFromRegistryIri =
 
 test('should set correct scopeOfGrant', async () => {
   const dataGrant = await factory.readable.dataGrant(inheritsFromSelectedFromRegistryIri)
-  expect(dataGrant.scopeOfGrant).toBe(INTEROP.Inherited.value)
+  expect(dataGrant.scopeOfGrant).toBe(INTEROP.Inherited)
 })
 
 test('should set correct canCreate', async () => {

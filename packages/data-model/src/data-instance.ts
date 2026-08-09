@@ -40,7 +40,7 @@ export type DataInstanceData = {
 
 /** Whether the shape tree expects non-RDF resources (blobs). */
 export function isBlob(shapeTree: ShapeTreeData): boolean {
-  return shapeTree.expectsType === SHAPETREES.NonRDFResource.value
+  return shapeTree.expectsType === SHAPETREES.NonRDFResource
 }
 
 /** Resolve the description resource IRI of a blob from its Link header. */

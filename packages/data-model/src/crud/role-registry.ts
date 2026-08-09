@@ -44,7 +44,7 @@ export async function createRole(
   members: string[]
 ): Promise<RoleData> {
   const iri = iriForContained(data, factory)
-  const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role.value] }
+  const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role] }
   await putRole(role, factory.fetch)
   return role
 }
@@ -56,7 +56,7 @@ export async function updateRole(
   label: string,
   members: string[]
 ): Promise<RoleData> {
-  const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role.value] }
+  const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role] }
   await putRole(role, factory.fetch)
   return role
 }
@@ -77,7 +77,9 @@ export async function createRoleRegistry(
   factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
-  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.RoleRegistry))
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
+  )
   await createContainer(data.id, factory, dataset)
 }
 

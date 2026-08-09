@@ -20,7 +20,9 @@ export async function createGrantRegistry(
   factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
-  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.GrantRegistry))
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.GrantRegistry)
+  )
   await createContainer(data.id, factory, dataset)
 }
 

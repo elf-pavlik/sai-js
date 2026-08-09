@@ -18,7 +18,7 @@ describe('RegistrySet framing', () => {
     const registrySet = await RegistrySet.loadRegistrySet(REGISTRY_SET_IRI, factory)
     expect(registrySet).toEqual({
       id: REGISTRY_SET_IRI,
-      type: [INTEROP.RegistrySet.value, LDP.Resource.value, SPACE.Storage.value],
+      type: [INTEROP.RegistrySet, LDP.Resource, SPACE.Storage],
       hasAuthorizationRegistry: { id: 'https://registry/alice/authorization/' },
       hasGrantRegistry: { id: 'https://registry/alice/grant/' },
       hasAgentRegistry: { id: 'https://registry/alice/agent/' },

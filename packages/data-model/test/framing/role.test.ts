@@ -14,7 +14,7 @@ describe('Role framing', () => {
     const role = await roleFromJsonLd(doc, ROLE_IRI)
     expect(role).toEqual({
       id: ROLE_IRI,
-      type: [INTEROP.Role.value],
+      type: [INTEROP.Role],
       prefLabel: 'Corps',
       members: ['https://id/acme'],
     })

@@ -184,7 +184,7 @@ export class AuthorizationAgent {
     // find storage root
     const storageDescriptionIri = await discoverStorageDescription(resourceId, this.fetch)
     const doc = await fetchJsonLd(storageDescriptionIri, this.fetch)
-    const storageRoot = await findNodeIdByType(doc, SPACE.Storage.value, storageDescriptionIri)
+    const storageRoot = await findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
 
     return this.findResourceServerOwner(storageRoot)
   }
@@ -318,21 +318,21 @@ export class AuthorizationAgent {
       if (dataAuthorization.registeredShapeTree !== shapeTree) continue
 
       switch (dataAuthorization.scopeOfAuthorization) {
-        case INTEROP.All.value:
+        case INTEROP.All:
           agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           break
-        case INTEROP.AllFromAgent.value:
+        case INTEROP.AllFromAgent:
           // TODO: rethink for delegated sharing, e.g. Alice shares project owned by ACME
           if (dataAuthorization.dataOwner === this.webId) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           }
           break
-        case INTEROP.AllFromRegistry.value:
+        case INTEROP.AllFromRegistry:
           if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id) {
             agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
           }
           break
-        case INTEROP.SelectedFromRegistry.value:
+        case INTEROP.SelectedFromRegistry:
           if (
             dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id &&
             (dataAuthorization.hasDataInstance ?? []).includes(dataInstanceIri)
@@ -355,22 +355,22 @@ export class AuthorizationAgent {
     details: ShareDataInstanceStructure
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
-      type: [INTEROP.DataAuthorization.value],
+      type: [INTEROP.DataAuthorization],
       grantee: agent,
       grantedBy: this.webId,
       registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
-      scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+      scopeOfAuthorization: INTEROP.SelectedFromRegistry,
       dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
       hasDataRegistration: dataInstance.dataRegistration!.id,
       accessMode: details.accessMode,
       hasDataInstance: [dataInstance.id],
       children: await Promise.all(
         details.children.map(async (child) => ({
-          type: [INTEROP.DataAuthorization.value],
+          type: [INTEROP.DataAuthorization],
           grantee: agent,
           grantedBy: this.webId,
           registeredShapeTree: child.shapeTree,
-          scopeOfAuthorization: INTEROP.Inherited.value,
+          scopeOfAuthorization: INTEROP.Inherited,
           dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
           hasDataRegistration: (
             await this.findDataRegistration(

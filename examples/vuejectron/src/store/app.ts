@@ -71,14 +71,11 @@ export const useAppStore = defineStore('app', () => {
     }
     notificationsManager.addEventListener('notification', ((event: CustomEvent) => {
       // handle application registration
-      if (
-        event.detail.object === session.registrationIri &&
-        event.detail.type === AS.Update.value
-      ) {
+      if (event.detail.object === session.registrationIri && event.detail.type === AS.Update) {
         handleRegistrationChange()
       }
       // handler regular resource updates
-      if (event.detail.type === AS.Update.value) {
+      if (event.detail.type === AS.Update) {
         handleResourceChange(event.detail.object)
       }
     }) as EventListener)

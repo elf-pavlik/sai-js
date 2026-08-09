@@ -9,36 +9,40 @@ import { expect } from '../expect'
 const webId = 'https://alice.example/#id'
 const snippetIri = 'https://some.iri/'
 const commonData = {
-  type: [INTEROP.DataAuthorization.value],
+  type: [INTEROP.DataAuthorization],
   grantee: 'https://projectron.example/#app',
   grantedBy: webId,
   registeredShapeTree: 'https://solidshapes.example/tree/Project',
   hasDataRegistration: 'https://pro.alice.example/123',
-  accessMode: [ACL.Read.value],
+  accessMode: [ACL.Read],
 }
 const commonQuads = [
-  DataFactory.quad(DataFactory.namedNode(snippetIri), RDF.type, INTEROP.DataAuthorization),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
-    INTEROP.grantee,
+    RDF.terms.type,
+    INTEROP.terms.DataAuthorization
+  ),
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    INTEROP.terms.grantee,
     DataFactory.namedNode(commonData.grantee)
   ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
-    INTEROP.grantedBy,
+    INTEROP.terms.grantedBy,
     DataFactory.namedNode(commonData.grantedBy)
   ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
-    INTEROP.registeredShapeTree,
+    INTEROP.terms.registeredShapeTree,
     DataFactory.namedNode(commonData.registeredShapeTree)
   ),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
-    INTEROP.hasDataRegistration,
+    INTEROP.terms.hasDataRegistration,
     DataFactory.namedNode(commonData.hasDataRegistration)
   ),
-  DataFactory.quad(DataFactory.namedNode(snippetIri), INTEROP.accessMode, ACL.Read),
+  DataFactory.quad(DataFactory.namedNode(snippetIri), INTEROP.terms.accessMode, ACL.terms.Read),
 ]
 
 async function toJsonLdAndCheck(
@@ -54,19 +58,19 @@ describe('toJsonLd', () => {
   test('should set dataset for AllFromRegistry scope', async () => {
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.AllFromRegistry.value,
+      scopeOfAuthorization: INTEROP.AllFromRegistry,
       ...commonData,
     }
     const allFromRegistryQuads = [
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.dataOwner,
+        INTEROP.terms.dataOwner,
         DataFactory.namedNode(allFromRegistryData.dataOwner)
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.scopeOfAuthorization,
-        INTEROP.AllFromRegistry
+        INTEROP.terms.scopeOfAuthorization,
+        INTEROP.terms.AllFromRegistry
       ),
       ...commonQuads,
     ]
@@ -77,29 +81,29 @@ describe('toJsonLd', () => {
   test('should set dataset for SelectedFromRegistry scope', async () => {
     const selectedFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+      scopeOfAuthorization: INTEROP.SelectedFromRegistry,
       hasDataInstance: ['https://some.iri/a', 'https://some.iri/b'],
       ...commonData,
     }
     const selectedFromRegistryQuads = [
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.dataOwner,
+        INTEROP.terms.dataOwner,
         DataFactory.namedNode(selectedFromRegistryData.dataOwner)
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.scopeOfAuthorization,
-        INTEROP.SelectedFromRegistry
+        INTEROP.terms.scopeOfAuthorization,
+        INTEROP.terms.SelectedFromRegistry
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.hasDataInstance,
+        INTEROP.terms.hasDataInstance,
         DataFactory.namedNode('https://some.iri/a')
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.hasDataInstance,
+        INTEROP.terms.hasDataInstance,
         DataFactory.namedNode('https://some.iri/b')
       ),
       ...commonQuads,
@@ -111,24 +115,24 @@ describe('toJsonLd', () => {
   test('should set dataset for Inherited scope', async () => {
     const inheritedData = {
       dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.Inherited.value,
+      scopeOfAuthorization: INTEROP.Inherited,
       inheritsFromAuthorization: 'https://some.iri/gr',
       ...commonData,
     }
     const inheritedQuads = [
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.dataOwner,
+        INTEROP.terms.dataOwner,
         DataFactory.namedNode(inheritedData.dataOwner)
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.scopeOfAuthorization,
-        INTEROP.Inherited
+        INTEROP.terms.scopeOfAuthorization,
+        INTEROP.terms.Inherited
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.inheritsFromAuthorization,
+        INTEROP.terms.inheritsFromAuthorization,
         DataFactory.namedNode(inheritedData.inheritsFromAuthorization)
       ),
       ...commonQuads,
@@ -140,25 +144,25 @@ describe('toJsonLd', () => {
   test('should set dataset with creatorAccessMode', async () => {
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.AllFromRegistry.value,
-      creatorAccessMode: [ACL.Update.value],
+      scopeOfAuthorization: INTEROP.AllFromRegistry,
+      creatorAccessMode: [ACL.Update],
       ...commonData,
     }
     const allFromRegistryQuads = [
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.dataOwner,
+        INTEROP.terms.dataOwner,
         DataFactory.namedNode(allFromRegistryData.dataOwner)
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.scopeOfAuthorization,
-        INTEROP.AllFromRegistry
+        INTEROP.terms.scopeOfAuthorization,
+        INTEROP.terms.AllFromRegistry
       ),
       DataFactory.quad(
         DataFactory.namedNode(snippetIri),
-        INTEROP.creatorAccessMode,
-        ACL.Update.value
+        INTEROP.terms.creatorAccessMode,
+        ACL.terms.Update
       ),
       ...commonQuads,
     ]
@@ -171,7 +175,7 @@ describe('toJsonLd', () => {
 
     const allFromRegistryData = {
       dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.AllFromRegistry.value,
+      scopeOfAuthorization: INTEROP.AllFromRegistry,
       hasInheritingAuthorization: [childIri],
       ...commonData,
     }
@@ -181,7 +185,7 @@ describe('toJsonLd', () => {
 
     const linkBackQuad = DataFactory.quad(
       DataFactory.namedNode(childIri),
-      INTEROP.inheritsFromAuthorization,
+      INTEROP.terms.inheritsFromAuthorization,
       DataFactory.namedNode(snippetIri)
     )
     expect(dataset).toBeRdfDatasetContaining(linkBackQuad)

@@ -34,7 +34,7 @@ export async function receivesNotification(
       const notification = await reader.read().then(({ value }) => decoder.decode(value))
       if (!notification) throw new Error('second chunk missing')
       const dataset = await parseTurtle(notification)
-      const receivedType = getOneMatchingQuad(dataset, undefined, RDF.type)!.object.value
+      const receivedType = getOneMatchingQuad(dataset, undefined, RDF.terms.type)!.object.value
       if (!expectedType || receivedType === expectedType) return true
     }
   } finally {

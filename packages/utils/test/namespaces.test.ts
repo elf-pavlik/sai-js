@@ -1,17 +1,24 @@
-import { NamedNode } from 'n3'
 import { describe, expect, test } from 'vitest'
-import { buildNamespace } from '../src/namespaces'
+import { ACL, INTEROP, RDF } from '../src/namespaces'
 
-describe('buildNamespace', () => {
-  const base = 'http://example.com#'
-  const BASE = buildNamespace(base)
-
-  test('can generate any named node', () => {
-    expect(BASE.any.value).toEqual(`${base}any`)
-    expect(BASE['any-property'].value).toEqual(`${base}any-property`)
+describe('vocabularies', () => {
+  test('members are full IRIs as strings', () => {
+    expect(INTEROP.hasDataRegistration).toBe(
+      'http://www.w3.org/ns/solid/interop#hasDataRegistration'
+    )
+    expect(ACL.Read).toBe('http://www.w3.org/ns/auth/acl#Read')
+    expect(RDF.type).toBe('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
   })
 
-  test('generate rdf-js named nodes', () => {
-    expect(BASE.foo instanceof NamedNode).toBe(true)
+  test('namespace is the vocabulary base IRI', () => {
+    expect(INTEROP.namespace).toBe('http://www.w3.org/ns/solid/interop#')
+    expect(ACL.namespace).toBe('http://www.w3.org/ns/auth/acl#')
+  })
+
+  test('terms exposes NamedNodes with the same values', () => {
+    const term = INTEROP.terms.hasDataRegistration
+    expect(term.termType).toBe('NamedNode')
+    expect(term.value).toBe('http://www.w3.org/ns/solid/interop#hasDataRegistration')
+    expect(ACL.terms.Read.value).toBe('http://www.w3.org/ns/auth/acl#Read')
   })
 })

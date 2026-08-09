@@ -4,17 +4,17 @@ import type {
   NestedDataAuthorizationData,
 } from '@janeirodigital/interop-authorization-agent'
 import {
-  AccessNeed as AccessNeedModule,
-  AccessNeedGroup as AccessNeedGroupModule,
   type AccessNeedData,
   type AccessNeedGroupData,
+  AccessNeedGroup as AccessNeedGroupModule,
+  AccessNeed as AccessNeedModule,
   AgentRegistry,
+  type DataAuthorizationData,
+  type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
-  type DataAuthorizationData,
   getDataGrantIris,
   getDataGrants,
-  type GrantData,
 } from '@janeirodigital/interop-data-model'
 import type { AuthorizationAgentFactory } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -96,7 +96,7 @@ async function findSocialAgentDataRegistrations(
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
         dataGrant.registeredShapeTree === accessNeed.registeredShapeTree &&
-        dataGrant.scopeOfGrant !== INTEROP.Inherited.value // TODO clarify case when this could happen
+        dataGrant.scopeOfGrant !== INTEROP.Inherited // TODO clarify case when this could happen
       ) {
         dataRegistrations.push({
           id: IRI.make(dataGrant.hasDataRegistration),
@@ -193,7 +193,10 @@ export const getDescriptions = async (
     }
   }
   const descriptionLanguages = [
-    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(accessNeedGroup, saiSession.factory)),
+    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(
+      accessNeedGroup,
+      saiSession.factory
+    )),
   ]
   const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
     accessNeedGroup,
@@ -218,7 +221,9 @@ export const getDescriptions = async (
       label: descriptions.prefLabel,
       description: descriptions.definition,
       needs: await Promise.all(
-        accessNeedGroup.accessNeeds.map((need) => formatAccessNeed(need, descriptionsLang, saiSession.factory))
+        accessNeedGroup.accessNeeds.map((need) =>
+          formatAccessNeed(need, descriptionsLang, saiSession.factory)
+        )
       ),
       descriptionLanguages,
       lang: descriptionsLang,
@@ -243,23 +248,23 @@ function buildDataAuthorizations(
       throw new Error(`missing access need: ${dataAuthorization.accessNeed}`)
     }
     const saiReady: DataAuthorizationData = {
-      type: [INTEROP.DataAuthorization.value],
+      type: [INTEROP.DataAuthorization],
       satisfiesAccessNeed: accessNeed.id,
       grantee: authorization.grantee,
       grantedBy,
       registeredShapeTree: accessNeed.registeredShapeTree,
-      scopeOfAuthorization: INTEROP[dataAuthorization.scope].value,
+      scopeOfAuthorization: INTEROP[dataAuthorization.scope],
       accessMode: accessNeed!.accessMode,
     }
     if (
-      saiReady.scopeOfAuthorization !== INTEROP.All.value &&
-      saiReady.scopeOfAuthorization !== INTEROP.Inherited.value
+      saiReady.scopeOfAuthorization !== INTEROP.All &&
+      saiReady.scopeOfAuthorization !== INTEROP.Inherited
     ) {
       saiReady.dataOwner = dataAuthorization.dataOwner
     }
-    if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry.value) {
+    if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry) {
       saiReady.hasDataRegistration = dataAuthorization.dataRegistration
-    } else if (saiReady.scopeOfAuthorization === INTEROP.SelectedFromRegistry.value) {
+    } else if (saiReady.scopeOfAuthorization === INTEROP.SelectedFromRegistry) {
       saiReady.hasDataRegistration = dataAuthorization.dataRegistration
       saiReady.hasDataInstance = dataAuthorization.dataInstances as unknown as string[]
     }
@@ -268,7 +273,7 @@ function buildDataAuthorizations(
   const parents: NestedDataAuthorizationData[] = []
   const children: DataAuthorizationData[] = []
   for (const structuredDataAuthorization of structuredDataAuthorizations) {
-    if (structuredDataAuthorization.scopeOfAuthorization === INTEROP.Inherited.value) {
+    if (structuredDataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
       children.push(structuredDataAuthorization)
     } else {
       parents.push(structuredDataAuthorization)

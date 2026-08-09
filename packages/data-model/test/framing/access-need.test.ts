@@ -17,7 +17,7 @@ describe('AccessNeed framing', () => {
     const need = await AccessNeed.fromJsonLd(doc, NEED_IRI)
     expect(need).toEqual({
       id: NEED_IRI,
-      type: [INTEROP.AccessNeed.value],
+      type: [INTEROP.AccessNeed],
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       inheritsFromNeed: undefined,
       // reverse values are collected by iterating fromRDF's node list, which
@@ -27,7 +27,7 @@ describe('AccessNeed framing', () => {
         'https://data/test-client/public/access-needs#need-image',
         'https://data/test-client/public/access-needs#need-task',
       ],
-      accessMode: [ACL.Read.value, ACL.Create.value, ACL.Update.value, ACL.Delete.value],
+      accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
       required: true,
       children: [],
       descriptionLanguages: ['en', 'es'],

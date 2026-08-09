@@ -15,7 +15,7 @@ describe('AccessNeedGroup framing', () => {
     const group = await AccessNeedGroup.fromJsonLd(doc, GROUP_IRI)
     expect(group).toEqual({
       id: GROUP_IRI,
-      type: [INTEROP.AccessNeedGroup.value],
+      type: [INTEROP.AccessNeedGroup],
       hasAccessNeed: ['https://data/test-client/public/access-needs#need-project'],
       accessNeeds: [],
     })

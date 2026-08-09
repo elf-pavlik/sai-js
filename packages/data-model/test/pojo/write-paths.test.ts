@@ -30,7 +30,7 @@ describe('role write path', () => {
   const iri = 'https://registry/alice/role/r1'
   const roleData = {
     id: iri,
-    type: [INTEROP.Role.value],
+    type: [INTEROP.Role],
     prefLabel: 'Test Role',
     members: ['https://id/bob'],
   }
@@ -38,15 +38,15 @@ describe('role write path', () => {
   test('shared context serializes role fields to the expected quads', async () => {
     const store = await toStore(withContext(dataModelContext, roleData), iri)
     expect(store).toBeRdfDatasetContaining(
-      DataFactory.quad(DataFactory.namedNode(iri), RDF.type, INTEROP.Role),
+      DataFactory.quad(DataFactory.namedNode(iri), RDF.terms.type, INTEROP.terms.Role),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        SKOS.prefLabel,
+        SKOS.terms.prefLabel,
         DataFactory.literal('Test Role')
       ),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.hasMember,
+        INTEROP.terms.hasMember,
         DataFactory.namedNode('https://id/bob')
       )
     )
@@ -69,7 +69,7 @@ describe('social-agent-invitation write path', () => {
   const iri = 'https://registry/kim/agent/inv1'
   const invitationData = {
     id: iri,
-    type: [INTEROP.SocialAgentInvitation.value],
+    type: [INTEROP.SocialAgentInvitation],
     capabilityUrl: 'https://auth/.sai/invitations/some-secret',
     prefLabel: 'Bob',
     note: 'What about Bob?',
@@ -78,16 +78,24 @@ describe('social-agent-invitation write path', () => {
   test('shared context serializes invitation fields to the expected quads', async () => {
     const store = await toStore(withContext(dataModelContext, invitationData), iri)
     expect(store).toBeRdfDatasetContaining(
-      DataFactory.quad(DataFactory.namedNode(iri), RDF.type, INTEROP.SocialAgentInvitation),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.hasCapabilityUrl,
+        RDF.terms.type,
+        INTEROP.terms.SocialAgentInvitation
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        INTEROP.terms.hasCapabilityUrl,
         DataFactory.namedNode('https://auth/.sai/invitations/some-secret')
       ),
-      DataFactory.quad(DataFactory.namedNode(iri), SKOS.prefLabel, DataFactory.literal('Bob')),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        SKOS.note,
+        SKOS.terms.prefLabel,
+        DataFactory.literal('Bob')
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        SKOS.terms.note,
         DataFactory.literal('What about Bob?')
       )
     )
@@ -105,16 +113,16 @@ describe('data-registration write path', () => {
     const iri = 'https://data/alice/reg/'
     const data = {
       id: iri,
-      type: [INTEROP.DataRegistration.value, LDP.Resource.value],
+      type: [INTEROP.DataRegistration, LDP.Resource],
       registeredShapeTree: 'https://trees/Project',
       contains: [],
     }
     const store = await toStore(withContext(dataModelContext, data), iri)
     expect(store).toBeRdfDatasetContaining(
-      DataFactory.quad(DataFactory.namedNode(iri), RDF.type, INTEROP.DataRegistration),
+      DataFactory.quad(DataFactory.namedNode(iri), RDF.terms.type, INTEROP.terms.DataRegistration),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.registeredShapeTree,
+        INTEROP.terms.registeredShapeTree,
         DataFactory.namedNode('https://trees/Project')
       )
     )
@@ -126,26 +134,30 @@ describe('application-registration write path', () => {
     const iri = 'https://registry/alice/agent/app1/'
     const data = {
       id: iri,
-      type: [INTEROP.ApplicationRegistration.value, LDP.Resource.value],
+      type: [INTEROP.ApplicationRegistration, LDP.Resource],
       registeredAgent: 'https://id/test-client',
       hasDataGrant: ['https://registry/alice/grant/g1', 'https://registry/alice/grant/g2'],
     }
     const store = await toStore(withContext(dataModelContext, data), iri)
     expect(store).toBeRdfDatasetContaining(
-      DataFactory.quad(DataFactory.namedNode(iri), RDF.type, INTEROP.ApplicationRegistration),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.registeredAgent,
+        RDF.terms.type,
+        INTEROP.terms.ApplicationRegistration
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        INTEROP.terms.registeredAgent,
         DataFactory.namedNode('https://id/test-client')
       ),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.hasDataGrant,
+        INTEROP.terms.hasDataGrant,
         DataFactory.namedNode('https://registry/alice/grant/g1')
       ),
       DataFactory.quad(
         DataFactory.namedNode(iri),
-        INTEROP.hasDataGrant,
+        INTEROP.terms.hasDataGrant,
         DataFactory.namedNode('https://registry/alice/grant/g2')
       )
     )

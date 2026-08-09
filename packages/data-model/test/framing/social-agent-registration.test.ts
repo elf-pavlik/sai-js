@@ -15,7 +15,7 @@ describe('SocialAgentRegistration framing', () => {
     const registration = await registrationFromJsonLd(doc, REGISTRATION_IRI)
     expect(registration).toEqual({
       id: REGISTRATION_IRI,
-      type: [INTEROP.SocialAgentRegistration.value, LDP.Resource.value],
+      type: [INTEROP.SocialAgentRegistration, LDP.Resource],
       registeredAgent: 'https://id/alice',
       hasDataGrant: ['https://registry/acme/grant/g4yhtm'],
       prefLabel: 'Alice',

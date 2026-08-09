@@ -15,7 +15,7 @@ describe('ApplicationRegistration framing', () => {
     const data = await ApplicationRegistration.fromJsonLd(doc, REGISTRATION_IRI)
     expect(data).toEqual({
       id: REGISTRATION_IRI,
-      type: [INTEROP.ApplicationRegistration.value, LDP.Resource.value],
+      type: [INTEROP.ApplicationRegistration, LDP.Resource],
       registeredAgent: 'https://data/test-client/public/id',
       hasDataGrant: [
         'https://registry/alice/grant/afiooi',

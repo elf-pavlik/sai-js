@@ -14,7 +14,7 @@ describe('SocialAgentInvitation framing', () => {
     const invitation = await invitationFromJsonLd(doc, INVITATION_IRI)
     expect(invitation).toEqual({
       id: INVITATION_IRI,
-      type: [INTEROP.SocialAgentInvitation.value],
+      type: [INTEROP.SocialAgentInvitation],
       capabilityUrl:
         'https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f',
       prefLabel: 'Bob',

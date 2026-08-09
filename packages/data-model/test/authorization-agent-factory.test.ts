@@ -70,47 +70,47 @@ describe('crud', () => {
 describe('immutable', () => {
   describe('data grant', () => {
     const commonData = {
-      type: [INTEROP.DataGrant.value],
+      type: [INTEROP.DataGrant],
       dataOwner: 'https://alice.example/#id',
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       hasDataRegistration: 'https://pro.alice.example/123',
-      accessMode: [ACL.Read.value],
+      accessMode: [ACL.Read],
     }
 
     test('builds AllFromRegistry data grant', async () => {
       const allFromRegistryData = {
-        scopeOfGrant: INTEROP.AllFromRegistry.value,
+        scopeOfGrant: INTEROP.AllFromRegistry,
         ...commonData,
       }
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5126'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, allFromRegistryData)
       expect(dataGrant).toHaveProperty('id', dataGrantIri)
-      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.AllFromRegistry.value)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.AllFromRegistry)
     })
 
     test('builds SelectedFromRegistry data grant', async () => {
       const selectedFromRegistryData = {
-        scopeOfGrant: INTEROP.SelectedFromRegistry.value,
+        scopeOfGrant: INTEROP.SelectedFromRegistry,
         ...commonData,
       }
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, selectedFromRegistryData)
       expect(dataGrant).toHaveProperty('id', dataGrantIri)
-      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.SelectedFromRegistry.value)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.SelectedFromRegistry)
     })
 
     test('builds Inherited data grant', async () => {
       const inheritnstancesData = {
-        scopeOfGrant: INTEROP.Inherited.value,
+        scopeOfGrant: INTEROP.Inherited,
         ...commonData,
       }
       const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
       const dataGrantIri = 'https://auth.alice.example/9827ae00-2778-4655-9f22-08bb9daaee26'
       const dataGrant = factory.immutable.dataGrant(dataGrantIri, inheritnstancesData)
       expect(dataGrant).toHaveProperty('id', dataGrantIri)
-      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.Inherited.value)
+      expect(dataGrant).toHaveProperty('scopeOfGrant', INTEROP.Inherited)
     })
   })
 })
@@ -123,6 +123,6 @@ describe('readable', () => {
     expect(dataAuthorization.id).toBe(snippetIri)
     expect(dataAuthorization.grantee).toBe('https://projectron.example/#app')
     expect(dataAuthorization.grantedBy).toBe(webId)
-    expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent.value)
+    expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent)
   })
 })

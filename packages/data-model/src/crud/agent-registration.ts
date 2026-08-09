@@ -31,12 +31,16 @@ export async function toDataset(data: AgentRegistrationData): Promise<Store> {
   const node = DataFactory.namedNode(data.id)
   if (data.registeredAgent) {
     store.add(
-      DataFactory.quad(node, INTEROP.registeredAgent, DataFactory.namedNode(data.registeredAgent))
+      DataFactory.quad(
+        node,
+        INTEROP.terms.registeredAgent,
+        DataFactory.namedNode(data.registeredAgent)
+      )
     )
   }
   if (data.hasDataGrant) {
     for (const grantIri of data.hasDataGrant) {
-      store.add(DataFactory.quad(node, INTEROP.hasDataGrant, DataFactory.namedNode(grantIri)))
+      store.add(DataFactory.quad(node, INTEROP.terms.hasDataGrant, DataFactory.namedNode(grantIri)))
     }
   }
   return store
@@ -91,7 +95,7 @@ export async function addDataGrant(
 ): Promise<void> {
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasDataGrant,
+    INTEROP.terms.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
   await addStatement(data.id, factory, quad)
@@ -105,7 +109,7 @@ export async function removeDataGrant(
 ): Promise<void> {
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasDataGrant,
+    INTEROP.terms.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
   await removeStatement(data.id, factory, quad)

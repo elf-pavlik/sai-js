@@ -15,7 +15,7 @@ const data = {
   registeredAgent: 'https://different.iri/',
   hasDataGrant: [dataGrantIri],
   prefLabel: 'Someone',
-  type: [INTEROP.SocialAgentRegistration.value],
+  type: [INTEROP.SocialAgentRegistration],
 }
 
 describe('build', () => {

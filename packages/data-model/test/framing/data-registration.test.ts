@@ -17,7 +17,7 @@ describe('DataRegistration framing', () => {
     const data = await DataRegistration.fromJsonLd(doc, REGISTRATION_IRI)
     expect(data).toEqual({
       id: REGISTRATION_IRI,
-      type: [INTEROP.DataRegistration.value, LDP.Resource.value],
+      type: [INTEROP.DataRegistration, LDP.Resource],
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       contains: ['https://data/acme-rnd/reb39k/pbh2yw', 'https://data/acme-rnd/reb39k/z8w2pl'],
     })

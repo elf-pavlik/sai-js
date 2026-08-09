@@ -22,7 +22,7 @@ test('getters', async () => {
   expect(need.inheritsFromNeed).toBeUndefined()
   expect(need.hasInheritingNeed).toEqual(expect.arrayContaining([childIri]))
   expect(need.accessMode).toEqual(
-    expect.arrayContaining([ACL.Read.value, ACL.Create.value, ACL.Update.value, ACL.Delete.value])
+    expect.arrayContaining([ACL.Read, ACL.Create, ACL.Update, ACL.Delete])
   )
   expect(need.required).toBe(true)
 })

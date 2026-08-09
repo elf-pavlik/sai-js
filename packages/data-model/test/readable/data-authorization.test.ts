@@ -43,7 +43,7 @@ describe('getters', () => {
   test('should provide scopeOfAuthorization', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
-    expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent.value)
+    expect(dataAuthorization.scopeOfAuthorization).toBe(INTEROP.AllFromAgent)
   })
 
   test('should provide hasInheritingAuthorization', async () => {
@@ -57,27 +57,27 @@ describe('getters', () => {
   test('should provide accessMode', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
-    expect(dataAuthorization.accessMode).toEqual([ACL.Read.value, ACL.Write.value])
+    expect(dataAuthorization.accessMode).toEqual([ACL.Read, ACL.Write])
   })
 
   test('should provide type', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const dataAuthorization = await factory.readable.dataAuthorization(dataAuthorizationIri)
-    expect(dataAuthorization.type).toEqual([INTEROP.DataAuthorization.value])
+    expect(dataAuthorization.type).toEqual([INTEROP.DataAuthorization])
   })
 })
 
 describe('round-trip', () => {
   const allFromRegistryData: FinalDataAuthorizationData = {
     id: 'https://some.iri/da',
-    type: [INTEROP.DataAuthorization.value],
+    type: [INTEROP.DataAuthorization],
     grantee: 'https://projectron.example/#app',
     grantedBy: webId,
     registeredShapeTree: 'https://solidshapes.example/trees/Project',
-    scopeOfAuthorization: INTEROP.AllFromRegistry.value,
+    scopeOfAuthorization: INTEROP.AllFromRegistry,
     dataOwner: 'https://alice.example/#id',
     hasDataRegistration: 'https://pro.alice.example/123',
-    accessMode: [ACL.Read.value, ACL.Write.value],
+    accessMode: [ACL.Read, ACL.Write],
   }
 
   test('toJsonLd + fromJsonLd', async () => {
@@ -89,7 +89,7 @@ describe('round-trip', () => {
   test('toJsonLd + fromJsonLd with hasDataInstance', async () => {
     const data: FinalDataAuthorizationData = {
       ...allFromRegistryData,
-      scopeOfAuthorization: INTEROP.SelectedFromRegistry.value,
+      scopeOfAuthorization: INTEROP.SelectedFromRegistry,
       hasDataInstance: ['https://some.iri/a', 'https://some.iri/b'],
     }
     const doc = DataAuthorization.toJsonLd(data)

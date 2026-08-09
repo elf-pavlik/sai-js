@@ -69,7 +69,7 @@ export async function createRegistration(
   const iri = iriForContained(data, factory, true)
   const dataRegistration = await factory.crud.dataRegistration(iri, {
     id: iri,
-    type: [INTEROP.DataRegistration.value],
+    type: [INTEROP.DataRegistration],
     registeredShapeTree,
     contains: [],
   })
@@ -78,7 +78,7 @@ export async function createRegistration(
   // link to created data registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasDataRegistration,
+    INTEROP.terms.hasDataRegistration,
     DataFactory.namedNode(dataRegistration.id)
   )
   await addStatement(data.id, factory, quad)
@@ -91,7 +91,7 @@ export async function storageIri(
 ): Promise<string> {
   const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch)
   const doc = await fetchJsonLd(storageDescriptionIri, factory.fetch)
-  return findNodeIdByType(doc, SPACE.Storage.value, storageDescriptionIri)
+  return findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
 }
 
 export async function createDataRegistry(
@@ -99,7 +99,9 @@ export async function createDataRegistry(
   factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
-  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.DataRegistry))
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.DataRegistry)
+  )
   await createContainer(data.id, factory, dataset)
 }
 

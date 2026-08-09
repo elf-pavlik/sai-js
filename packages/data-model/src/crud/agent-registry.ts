@@ -130,7 +130,7 @@ export async function addApplicationRegistration(
   // link to created application registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasApplicationRegistration,
+    INTEROP.terms.hasApplicationRegistration,
     DataFactory.namedNode(registration.id)
   )
   await addStatement(data.id, factory, quad)
@@ -165,13 +165,13 @@ export async function addSocialAgentRegistration(
     registeredAgent,
     prefLabel,
     note,
-    type: [INTEROP.SocialAgentRegistration.value],
+    type: [INTEROP.SocialAgentRegistration],
   })
   await createSocialAgentRegistration(registration, factory)
   // link to created social agent registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasSocialAgentRegistration,
+    INTEROP.terms.hasSocialAgentRegistration,
     DataFactory.namedNode(registration.id)
   )
   await addStatement(data.id, factory, quad)
@@ -207,13 +207,13 @@ export async function addSocialAgentInvitation(
     capabilityUrl,
     prefLabel,
     note,
-    type: [INTEROP.SocialAgentInvitation.value],
+    type: [INTEROP.SocialAgentInvitation],
   })
   await putSocialAgentInvitation(invitation, factory.fetch)
   // link to created social agent invitation
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
-    INTEROP.hasSocialAgentInvitation,
+    INTEROP.terms.hasSocialAgentInvitation,
     DataFactory.namedNode(invitation.id)
   )
   await addStatement(data.id, factory, quad)
@@ -225,7 +225,9 @@ export async function createAgentRegistry(
   factory: AuthorizationAgentFactory
 ): Promise<void> {
   const dataset = new Store()
-  dataset.add(DataFactory.quad(DataFactory.namedNode(data.id), RDF.type, INTEROP.AgentRegistry))
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
+  )
   await createContainer(data.id, factory, dataset)
 }
 

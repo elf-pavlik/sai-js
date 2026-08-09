@@ -35,7 +35,7 @@ describe('reciprocal webhook', () => {
     const check = await receivesNotification(
       session.authFetch.bind(session),
       applicationRegistrationId,
-      AS.Update.value
+      AS.Update
     )
     expect(check).toBeTruthy()
   })

@@ -154,7 +154,7 @@ export async function generateAuthorization(
       )
       if (matchingDataAuthorization) {
         // TODO: should we handle it differently
-        if (matchingDataAuthorization.scopeOfAuthorization !== INTEROP.SelectedFromRegistry.value)
+        if (matchingDataAuthorization.scopeOfAuthorization !== INTEROP.SelectedFromRegistry)
           throw new Error(`unexpected scope: ${matchingDataAuthorization.scopeOfAuthorization}`)
 
         // copy over selected instances from existing data authorization

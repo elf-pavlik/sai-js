@@ -19,7 +19,9 @@ describe('build', () => {
 
   test('should throw if unable to build data registration', async () => {
     await expect(
-      factory.readable.dataInstance('https://pro.alice.example/ccbd77ae-f769-4e07-b41f-5136501e13e7')
+      factory.readable.dataInstance(
+        'https://pro.alice.example/ccbd77ae-f769-4e07-b41f-5136501e13e7'
+      )
     ).rejects.toThrow()
   })
 

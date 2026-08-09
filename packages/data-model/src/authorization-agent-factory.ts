@@ -1,16 +1,16 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
-  type AgentRegistrationData,
-  BaseFactory,
-  type BaseReadableFactory,
   type AccessDescriptionSetData,
-  type AccessNeedDescriptionData,
-  type AccessNeedGroupDescriptionData,
   type AccessNeedData,
+  type AccessNeedDescriptionData,
   type AccessNeedGroupData,
+  type AccessNeedGroupDescriptionData,
+  type AgentRegistrationData,
   type AgentRegistryData,
   type ApplicationRegistrationData,
   type AuthorizationRegistryData,
+  BaseFactory,
+  type BaseReadableFactory,
   type DataAuthorizationData,
   type DataRegistrationData,
   type DataRegistryData,
@@ -24,18 +24,15 @@ import {
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
 } from '.'
-import {
-  loadAccessNeedDescription,
-  loadAccessNeedGroupDescription,
-} from './access-description'
+import { loadAccessNeedDescription, loadAccessNeedGroupDescription } from './access-description'
 import { loadAccessNeed } from './access-need'
 import { loadAccessNeedGroup } from './access-need-group'
-import { loadDataAuthorization } from './data-authorization'
 import { loadApplicationRegistration } from './application-registration'
+import { loadRegistrySet } from './crud/registry-set'
+import { loadRole } from './crud/role'
 import { loadSocialAgentInvitation } from './crud/social-agent-invitation'
 import { loadSocialAgentRegistration } from './crud/social-agent-registration'
-import { loadRole } from './crud/role'
-import { loadRegistrySet } from './crud/registry-set'
+import { loadDataAuthorization } from './data-authorization'
 
 interface AuthorizationAgentReadableFactory extends BaseReadableFactory {
   dataAuthorization(iri: string): Promise<DataAuthorizationData>
@@ -108,16 +105,19 @@ export class AuthorizationAgentFactory extends BaseFactory {
             granted: hasDataGrant.length > 0,
           }
         }
-        return loadApplicationRegistration(iri, factory.fetch.raw)
+        return loadApplicationRegistration(iri, factory.fetch)
       },
       socialAgentRegistration: async function socialAgentRegistration(
         iri: string,
-        data?: Omit<SocialAgentRegistrationData, 'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'>
+        data?: Omit<
+          SocialAgentRegistrationData,
+          'id' | 'hasAccessNeedGroup' | 'reciprocalRegistration'
+        >
       ): Promise<SocialAgentRegistrationData> {
         if (data) {
           return { ...data, id: iri }
         }
-        return loadSocialAgentRegistration(iri, factory.fetch.raw)
+        return loadSocialAgentRegistration(iri, factory.fetch)
       },
       socialAgentInvitation: async function socialAgentInvitation(
         iri: string,
@@ -126,25 +126,18 @@ export class AuthorizationAgentFactory extends BaseFactory {
         if (data) {
           return { ...data, id: iri }
         }
-        return loadSocialAgentInvitation(iri, factory.fetch.raw)
+        return loadSocialAgentInvitation(iri, factory.fetch)
       },
-      role: async function role(
-        iri: string,
-        data?: Omit<RoleData, 'id'>
-      ): Promise<RoleData> {
+      role: async function role(iri: string, data?: Omit<RoleData, 'id'>): Promise<RoleData> {
         if (data) {
           return { id: iri, prefLabel: data.prefLabel, members: data.members, type: data.type }
         }
-        return loadRole(iri, factory.fetch.raw)
+        return loadRole(iri, factory.fetch)
       },
-      roleRegistry: async function roleRegistry(
-        iri: string
-      ): Promise<RoleRegistryData> {
+      roleRegistry: async function roleRegistry(iri: string): Promise<RoleRegistryData> {
         return { id: iri }
       },
-      dataRegistry: async function dataRegistry(
-        iri: string
-      ): Promise<DataRegistryData> {
+      dataRegistry: async function dataRegistry(iri: string): Promise<DataRegistryData> {
         return { id: iri }
       },
       dataRegistration: async function dataRegistration(
@@ -161,26 +154,19 @@ export class AuthorizationAgentFactory extends BaseFactory {
       ): Promise<AuthorizationRegistryData> {
         return { id: iri }
       },
-      grantRegistry: async function grantRegistry(
-        iri: string
-      ): Promise<GrantRegistryData> {
+      grantRegistry: async function grantRegistry(iri: string): Promise<GrantRegistryData> {
         return { id: iri }
       },
-      agentRegistry: async function agentRegistry(
-        iri: string
-      ): Promise<AgentRegistryData> {
+      agentRegistry: async function agentRegistry(iri: string): Promise<AgentRegistryData> {
         return { id: iri }
       },
-      registrySet: async function registrySet(
-        iri: string
-      ): Promise<RegistrySetData> {
+      registrySet: async function registrySet(iri: string): Promise<RegistrySetData> {
         return loadRegistrySet(iri, factory)
       },
     }
   }
 
   private immutableFactory(): ImmutableFactory {
-    const factory = this
     return {
       dataGrant: function dataGrant(iri: string, data: GrantData): FinalGrantData {
         return { ...data, id: iri }
@@ -194,17 +180,17 @@ export class AuthorizationAgentFactory extends BaseFactory {
       dataAuthorization: async function dataAuthorization(
         iri: string
       ): Promise<DataAuthorizationData> {
-        return loadDataAuthorization(iri, factory.fetch.raw)
+        return loadDataAuthorization(iri, factory.fetch)
       },
       accessNeedDescription: async function accessNeedDescription(
         iri: string
       ): Promise<AccessNeedDescriptionData> {
-        return loadAccessNeedDescription(iri, factory.fetch.raw)
+        return loadAccessNeedDescription(iri, factory.fetch)
       },
       accessNeedGroupDescription: async function accessNeedGroupDescription(
         iri: string
       ): Promise<AccessNeedGroupDescriptionData> {
-        return loadAccessNeedGroupDescription(iri, factory.fetch.raw)
+        return loadAccessNeedGroupDescription(iri, factory.fetch)
       },
       accessDescriptionSet: async function accessDescriptionSet(
         iri: string
@@ -217,7 +203,7 @@ export class AuthorizationAgentFactory extends BaseFactory {
         iri: string,
         descriptionLang?: string
       ): Promise<AccessNeedData> {
-        const need = await loadAccessNeed(iri, factory.fetch.raw)
+        const need = await loadAccessNeed(iri, factory.fetch)
         if (need.hasInheritingNeed.length) {
           need.children = await Promise.all(
             need.hasInheritingNeed.map((childIri) =>
@@ -231,9 +217,11 @@ export class AuthorizationAgentFactory extends BaseFactory {
         iri: string,
         descriptionLang?: string
       ): Promise<AccessNeedGroupData> {
-        const group = await loadAccessNeedGroup(iri, factory.fetch.raw)
+        const group = await loadAccessNeedGroup(iri, factory.fetch)
         group.accessNeeds = await Promise.all(
-          group.hasAccessNeed.map((needIri) => factory.readable.accessNeed(needIri, descriptionLang))
+          group.hasAccessNeed.map((needIri) =>
+            factory.readable.accessNeed(needIri, descriptionLang)
+          )
         )
         return group
       },

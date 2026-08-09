@@ -1,6 +1,5 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -36,9 +35,6 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<WebIdProfil
   }
 }
 
-export async function loadWebIdProfile(
-  iri: string,
-  fetch: WhatwgFetch
-): Promise<WebIdProfileData> {
+export async function loadWebIdProfile(iri: string, fetch: WhatwgFetch): Promise<WebIdProfileData> {
   return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }

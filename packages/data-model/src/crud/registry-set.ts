@@ -1,3 +1,4 @@
+import { fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
 import type { AgentRegistryData } from './agent-registry'
@@ -5,7 +6,6 @@ import type { AuthorizationRegistryData } from './authorization-registry'
 import type { DataRegistryData } from './data-registry'
 import type { GrantRegistryData } from './grant-registry'
 import type { RoleRegistryData } from './role-registry'
-import { fetchJsonLd, frameDoc } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -31,7 +31,7 @@ export async function loadRegistrySet(
   iri: string,
   factory: AuthorizationAgentFactory
 ): Promise<RegistrySetData> {
-  const doc = await fetchJsonLd(iri, factory.fetch.raw)
+  const doc = await fetchJsonLd(iri, factory.fetch)
   const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: iri,

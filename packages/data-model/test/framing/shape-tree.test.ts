@@ -1,6 +1,6 @@
-import { SHAPETREES } from '@janeirodigital/interop-utils'
+import { SHAPETREES, toStore } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { ShapeTree, toStore } from '../../src'
+import { ShapeTree } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 

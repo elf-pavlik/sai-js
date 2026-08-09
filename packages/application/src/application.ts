@@ -8,13 +8,11 @@ import {
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   ACL,
-  type RdfFetch,
   type WhatwgFetch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
-  fetchWrapper,
 } from '@janeirodigital/interop-utils'
 
 interface ApplicationDependencies {
@@ -38,9 +36,7 @@ type ChildInfo = {
 export class Application {
   factory: ApplicationFactory
 
-  rawFetch: WhatwgFetch
-
-  fetch: RdfFetch
+  fetch: WhatwgFetch
 
   authorizationAgentIri: string
 
@@ -60,8 +56,7 @@ export class Application {
     public applicationId: string,
     dependencies: ApplicationDependencies
   ) {
-    this.rawFetch = dependencies.fetch
-    this.fetch = fetchWrapper(this.rawFetch)
+    this.fetch = dependencies.fetch
     this.factory = new ApplicationFactory({
       fetch: this.fetch,
       randomUUID: dependencies.randomUUID,
@@ -70,13 +65,10 @@ export class Application {
 
   private async bootstrap(): Promise<void> {
     this.authorizationAgentIri = await discoverAuthorizationAgent(this.webId, this.fetch)
-    this.registrationIri = await discoverAgentRegistration(
-      this.authorizationAgentIri,
-      this.rawFetch
-    )
+    this.registrationIri = await discoverAgentRegistration(this.authorizationAgentIri, this.fetch)
     this.authorizationRedirectEndpoint = await discoverAuthorizationRedirectEndpoint(
       this.authorizationAgentIri,
-      this.rawFetch
+      this.fetch
     )
     if (!this.registrationIri) return
     await this.buildRegistration()
@@ -247,6 +239,6 @@ export class Application {
   }
 
   public async discoverDescription(resourceIri: string): Promise<string | undefined> {
-    return discoverDescriptionResource(resourceIri, this.rawFetch)
+    return discoverDescriptionResource(resourceIri, this.fetch)
   }
 }

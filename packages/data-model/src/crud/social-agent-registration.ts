@@ -5,13 +5,17 @@ import {
   type WhatwgFetch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
+  fetchJsonLd,
+  frameDoc,
 } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
+import { DataFactory, type Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
-import { type AgentRegistrationData, toDataset as registrationToDataset } from './agent-registration'
+import {
+  type AgentRegistrationData,
+  toDataset as registrationToDataset,
+} from './agent-registration'
 import { addStatement, createContainer, replaceStatement } from './container'
-import { fetchJsonLd, frameDoc } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -40,10 +44,7 @@ export type SocialAgentRegistrationData = AgentRegistrationData & {
  * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
  * rdf:type (from framing) to a string array.
  */
-export async function fromJsonLd(
-  doc: unknown,
-  iri: string
-): Promise<SocialAgentRegistrationData> {
+export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentRegistrationData> {
   const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: iri,
@@ -91,7 +92,11 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
   }
   if (data.hasAccessNeedGroup) {
     store.add(
-      DataFactory.quad(node, INTEROP.hasAccessNeedGroup, DataFactory.namedNode(data.hasAccessNeedGroup))
+      DataFactory.quad(
+        node,
+        INTEROP.hasAccessNeedGroup,
+        DataFactory.namedNode(data.hasAccessNeedGroup)
+      )
     )
   }
   return store
@@ -128,7 +133,11 @@ async function updateReciprocal(
   reciprocalRegistrationIri: string
 ): Promise<void> {
   const node = DataFactory.namedNode(data.id)
-  const quad = DataFactory.quad(node, INTEROP.reciprocalRegistration, DataFactory.namedNode(reciprocalRegistrationIri))
+  const quad = DataFactory.quad(
+    node,
+    INTEROP.reciprocalRegistration,
+    DataFactory.namedNode(reciprocalRegistrationIri)
+  )
   if (data.reciprocalRegistration) {
     const priorQuad = DataFactory.quad(
       node,
@@ -159,7 +168,11 @@ export async function setAccessNeedGroup(
   accessNeedGroupIri: string
 ): Promise<void> {
   const node = DataFactory.namedNode(data.id)
-  const quad = DataFactory.quad(node, INTEROP.hasAccessNeedGroup, DataFactory.namedNode(accessNeedGroupIri))
+  const quad = DataFactory.quad(
+    node,
+    INTEROP.hasAccessNeedGroup,
+    DataFactory.namedNode(accessNeedGroupIri)
+  )
   if (data.hasAccessNeedGroup) {
     const priorQuad = DataFactory.quad(
       node,

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
+import { fetchJsonLd, toStore } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { AccessDescriptionSet, AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
@@ -32,7 +33,8 @@ describe('findInLanguage', () => {
   test('finds description set in language given a resource', async () => {
     const lang = 'en'
     const accessNeedIri = 'https://projectron.example/access-needs#need-project'
-    const dataset = await (await factory.fetch(accessNeedIri)).dataset()
+    const doc = (await fetchJsonLd(accessNeedIri, factory.fetch)) as Record<string, unknown>
+    const dataset = await toStore(doc, accessNeedIri)
     const descriptionSetIri = AccessDescriptionSet.findInLanguage(dataset, lang)
     expect(descriptionSetIri).toBe('https://projectron.example/descriptions-en')
   })

@@ -1,8 +1,14 @@
-import { INTEROP, parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  type WhatwgFetch,
+  documentValues,
+  fetchJsonLd,
+  frameDoc,
+  parseJsonld,
+} from '@janeirodigital/interop-utils'
 import type { AccessNeedDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import { dataModelContext } from './context'
-import { documentValues, fetchJsonLd, frameDoc } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -54,10 +60,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedD
   }
 }
 
-export async function loadAccessNeed(
-  iri: string,
-  fetch: WhatwgFetch
-): Promise<AccessNeedData> {
+export async function loadAccessNeed(iri: string, fetch: WhatwgFetch): Promise<AccessNeedData> {
   return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
@@ -74,7 +77,7 @@ export async function getDescription(
   lang: string,
   factory: AuthorizationAgentFactory
 ): Promise<AccessNeedDescriptionData | undefined> {
-  const response = await factory.fetch.raw(need.id, {
+  const response = await factory.fetch(need.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()

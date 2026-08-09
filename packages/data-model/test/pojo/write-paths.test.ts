@@ -1,10 +1,21 @@
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
-import { INTEROP, LDP, RDF, SKOS } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  LDP,
+  RDF,
+  SKOS,
+  fetchJsonLd,
+  toStore,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { dataModelContext, fetchJsonLd, toStore, withContext } from '../../src'
-import { fromJsonLd as invitationFromJsonLd, putSocialAgentInvitation } from '../../src/crud/social-agent-invitation'
-import { fromJsonLd as roleFromJsonLd, putRole } from '../../src/crud/role'
+import { dataModelContext } from '../../src'
+import { putRole, fromJsonLd as roleFromJsonLd } from '../../src/crud/role'
+import {
+  fromJsonLd as invitationFromJsonLd,
+  putSocialAgentInvitation,
+} from '../../src/crud/social-agent-invitation'
 import { expect } from '../expect'
 
 // ──────────────────────────
@@ -28,8 +39,16 @@ describe('role write path', () => {
     const store = await toStore(withContext(dataModelContext, roleData), iri)
     expect(store).toBeRdfDatasetContaining(
       DataFactory.quad(DataFactory.namedNode(iri), RDF.type, INTEROP.Role),
-      DataFactory.quad(DataFactory.namedNode(iri), SKOS.prefLabel, DataFactory.literal('Test Role')),
-      DataFactory.quad(DataFactory.namedNode(iri), INTEROP.hasMember, DataFactory.namedNode('https://id/bob'))
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        SKOS.prefLabel,
+        DataFactory.literal('Test Role')
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        INTEROP.hasMember,
+        DataFactory.namedNode('https://id/bob')
+      )
     )
   })
 
@@ -66,7 +85,11 @@ describe('social-agent-invitation write path', () => {
         DataFactory.namedNode('https://auth/.sai/invitations/some-secret')
       ),
       DataFactory.quad(DataFactory.namedNode(iri), SKOS.prefLabel, DataFactory.literal('Bob')),
-      DataFactory.quad(DataFactory.namedNode(iri), SKOS.note, DataFactory.literal('What about Bob?'))
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        SKOS.note,
+        DataFactory.literal('What about Bob?')
+      )
     )
   })
 
@@ -115,8 +138,16 @@ describe('application-registration write path', () => {
         INTEROP.registeredAgent,
         DataFactory.namedNode('https://id/test-client')
       ),
-      DataFactory.quad(DataFactory.namedNode(iri), INTEROP.hasDataGrant, DataFactory.namedNode('https://registry/alice/grant/g1')),
-      DataFactory.quad(DataFactory.namedNode(iri), INTEROP.hasDataGrant, DataFactory.namedNode('https://registry/alice/grant/g2'))
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        INTEROP.hasDataGrant,
+        DataFactory.namedNode('https://registry/alice/grant/g1')
+      ),
+      DataFactory.quad(
+        DataFactory.namedNode(iri),
+        INTEROP.hasDataGrant,
+        DataFactory.namedNode('https://registry/alice/grant/g2')
+      )
     )
   })
 })

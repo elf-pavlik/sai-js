@@ -1,10 +1,16 @@
-import { SHAPETREES, getDescriptionResource } from '@janeirodigital/interop-utils'
+import {
+  type JsonLdContext,
+  SHAPETREES,
+  fetchJsonLd,
+  frameDoc,
+  framedValue,
+  getDescriptionResource,
+} from '@janeirodigital/interop-utils'
 import type { InteropFactory } from '.'
 import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
 import type { ShapeTreeData } from './shape-tree'
 import { getDescription as getShapeTreeDescription } from './shape-tree'
-import { type JsonLdContext, fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
 
 // ──────────────────────────
 // DataInstanceData (readable POJO)
@@ -42,7 +48,7 @@ export async function discoverDescriptionResource(
   iri: string,
   fetch: InteropFactory['fetch']
 ): Promise<string> {
-  const response = await fetch.raw(iri, { method: 'HEAD' })
+  const response = await fetch(iri, { method: 'HEAD' })
   return getDescriptionResource(response.headers.get('Link'))
 }
 
@@ -89,7 +95,7 @@ export async function frameDataInstance(
   docIri?: string
 ): Promise<Record<string, unknown>> {
   return frameDoc(
-    await fetchJsonLd(docIri ?? iri, factory.fetch.raw),
+    await fetchJsonLd(docIri ?? iri, factory.fetch),
     dataInstanceContext(shapeTree),
     iri
   )
@@ -109,9 +115,7 @@ export function childIris(
   shapeTree: ShapeTreeData,
   childShapeTree: string
 ): string[] {
-  const reference = shapeTree.references.find(
-    (reference) => reference.shapeTree === childShapeTree
-  )
+  const reference = shapeTree.references.find((reference) => reference.shapeTree === childShapeTree)
   if (!reference) {
     throw new Error(`shape tree ${shapeTree.id} does not reference ${childShapeTree}`)
   }

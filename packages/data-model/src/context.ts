@@ -1,14 +1,17 @@
 import {
   INTEROP,
+  type JsonLdContext,
   LDP,
   OIDC,
   RDFS,
   SHAPETREES,
   SKOS,
   SOLID,
+  type WhatwgFetch,
   buildNamespace,
+  fetchJsonLd,
+  frameDoc,
 } from '@janeirodigital/interop-utils'
-import type { JsonLdContext } from './jsonld-utils'
 
 const NFO = buildNamespace('http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#')
 
@@ -126,4 +129,20 @@ export const dataModelContext: JsonLdContext = {
 
   // nfo
   fileName: { '@id': NFO.fileName.value },
+}
+
+/**
+ * Collect the IRI values of a term (an interop/ldp property from the shared
+ * `dataModelContext`) on the resource at `iri` from a raw JSON-LD GET — the
+ * JSON-LD replacement for `linkedIris` (no N3 / quad lookups). Node references
+ * are coerced to IRI strings (`@container: '@set'` on the term); an absent
+ * property yields `[]`.
+ */
+export async function linkedIrisJsonLd(
+  iri: string,
+  fetch: WhatwgFetch,
+  term: string
+): Promise<string[]> {
+  const node = (await frameDoc(await fetchJsonLd(iri, fetch), dataModelContext, iri)) as any
+  return node[term] ?? []
 }

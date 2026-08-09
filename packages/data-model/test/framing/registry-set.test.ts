@@ -13,7 +13,7 @@ describe('RegistrySet framing', () => {
   test('frames the registry set graph into RegistrySetData', async () => {
     const doc = await docFromGraphs([`meta:${REGISTRY_SET_IRI}`])
     const factory = {
-      fetch: { raw: async () => ({ ok: true, json: async () => doc }) },
+      fetch: async () => ({ ok: true, json: async () => doc }),
     } as unknown as AuthorizationAgentFactory
     const registrySet = await RegistrySet.loadRegistrySet(REGISTRY_SET_IRI, factory)
     expect(registrySet).toEqual({

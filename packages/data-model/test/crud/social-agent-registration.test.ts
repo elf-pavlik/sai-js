@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fetch, statelessFetch } from '@janeirodigital/interop-test-utils'
 import {
-  type RdfResponse,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
 } from '@janeirodigital/interop-utils'
@@ -86,7 +85,7 @@ describe('reciprocal registration discovery', () => {
       const responseMock = {
         ok: true,
         headers: { get: (name: string): string | null => (name === 'Link' ? linkString : null) },
-      } as unknown as RdfResponse
+      } as unknown as Response
       responseMock.clone = () => ({ ...responseMock })
       mocked.mockResolvedValueOnce(responseMock)
 
@@ -99,7 +98,11 @@ describe('reciprocal registration discovery', () => {
     test('should return null if no authorization agent found', async () => {
       const customSnippetIri = 'https://auth.alice.example/b1f69979-dd47-4709-b2ed-a7119f29b135'
       const socialAgentRegistration = await factory.crud.socialAgentRegistration(customSnippetIri)
-      const registrationIri = await discoverReciprocal(socialAgentRegistration, factory, statelessFetch)
+      const registrationIri = await discoverReciprocal(
+        socialAgentRegistration,
+        factory,
+        statelessFetch
+      )
       expect(registrationIri).toBeNull()
     })
   })

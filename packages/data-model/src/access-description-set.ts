@@ -7,8 +7,11 @@ import {
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
+import type {
+  AccessNeedDescriptionData,
+  AccessNeedGroupDescriptionData,
+} from './access-description'
 import type { AuthorizationAgentFactory } from './authorization-agent-factory'
-import type { AccessNeedDescriptionData, AccessNeedGroupDescriptionData } from './access-description'
 
 // ──────────────────────────
 // Types
@@ -89,7 +92,7 @@ export async function loadDescriptions(
   accessNeedDescriptions: AccessNeedDescriptionData[]
   accessNeedGroupDescriptions: AccessNeedGroupDescriptionData[]
 }> {
-  const response = await factory.fetch.raw(set.id, {
+  const response = await factory.fetch(set.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()

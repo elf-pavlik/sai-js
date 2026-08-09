@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import {
-  AgentRegistry,
-  AuthorizationAgentFactory,
-} from '../../src'
+import { AgentRegistry, AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -148,9 +145,9 @@ describe('addApplicationRegistration', () => {
   test('throws if registration already exists', async () => {
     const applicationIri = 'https://projectron.example/#app'
     const registry = await factory.crud.agentRegistry(snippetIri)
-    expect(AgentRegistry.addApplicationRegistration(registry, factory, applicationIri)).rejects.toThrow(
-      'already exists'
-    )
+    expect(
+      AgentRegistry.addApplicationRegistration(registry, factory, applicationIri)
+    ).rejects.toThrow('already exists')
   })
 
   test('returns added registration', async () => {

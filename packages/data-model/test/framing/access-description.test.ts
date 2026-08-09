@@ -17,7 +17,8 @@ describe('AccessDescription framing', () => {
     expect(description).toEqual({
       id: NEED_DESC_IRI,
       type: [INTEROP.AccessNeedDescription.value],
-      prefLabel: 'Access to Projects is essential for Projectron to perform its core function of Project Management.',
+      prefLabel:
+        'Access to Projects is essential for Projectron to perform its core function of Project Management.',
       definition: undefined,
       hasAccessNeed: 'https://data/test-client/public/access-needs#need-project',
     })
@@ -25,13 +26,15 @@ describe('AccessDescription framing', () => {
 
   test('frames an access need group description into AccessNeedGroupDescriptionData', async () => {
     const doc = await docFromGraphs([DESCRIPTIONS_GRAPH])
-    const description = await AccessDescription.accessNeedGroupDescriptionFromJsonLd(doc, GROUP_DESC_IRI)
+    const description = await AccessDescription.accessNeedGroupDescriptionFromJsonLd(
+      doc,
+      GROUP_DESC_IRI
+    )
     expect(description).toEqual({
       id: GROUP_DESC_IRI,
       type: [INTEROP.AccessNeedGroupDescription.value],
       prefLabel: 'Manage Projects',
-      definition:
-        'Allow Projectron to read the Projects you select, and Task in those projects.',
+      definition: 'Allow Projectron to read the Projects you select, and Task in those projects.',
       hasAccessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
     })
   })

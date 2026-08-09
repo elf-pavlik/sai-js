@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { type RdfResponse, INTEROP, XSD, getAllMatchingQuads, getOneMatchingQuad, insertPatch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  XSD,
+  getAllMatchingQuads,
+  getOneMatchingQuad,
+  insertPatch,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import { beforeEach, describe, test, vi } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
@@ -54,7 +60,7 @@ describe('applyPatch', () => {
       DataFactory.namedNode(`${iri}boop`)
     )
     const sparqlUpdate = await insertPatch(new Store([quad]))
-    mockedFetch.mockResolvedValueOnce({ ok: false } as unknown as RdfResponse)
+    mockedFetch.mockResolvedValueOnce({ ok: false } as unknown as Response)
 
     await expect(applyPatch(iri, factory, sparqlUpdate, `${iri}.meta`)).rejects.toThrow(
       'failed to patch'

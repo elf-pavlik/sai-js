@@ -1,6 +1,11 @@
-import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  framedValue,
+} from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -37,9 +42,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<ClientIdDoc
     // key instead of the @type:'@id' term key — check both. Expanded-form
     // documents (node references) compact to the term key directly.
     callbackEndpoint:
-      node.callbackEndpoint ??
-      node[INTEROP.hasAuthorizationCallbackEndpoint.value] ??
-      undefined,
+      node.callbackEndpoint ?? node[INTEROP.hasAuthorizationCallbackEndpoint.value] ?? undefined,
     hasAccessNeedGroup:
       node.hasAccessNeedGroup ?? node[INTEROP.hasAccessNeedGroup.value] ?? undefined,
     // literals — framedValue unwraps language-tagged / typed values

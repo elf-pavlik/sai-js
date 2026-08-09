@@ -1,21 +1,20 @@
 import {
-  type DataAuthorizationData,
-  type GrantData,
-  type FinalGrantData,
-  type GeneratedGrants,
-  addDataGrant,
   AgentRegistry,
   AuthorizationRegistry,
-  dataGrantTemplate,
-  expandedJsonLd,
-  removeAllDataGrants,
+  type DataAuthorizationData,
+  type FinalGrantData,
+  type GeneratedGrants,
+  type GrantData,
   RoleRegistry,
+  addDataGrant,
+  dataGrantTemplate,
+  removeAllDataGrants,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
   discoverAuthorizationAgent,
   discoverDelegationIssuanceEndpoint,
-  fetchWrapper,
+  expandedJsonLd,
   getAcl,
 } from '@janeirodigital/interop-utils'
 import { buildSessionManager } from '../../builders/sessionManager.js'
@@ -43,13 +42,12 @@ export async function findAffectedAuthorizations(
 ): Promise<UpdateGrantsInput[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const dataAuthorizations =
-    await AuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
-      session.registrySet.hasAuthorizationRegistry,
-      session.factory,
-      payload.peerId,
-      payload.roleId
-    )
+  const dataAuthorizations = await AuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
+    session.registrySet.hasAuthorizationRegistry,
+    session.factory,
+    payload.peerId,
+    payload.roleId
+  )
   // group matching data authorizations by grantee
   const grouped = new Map<string, string[]>()
   for (const dataAuthorization of dataAuthorizations) {
@@ -126,7 +124,7 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const session = await manager.getSession(payload.dataOwner)
 
   const body = JSON.stringify(await expandedJsonLd(toJsonLd(payload)))
-  const response = await session.fetch.raw(payload.id, {
+  const response = await session.fetch(payload.id, {
     method: 'PUT',
     body,
     headers: {
@@ -219,7 +217,7 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
   // TODO: improve error handling
   let uasId
   try {
-    uasId = await discoverAuthorizationAgent(payload.grantee, fetchWrapper(fetch))
+    uasId = await discoverAuthorizationAgent(payload.grantee, fetch)
   } catch {}
   let grantor
   let peer
@@ -229,7 +227,7 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
   if (payload.grantedBy !== payload.dataOwner) {
     grantor = {
       agent: payload.grantedBy,
-      client: await discoverAuthorizationAgent(payload.grantedBy, fetchWrapper(fetch)),
+      client: await discoverAuthorizationAgent(payload.grantedBy, fetch),
     }
   }
   if (uasId) {
@@ -249,7 +247,7 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
     }
   }
   if (!peer && !client) throw new Error('peer or client are required')
-  const headResponse = await session.rawFetch(payload.id, {
+  const headResponse = await session.fetch(payload.id, {
     method: 'HEAD',
   })
   const acrId = getAcl(headResponse.headers.get('link'))
@@ -264,7 +262,7 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
     peer,
     client,
   }).replaceAll('\n', '')
-  const response = await session.rawFetch(acrId, {
+  const response = await session.fetch(acrId, {
     method: 'PUT',
     body: acr,
     headers: {

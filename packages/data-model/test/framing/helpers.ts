@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
-import { DataFactory, Parser, type Quad, type Term } from 'n3'
 import * as jsonldNs from 'jsonld'
+import { DataFactory, Parser, type Quad, type Term } from 'n3'
 
-// CJS/ESM interop — same pattern as src/jsonld-utils.ts.
+// CJS/ESM interop — same pattern as utils' jsonld.ts.
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 // The css-storage-fixture registry TriG. Each GRAPH is a resource document;

@@ -1,8 +1,9 @@
-import { localDocumentLoader, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
-import { dataModelContext } from './context'
+import { localDocumentLoader } from './jsonld-parser'
+import type { WhatwgFetch } from './whatwg-fetch'
+export { localDocumentLoader }
 
 // CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
 // has the full exports only on .default.  Grab the full object so that all
@@ -78,30 +79,6 @@ export async function frameDoc(
 }
 
 /**
- * Collect the values of a term (an interop/ldp property from the shared
- * `dataModelContext`) on the resource at `iri` from a raw JSON-LD GET — the
- * JSON-LD replacement for `linkedIris` (no N3 / quad lookups). Node references
- * are coerced to IRI strings (`@container: '@set'` on the term); an absent
- * property yields `[]`.
- */
-export async function linkedIrisJsonLd(
-  iri: string,
-  fetch: WhatwgFetch,
-  term: string
-): Promise<string[]> {
-  const node = (await frameDoc(await fetchJsonLd(iri, fetch), dataModelContext, iri)) as any
-  return node[term] ?? []
-}
-
-/**
- * Collect the string values (literal `@value` / node `@id`) of a predicate
- * across every node of a JSON-LD document (expanded form, walked recursively).
- *
- * Replaces document-wide quad scans where the values live on other nodes than
- * the framed one (e.g. `interop:usesLanguage` on the description sets of an
- * access need document).
- */
-/**
  * Find the `@id` of the first node in a JSON-LD document whose `@type`
  * includes `typeIri` — the JSON-LD replacement for
  * `getOneMatchingQuad(dataset, null, RDF.type, typeIri).subject`.
@@ -132,6 +109,14 @@ export async function findNodeIdByType(
   return node['@id'] as string
 }
 
+/**
+ * Collect the values of a predicate (as literal `@value` / node `@id`) across
+ * every node of a JSON-LD document (expanded form, walked recursively).
+ *
+ * Replaces document-wide quad scans where the values live on other nodes than
+ * the framed one (e.g. `interop:usesLanguage` on the description sets of an
+ * access need document). The predicate is matched by its full IRI.
+ */
 export async function documentValues(
   doc: unknown,
   iri: string,
@@ -168,9 +153,7 @@ export async function documentValues(
  * Convert a JSON-LD document (with embedded context) to an N3 Store.
  *
  * Uses jsonld.toRDF to convert the JSON-LD object directly to RDF quads
- * and collects them into an N3 Store. The resulting dataset can be passed
- * directly to an RdfFetch call as the `dataset` option (the wrapper
- * serializes it to turtle).
+ * and collects them into an N3 Store.
  */
 export async function toStore(doc: Record<string, unknown>, base?: string): Promise<Store> {
   const dataset = await jsonld.toRDF(doc, {
@@ -182,17 +165,6 @@ export async function toStore(doc: Record<string, unknown>, base?: string): Prom
     store.add(quad)
   }
   return store as Store
-}
-
-/** Attach a context to a node POJO (used by the toJsonLd functions). */
-export function withContext(
-  context: JsonLdContext,
-  node: Record<string, unknown>
-): Record<string, unknown> {
-  return {
-    '@context': context,
-    ...node,
-  }
 }
 
 /**
@@ -257,4 +229,15 @@ export function framedValue(value: unknown): string | undefined {
     if (typeof obj['@id'] === 'string') return obj['@id']
   }
   return undefined
+}
+
+/** Attach a context to a node POJO (used by the toJsonLd functions). */
+export function withContext(
+  context: JsonLdContext,
+  node: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    '@context': context,
+    ...node,
+  }
 }

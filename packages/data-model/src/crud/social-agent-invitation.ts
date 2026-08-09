@@ -1,6 +1,11 @@
-import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  putJsonLd,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import { dataModelContext } from '../context'
-import { fetchJsonLd, frameDoc, putJsonLd, withContext } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -30,10 +35,7 @@ export type SocialAgentInvitationData = {
  * `@type: '@id'`, literals to plain strings, and the rdf:type (from framing)
  * to a string array.
  */
-export async function fromJsonLd(
-  doc: unknown,
-  iri: string
-): Promise<SocialAgentInvitationData> {
+export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentInvitationData> {
   const node = (await frameDoc(doc, dataModelContext, iri)) as any
   return {
     id: iri,

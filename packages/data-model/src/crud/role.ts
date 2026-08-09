@@ -1,6 +1,11 @@
-import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  putJsonLd,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import { dataModelContext } from '../context'
-import { fetchJsonLd, frameDoc, putJsonLd, withContext } from '../jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -36,10 +41,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<RoleData> {
   }
 }
 
-export async function loadRole(
-  iri: string,
-  fetch: WhatwgFetch
-): Promise<RoleData> {
+export async function loadRole(iri: string, fetch: WhatwgFetch): Promise<RoleData> {
   return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
 }
 
@@ -47,9 +49,6 @@ export async function loadRole(
 // Write path: RoleData → JSON-LD (PUT)
 // ──────────────────────────
 
-export async function putRole(
-  data: RoleData,
-  fetch: WhatwgFetch
-): Promise<void> {
+export async function putRole(data: RoleData, fetch: WhatwgFetch): Promise<void> {
   await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
 }

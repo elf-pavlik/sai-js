@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { INTEROP } from '@janeirodigital/interop-utils'
 import { fetch } from '@janeirodigital/interop-test-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'

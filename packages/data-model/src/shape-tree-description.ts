@@ -1,6 +1,5 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { fetchJsonLd, frameDoc, framedValue } from './jsonld-utils'
 
 // ──────────────────────────
 // Types

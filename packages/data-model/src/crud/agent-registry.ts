@@ -6,9 +6,13 @@ import {
   createApplicationRegistration,
   loadApplicationRegistration,
 } from '../application-registration'
+import { linkedIrisJsonLd } from '../context'
 import { type AgentRegistrationData, setAcr } from './agent-registration'
-import { addStatement, createContainer, iriForContained as containerIriForContained } from './container'
-import { linkedIrisJsonLd } from '../jsonld-utils'
+import {
+  addStatement,
+  iriForContained as containerIriForContained,
+  createContainer,
+} from './container'
 import {
   type SocialAgentInvitationData,
   loadSocialAgentInvitation,
@@ -36,9 +40,9 @@ export async function* applicationRegistrations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<ApplicationRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasApplicationRegistration')
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasApplicationRegistration')
   for (const iri of iris) {
-    yield loadApplicationRegistration(iri, factory.fetch.raw)
+    yield loadApplicationRegistration(iri, factory.fetch)
   }
 }
 
@@ -46,9 +50,9 @@ export async function* socialAgentRegistrations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<SocialAgentRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasSocialAgentRegistration')
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasSocialAgentRegistration')
   for (const iri of iris) {
-    yield loadSocialAgentRegistration(iri, factory.fetch.raw)
+    yield loadSocialAgentRegistration(iri, factory.fetch)
   }
 }
 
@@ -56,9 +60,9 @@ export async function* socialAgentInvitations(
   data: AgentRegistryData,
   factory: AuthorizationAgentFactory
 ): AsyncIterable<SocialAgentInvitationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasSocialAgentInvitation')
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasSocialAgentInvitation')
   for (const iri of iris) {
-    yield loadSocialAgentInvitation(iri, factory.fetch.raw)
+    yield loadSocialAgentInvitation(iri, factory.fetch)
   }
 }
 
@@ -205,7 +209,7 @@ export async function addSocialAgentInvitation(
     note,
     type: [INTEROP.SocialAgentInvitation.value],
   })
-  await putSocialAgentInvitation(invitation, factory.fetch.raw)
+  await putSocialAgentInvitation(invitation, factory.fetch)
   // link to created social agent invitation
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),

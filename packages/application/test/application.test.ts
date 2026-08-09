@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { statelessFetch } from '@janeirodigital/interop-test-utils'
-import type { RdfResponse } from '@janeirodigital/interop-utils'
 import { describe, expect, test, vi } from 'vitest'
 
 import { Application } from '../src'
@@ -19,7 +18,7 @@ describe('applicatrion registration exists', () => {
   const responseMock = {
     ok: true,
     headers: { get: (name: string): string | null => (name === 'Link' ? linkString : null) },
-  } as unknown as RdfResponse
+  } as unknown as Response
   responseMock.clone = () => ({ ...responseMock })
 
   test('should build application registration if discovered', async () => {
@@ -48,7 +47,7 @@ describe('applicatrion registration exists', () => {
 describe('discovery helpers', () => {
   const expectedRedirectUriBase = 'https://auth.example/authorize'
   const mocked = vi.fn(statelessFetch)
-  const responseMock = { ok: true, headers: { get: (): null => null } } as unknown as RdfResponse
+  const responseMock = { ok: true, headers: { get: (): null => null } } as unknown as Response
   responseMock.clone = () => ({ ...responseMock })
 
   test('should not build appliction registration if not discovered', async () => {

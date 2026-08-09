@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { type RdfFetch, type WhatwgFetch, fetchWrapper } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 
 const STORAGE_DESCRIPTION_IRI = 'https://fake.example/storage-desription'
 const dataFile = new URL('data.json', import.meta.url)
@@ -20,6 +20,7 @@ async function common(
   // handle storage description requests
   if (url === STORAGE_DESCRIPTION_IRI) {
     return {
+      ok: true,
       clone: () => ({}) as unknown as Response,
       headers: {
         get: () => 'application/ld+json',
@@ -84,9 +85,9 @@ function addState(state: { [key: string]: string }): WhatwgFetch {
   } as WhatwgFetch
 }
 
-export function createFetch(): RdfFetch {
+export function createFetch(): WhatwgFetch {
   const state: { [key: string]: string } = {}
-  return fetchWrapper(addState(state))
+  return addState(state)
 }
 
 export function createStatefulFetch(): WhatwgFetch {
@@ -107,4 +108,4 @@ export const statelessFetch = async function statelessFetch(
   return common(url, options)
 } as WhatwgFetch
 
-export const fetch = fetchWrapper(statelessFetch)
+export const fetch = statelessFetch

@@ -8,7 +8,6 @@ import {
   discoverDescriptionResource,
   discoverStorageDescription,
   discoverWebPushService,
-  fetchWrapper,
 } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
@@ -19,7 +18,7 @@ const missingClient = 'https://missing.example'
 
 describe('discoverAuthorizationAgent', () => {
   test('should discover Authorization Agent from the WebID document', async () => {
-    const iri = await discoverAuthorizationAgent(aliceId, fetchWrapper(fetch))
+    const iri = await discoverAuthorizationAgent(aliceId, fetch)
     expect(iri).toBe(aliceAgentId)
   })
 })

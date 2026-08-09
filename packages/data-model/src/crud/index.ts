@@ -18,7 +18,7 @@ export {
   setRegisteredAgent,
   putSocialAgentInvitation,
 } from './social-agent-invitation'
-export { type RoleData } from './role'
+export type { RoleData } from './role'
 export { createDataRegistration } from '../data-registration'
 // explicit re-export to resolve getGranted ambiguity with ./agent-registration
 export {

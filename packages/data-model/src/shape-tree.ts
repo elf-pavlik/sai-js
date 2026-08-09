@@ -4,12 +4,13 @@ import {
   getAllMatchingQuads,
   getOneMatchingQuad,
   parseJsonld,
+  toStore,
+  withContext,
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore, NamedNode } from '@rdfjs/types'
-import { DataFactory, Store } from 'n3'
+import { DataFactory, type Store } from 'n3'
 import type { InteropFactory, ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'
-import { toStore, withContext } from './jsonld-utils'
 
 export interface ShapeTreeReference {
   shapeTree: string
@@ -43,10 +44,7 @@ export type ShapeTreeData = {
  * document) are extracted directly from the quads, since framing can't
  * capture either shape.
  */
-export async function fromDataset(
-  dataset: DatasetCore,
-  iri: string
-): Promise<ShapeTreeData> {
+export async function fromDataset(dataset: DatasetCore, iri: string): Promise<ShapeTreeData> {
   const node = DataFactory.namedNode(iri)
   const referenceNodes = getAllMatchingQuads(dataset, node, SHAPETREES.references).map(
     (quad) => quad.object
@@ -118,7 +116,7 @@ export async function getDescription(
   lang: string,
   factory: InteropFactory
 ): Promise<ShapeTreeDescriptionData | null> {
-  const response = await factory.fetch.raw(tree.id, {
+  const response = await factory.fetch(tree.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()

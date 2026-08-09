@@ -1,8 +1,14 @@
-import { INTEROP, ACL, type WhatwgFetch } from '@janeirodigital/interop-utils'
-import { dataModelContext } from './context'
+import {
+  ACL,
+  INTEROP,
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import type { BaseFactory } from './base-factory'
+import { dataModelContext } from './context'
 import { childIris, frameDataInstance } from './data-instance'
-import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 
 // ──────────────────────────
 // Types
@@ -139,7 +145,12 @@ export async function* getDataInstanceIterator(
     case INTEROP.Inherited.value: {
       const parentGrant = await readable.dataGrant(grant.inheritsFromGrant!)
       for await (const parentIri of getDataInstanceIterator(parentGrant, factory)) {
-        yield* await getChildInstanceIris(parentGrant, parentIri, grant.registeredShapeTree, factory)
+        yield* await getChildInstanceIris(
+          parentGrant,
+          parentIri,
+          grant.registeredShapeTree,
+          factory
+        )
       }
       break
     }

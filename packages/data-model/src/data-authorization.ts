@@ -1,13 +1,19 @@
-import { INTEROP, asyncIterableToArray, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  type WhatwgFetch,
+  asyncIterableToArray,
+  fetchJsonLd,
+  frameDoc,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory, RegistrySetData } from '.'
+import { dataModelContext } from './context'
+import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
 import * as AgentRegistry from './crud/agent-registry'
 import * as DataRegistry from './crud/data-registry'
 import * as GrantRegistry from './crud/grant-registry'
-import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
-import { dataModelContext } from './context'
-import type { GeneratedGrants, GrantData, FinalGrantData } from './grant'
-import { fetchJsonLd, frameDoc, withContext } from './jsonld-utils'
 import type { DataRegistrationData } from './data-registration'
+import type { FinalGrantData, GeneratedGrants, GrantData } from './grant'
 
 // ──────────────────────────
 // Types
@@ -62,9 +68,7 @@ export interface SourceAndDelegatedGrants {
  * (hasInheritingAuthorization) automatically, without embedding child nodes.
  */
 export async function fromJsonLd(doc: unknown, iri: string): Promise<DataAuthorizationData> {
-  return compactNodeToDataAuthorizationData(
-    (await frameDoc(doc, dataModelContext, iri)) as any
-  )
+  return compactNodeToDataAuthorizationData((await frameDoc(doc, dataModelContext, iri)) as any)
 }
 
 /**
@@ -183,9 +187,7 @@ async function generateDelegatedDataGrants(
   dataOwner?: string
 ): Promise<GrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited.value) {
-    throw new Error(
-      'this method should not be callend on data authorizations with Inherited scope'
-    )
+    throw new Error('this method should not be callend on data authorizations with Inherited scope')
   }
   const result: GrantData[] = []
 
@@ -284,8 +286,7 @@ async function generateChildSourceGrantData(
       registrySet.factory
     )
     const dataRegistration = dataRegistrations.find(
-      (registration) =>
-        registration.registeredShapeTree === childAuthorization.registeredShapeTree
+      (registration) => registration.registeredShapeTree === childAuthorization.registeredShapeTree
     )
     if (!dataRegistration) continue
 
@@ -313,9 +314,7 @@ async function generateSourceDataGrants(
   grantee: string
 ): Promise<FinalGrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited.value) {
-    throw new Error(
-      'this method should not be callend on data authorizations with Inherited scope'
-    )
+    throw new Error('this method should not be callend on data authorizations with Inherited scope')
   }
 
   const result: FinalGrantData[] = []

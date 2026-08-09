@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL, INTEROP, RDF } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP, RDF, toStore } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { DataAuthorization, type FinalDataAuthorizationData, toStore } from '../../src'
+import { DataAuthorization, type FinalDataAuthorizationData } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -17,11 +17,7 @@ const commonData = {
   accessMode: [ACL.Read.value],
 }
 const commonQuads = [
-  DataFactory.quad(
-    DataFactory.namedNode(snippetIri),
-    RDF.type,
-    INTEROP.DataAuthorization
-  ),
+  DataFactory.quad(DataFactory.namedNode(snippetIri), RDF.type, INTEROP.DataAuthorization),
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
     INTEROP.grantee,

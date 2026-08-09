@@ -16,7 +16,10 @@ const snippetIri = 'https://auth.alice.example/96feb105-063e-4996-ab74-5e504c6ce
 test('should provide dataAuthorizations', async () => {
   const registry = await factory.crud.authorizationRegistry(snippetIri)
   let count = 0
-  for await (const dataAuthorization of AuthorizationRegistry.dataAuthorizations(registry, factory)) {
+  for await (const dataAuthorization of AuthorizationRegistry.dataAuthorizations(
+    registry,
+    factory
+  )) {
     count += 1
     expect(dataAuthorization).toHaveProperty('grantee')
     expect(dataAuthorization).toHaveProperty('grantedBy')

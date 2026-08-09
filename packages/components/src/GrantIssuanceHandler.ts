@@ -3,7 +3,7 @@ import {
   type FinalGrantData,
   GrantRegistry,
 } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
   BadRequestHttpError,
@@ -45,7 +45,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     }
     // TODO: check if WebID served by this authz agent
 
-    const uasId = await discoverAuthorizationAgent(credentials.agent.webId, fetchWrapper(fetch))
+    const uasId = await discoverAuthorizationAgent(credentials.agent.webId, fetch)
     if (credentials.client.clientId !== uasId) {
       throw new ForbiddenHttpError()
     }

@@ -1,14 +1,12 @@
 import {
   type AuthorizationAgentFactory,
-  type AuthorizationRegistryData,
   AuthorizationRegistry,
-  dataModelContext,
+  type AuthorizationRegistryData,
   type DataAuthorizationData,
   type FinalDataAuthorizationData,
-  putJsonLd,
-  withContext,
+  dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, putJsonLd, withContext } from '@janeirodigital/interop-utils'
 
 // Nesting is being used to capture inheritance before IRIs are available
 export type NestedDataAuthorizationData = DataAuthorizationData & {
@@ -49,11 +47,17 @@ export async function generateDataAuthorizations(
 
   const result: FinalDataAuthorizationData[] = []
   for (const dataAuthorization of validDataAuthorizations) {
-    const dataAuthorizationIri = AuthorizationRegistry.iriForContained(authorizationRegistry, factory)
+    const dataAuthorizationIri = AuthorizationRegistry.iriForContained(
+      authorizationRegistry,
+      factory
+    )
     const children: FinalDataAuthorizationData[] = []
     if (dataAuthorization.children) {
       for (const childDataAuthorization of dataAuthorization.children) {
-        const childDataAuthorizationIri = AuthorizationRegistry.iriForContained(authorizationRegistry, factory)
+        const childDataAuthorizationIri = AuthorizationRegistry.iriForContained(
+          authorizationRegistry,
+          factory
+        )
         children.push({
           ...childDataAuthorization,
           id: childDataAuthorizationIri,
@@ -186,7 +190,7 @@ export async function generateAuthorization(
     for (const dataAuthorization of dataAuthorizations) {
       await putJsonLd(
         dataAuthorization.id,
-        factory.fetch.raw,
+        factory.fetch,
         withContext(dataModelContext, dataAuthorization),
         { 'If-None-Match': '*' }
       )

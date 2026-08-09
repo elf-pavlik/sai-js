@@ -1,30 +1,30 @@
 import {
-  AuthorizationAgentFactory,
   AgentRegistry,
+  AuthorizationAgentFactory,
   AuthorizationRegistry,
-  DataRegistry,
-  RoleRegistry,
-  type RegistrySetData,
-  type RoleData,
   type DataAuthorizationData,
-  type GrantData,
-  type DataRegistrationData,
   type DataInstanceData,
-  type ShapeTreeData,
+  type DataRegistrationData,
+  DataRegistry,
   type FinalDataAuthorizationData,
   type GeneratedGrants,
+  type GrantData,
+  type RegistrySetData,
+  type RoleData,
+  RoleRegistry,
+  type ShapeTreeData,
   type WebIdProfileData,
   generateGrantsForAuthorization,
-  getDataGrants,
   getDataGrantIris,
+  getDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
-  type RdfFetch,
+  SPACE,
   type WhatwgFetch,
   discoverStorageDescription,
-  fetchWrapper,
-  getStorageRoot,
+  fetchJsonLd,
+  findNodeIdByType,
 } from '@janeirodigital/interop-utils'
 import {
   type AccessAuthorizationStructure,
@@ -71,9 +71,7 @@ function formatAgentWithAccess(dataAuthorization: DataAuthorizationData): AgentW
 export class AuthorizationAgent {
   factory: AuthorizationAgentFactory
 
-  rawFetch: WhatwgFetch
-
-  fetch: RdfFetch
+  fetch: WhatwgFetch
 
   webIdProfile: WebIdProfileData
 
@@ -87,8 +85,7 @@ export class AuthorizationAgent {
     dependencies: AuthorizationAgentDependencies,
     public registrySetId?: string
   ) {
-    this.rawFetch = dependencies.fetch
-    this.fetch = fetchWrapper(this.rawFetch)
+    this.fetch = dependencies.fetch
     this.factory = new AuthorizationAgentFactory(webId, agentId, {
       fetch: this.fetch,
       randomUUID: dependencies.randomUUID,
@@ -185,11 +182,9 @@ export class AuthorizationAgent {
 
   public async findResourceOwner(resourceId: string): Promise<string> {
     // find storage root
-    // TODO: move to utils
-    const storageDescriptionIri = await discoverStorageDescription(resourceId, this.rawFetch)
-    const storageDescriptionResponse = await this.fetch(storageDescriptionIri)
-    const storageDescription = await storageDescriptionResponse.dataset()
-    const storageRoot = getStorageRoot(storageDescription)
+    const storageDescriptionIri = await discoverStorageDescription(resourceId, this.fetch)
+    const doc = await fetchJsonLd(storageDescriptionIri, this.fetch)
+    const storageRoot = await findNodeIdByType(doc, SPACE.Storage.value, storageDescriptionIri)
 
     return this.findResourceServerOwner(storageRoot)
   }
@@ -204,14 +199,10 @@ export class AuthorizationAgent {
       socialAgentRegistration.reciprocalRegistration
     )
     const dataGrants = await getDataGrants(reciprocalReg, this.factory)
-    return dataGrants.find(
-      (dataGrant) => dataGrant.hasDataRegistration === dataRegistrationIri
-    )
+    return dataGrants.find((dataGrant) => dataGrant.hasDataRegistration === dataRegistrationIri)
   }
 
-  public async findDataRegistrationForResource(
-    resourceId: string
-  ): Promise<DataRegistrationData> {
+  public async findDataRegistrationForResource(resourceId: string): Promise<DataRegistrationData> {
     const registrationId = `${resourceId.split('/').slice(0, -1).join('/')}/`
     return this.factory.readable.dataRegistration(registrationId)
   }

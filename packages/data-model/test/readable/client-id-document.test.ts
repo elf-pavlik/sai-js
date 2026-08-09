@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { RdfFetch } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
@@ -24,9 +24,8 @@ const snippetText = `
   "interop:hasAuthorizationCallbackEndpoint": "https://app.example"
 }
 `
-const fetch = {
-  raw: async () => ({ ok: true, json: async () => JSON.parse(snippetText) }),
-} as unknown as RdfFetch
+const fetch: WhatwgFetch = async () =>
+  ({ ok: true, json: async () => JSON.parse(snippetText) }) as unknown as Response
 
 const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
 

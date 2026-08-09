@@ -1,10 +1,9 @@
-import { parseJsonld, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, frameDoc, parseJsonld } from '@janeirodigital/interop-utils'
 import type { AccessNeedGroupDescriptionData, AuthorizationAgentFactory } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import type { AccessNeedData } from './access-need'
-import { dataModelContext } from './context'
-import { fetchJsonLd, frameDoc } from './jsonld-utils'
 import { reliableDescriptionLanguages as needReliableDescriptionLanguages } from './access-need'
+import { dataModelContext } from './context'
 
 // ──────────────────────────
 // Types
@@ -59,7 +58,7 @@ export async function getDescription(
   lang: string,
   factory: AuthorizationAgentFactory
 ): Promise<AccessNeedGroupDescriptionData | undefined> {
-  const response = await factory.fetch.raw(group.id, {
+  const response = await factory.fetch(group.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()

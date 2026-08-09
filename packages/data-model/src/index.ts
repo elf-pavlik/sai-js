@@ -1,9 +1,9 @@
-import type { RdfFetch } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { ApplicationFactory } from './application-factory'
 import type { AuthorizationAgentFactory } from './authorization-agent-factory'
 
 export interface FactoryDependencies {
-  fetch: RdfFetch
+  fetch: WhatwgFetch
   randomUUID(): string
 }
 export * from './base-factory'
@@ -19,7 +19,7 @@ export type { AccessNeedData } from './access-need'
 export * as AccessNeed from './access-need'
 export type { AccessNeedGroupData } from './access-need-group'
 export * as AccessNeedGroup from './access-need-group'
-export { dataModelContext, iriTermDef } from './context'
+export { dataModelContext, iriTermDef, linkedIrisJsonLd } from './context'
 export type { GrantData, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
 export { toJsonLd } from './grant'
@@ -45,4 +45,3 @@ export * as DataRegistration from './data-registration'
 export type { ApplicationRegistrationData } from './application-registration'
 export * as ApplicationRegistration from './application-registration'
 export type { DataOwnerData } from './data-owner'
-export * from './jsonld-utils'

@@ -1,11 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test, vi } from 'vitest'
-import {
-  AuthorizationAgentFactory,
-  DataRegistry,
-  type DataRegistrationData,
-} from '../../src'
+import { AuthorizationAgentFactory, type DataRegistrationData, DataRegistry } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
@@ -27,6 +23,12 @@ test('registrations', async () => {
     count += 1
   }
   expect(count).toBe(2)
+})
+
+test('storageIri', async () => {
+  const dataRegistry = await factory.crud.dataRegistry(snippetIri)
+  const iri = await DataRegistry.storageIri(dataRegistry, factory)
+  expect(iri).toBe('https://fake.example/storage-desription')
 })
 
 describe('createRegistration', () => {

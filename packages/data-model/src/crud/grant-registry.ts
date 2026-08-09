@@ -1,7 +1,7 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import { createContainer, iriForContained as containerIriForContained } from './container'
+import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
 // Types

@@ -60,7 +60,7 @@ export async function setAcr(
       peer,
     })
   )
-  const response = await factory.fetch.raw(acrLocation, {
+  const response = await factory.fetch(acrLocation, {
     method: 'PUT',
     body: await serializeTurtle(dataset),
     headers: { 'Content-Type': 'text/turtle' },

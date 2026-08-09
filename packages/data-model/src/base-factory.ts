@@ -1,22 +1,17 @@
-import { type RdfFetch } from '@janeirodigital/interop-utils'
-import {
-  type GrantData,
-  type DataRegistrationData,
-  type ApplicationRegistrationData,
-  type FactoryDependencies,
-  type DataInstanceData,
-  type ShapeTreeData,
-  type ClientIdDocumentData,
-  type ShapeTreeDescriptionData,
-  type WebIdProfileData,
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import type {
+  ApplicationRegistrationData,
+  ClientIdDocumentData,
+  DataInstanceData,
+  DataRegistrationData,
+  FactoryDependencies,
+  GrantData,
+  ShapeTreeData,
+  ShapeTreeDescriptionData,
+  WebIdProfileData,
 } from '.'
-import { loadClientIdDocument } from './client-id-document'
-import { loadDataRegistration } from './data-registration'
 import { loadApplicationRegistration } from './application-registration'
-import { loadGrant } from './grant'
-import { loadShapeTreeDescription } from './shape-tree-description'
-import { loadWebIdProfile } from './web-id-profile'
-import { fromJsonLd as shapeTreeFromJsonLd } from './shape-tree'
+import { loadClientIdDocument } from './client-id-document'
 import {
   computeChildren,
   discoverDescriptionResource,
@@ -24,6 +19,11 @@ import {
   isBlob,
   labelFromNode,
 } from './data-instance'
+import { loadDataRegistration } from './data-registration'
+import { loadGrant } from './grant'
+import { fromJsonLd as shapeTreeFromJsonLd } from './shape-tree'
+import { loadShapeTreeDescription } from './shape-tree-description'
+import { loadWebIdProfile } from './web-id-profile'
 
 export interface BaseReadableFactory {
   dataInstance(
@@ -43,7 +43,7 @@ export interface BaseReadableFactory {
 export class BaseFactory {
   readable: BaseReadableFactory
 
-  fetch: RdfFetch
+  fetch: WhatwgFetch
 
   randomUUID: () => string
 
@@ -95,18 +95,18 @@ export class BaseFactory {
       applicationRegistration: async function applicationRegistration(
         iri: string
       ): Promise<ApplicationRegistrationData> {
-        return loadApplicationRegistration(iri, factory.fetch.raw)
+        return loadApplicationRegistration(iri, factory.fetch)
       },
       dataRegistration: async function dataRegistration(
         iri: string
       ): Promise<DataRegistrationData> {
-        return loadDataRegistration(iri, factory.fetch.raw)
+        return loadDataRegistration(iri, factory.fetch)
       },
       shapeTree: async function shapeTree(
         iri: string,
         _descriptionLang?: string
       ): Promise<ShapeTreeData> {
-        const response = await factory.fetch.raw(iri, {
+        const response = await factory.fetch(iri, {
           headers: { Accept: 'application/ld+json' },
         })
         const doc = await response.json()
@@ -115,18 +115,18 @@ export class BaseFactory {
       shapeTreeDescription: async function shapeTreeDescription(
         iri: string
       ): Promise<ShapeTreeDescriptionData> {
-        return loadShapeTreeDescription(iri, factory.fetch.raw)
+        return loadShapeTreeDescription(iri, factory.fetch)
       },
       webIdProfile: async function webIdProfile(iri: string): Promise<WebIdProfileData> {
-        return loadWebIdProfile(iri, factory.fetch.raw)
+        return loadWebIdProfile(iri, factory.fetch)
       },
       clientIdDocument: async function clientIdDocument(
         iri: string
       ): Promise<ClientIdDocumentData> {
-        return loadClientIdDocument(iri, factory.fetch.raw)
+        return loadClientIdDocument(iri, factory.fetch)
       },
       dataGrant: async function dataGrant(iri: string): Promise<GrantData> {
-        return loadGrant(iri, factory.fetch.raw)
+        return loadGrant(iri, factory.fetch)
       },
     }
   }

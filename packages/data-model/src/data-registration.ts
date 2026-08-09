@@ -1,8 +1,13 @@
-import { type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  toStore,
+  withContext,
+} from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
-import { fetchJsonLd, frameDoc, toStore, withContext } from './jsonld-utils'
 
 // ──────────────────────────
 // Types

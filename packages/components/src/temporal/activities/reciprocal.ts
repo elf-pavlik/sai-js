@@ -37,7 +37,7 @@ export async function reciprocalRegistration(
     )
   }
   if (!registration.reciprocalRegistration) {
-    await discoverAndUpdateReciprocal(registration, session.factory, session.rawFetch)
+    await discoverAndUpdateReciprocal(registration, session.factory, session.fetch)
   }
   if (!registration.reciprocalRegistration) {
     throw new Error(`reciprocal registration from ${payload.peerId} was not found`)
@@ -58,7 +58,7 @@ export async function reciprocalWebhook(payload: ReciprocalWebhookInput): Promis
 
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const subscriptionClient = new SubscriptionClient(session.rawFetch)
+  const subscriptionClient = new SubscriptionClient(session.fetch)
   const channel = await subscriptionClient.subscribe(
     payload.topic,
     ChannelType.WebhookChannel2023,

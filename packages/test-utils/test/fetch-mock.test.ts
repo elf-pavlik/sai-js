@@ -1,4 +1,3 @@
-import { DataFactory, Store } from 'n3'
 import { describe, expect, test } from 'vitest'
 import { createFetch, createStatefulFetch, statelessFetch } from '../src'
 
@@ -69,22 +68,14 @@ describe('createFetch', () => {
   test('should set state on PUT and respond with it on GET', async () => {
     const newUrl = 'https://home.alice.example/37f41b0d-696a-4927-9ed3-361e62d92df1'
     const statefulFetch = createFetch()
-    const dataset = new Store([
-      DataFactory.quad(
-        DataFactory.namedNode(newUrl),
-        DataFactory.namedNode('https://vocab.example/terms#some'),
-        DataFactory.namedNode('https://some.example/'),
-        DataFactory.namedNode(newUrl)
-      ),
-    ])
 
     const putResponse = await statefulFetch(newUrl, {
       method: 'PUT',
-      dataset,
+      body: '{"some": "body"}',
     })
     expect(putResponse.ok).toBeTruthy()
 
     const getResponse = await statefulFetch(newUrl)
-    expect(await getResponse.text()).toMatch('some.example')
+    expect(await getResponse.text()).toContain('"body"')
   })
 })

@@ -180,7 +180,7 @@ export async function acceptInvitation(
   invitation: { capabilityUrl: string; label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgent>> {
   // discover who issued the invitation
-  const response = await saiSession.rawFetch(invitation.capabilityUrl, {
+  const response = await saiSession.fetch(invitation.capabilityUrl, {
     method: 'POST',
   })
   if (!response.ok) throw new Error('fetching capability url failed')
@@ -204,7 +204,7 @@ export async function acceptInvitation(
     discoverAndUpdateReciprocal(
       socialAgentRegistration,
       saiSession.factory,
-      saiSession.fetch.raw
+      saiSession.fetch
     )
   }
 

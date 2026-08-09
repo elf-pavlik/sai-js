@@ -277,7 +277,7 @@ export const useAppStore = defineStore('app', () => {
     if (projectResult.isError) throw projectResult
 
     // upload file
-    const { ok } = await session.rawFetch(fileId, {
+    const { ok } = await session.fetch(fileId, {
       method: 'PUT',
       headers: { 'Content-Type': blob.type },
       body: blob,
@@ -456,7 +456,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const channelId = subscriptions.value.get(id)
     if (!channelId) throw new Error('channel not found')
-    const response = await session.rawFetch(channelId, { method: 'DELETE' })
+    const response = await session.fetch(channelId, { method: 'DELETE' })
     if (!response.ok) throw new Error('failed to unsubscribe')
     const project = projects.value.find((p) => p['@id'] === id)
     const result = (await Promise.all(

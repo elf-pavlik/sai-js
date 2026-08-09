@@ -3,12 +3,18 @@ import {
   RDF,
   SPACE,
   discoverStorageDescription,
+  fetchJsonLd,
+  findNodeIdByType,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
-import { addStatement, createContainer, iriForContained as containerIriForContained } from './container'
+import { linkedIrisJsonLd } from '../context'
 import { createDataRegistration } from '../data-registration'
-import { fetchJsonLd, findNodeIdByType, linkedIrisJsonLd } from '../jsonld-utils'
+import {
+  addStatement,
+  iriForContained as containerIriForContained,
+  createContainer,
+} from './container'
 
 // ──────────────────────────
 // Types
@@ -26,7 +32,7 @@ export async function hasDataRegistration(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch.raw, 'hasDataRegistration')
+  return linkedIrisJsonLd(data.id, factory.fetch, 'hasDataRegistration')
 }
 
 export async function* registrations(
@@ -83,8 +89,8 @@ export async function storageIri(
   data: DataRegistryData,
   factory: AuthorizationAgentFactory
 ): Promise<string> {
-  const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch.raw)
-  const doc = await fetchJsonLd(storageDescriptionIri, factory.fetch.raw)
+  const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch)
+  const doc = await fetchJsonLd(storageDescriptionIri, factory.fetch)
   return findNodeIdByType(doc, SPACE.Storage.value, storageDescriptionIri)
 }
 

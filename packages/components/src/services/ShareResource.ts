@@ -8,21 +8,24 @@ import {
   type ShareAuthorization,
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
+import { setAccessNeedGroup, ShapeTree } from '@janeirodigital/interop-data-model'
 import type * as S from 'effect/Schema'
 import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
-  const resource = await saiSession.factory.readable.dataInstance(iri, undefined, lang)
+  const resource = await saiSession.factory.dataInstance(iri, undefined, lang)
   if (!resource) throw new Error(`Resource not found: ${iri}`)
+  const shapeTree = await saiSession.factory.shapeTree(resource.shapeTreeIri)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, saiSession.factory)
   return Resource.make({
-    id: IRI.make(resource.iri),
+    id: IRI.make(resource.id),
     label: resource.label,
     shapeTree: {
-      id: IRI.make(resource.shapeTree.iri),
-      label: resource.shapeTree.label,
+      id: IRI.make(resource.shapeTreeIri),
+      label: shapeTreeDescription?.prefLabel,
     },
-    accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.iri)).map(({ agent }) =>
+    accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
       IRI.make(agent)
     ),
     children: resource.children.map((child) => ({
@@ -40,25 +43,34 @@ export const shareResource = async (
   shareAuthorization: S.Schema.Type<typeof ShareAuthorization>
 ): Promise<S.Schema.Type<typeof ShareAuthorizationConfirmation>> => {
   // TODO: finde cleaner way of dealing with types
-  const authorizationIris = await saiSession.shareDataInstance(
+  const recorded = await saiSession.shareDataInstance(
     shareAuthorization as unknown as ShareDataInstanceStructure
   )
 
-  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(
+  const clientIdDocument = await saiSession.factory.clientIdDocument(
     shareAuthorization.applicationId
   )
+
+  // group recorded data authorizations by grantee
+  const grouped = new Map<string, string[]>()
+  for (const dataAuthorization of recorded) {
+    const iris = grouped.get(dataAuthorization.grantee) ?? []
+    iris.push(dataAuthorization.id)
+    grouped.set(dataAuthorization.grantee, iris)
+  }
 
   // TODO: consider a single workflow that will fire-and-forget all the child workflows
   const temporal = new Temporal()
   await temporal.init()
   await Promise.all(
-    authorizationIris.map((authorizationIri) =>
+    [...grouped.entries()].map(([grantee, dataAuthorizationIris]) =>
       temporal.client.workflow.start(createGrantsForAuthorization, {
         taskQueue: 'create-grants',
         args: [
           {
-            authorizationId: authorizationIri,
             webId: saiSession.webId,
+            authorizationGrantee: grantee,
+            dataAuthorizationIris,
           },
         ],
         workflowId: crypto.randomUUID(),
@@ -77,6 +89,10 @@ export async function requestAccessUsingApplicationNeeds(
   webId: string
 ): Promise<void> {
   const socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
-  const clientIdDocument = await saiSession.factory.readable.clientIdDocument(applicationIri)
-  await socialAgentRegistration.setAccessNeedGroup(clientIdDocument.hasAccessNeedGroup)
+  const clientIdDocument = await saiSession.factory.clientIdDocument(applicationIri)
+  await setAccessNeedGroup(
+    socialAgentRegistration,
+    saiSession.factory,
+    clientIdDocument.hasAccessNeedGroup
+  )
 }

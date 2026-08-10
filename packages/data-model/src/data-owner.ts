@@ -1,18 +1,11 @@
-import { type DataGrant, ReadableDataRegistrationProxy } from '.'
+import type { GrantData } from '.'
 
-export class DataOwner {
-  issuedGrants: DataGrant[] = []
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  constructor(public iri: string) {}
-
-  /**
-   * @public
-   * @param shapeTree URL of shape tree
-   * @returns  Array of data registration proxies for that shape tree
-   */
-  selectRegistrations(shapeTree: string): ReadableDataRegistrationProxy[] {
-    return this.issuedGrants
-      .filter((sourceGrant) => sourceGrant.registeredShapeTree === shapeTree)
-      .map((grant) => new ReadableDataRegistrationProxy(grant))
-  }
+/** Plain JSON representation of a data owner. */
+export type DataOwnerData = {
+  iri: string
+  issuedGrants: GrantData[]
 }

@@ -5,9 +5,13 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "convert:jsonld": "node convert-to-jsonld.mjs"
   },
   "devDependencies": {
+    "jsonld": "^9.0.0",
+    "n3": "^2.1.2",
+    "vitest": "^3.2.4",
     "wrangler": "^4.63.0"
   }
 }

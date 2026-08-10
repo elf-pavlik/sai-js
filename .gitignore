@@ -9,14 +9,6 @@ dev-dist/
 tsconfig.tsbuildinfo
 .rollup.cache
 
-# CSS internals
-packages/css-storage-fixture/test/.internal/idp
-packages/css-storage-fixture/test/.internal/locks
-packages/css-storage-fixture/test/.internal/forgot-password
-packages/css-storage-fixture/test/.internal/notifications
-packages/css-storage-fixture/test/.internal/accounts/cookies
-packages/css-storage-fixture/test/.internal/accounts/index/clientCredentials
-
 # OS
 .DS_Store
 

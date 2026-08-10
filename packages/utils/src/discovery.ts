@@ -1,15 +1,12 @@
-import type { DatasetCore } from '@rdfjs/types'
-import { DataFactory } from 'n3'
-import type { RdfFetch, WhatwgFetch } from './fetch'
-import { parseJsonld } from './jsonld-parser'
+import { documentValues, fetchJsonLd } from './jsonld'
 import {
   getAcl,
   getAgentRegistrationIri,
   getDescriptionResource,
   getStorageDescription,
 } from './link-header'
-import { getOneMatchingQuad } from './match'
 import { INTEROP, NOTIFY } from './namespaces'
+import type { WhatwgFetch } from './whatwg-fetch'
 
 export class RequestError extends Error {
   constructor(
@@ -46,35 +43,19 @@ export class StorageDescriptionDiscoveryError extends RequestError {
 
 export async function discoverAuthorizationAgent(
   webId: string,
-  rdfFetch: RdfFetch
+  fetch: WhatwgFetch
 ): Promise<string | undefined> {
-  const userDataset: DatasetCore = await (await rdfFetch(webId)).dataset()
-  const authorizationAgentPattern = [
-    DataFactory.namedNode(webId),
-    INTEROP.hasAuthorizationAgent,
-    null,
-  ]
-  return getOneMatchingQuad(userDataset, ...authorizationAgentPattern)?.object.value
+  const doc = await fetchJsonLd(webId, fetch)
+  return (await documentValues(doc, webId, INTEROP.hasAuthorizationAgent))[0]
 }
 
 export async function discoverDelegationIssuanceEndpoint(
   webId: string,
-  rdfFetch: RdfFetch
+  fetch: WhatwgFetch
 ): Promise<string> {
-  const uasId = await discoverAuthorizationAgent(webId, rdfFetch)
-  const authzAgentDocumentResponse = await fetch(uasId, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await parseJsonld(
-    await authzAgentDocumentResponse.text(),
-    authzAgentDocumentResponse.url
-  )
-  const delegationIssuanceEndpointPattern = [
-    DataFactory.namedNode(uasId),
-    INTEROP.hasDelegationIssuanceEndpoint,
-    null,
-  ]
-  return getOneMatchingQuad(doc, ...delegationIssuanceEndpointPattern)?.object.value
+  const uasId = await discoverAuthorizationAgent(webId, fetch)
+  const doc = await fetchJsonLd(uasId, fetch)
+  return (await documentValues(doc, uasId, INTEROP.hasDelegationIssuanceEndpoint))[0]
 }
 
 export async function discoverAgentRegistration(
@@ -125,32 +106,19 @@ export async function discoverAuthorizationRedirectEndpoint(
   authorizationAgentIri: string,
   fetch: WhatwgFetch
 ): Promise<string> {
-  const authzAgentDocumentResponse = await fetch(authorizationAgentIri, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await parseJsonld(
-    await authzAgentDocumentResponse.text(),
-    authzAgentDocumentResponse.url
-  )
-  return getOneMatchingQuad(doc, null, INTEROP.hasAuthorizationRedirectEndpoint)!.object.value
+  const doc = await fetchJsonLd(authorizationAgentIri, fetch)
+  return (
+    await documentValues(doc, authorizationAgentIri, INTEROP.hasAuthorizationRedirectEndpoint)
+  )[0]!
 }
 
 export async function discoverWebPushService(
   authorizationAgentIri: string,
   fetch: WhatwgFetch
 ): Promise<{ id: string; vapidPublicKey: string } | undefined> {
-  const authzAgentDocumentResponse = await fetch(authorizationAgentIri, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await parseJsonld(
-    await authzAgentDocumentResponse.text(),
-    authzAgentDocumentResponse.url
-  )
-  const serviceQuad = getOneMatchingQuad(doc, null, INTEROP.pushService)
-  const publicKeyQuad = getOneMatchingQuad(doc, null, NOTIFY.vapidPublicKey)
-  if (!serviceQuad || !publicKeyQuad) return
-  return {
-    id: serviceQuad.object.value,
-    vapidPublicKey: publicKeyQuad.object.value,
-  }
+  const doc = await fetchJsonLd(authorizationAgentIri, fetch)
+  const [id] = await documentValues(doc, authorizationAgentIri, INTEROP.pushService)
+  const [vapidPublicKey] = await documentValues(doc, authorizationAgentIri, NOTIFY.vapidPublicKey)
+  if (!id || !vapidPublicKey) return
+  return { id, vapidPublicKey }
 }

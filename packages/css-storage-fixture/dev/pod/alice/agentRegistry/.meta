@@ -1,7 +1,0 @@
-<https://alice.pod.docker/agentRegistry/>
-  <http://www.w3.org/ns/solid/interop#hasApplicationRegistration>
-    <https://alice.pod.docker/agentRegistry/vuejectron/>;
-  <http://www.w3.org/ns/solid/interop#hasSocialAgentRegistration>
-    <https://alice.pod.docker/agentRegistry/acme/>,
-    <https://alice.pod.docker/agentRegistry/bob/>,
-    <https://alice.pod.docker/agentRegistry/kim/>.

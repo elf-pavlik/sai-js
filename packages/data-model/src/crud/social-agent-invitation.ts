@@ -1,82 +1,80 @@
-import { INTEROP, SKOS } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDResource } from '.'
-import type { AuthorizationAgentFactory } from '..'
+import {
+  type WhatwgFetch,
+  fetchJsonLd,
+  frameDoc,
+  putJsonLd,
+  withContext,
+} from '@janeirodigital/interop-utils'
+import { dataModelContext } from '../context'
+
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
 export type SocialAgentInvitationData = {
+  id: string
+  /** rdf:type IRIs — captured from framing on read, written via compaction on write */
+  type: string[]
   capabilityUrl: string
   prefLabel: string
   note?: string
+  registeredAgent?: string
 }
 
-export class CRUDSocialAgentInvitation extends CRUDResource {
-  declare data?: SocialAgentInvitationData
+// ──────────────────────────
+// Read path: JSON-LD → SocialAgentInvitationData
+// ──────────────────────────
 
-  // TODO: handle missing labels
-  get label(): string {
-    return this.getObject(SKOS.prefLabel)!.value
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * SocialAgentInvitationData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form.
+ * Uses jsonld.frame with the shared data model context: node references
+ * (`capabilityUrl`, `registeredAgent`) are coerced to strings via
+ * `@type: '@id'`, literals to plain strings, and the rdf:type (from framing)
+ * to a string array.
+ */
+export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentInvitationData> {
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  return {
+    id: iri,
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    capabilityUrl: node.capabilityUrl ?? '',
+    prefLabel: node.prefLabel ?? '',
+    // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
+    note: node.note ?? undefined,
+    registeredAgent: node.registeredAgent ?? undefined,
   }
+}
 
-  get note(): string | undefined {
-    return this.getObject(SKOS.note)?.value
-  }
+export async function loadSocialAgentInvitation(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<SocialAgentInvitationData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+}
 
-  get capabilityUrl(): string {
-    return this.getObject(INTEROP.hasCapabilityUrl)!.value
-  }
+// ──────────────────────────
+// Write path: SocialAgentInvitationData → JSON-LD (PUT)
+// ──────────────────────────
 
-  get registeredAgent(): string | undefined {
-    return this.getObject(INTEROP.registeredAgent)?.value
-  }
+export async function putSocialAgentInvitation(
+  data: SocialAgentInvitationData,
+  fetch: WhatwgFetch
+): Promise<void> {
+  await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
+}
 
-  set registeredAgent(webId: string) {
-    this.deleteQuad('registeredAgent')
-    this.dataset.add(
-      DataFactory.quad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.registeredAgent,
-        DataFactory.namedNode(webId)
-      )
-    )
-  }
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
 
-  protected datasetFromData(): void {
-    this.dataset.add(
-      DataFactory.quad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.hasCapabilityUrl,
-        DataFactory.literal(this.data.capabilityUrl)
-      )
-    )
-    const props: (keyof SocialAgentInvitationData)[] = ['prefLabel', 'note']
-    for (const prop of props) {
-      if (this.data[prop]) {
-        this.dataset.add(
-          DataFactory.quad(
-            DataFactory.namedNode(this.iri),
-            SKOS[prop],
-            DataFactory.literal(this.data[prop])
-          )
-        )
-      }
-    }
-  }
-
-  protected async bootstrap(): Promise<void> {
-    if (!this.data) {
-      await this.fetchData()
-    } else {
-      this.datasetFromData()
-    }
-  }
-
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: SocialAgentInvitationData
-  ): Promise<CRUDSocialAgentInvitation> {
-    const instance = new CRUDSocialAgentInvitation(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+export async function setRegisteredAgent(
+  data: SocialAgentInvitationData,
+  fetch: WhatwgFetch,
+  webId: string
+): Promise<void> {
+  data.registeredAgent = webId
+  await putSocialAgentInvitation(data, fetch)
 }

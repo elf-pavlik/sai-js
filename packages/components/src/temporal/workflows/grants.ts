@@ -1,4 +1,4 @@
-import type { FinalAccessGrantData, FinalDataGrantData } from '@janeirodigital/interop-data-model'
+import type { FinalGrantData } from '@janeirodigital/interop-data-model'
 import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
@@ -7,24 +7,23 @@ const {
   deleteAuthorizationsUsingRole,
   getGrantees,
   getAuthorizations,
-  unsetAccessGrant,
+  clearDataGrantsOnRegistration,
   generateGrants,
   storeDataGrant,
   requestDelegation,
   createAcr,
-  storeAccessGrant,
-  setAccessGrant,
+  setDataGrantsOnRegistration,
   ensurePeers,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 })
 
-async function storeGrantAndAcr(grant: FinalDataGrantData) {
+async function storeGrantAndAcr(grant: FinalGrantData) {
   await storeDataGrant(grant)
   await createAcr(grant)
 }
 
-export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
+export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
   // TODO same race condition as in createGrantsForAgent — change back to
   // Promise.all after the CSS SPARQL backend dcterms:modified bug is fixed
   for (const grant of payload) {
@@ -35,26 +34,20 @@ export async function storeGrant(payload: FinalDataGrantData[]): Promise<void> {
 export async function updateGrantsForOneAgent(
   payload: activities.GetAuthorizationsInput
 ): Promise<void> {
-  const authorizations = await getAuthorizations(payload)
-  // TODO change when we remove access grant
-  if (authorizations.length === 0) {
-    await unsetAccessGrant(payload)
+  const dataAuthorizationIris = await getAuthorizations(payload)
+  if (dataAuthorizationIris.length === 0) {
+    await clearDataGrantsOnRegistration(payload)
     return
   }
-  await Promise.all(
-    // TODO generalize grant creation workflow to handle multiple authorizations
-    [authorizations[0]].map((authorizationId) =>
-      executeChild(createGrantsForAgent, {
-        args: [
-          {
-            webId: payload.webId,
-            grantee: payload.peerId,
-            authorizationId,
-          },
-        ],
-      })
-    )
-  )
+  await executeChild(createGrantsForAgent, {
+    args: [
+      {
+        webId: payload.webId,
+        grantee: payload.peerId,
+        dataAuthorizationIris,
+      },
+    ],
+  })
 }
 
 export async function processRoleDeletion(
@@ -107,11 +100,20 @@ export async function processRoleMembershipChange(
 export async function createGrantsForAuthorization(
   payload: activities.CreateGrantsInput
 ): Promise<void> {
-  const grantees = await getGrantees(payload)
+  const grantees = await getGrantees({
+    webId: payload.webId,
+    grantee: payload.authorizationGrantee,
+  })
   await Promise.all(
     grantees.map((grantee) =>
       executeChild(createGrantsForAgent, {
-        args: [{ grantee, ...payload }],
+        args: [
+          {
+            webId: payload.webId,
+            grantee,
+            dataAuthorizationIris: payload.dataAuthorizationIris,
+          },
+        ],
       })
     )
   )
@@ -120,14 +122,16 @@ export async function createGrantsForAuthorization(
 export async function createGrantsForAgent(
   payload: activities.CreateGrantsForAgentInput
 ): Promise<void> {
-  const accessGrantData = await generateGrants(payload)
+  const generatedGrants = await generateGrants(payload)
 
   // TODO CSS SPARQL backend has a race condition on dcterms:modified when
   // multiple resources are PUT concurrently in the same container,
   // causing "Multiple results for http://purl.org/dc/terms/modified".
   // Change back to Promise.all after the CSS bug is fixed.
-  for (const grant of accessGrantData.sourceGrants) {
+  const allGrantIds: string[] = []
+  for (const grant of generatedGrants.sourceGrants) {
     await storeGrantAndAcr(grant)
+    allGrantIds.push(grant.id)
   }
 
   // TODO CSS SPARQL backend has a race condition on dcterms:modified when
@@ -135,18 +139,23 @@ export async function createGrantsForAgent(
   // causing "Multiple results for http://purl.org/dc/terms/modified".
   // Change back to Promise.all after the CSS bug is fixed.
   const delegatedGrantIds = []
-  for (const grant of accessGrantData.delegatedGrants) {
+  for (const grant of generatedGrants.delegatedGrants) {
     delegatedGrantIds.push(await requestDelegation({ grantData: grant }))
   }
 
-  // TODO: use ids only for dataGrants at this point
-  const finalAccessGrantData: FinalAccessGrantData = {
-    ...accessGrantData,
-    dataGrants: [...accessGrantData.sourceGrants.map((g) => g.id), ...delegatedGrantIds.flat()],
-  }
+  const allGrantIris = [...allGrantIds, ...delegatedGrantIds.flat()]
 
-  await storeAccessGrant(finalAccessGrantData)
-  await setAccessGrant(finalAccessGrantData)
+  // Clear existing data grants first, then add the new ones
+  await clearDataGrantsOnRegistration({
+    webId: payload.webId,
+    peerId: payload.grantee,
+  })
+
+  await setDataGrantsOnRegistration({
+    webId: payload.webId,
+    grantee: payload.grantee,
+    grantIris: allGrantIris,
+  })
 }
 
 export async function updateDelegatedGrants(
@@ -167,6 +176,7 @@ export async function updateGrantsForAuthorization(
 ): Promise<void> {
   await createGrantsForAuthorization({
     webId: payload.webId,
-    authorizationId: payload.authorizationId,
+    authorizationGrantee: payload.grantee,
+    dataAuthorizationIris: payload.dataAuthorizationIris,
   })
 }

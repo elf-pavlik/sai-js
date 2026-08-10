@@ -1,7 +1,13 @@
 import { ACL, INTEROP, buildOidcSession, issuanceUrl } from '@elfpavlik/sai-components'
-import type { DataGrantData } from '@janeirodigital/interop-data-model'
+import type { GrantData } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 import { SOLIDTREES } from './vocabularies'
+
+// Incoming payload has hasInheritingGrant as embedded objects (full grant data).
+// This mirrors the IncomingGrantData type in GrantIssuanceHandler.
+type IncomingGrantData = Omit<GrantData, 'hasInheritingGrant'> & {
+  hasInheritingGrant?: IncomingGrantData[]
+}
 
 const bobId = 'https://id/bob'
 const acmeId = 'https://id/acme'
@@ -13,7 +19,7 @@ const commonGrantData = {
   grantee: testClient,
   hasStorage: 'https://data/acme-rnd/',
 }
-const tasksGrantData: DataGrantData = {
+const tasksGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-rnd/x0md9s/',
@@ -21,7 +27,7 @@ const tasksGrantData: DataGrantData = {
   scopeOfGrant: INTEROP.Inherited,
 }
 
-const projectsGrantData: DataGrantData = {
+const projectsGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-rnd/reb39k/',

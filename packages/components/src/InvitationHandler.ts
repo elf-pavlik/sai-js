@@ -1,3 +1,4 @@
+import { AgentRegistry, setRegisteredAgent } from '@janeirodigital/interop-data-model'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -47,9 +48,12 @@ export class InvitationHandler extends OperationHttpHandler {
 
     let socialAgentRegistration = await sai.findSocialAgentRegistration(invitedId)
     if (!socialAgentRegistration) {
-      socialAgentRegistration = await sai.registrySet.hasAgentRegistry.addSocialAgentRegistration(
+      socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
+        sai.registrySet.hasAgentRegistry,
+        sai.factory,
+        { agent: sai.webId, client: sai.agentId },
         invitedId,
-        socialAgentInvitation.label,
+        socialAgentInvitation.prefLabel,
         socialAgentInvitation.note
       )
       // start workflow to discover, add and subscribe to reciprocal registration
@@ -67,7 +71,7 @@ export class InvitationHandler extends OperationHttpHandler {
             accountId,
             webId: inviteeId,
             peerId: invitedId,
-            registrationId: socialAgentRegistration.iri,
+            registrationId: socialAgentRegistration.id,
           },
         ],
         startDelay: '10s',
@@ -76,8 +80,11 @@ export class InvitationHandler extends OperationHttpHandler {
     }
 
     // update invitation with agent who accepted it
-    socialAgentInvitation.registeredAgent = socialAgentRegistration.registeredAgent
-    await socialAgentInvitation.update()
+    await setRegisteredAgent(
+      socialAgentInvitation,
+      sai.factory.fetch,
+      socialAgentRegistration.registeredAgent
+    )
 
     const representation = new BasicRepresentation(inviteeId, operation.target, 'text/plain')
     return new OkResponseDescription(representation.metadata, representation.data)

@@ -1,9 +1,16 @@
 import { readFileSync } from 'node:fs'
-import { type RdfFetch, type WhatwgFetch, fetchWrapper } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 
 const STORAGE_DESCRIPTION_IRI = 'https://fake.example/storage-desription'
 const dataFile = new URL('data.json', import.meta.url)
 const data = JSON.parse(readFileSync(dataFile, 'utf-8'))
+
+const storageDescriptionJsonLd = JSON.stringify([
+  {
+    '@id': STORAGE_DESCRIPTION_IRI,
+    '@type': ['http://www.w3.org/ns/pim/space#Storage'],
+  },
+])
 
 async function common(
   url: string,
@@ -13,50 +20,55 @@ async function common(
   // handle storage description requests
   if (url === STORAGE_DESCRIPTION_IRI) {
     return {
+      ok: true,
       clone: () => ({}) as unknown as Response,
       headers: {
-        get: () => 'text/turtle',
+        get: () => 'application/ld+json',
       },
-      text: async () => `<${STORAGE_DESCRIPTION_IRI}> a <http://www.w3.org/ns/pim/space#Storage> .`,
+      text: async () => storageDescriptionJsonLd,
+      json: async () => JSON.parse(storageDescriptionJsonLd),
     } as unknown as Response
   }
 
   // strip fragment
   const strippedUrl = url.replace(/#.*$/, '')
-  const text = async function text() {
-    return Promise.resolve(data[strippedUrl])
+  // Access Accept header via type assertion since RequestInit.headers is HeadersInit
+  const accept = (options?.headers as Record<string, string> | undefined)?.Accept
+  // JSON-LD by default; serve Turtle only for an explicit text/turtle Accept
+  // (ACL resources, and any transitional callers that still ask for it).
+  const acceptsTurtle = accept === 'text/turtle'
+
+  async function getData(): Promise<string> {
+    const value = state?.[strippedUrl] ?? data[strippedUrl]
+    if (!value) {
+      throw new Error(`missing snippet: ${strippedUrl}`)
+    }
+    return value
   }
+
+  const headers: Record<string, string> = {
+    'Content-Type': acceptsTurtle ? 'text/turtle' : 'application/ld+json',
+    Link: `<http://just.en.example/description-resource>; rel="describedby", <${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription`,
+  }
+
   // @ts-ignore
   const response: Response = {
     ok: true,
-    text,
     headers: {
-      get(name) {
-        if (name === 'Content-Type') {
-          return 'text/turtle'
-        }
-        if (name === 'Link') {
-          return `<http://just.en.example/description-resource>; rel="describedby", <${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
-        }
+      get(name: string) {
+        if (name in headers) return headers[name]
         throw Error(`${name} not supported`)
       },
     } as Headers,
+    text: async () => getData(),
+    json: acceptsTurtle
+      ? undefined
+      : async () => {
+          const raw = await getData()
+          return JSON.parse(raw)
+        },
   }
   response.clone = () => ({ ...response })
-  // @ts-ignore
-  if (!options?.headers?.Accept || options.headers.Accept.match('text/turtle')) {
-    response.text = async function responseText() {
-      let turtle: string
-      if (state) {
-        turtle = state[strippedUrl]
-      }
-      turtle = turtle || data[strippedUrl]
-      if (!turtle) {
-        throw new Error(`missing snippet: ${strippedUrl}`)
-      }
-      return turtle
-    }
-  }
   return response
 }
 
@@ -73,9 +85,9 @@ function addState(state: { [key: string]: string }): WhatwgFetch {
   } as WhatwgFetch
 }
 
-export function createFetch(): RdfFetch {
+export function createFetch(): WhatwgFetch {
   const state: { [key: string]: string } = {}
-  return fetchWrapper(addState(state))
+  return addState(state)
 }
 
 export function createStatefulFetch(): WhatwgFetch {
@@ -96,12 +108,4 @@ export const statelessFetch = async function statelessFetch(
   return common(url, options)
 } as WhatwgFetch
 
-export const fetch = fetchWrapper(statelessFetch)
-
-fetch.raw = async () =>
-  ({
-    headers: {
-      get: () =>
-        `<${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`,
-    },
-  }) as unknown as Response
+export const fetch = statelessFetch

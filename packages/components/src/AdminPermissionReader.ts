@@ -1,4 +1,4 @@
-import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import type {
   MultiPermissionMap,
   PermissionReaderInput,
@@ -53,7 +53,7 @@ export class AdminPermissionReader extends PermissionReader {
     // check if reqested by User Authorization Server
     let uasId: string | undefined
     try {
-      uasId = await discoverAuthorizationAgent(agent, fetchWrapper(fetch))
+      uasId = await discoverAuthorizationAgent(agent, fetch)
     } catch (err) {
       this.logger.error(`UAS discovery failed for: ${agent}; ${err}`)
     }

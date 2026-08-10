@@ -1,6 +1,6 @@
 import { QueryEngine } from '@comunica/query-sparql-rdfjs'
 import { ApplicationFactory } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'
 import type {
@@ -47,7 +47,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     let uasId: string | undefined
     if (credentials.agent && credentials.client) {
       try {
-        uasId = await discoverAuthorizationAgent(credentials.agent, fetchWrapper(fetch))
+        uasId = await discoverAuthorizationAgent(credentials.agent, fetch)
       } catch (err) {
         this.logger.error(`UAS discovery failed for: ${credentials.agent}; ${err}`)
       }
@@ -269,10 +269,10 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const childShapeTreeId = await this.findObject(data, childGrantId, INTEROP.registeredShapeTree)
     if (!childShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${childGrantId}`)
     const factory = new ApplicationFactory({
-      fetch: fetchWrapper(fetch),
+      fetch,
       randomUUID: crypto.randomUUID,
     })
-    const shapeTree = await factory.readable.shapeTree(parentShapeTreeId)
+    const shapeTree = await factory.shapeTree(parentShapeTreeId)
     const shapeTreeReference = shapeTree.references.find(
       (stRef) => stRef.shapeTree === childShapeTreeId
     )

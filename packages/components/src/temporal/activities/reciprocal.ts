@@ -1,3 +1,6 @@
+import {
+  discoverAndUpdateReciprocal,
+} from '@janeirodigital/interop-data-model'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'
@@ -27,14 +30,14 @@ export async function reciprocalRegistration(
 ): Promise<ReciprocalWebhookInput> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const registration = await session.factory.crud.socialAgentRegistration(payload.registrationId)
+  const registration = await session.factory.socialAgentRegistration(payload.registrationId)
   if (registration.registeredAgent !== payload.peerId) {
     throw new Error(
       `invalid payload - peerId: ${payload.peerId}, registrationId: ${payload.registrationId}, registeredAgent: ${registration.registeredAgent}`
     )
   }
   if (!registration.reciprocalRegistration) {
-    await registration.discoverAndUpdateReciprocal(session.rawFetch)
+    await discoverAndUpdateReciprocal(registration, session.factory, session.fetch)
   }
   if (!registration.reciprocalRegistration) {
     throw new Error(`reciprocal registration from ${payload.peerId} was not found`)
@@ -43,7 +46,7 @@ export async function reciprocalRegistration(
     accountId: payload.accountId,
     webId: payload.webId,
     peerId: payload.peerId,
-    topic: registration.reciprocalRegistration.iri,
+    topic: registration.reciprocalRegistration,
   }
 }
 
@@ -55,7 +58,7 @@ export async function reciprocalWebhook(payload: ReciprocalWebhookInput): Promis
 
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const subscriptionClient = new SubscriptionClient(session.rawFetch)
+  const subscriptionClient = new SubscriptionClient(session.fetch)
   const channel = await subscriptionClient.subscribe(
     payload.topic,
     ChannelType.WebhookChannel2023,

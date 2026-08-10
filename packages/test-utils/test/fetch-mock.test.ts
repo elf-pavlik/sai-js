@@ -1,4 +1,3 @@
-import { DataFactory, Store } from 'n3'
 import { describe, expect, test } from 'vitest'
 import { createFetch, createStatefulFetch, statelessFetch } from '../src'
 
@@ -10,26 +9,32 @@ describe('common', () => {
   })
 
   test('should set text on response', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
-    const response = await statelessFetch(url, { headers: { Accept: 'text/shex' } })
+    const url = 'https://alice.example/'
+    const response = await statelessFetch(url)
     const text = await response.text()
     expect(text.length).toBeGreaterThan(0)
   })
 
   test('should provide Content-Type header', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
+    expect(response.headers.get('Content-Type')).toBe('application/ld+json')
+  })
+
+  test('should serve Turtle for explicit text/turtle Accept', async () => {
+    const url = 'https://alice.example/'
+    const response = await statelessFetch(url, { headers: { Accept: 'text/turtle' } })
     expect(response.headers.get('Content-Type')).toBe('text/turtle')
   })
 
   test('should provide fake Link header', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
     expect(response.headers.get('Link')).toBeTruthy()
   })
 
   test('should throw when getting header other than Content-Type', async () => {
-    const url = 'https://solidshapes.example/shapes/Project'
+    const url = 'https://alice.example/'
     const response = await statelessFetch(url)
     expect(() => response.headers.get('Something-Else')).toThrow('Something-Else not supported')
   })
@@ -63,22 +68,14 @@ describe('createFetch', () => {
   test('should set state on PUT and respond with it on GET', async () => {
     const newUrl = 'https://home.alice.example/37f41b0d-696a-4927-9ed3-361e62d92df1'
     const statefulFetch = createFetch()
-    const dataset = new Store([
-      DataFactory.quad(
-        DataFactory.namedNode(newUrl),
-        DataFactory.namedNode('https://vocab.example/terms#some'),
-        DataFactory.namedNode('https://some.example/'),
-        DataFactory.namedNode(newUrl)
-      ),
-    ])
 
     const putResponse = await statefulFetch(newUrl, {
       method: 'PUT',
-      dataset,
+      body: '{"some": "body"}',
     })
     expect(putResponse.ok).toBeTruthy()
 
     const getResponse = await statefulFetch(newUrl)
-    expect(await getResponse.text()).toMatch('some.example')
+    expect(await getResponse.text()).toContain('"body"')
   })
 })

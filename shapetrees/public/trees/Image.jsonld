@@ -1,0 +1,84 @@
+[
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/Image",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#ShapeTree"
+    ],
+    "http://www.w3.org/ns/shapetrees#expectsType": [
+      {
+        "@id": "http://www.w3.org/ns/shapetrees#NonRDFResource"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describesInstance": [
+      {
+        "@id": "http://www.w3.org/2000/01/rdf-schema#label"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-en",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "en",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-en#Image",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-en"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Image"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "es",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#Image",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Image"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl",
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "pl",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#Image",
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/Image"
+      }
+    ]
+  }
+]

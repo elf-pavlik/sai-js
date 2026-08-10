@@ -1,5 +1,9 @@
-import type { DataGrantData, FinalDataGrantData } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, fetchWrapper } from '@janeirodigital/interop-utils'
+import {
+  type GrantData,
+  type FinalGrantData,
+  GrantRegistry,
+} from '@janeirodigital/interop-data-model'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
   BadRequestHttpError,
@@ -41,14 +45,14 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     }
     // TODO: check if WebID served by this authz agent
 
-    const uasId = await discoverAuthorizationAgent(credentials.agent.webId, fetchWrapper(fetch))
+    const uasId = await discoverAuthorizationAgent(credentials.agent.webId, fetch)
     if (credentials.client.clientId !== uasId) {
       throw new ForbiddenHttpError()
     }
 
-    let topGrant: DataGrantData
+    let topGrant: GrantData
     try {
-      topGrant = JSON.parse(await readableToString(operation.body.data))
+      topGrant = JSON.parse(await readableToString(operation.body.data)) as GrantData
     } catch (err) {
       throw new BadRequestHttpError(err.message)
     }
@@ -56,10 +60,29 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     const sai = await this.sessionManager.getSession(topGrant.dataOwner)
 
     // TODO: support recursive inheritance
-    const inheritingGrants: FinalDataGrantData[] = [...(topGrant.hasInheritingGrant ?? [])].map(
-      (grant) => ({
-        ...grant,
-        id: sai.registrySet.hasGrantRegistry.iriForContained(),
+    // Incoming payload embeds child grant data. Assign IRIs and build FinalGrantData for each.
+    // hasInheritingGrant comes in as embedded objects; we treat them as partial GrantData.
+    const childrenPayload = (topGrant as any).hasInheritingGrant ?? []
+    const grantId = GrantRegistry.iriForContained(
+      sai.registrySet.hasGrantRegistry,
+      sai.factory
+    )
+    const inheritingGrants: FinalGrantData[] = childrenPayload.map(
+      (childData: Record<string, unknown>) => ({
+        type: (childData.type as string[] | undefined) ?? [INTEROP.DataGrant],
+        grantee: childData.grantee as string,
+        grantedBy: childData.grantedBy as string,
+        dataOwner: childData.dataOwner as string,
+        registeredShapeTree: childData.registeredShapeTree as string,
+        hasDataRegistration: childData.hasDataRegistration as string,
+        hasStorage: childData.hasStorage as string,
+        scopeOfGrant: childData.scopeOfGrant as string,
+        accessMode: childData.accessMode as string[],
+        creatorAccessMode: childData.creatorAccessMode as string[] | undefined,
+        hasDataInstance: childData.hasDataInstance as string[] | undefined,
+        delegationOfGrant: childData.delegationOfGrant as string | undefined,
+        id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory),
+        inheritsFromGrant: grantId,
       })
     )
 
@@ -131,15 +154,12 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       }
     }
 
-    // biome-ignore lint/complexity/useLiteralKeys:
-    // const upstreamGrantGraph = queryResults[0]?.['g']?.value
-
-    const grantId = sai.registrySet.hasGrantRegistry.iriForContained()
-    const finalGrant = {
+    const finalGrant: FinalGrantData = {
       ...topGrant,
+      type: topGrant.type ?? [INTEROP.DataGrant],
       id: grantId,
-      hasInheritingGrant: inheritingGrants.map((g) => ({ id: g.id })),
-    } as FinalDataGrantData
+      hasInheritingGrant: inheritingGrants.map((g) => g.id!),
+    }
 
     const allGrants = [finalGrant, ...inheritingGrants]
 

@@ -13,13 +13,13 @@ import { cssKv } from '@janeirodigital/interop-utils'
 const cuid = init({ length: 6 })
 
 const datasetSourcePath = fileURLToPath(
-  new URL('../css-storage-fixture/test/registry.trig', import.meta.url)
+  new URL('../../environments/data/registry.trig', import.meta.url)
 )
 const kvSourcePath = fileURLToPath(
-  new URL('../css-storage-fixture/test/kv.json', import.meta.url)
+  new URL('../../environments/data/kv.json', import.meta.url)
 )
 const mapPath = fileURLToPath(
-  new URL('../css-storage-fixture/dev/map.json', import.meta.url)
+  new URL('../../environments/dev/map.json', import.meta.url)
 )
 
 const handleArg = Args.text({ name: 'handle' }).pipe(

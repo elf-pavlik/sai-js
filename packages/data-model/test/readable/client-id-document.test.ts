@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import type { RdfFetch } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { AuthorizationAgentFactory } from '../../src'
 import { expect } from '../expect'
 
-const webId = 'https://alice.example/#id'
-const agentId = 'https://jarvis.alice.example/#agent'
 const snippetIri = 'https://acme.pod.docker/projectron/id'
 const snippetText = `
 {
@@ -24,31 +22,30 @@ const snippetText = `
   "interop:hasAuthorizationCallbackEndpoint": "https://app.example"
 }
 `
-const fetch = {
-  raw: async () => ({ text: async () => snippetText }),
-} as unknown as RdfFetch
+const fetch: WhatwgFetch = async () =>
+  ({ ok: true, json: async () => JSON.parse(snippetText) }) as unknown as Response
 
-const factory = new AuthorizationAgentFactory(webId, agentId, { fetch, randomUUID })
+const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
 
 describe('getters', () => {
   test('hasAccessNeedGroup', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.hasAccessNeedGroup).toBe(
       'https://acme.pod.docker/projectron/access-needs#need-group-pm'
     )
   })
   test('callbackEndpoint', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.callbackEndpoint).toBe('https://app.example')
   })
 
   test('clientName', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.clientName).toEqual('Projectron')
   })
 
   test('logoUri', async () => {
-    const clientIdDocument = await factory.readable.clientIdDocument(snippetIri)
+    const clientIdDocument = await factory.clientIdDocument(snippetIri)
     expect(clientIdDocument.logoUri).toEqual(
       'https://robohash.org/https://projectron.example/?set=set3'
     )

@@ -1,66 +1,92 @@
-import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDContainer, type CRUDRole } from '.'
+import { INTEROP, RDF } from '@janeirodigital/interop-utils'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import type { CRUDData } from './resource'
+import { linkedIrisJsonLd } from '../context'
+import { createContainer } from './container'
+import { iriForContained as containerIriForContained } from './container'
+import { type RoleData, putRole } from './role'
 
-export class CRUDRoleRegistry extends CRUDContainer {
-  declare factory: AuthorizationAgentFactory
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  async bootstrap(): Promise<void> {
-    await this.fetchData()
-    if (this.data) {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.RoleRegistry))
-    }
+export type RoleRegistryData = {
+  id: string
+}
+
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
+
+export async function* roles(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory
+): AsyncIterable<RoleData> {
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'contains')
+  for (const iri of iris) {
+    yield factory.role(iri)
   }
+}
 
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: CRUDData
-  ): Promise<CRUDRoleRegistry> {
-    const instance = new CRUDRoleRegistry(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+export async function containedIncludes(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory,
+  id: string
+): Promise<boolean> {
+  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'contains')
+  return iris.includes(id)
+}
 
-  get roles(): AsyncIterable<CRUDRole> {
-    const iris = this.getObjectsArray(LDP.contains).map((object) => object.value)
-    const { factory } = this
-    return {
-      async *[Symbol.asyncIterator]() {
-        for (const iri of iris) {
-          yield factory.crud.role(iri)
-        }
-      },
-    }
-  }
+export async function createRole(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory,
+  label: string,
+  members: string[]
+): Promise<RoleData> {
+  const iri = iriForContained(data, factory)
+  const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role] }
+  await putRole(role, factory.fetch)
+  return role
+}
 
-  public async createRole(label: string, members: string[]): Promise<CRUDRole> {
-    const registration = await this.factory.crud.role(this.iriForContained(), {
-      label,
-      members,
-    })
-    await registration.update()
-    await this.fetchData()
-    return registration
-  }
+export async function updateRole(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory,
+  roleId: string,
+  label: string,
+  members: string[]
+): Promise<RoleData> {
+  const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role] }
+  await putRole(role, factory.fetch)
+  return role
+}
 
-  public async updateRole(
-    roleId: string,
-    label: string,
-    members: string[]
-  ): Promise<CRUDRole> {
-    const registration = await this.factory.crud.role(roleId, { label, members })
-    await registration.update()
-    return registration
+export async function deleteRole(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory,
+  roleId: string
+): Promise<void> {
+  const { ok } = await factory.fetch(roleId, { method: 'DELETE' })
+  if (!ok) {
+    throw new Error('failed to delete role')
   }
+}
 
-  public async deleteRole(roleId: string): Promise<void> {
-    const { ok } = await this.fetch(roleId, { method: 'DELETE' })
-    if (!ok) {
-      throw new Error('failed to delete role')
-    }
-    await this.fetchData()
-  }
+export async function createRoleRegistry(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = new Store()
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
+  )
+  await createContainer(data.id, factory, dataset)
+}
+
+export function iriForContained(
+  data: RoleRegistryData,
+  factory: AuthorizationAgentFactory,
+  container = false
+): string {
+  return containerIriForContained(data.id, factory, container)
 }

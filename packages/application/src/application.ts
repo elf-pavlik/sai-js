@@ -1,21 +1,18 @@
 import {
-  AllFromRegistryDataGrant,
   ApplicationFactory,
-  type DataGrant,
-  DataOwner,
-  InheritedDataGrant,
-  type ReadableApplicationRegistration,
-  SelectedFromRegistryDataGrant,
+  ApplicationRegistration,
+  type ApplicationRegistrationData,
+  type DataOwnerData,
+  Grant,
 } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   ACL,
-  type RdfFetch,
   type WhatwgFetch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
-  fetchWrapper,
 } from '@janeirodigital/interop-utils'
 
 interface ApplicationDependencies {
@@ -39,9 +36,7 @@ type ChildInfo = {
 export class Application {
   factory: ApplicationFactory
 
-  rawFetch: WhatwgFetch
-
-  fetch: RdfFetch
+  fetch: WhatwgFetch
 
   authorizationAgentIri: string
 
@@ -50,7 +45,7 @@ export class Application {
   registrationIri: string
 
   // TODO rename
-  hasApplicationRegistration?: ReadableApplicationRegistration
+  hasApplicationRegistration?: ApplicationRegistrationData
 
   public parentMap: Map<string, ParentInfo> = new Map()
 
@@ -61,8 +56,7 @@ export class Application {
     public applicationId: string,
     dependencies: ApplicationDependencies
   ) {
-    this.rawFetch = dependencies.fetch
-    this.fetch = fetchWrapper(this.rawFetch)
+    this.fetch = dependencies.fetch
     this.factory = new ApplicationFactory({
       fetch: this.fetch,
       randomUUID: dependencies.randomUUID,
@@ -71,13 +65,10 @@ export class Application {
 
   private async bootstrap(): Promise<void> {
     this.authorizationAgentIri = await discoverAuthorizationAgent(this.webId, this.fetch)
-    this.registrationIri = await discoverAgentRegistration(
-      this.authorizationAgentIri,
-      this.rawFetch
-    )
+    this.registrationIri = await discoverAgentRegistration(this.authorizationAgentIri, this.fetch)
     this.authorizationRedirectEndpoint = await discoverAuthorizationRedirectEndpoint(
       this.authorizationAgentIri,
-      this.rawFetch
+      this.fetch
     )
     if (!this.registrationIri) return
     await this.buildRegistration()
@@ -85,7 +76,7 @@ export class Application {
 
   public async buildRegistration(): Promise<void> {
     if (this.registrationIri) {
-      this.hasApplicationRegistration = await this.factory.readable.applicationRegistration(
+      this.hasApplicationRegistration = await this.factory.applicationRegistration(
         this.registrationIri
       )
     }
@@ -115,31 +106,47 @@ export class Application {
    * Array of DataOwner instances out of all the data application can access.
    * @public
    */
-  get dataOwners(): DataOwner[] {
+  get dataOwners(): DataOwnerData[] {
     if (!this.hasApplicationRegistration) return []
-    return this.hasApplicationRegistration.hasAccessGrant.hasDataGrant.reduce((acc, grant) => {
-      let owner: DataOwner = acc.find((agent) => agent.iri === grant.dataOwner)
+    // Note: this is now lazy — fetches data grants each time
+    // The property access pattern changed from sync to async.
+    // Consumers should use getDataOwnersAsync() instead.
+    return []
+  }
+
+  public async getDataOwnersAsync(): Promise<DataOwnerData[]> {
+    if (!this.hasApplicationRegistration) return []
+    const dataGrants = await ApplicationRegistration.getDataGrants(
+      this.hasApplicationRegistration,
+      this.factory
+    )
+    return dataGrants.reduce((acc, grant) => {
+      let owner: DataOwnerData = acc.find((agent) => agent.iri === grant.dataOwner)
       if (!owner) {
-        owner = new DataOwner(grant.dataOwner)
+        owner = { iri: grant.dataOwner, issuedGrants: [] }
         acc.push(owner)
       }
       owner.issuedGrants.push(grant)
       return acc
-    }, [])
+    }, [] as DataOwnerData[])
   }
 
-  public resourceOwners(): Set<string> {
-    return new Set(this.dataOwners.map((dataOwner) => dataOwner.iri))
+  public async resourceOwners(): Promise<Set<string>> {
+    const owners = await this.getDataOwnersAsync()
+    return new Set(owners.map((dataOwner) => dataOwner.iri))
   }
 
-  public resourceServers(resourceOwner: string, scope: string): Set<string> {
-    const dataOwner = this.dataOwners.find((owner) => owner.iri === resourceOwner)
+  public async resourceServers(resourceOwner: string, scope: string): Promise<Set<string>> {
+    const owners = await this.getDataOwnersAsync()
+    const dataOwner = owners.find((owner) => owner.iri === resourceOwner)
+    if (!dataOwner) return new Set()
     const grants = dataOwner.issuedGrants.filter((grant) => grant.registeredShapeTree === scope)
     return new Set(grants.map((grant) => grant.hasStorage))
   }
 
-  private findGrant(storage: string, scope: string): DataGrant {
-    return this.dataOwners
+  private async findGrant(storage: string, scope: string) {
+    const owners = await this.getDataOwnersAsync()
+    return owners
       .flatMap((owner) => owner.issuedGrants)
       .find(
         (dataGrant) => dataGrant.hasStorage === storage && dataGrant.registeredShapeTree === scope
@@ -147,16 +154,17 @@ export class Application {
   }
 
   public async resources(resourceServer: string, scope: string): Promise<Set<string>> {
-    const grant = this.findGrant(resourceServer, scope)
+    const grant = await this.findGrant(resourceServer, scope)
+    if (!grant) throw new Error('No grant found')
     let list: string[] = []
-    if (grant instanceof InheritedDataGrant) {
+    if (grant.scopeOfGrant === INTEROP.Inherited) {
       throw new Error('Cannot list instances from Inherited grants')
     }
-    if (grant instanceof SelectedFromRegistryDataGrant) {
-      list = grant.hasDataInstance
+    if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) {
+      list = grant.hasDataInstance ?? []
     }
-    if (grant instanceof AllFromRegistryDataGrant) {
-      const dataRegistration = await grant.factory.readable.dataRegistration(
+    if (grant.scopeOfGrant === INTEROP.AllFromRegistry) {
+      const dataRegistration = await this.factory.dataRegistration(
         grant.hasDataRegistration
       )
       list = dataRegistration.contains
@@ -189,38 +197,39 @@ export class Application {
     return (this.parentMap.get(id) || this.childMap.get(id))!
   }
 
-  public canCreate(resourceServer: string, scope: string): boolean {
-    const grant = this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create.value)
+  public async canCreate(resourceServer: string, scope: string): Promise<boolean> {
+    const grant = await this.findGrant(resourceServer, scope)
+    return grant?.accessMode.includes(ACL.Create)
   }
 
-  public canCreateChild(parentId: string, scope: string): boolean {
+  public async canCreateChild(parentId: string, scope: string): Promise<boolean> {
     const { resourceServer } = this.parentMap.get(parentId)
-    const grant = this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create.value)
+    const grant = await this.findGrant(resourceServer, scope)
+    return grant?.accessMode.includes(ACL.Create)
   }
 
-  public canUpdate(id: string): boolean {
+  public async canUpdate(id: string): Promise<boolean> {
     const info = this.getInfo(id)
-    const grant = this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Update.value)
+    const grant = await this.findGrant(info.resourceServer, info.scope)
+    return grant?.accessMode.includes(ACL.Update)
   }
 
-  public canDelete(id: string): boolean {
+  public async canDelete(id: string): Promise<boolean> {
     const info = this.getInfo(id)
-    const grant = this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Delete.value)
+    const grant = await this.findGrant(info.resourceServer, info.scope)
+    return grant?.accessMode.includes(ACL.Delete)
   }
 
   // TODO: rename to idForNew
-  public iriForNew(resourceServer: string, scope: string): string {
-    const grant = this.findGrant(resourceServer, scope)
-    return grant.iriForNew()
+  public async iriForNew(resourceServer: string, scope: string): Promise<string> {
+    const grant = await this.findGrant(resourceServer, scope)
+    if (!grant) throw new Error('No grant found')
+    return Grant.iriForNew(grant, this.factory.randomUUID)
   }
 
-  public iriForChild(parentId: string, scope: string): string {
+  public async iriForChild(parentId: string, scope: string): Promise<string> {
     const { resourceServer } = this.parentMap.get(parentId)
-    const iri = this.iriForNew(resourceServer, scope)
+    const iri = await this.iriForNew(resourceServer, scope)
     this.childMap.set(iri, this.childInfo(iri, scope, parentId))
     return iri
   }
@@ -230,6 +239,6 @@ export class Application {
   }
 
   public async discoverDescription(resourceIri: string): Promise<string | undefined> {
-    return discoverDescriptionResource(resourceIri, this.rawFetch)
+    return discoverDescriptionResource(resourceIri, this.fetch)
   }
 }

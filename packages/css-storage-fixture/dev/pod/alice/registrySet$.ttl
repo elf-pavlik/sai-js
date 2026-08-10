@@ -1,9 +1,0 @@
-@prefix interop: <http://www.w3.org/ns/solid/interop#>.
-
-<https://alice.pod.docker/registrySet>
-  a interop:RegistrySet;
-  interop:hasAgentRegistry <https://alice.pod.docker/agentRegistry/> ;
-  interop:hasAuthorizationRegistry <https://alice.pod.docker/authorizationRegistry/> ;
-  interop:hasDataRegistry
-    <https://alice-work.pod.docker/dataRegistry/> ,
-    <https://alice-home.pod.docker/dataRegistry/> .

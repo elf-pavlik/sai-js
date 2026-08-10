@@ -3,7 +3,6 @@ import {
   AS,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
-  fetchWrapper,
 } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { receivesNotification } from './util'
@@ -25,7 +24,7 @@ describe('reciprocal webhook', () => {
     })
     expect(response.status).toBe(200)
     const session = await buildOidcSession(aliceId, clientId)
-    const aliceAgentId = await discoverAuthorizationAgent(aliceId, fetchWrapper(fetch))
+    const aliceAgentId = await discoverAuthorizationAgent(aliceId, fetch)
     if (!aliceAgentId) throw new Error(`could not discover auth agent for ${aliceId}`)
     const applicationRegistrationId = await discoverAgentRegistration(
       aliceAgentId,
@@ -36,7 +35,7 @@ describe('reciprocal webhook', () => {
     const check = await receivesNotification(
       session.authFetch.bind(session),
       applicationRegistrationId,
-      AS.Update.value
+      AS.Update
     )
     expect(check).toBeTruthy()
   })

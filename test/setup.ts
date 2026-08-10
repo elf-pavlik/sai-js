@@ -4,16 +4,16 @@ import { S3mini } from 's3mini'
 import { afterAll, beforeAll, beforeEach } from 'vitest'
 
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
-const keyValuePath = '../packages/css-storage-fixture/test/kv.json'
+const keyValuePath = '../environments/data/kv.json'
 
 const sparqlEndpoint = 'http://sparql/store'
-const datasetPath = '../packages/css-storage-fixture/test/registry.trig'
+const datasetPath = '../environments/data/registry.trig'
 
 const kvData = JSON.parse(await readFile(keyValuePath, 'utf8'))
 const datasetData = await readFile(datasetPath, 'utf8')
 
 const clientId = 'https://data/test-client/public/id'
-const clientIdPath = '../packages/css-storage-fixture/test/data/test-client/public/id$.jsonld'
+const clientIdPath = '../environments/data/test-client/public/id$.jsonld'
 
 const pg = new Postgres(connectionString, 'key_value')
 

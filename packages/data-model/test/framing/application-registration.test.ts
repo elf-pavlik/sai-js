@@ -1,0 +1,29 @@
+import { INTEROP, LDP } from '@janeirodigital/interop-utils'
+import { describe, test } from 'vitest'
+import { ApplicationRegistration } from '../../src'
+import { expect } from '../expect'
+import { docFromGraphs } from './helpers'
+
+const REGISTRATION_IRI = 'https://registry/alice/agent/cvmsa4/'
+
+// Graph <meta:https://registry/alice/agent/cvmsa4/> in registry.trig:
+// ApplicationRegistration node (type, registeredAgent, hasDataGrant) and the
+// embedded client-id-document node — the latter must not disturb framing.
+describe('ApplicationRegistration framing', () => {
+  test('frames the application registration graph into ApplicationRegistrationData', async () => {
+    const doc = await docFromGraphs([`meta:${REGISTRATION_IRI}`])
+    const data = await ApplicationRegistration.fromJsonLd(doc, REGISTRATION_IRI)
+    expect(data).toEqual({
+      id: REGISTRATION_IRI,
+      type: [INTEROP.ApplicationRegistration, LDP.Resource],
+      registeredAgent: 'https://data/test-client/public/id',
+      hasDataGrant: [
+        'https://registry/alice/grant/afiooi',
+        'https://registry/alice/grant/azgyc5',
+        'https://registry/acme/grant/wwp4j6',
+        'https://registry/acme/grant/qwvbcu',
+      ],
+      granted: true,
+    })
+  })
+})

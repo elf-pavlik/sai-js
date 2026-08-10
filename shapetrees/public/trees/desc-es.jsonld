@@ -1,0 +1,102 @@
+[
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#DescriptionSet"
+    ],
+    "http://www.w3.org/ns/shapetrees#usesLanguage": [
+      {
+        "@value": "en",
+        "@type": "http://www.w3.org/2001/XMLSchema#language"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#File",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#Description"
+    ],
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/shapes/File"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@value": "Archivos",
+        "@language": "es"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#Image",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#Description"
+    ],
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/shapes/Image"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@value": "Imágenes",
+        "@language": "es"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#Project",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#Description"
+    ],
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/shapes/Project"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@value": "Proyectos",
+        "@language": "es"
+      }
+    ]
+  },
+  {
+    "@id": "https://shapetrees.hackers4peace.net/trees/desc-es#Task",
+    "@type": [
+      "http://www.w3.org/ns/shapetrees#Description"
+    ],
+    "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/trees/desc-es"
+      }
+    ],
+    "http://www.w3.org/ns/shapetrees#describes": [
+      {
+        "@id": "https://shapetrees.hackers4peace.net/shapes/Task"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@value": "Tareas",
+        "@language": "es"
+      }
+    ]
+  }
+]

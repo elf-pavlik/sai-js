@@ -1,4 +1,5 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
+import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 
 const rpcEndpoint = 'https://auth/.sai/api'
@@ -17,13 +18,16 @@ async function verifyAccessGrant(
   expect(granteeRegForGrantedBy).toBeDefined()
   expect(granteeRegForGrantedBy!.registeredAgent).toBe(grantedById)
 
-  const grantedByRegForGrantee = granteeRegForGrantedBy!.reciprocalRegistration
-  expect(grantedByRegForGrantee).toBeDefined()
-  expect(grantedByRegForGrantee!.registeredAgent).toBe(granteeId)
+  // reciprocal registration is stored as an IRI — load it on demand
+  expect(granteeRegForGrantedBy!.reciprocalRegistration).toBeDefined()
+  const grantedByRegForGrantee = await granteeSession.factory.socialAgentRegistration(
+    granteeRegForGrantedBy!.reciprocalRegistration!
+  )
+  expect(grantedByRegForGrantee.registeredAgent).toBe(granteeId)
 
-  const accessGrant = grantedByRegForGrantee!.accessGrant
+  const dataGrants = await getDataGrants(grantedByRegForGrantee, granteeSession.factory)
 
-  const dataGrant = accessGrant?.hasDataGrant.find(
+  const dataGrant = dataGrants.find(
     (grant) =>
       grant.registeredShapeTree === shapeTree &&
       grant.grantedBy === grantedById &&
@@ -31,13 +35,9 @@ async function verifyAccessGrant(
   )
 
   if (expectGrant) {
-    expect(accessGrant).toBeDefined()
-    expect(accessGrant!.granted).toBe(true)
-    expect(accessGrant!.grantedBy).toBe(grantedById)
-    expect(accessGrant!.grantee).toBe(granteeId)
-
+    expect((await getDataGrantIris(grantedByRegForGrantee)).length).toBeGreaterThan(0)
     expect(dataGrant).toBeDefined()
-    expect(dataGrant!.scopeOfGrant.value).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
+    expect(dataGrant!.scopeOfGrant).toBe('http://www.w3.org/ns/solid/interop#AllFromRegistry')
     expect(dataGrant!.dataOwner).toBe(dataOwnerId)
   } else {
     expect(dataGrant).toBeUndefined()
@@ -103,7 +103,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(body.id)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Test Role')
+    expect(role!.prefLabel).toBe('Test Role')
     expect(role!.members).toEqual([])
   })
 
@@ -142,7 +142,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(chumsRoleId)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Chums')
+    expect(role!.prefLabel).toBe('Chums')
     expect(role!.members).toEqual([bobId])
   })
 
@@ -195,8 +195,11 @@ describe('role-based access', () => {
     })
     test('existing authorization - add remove members to roles', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
@@ -208,7 +211,7 @@ describe('role-based access', () => {
         rpcPayload({
           _tag: 'UpdateRole',
           id: whizRoleId,
-          label: initialRole?.label ?? 'Whiz',
+          label: initialRole?.prefLabel ?? 'Whiz',
           members: [...initialMembers, danId],
         }),
         bobCookie
@@ -241,16 +244,22 @@ describe('role-based access', () => {
       )
 
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 
     test('delete grantee role', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await rpcCall(
         rpcPayload({
@@ -277,8 +286,11 @@ describe('role-based access', () => {
 
     test('delete dataOwner role', async () => {
       const body = await rpcCall(payload, bobCookie)
-      expect(body.granted).toBe(true)
-      expect(body.id).toMatch('https://registry/bob/authorization/')
+      expect(Array.isArray(body)).toBe(true)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body[0].grantee).toBe(whizRoleId)
+      expect(body[0].grantedBy).toBe(bobId)
+      expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
       await rpcCall(
         rpcPayload({

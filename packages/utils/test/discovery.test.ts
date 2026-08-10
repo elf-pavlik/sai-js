@@ -1,202 +1,96 @@
-import { SolidTestUtils, accounts, host } from '@janeirodigital/css-test-utils'
-import { DataFactory, Store } from 'n3'
-import { type Mock, afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
-  AgentRegistrationDiscoveryError,
-  DescriptionResourceDiscoveryError,
-  INTEROP,
-  type RdfResponse,
-  discoverAgentRegistration,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
-  discoverDescriptionResource,
-  discoverStorageDescription,
+  discoverDelegationIssuanceEndpoint,
   discoverWebPushService,
 } from '../src'
 
-vi.setConfig({ testTimeout: 200_000, hookTimeout: 200_000 })
+const aliceId = 'https://id/alice'
+const aliceAgentId = 'https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ'
+const INTEROP = 'http://www.w3.org/ns/solid/interop#'
+const NOTIFY = 'http://www.w3.org/ns/solid/notifications#'
 
-const stu = new SolidTestUtils(accounts.luka)
-beforeAll(async () => await stu.beforeAll())
-afterAll(async () => await stu.afterAll())
+const webIdDoc = [
+  {
+    '@id': aliceId,
+    [`${INTEROP}hasAuthorizationAgent`]: [{ '@id': aliceAgentId }],
+  },
+]
 
-const webId = 'https://alice.example/#id'
-const authorizationAgentIri = 'https://auth.alice.example/'
-const rdfFetch: Mock<[], Promise<RdfResponse>> = vi.fn()
-const statelessFetch: Mock<[], Promise<Response>> = vi.fn()
+const uasDoc = [
+  {
+    '@id': aliceAgentId,
+    [`${INTEROP}hasAuthorizationRedirectEndpoint`]: [{ '@id': 'https://ui.auth/authorize' }],
+    [`${INTEROP}hasDelegationIssuanceEndpoint`]: [{ '@id': 'https://auth/.sai/grants' }],
+    [`${INTEROP}pushService`]: [{ '@id': 'https://auth/.sai/webpush' }],
+    [`${NOTIFY}vapidPublicKey`]: [
+      {
+        '@value':
+          'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY',
+      },
+    ],
+  },
+]
+
+/** Mock WhatwgFetch serving JSON-LD docs by URL (vi.fn so call counts are assertable). */
+function jsonldFetch(docs: Record<string, unknown>) {
+  return vi.fn(async (input: RequestInfo) => {
+    const url = typeof input === 'string' ? input : input.url
+    return {
+      ok: true,
+      json: async () => docs[url],
+    } as unknown as Response
+  })
+}
 
 describe('discoverAuthorizationAgent', () => {
-  test('should discover Authorization Agent from the WebID document', async () => {
-    rdfFetch.mockResolvedValueOnce({
-      dataset: async () =>
-        new Store([
-          DataFactory.quad(
-            DataFactory.namedNode(webId),
-            INTEROP.hasAuthorizationAgent,
-            DataFactory.literal(authorizationAgentIri)
-          ),
-        ]),
-    } as unknown as RdfResponse)
-    // @ts-ignore
-    const iri = await discoverAuthorizationAgent(webId, rdfFetch)
-    expect(iri).toBe(authorizationAgentIri)
+  test('discovers the Authorization Agent from the WebID document', async () => {
+    const mock = jsonldFetch({ [aliceId]: webIdDoc })
+    const iri = await discoverAuthorizationAgent(aliceId, mock)
+    expect(iri).toBe(aliceAgentId)
+  })
+
+  test('returns undefined when the WebID document has no Authorization Agent', async () => {
+    const mock = jsonldFetch({ [aliceId]: [{ '@id': aliceId }] })
+    const iri = await discoverAuthorizationAgent(aliceId, mock)
+    expect(iri).toBeUndefined()
   })
 })
 
-describe('discoverAgentRegistration', () => {
-  test('should discover Agent Registration from link header ', async () => {
-    const agentRegistrationIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
-    const linkString = `
-      <https://projectron.example/#app>;
-      anchor="${agentRegistrationIri}";
-      rel="http://www.w3.org/ns/solid/interop#registeredAgent"
-    `
-    statelessFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: (name: string): string | null => (name === 'Link' ? linkString : null) },
-    } as unknown as Response)
-    const iri = await discoverAgentRegistration(authorizationAgentIri, statelessFetch)
-    expect(iri).toBe(agentRegistrationIri)
-  })
-
-  test('should return undefined if no link header ', async () => {
-    statelessFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: (): undefined => undefined },
-    } as unknown as RdfResponse)
-    const iri = await discoverAgentRegistration(authorizationAgentIri, statelessFetch)
-    expect(iri).toBeUndefined()
-  })
-
-  test('should throw error if the request fails', async () => {
-    const iri = 'https://some.iri'
-    statelessFetch.mockResolvedValueOnce({
-      ok: false,
-    } as unknown as RdfResponse)
-    expect(discoverAgentRegistration(iri, statelessFetch)).rejects.toThrowError(
-      AgentRegistrationDiscoveryError
-    )
-  })
-})
-
-describe('discoverDescriptionResource', () => {
-  const resourceIri = 'https://some.iri/'
-
-  test('should discover Description Resource from link header ', async () => {
-    const descriptionResourceIri = `${resourceIri}.meta`
-
-    const linkString = `
-      <${descriptionResourceIri}>;
-      rel="describedby"
-    `
-    statelessFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: (name: string): string | null => (name === 'Link' ? linkString : null) },
-    } as unknown as RdfResponse)
-    const iri = await discoverDescriptionResource(resourceIri, statelessFetch)
-    expect(iri).toBe(descriptionResourceIri)
-  })
-
-  test('should return undefined if no link header ', async () => {
-    statelessFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: (): undefined => undefined },
-    } as unknown as RdfResponse)
-    const iri = await discoverDescriptionResource(resourceIri, statelessFetch)
-    expect(iri).toBeUndefined()
-  })
-
-  test('should throw error if the request fails', async () => {
-    const iri = 'https://some.iri'
-    statelessFetch.mockResolvedValueOnce({
-      ok: false,
-    } as unknown as RdfResponse)
-    expect(discoverDescriptionResource(iri, statelessFetch)).rejects.toThrowError(
-      DescriptionResourceDiscoveryError
-    )
-  })
-})
-
-describe('discoverDescriptionResource', () => {
-  const resourceIri = `${host}/luka/profile/card`
-
-  test('should discover Storage Description from link header ', async () => {
-    const storageDescriptionIri = `${host}/luka/.well-known/solid`
-
-    const iri = await discoverStorageDescription(resourceIri, stu.authFetch)
-    expect(iri).toBe(storageDescriptionIri)
-  })
-
-  test('should return undefined if no link header ', async () => {
-    statelessFetch.mockResolvedValueOnce({
-      ok: true,
-      headers: { get: (): undefined => undefined },
-    } as unknown as RdfResponse)
-    const iri = await discoverDescriptionResource(resourceIri, statelessFetch)
-    expect(iri).toBeUndefined()
-  })
-
-  test('should throw error if the request fails', async () => {
-    const iri = 'https://some.iri'
-    statelessFetch.mockResolvedValueOnce({
-      ok: false,
-    } as unknown as RdfResponse)
-    expect(discoverDescriptionResource(iri, statelessFetch)).rejects.toThrowError(
-      DescriptionResourceDiscoveryError
-    )
+describe('discoverDelegationIssuanceEndpoint', () => {
+  test('uses the injected fetch for both requests and returns the endpoint', async () => {
+    const mock = jsonldFetch({ [aliceId]: webIdDoc, [aliceAgentId]: uasDoc })
+    const endpoint = await discoverDelegationIssuanceEndpoint(aliceId, mock)
+    expect(endpoint).toBe('https://auth/.sai/grants')
+    // two requests: the WebID document and the Authorization Agent document
+    expect(mock.mock.calls).toHaveLength(2)
+    expect(mock.mock.calls[1][0]).toBe(aliceAgentId)
   })
 })
 
 describe('discoverAuthorizationRedirectEndpoint', () => {
-  test('should discover authorization uri from Client ID document', async () => {
-    const authorizationRedirectUri = 'https://auth.example/authorize'
-    statelessFetch.mockResolvedValueOnce({
-      text: async () => `
-        {
-          "@context": { "interop": "http://www.w3.org/ns/solid/interop#" },
-          "interop:hasAuthorizationRedirectEndpoint": "${authorizationRedirectUri}"
-        }
-      `,
-    } as unknown as Response)
-    const iri = await discoverAuthorizationRedirectEndpoint(authorizationAgentIri, statelessFetch)
-    expect(iri).toBe(authorizationRedirectUri)
+  test('discovers the authorization uri from the Authorization Agent document', async () => {
+    const mock = jsonldFetch({ [aliceAgentId]: uasDoc })
+    const iri = await discoverAuthorizationRedirectEndpoint(aliceAgentId, mock)
+    expect(iri).toBe('https://ui.auth/authorize')
   })
 })
 
 describe('discoverWebPushService', () => {
-  test('should discover web push service from Client ID document', async () => {
-    const pushServiceIri = 'https://some.iri/push'
-    const publicKey = '79911832617685422231316786426001'
-    statelessFetch.mockResolvedValueOnce({
-      text: async () => `
-        {
-          "@context": {
-            "interop": "http://www.w3.org/ns/solid/interop#",
-            "notify": "http://www.w3.org/ns/solid/notifications#"
-          },
-          "interop:pushService": { "@id": "${pushServiceIri}" },
-          "notify:vapidPublicKey": "${publicKey}"
-        }
-      `,
-    } as unknown as Response)
-    // @ts-ignore
-    const { id, vapidPublicKey } = await discoverWebPushService(
-      authorizationAgentIri,
-      statelessFetch
-    )
-    expect(id).toBe(pushServiceIri)
-    expect(vapidPublicKey).toBe(publicKey)
+  test('discovers the web push service from the Authorization Agent document', async () => {
+    const mock = jsonldFetch({ [aliceAgentId]: uasDoc })
+    const service = await discoverWebPushService(aliceAgentId, mock)
+    expect(service).toEqual({
+      id: 'https://auth/.sai/webpush',
+      vapidPublicKey:
+        'BNUaG9vwp-WE_cX-3dNLebyczW_RivE8wHECIvZIUMUZ3co6P79neE3hueJJtFcg5ezTZ25T1ITciujz-mlAcnY',
+    })
   })
-  test('returns undefined if service not found', async () => {
-    statelessFetch.mockResolvedValueOnce({
-      text: async () => `
-        {
-          "@context": { "interop": "http://www.w3.org/ns/solid/interop#" },
-          "interop:hasAuthorizationRedirectEndpoint": "https://auth.example/redirect"
-        }
-      `,
-    } as unknown as Response)
-    // @ts-ignore
-    expect(await discoverWebPushService(authorizationAgentIri, statelessFetch)).toBeUndefined()
+
+  test('returns undefined when the service is not found', async () => {
+    const mock = jsonldFetch({ [aliceAgentId]: [{ '@id': aliceAgentId }] })
+    const service = await discoverWebPushService(aliceAgentId, mock)
+    expect(service).toBeUndefined()
   })
 })

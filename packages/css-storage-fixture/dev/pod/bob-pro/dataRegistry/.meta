@@ -1,9 +1,0 @@
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX interop: <http://www.w3.org/ns/solid/interop#>
-
-<https://bob-pro.pod.docker/dataRegistry/>
-  interop:hasDataRegistration
-   <https://bob-pro.pod.docker/dataRegistry/projects/> ,
-   <https://bob-pro.pod.docker/dataRegistry/tasks/> ,
-   <https://bob-pro.pod.docker/dataRegistry/images/> ,
-   <https://bob-pro.pod.docker/dataRegistry/files/> .

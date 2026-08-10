@@ -9,7 +9,7 @@ const webId = 'https://alice.example/#id'
 
 describe('getters', () => {
   test('label', async () => {
-    const webIdProfile = await factory.readable.webIdProfile(webId)
+    const webIdProfile = await factory.webIdProfile(webId)
     expect(webIdProfile.label).toBe('Alice')
   })
 

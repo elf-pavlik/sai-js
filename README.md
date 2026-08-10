@@ -72,10 +72,9 @@ It will run the following:
 
 #### Community Solid Server
 
-Run from [packages/css-solid-fixture](https://github.com/hackers4peace/sai-js/tree/main/packages/css-storage-fixture).
-Used for solid storage instances and solid-oidc provider.
+Runs as the `auth`, `registry`, and `data` services in [docker-compose.yaml](docker-compose.yaml) (configs in `environments/css/`), used for solid storage instances and the solid-oidc provider.
 
-Available on https://pod.docker, default demo account is `alice@acme.example` with `password`.
+Available on https://auth.docker, https://reg.docker and https://*.data.docker. Seed the environment with `devbox run seed`.
 
 #### Authorization Agent
 

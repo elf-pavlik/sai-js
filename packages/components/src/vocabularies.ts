@@ -16,7 +16,8 @@ export const INTEROP = createVocabulary(
   'AllFromRegistry',
   'SelectedFromRegistry',
   'Inherited',
-  'inheritsFromGrant'
+  'inheritsFromGrant',
+  'DataGrant'
 )
 export const ACL = createVocabulary(
   'http://www.w3.org/ns/auth/acl#',

@@ -5,147 +5,187 @@ import {
   type WhatwgFetch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
+  fetchJsonLd,
+  frameDoc,
 } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { type AgentRegistrationData, CRUDAgentRegistration } from '.'
+import { DataFactory, type Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
+import { dataModelContext } from '../context'
+import {
+  type AgentRegistrationData,
+  toDataset as registrationToDataset,
+} from './agent-registration'
+import { addStatement, createContainer, replaceStatement } from './container'
 
-type ClassData = {
+// ──────────────────────────
+// Types
+// ──────────────────────────
+
+export type SocialAgentRegistrationData = AgentRegistrationData & {
   prefLabel: string
   note?: string
+  hasAccessNeedGroup?: string
+  /** IRI of the peer's reciprocal registration — loaded lazily, see `loadReciprocalRegistration` */
+  reciprocalRegistration?: string
 }
 
-export type SocialAgentRegistrationData = AgentRegistrationData & ClassData
+// ──────────────────────────
+// Read path: JSON-LD → SocialAgentRegistrationData
+// ──────────────────────────
 
-export class CRUDSocialAgentRegistration extends CRUDAgentRegistration {
-  declare data?: SocialAgentRegistrationData
-
-  reciprocalRegistration?: CRUDSocialAgentRegistration
-
-  reciprocal: boolean
-
-  public constructor(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    reciprocal: boolean,
-    data?: SocialAgentRegistrationData
-  ) {
-    super(iri, factory, data)
-    this.reciprocal = reciprocal
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * SocialAgentRegistrationData POJO.
+ *
+ * The document can be in expanded, compacted, or flattened form. Uses
+ * jsonld.frame with the shared data model context: node references
+ * (`registeredAgent`, `hasAccessNeedGroup`, `reciprocalRegistration`) are
+ * coerced to strings via `@type: '@id'`, `hasDataGrant` to a string array via
+ * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
+ * rdf:type (from framing) to a string array.
+ */
+export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentRegistrationData> {
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  return {
+    id: iri,
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    registeredAgent: node.registeredAgent,
+    hasDataGrant: node.hasDataGrant ?? [],
+    prefLabel: node.prefLabel ?? '',
+    // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
+    note: node.note ?? undefined,
+    hasAccessNeedGroup: node.hasAccessNeedGroup ?? undefined,
+    reciprocalRegistration: node.reciprocalRegistration ?? undefined,
   }
+}
 
-  // TODO: handle missing labels
-  get label(): string {
-    return this.getObject(SKOS.prefLabel)!.value
+export async function loadSocialAgentRegistration(
+  iri: string,
+  fetch: WhatwgFetch
+): Promise<SocialAgentRegistrationData> {
+  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+}
+
+/**
+ * Lazily load the peer's reciprocal registration — only consumers that need its
+ * data (`hasAccessNeedGroup`, data grants) call this. The leaf read
+ * (`loadSocialAgentRegistration`) no longer recurses into the reciprocal.
+ */
+export async function loadReciprocalRegistration(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<SocialAgentRegistrationData | undefined> {
+  if (!data.reciprocalRegistration) return undefined
+  return factory.socialAgentRegistration(data.reciprocalRegistration)
+}
+
+// ──────────────────────────
+// Write path: SocialAgentRegistrationData → Dataset
+// ──────────────────────────
+
+export async function toDataset(data: SocialAgentRegistrationData): Promise<Store> {
+  const store = await registrationToDataset(data)
+  const node = DataFactory.namedNode(data.id)
+  store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.prefLabel)))
+  if (data.note) {
+    store.add(DataFactory.quad(node, SKOS.terms.note, DataFactory.literal(data.note)))
   }
-
-  get note(): string | undefined {
-    return this.getObject(SKOS.note)?.value
-  }
-
-  get hasAccessNeedGroup(): string | undefined {
-    return this.getObject(INTEROP.hasAccessNeedGroup)?.value
-  }
-
-  // TODO: (elf-pavlik) recover if reciprocal can't be fetched
-  private async buildReciprocalRegistration(): Promise<void> {
-    const reciprocalRegistrationIri = this.getObject(INTEROP.reciprocalRegistration)?.value
-    if (reciprocalRegistrationIri) {
-      this.reciprocalRegistration = await this.factory.crud.socialAgentRegistration(
-        reciprocalRegistrationIri,
-        true
+  if (data.hasAccessNeedGroup) {
+    store.add(
+      DataFactory.quad(
+        node,
+        INTEROP.terms.hasAccessNeedGroup,
+        DataFactory.namedNode(data.hasAccessNeedGroup)
       )
-    }
-  }
-
-  // TODO: adjust factory to also expose WhatwgFetch
-  public async discoverReciprocal(fetch: WhatwgFetch): Promise<string | null> {
-    const authrizationAgentIri = await discoverAuthorizationAgent(
-      this.registeredAgent,
-      this.factory.fetch
     )
-    if (!authrizationAgentIri) return null
-    return discoverAgentRegistration(authrizationAgentIri, fetch)
   }
+  return store
+}
 
-  private async updateReciprocal(reciprocalRegistrationIri: string): Promise<void> {
-    const quad = DataFactory.quad(
-      this.node,
-      INTEROP.reciprocalRegistration,
-      DataFactory.namedNode(reciprocalRegistrationIri)
+export async function createSocialAgentRegistration(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = await toDataset(data)
+  dataset.add(
+    DataFactory.quad(
+      DataFactory.namedNode(data.id),
+      RDF.terms.type,
+      INTEROP.terms.SocialAgentRegistration
     )
-    if (this.reciprocalRegistration) {
-      const priorQuad = this.getQuad(this.node, INTEROP.reciprocalRegistration)
-      await this.replaceStatement(priorQuad, quad)
-    } else {
-      await this.addStatement(quad)
-    }
-    await this.buildReciprocalRegistration()
-  }
+  )
+  await createContainer(data.id, factory, dataset)
+}
 
-  public async discoverAndUpdateReciprocal(fetch: WhatwgFetch): Promise<void> {
-    const reciprocalRegistrationIri = await this.discoverReciprocal(fetch)
-    if (reciprocalRegistrationIri) {
-      await this.updateReciprocal(reciprocalRegistrationIri)
-    }
-  }
+// ──────────────────────────
+// Behavior functions (replacing class methods)
+// ──────────────────────────
 
-  public async setAccessNeedGroup(accessNeedGroupIri: string): Promise<void> {
-    const quad = DataFactory.quad(
-      DataFactory.namedNode(this.iri),
-      INTEROP.hasAccessNeedGroup,
-      DataFactory.namedNode(accessNeedGroupIri)
+export async function discoverReciprocal(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch
+): Promise<string | null> {
+  const authrizationAgentIri = await discoverAuthorizationAgent(data.registeredAgent, factory.fetch)
+  if (!authrizationAgentIri) return null
+  return discoverAgentRegistration(authrizationAgentIri, fetch)
+}
+
+async function updateReciprocal(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  reciprocalRegistrationIri: string
+): Promise<void> {
+  const node = DataFactory.namedNode(data.id)
+  const quad = DataFactory.quad(
+    node,
+    INTEROP.terms.reciprocalRegistration,
+    DataFactory.namedNode(reciprocalRegistrationIri)
+  )
+  if (data.reciprocalRegistration) {
+    const priorQuad = DataFactory.quad(
+      node,
+      INTEROP.terms.reciprocalRegistration,
+      DataFactory.namedNode(data.reciprocalRegistration)
     )
-    // unlink prevoius access grant if exists
-    if (this.hasAccessNeedGroup) {
-      const priorQuad = this.getQuad(
-        DataFactory.namedNode(this.iri),
-        INTEROP.hasAccessNeedGroup,
-        DataFactory.namedNode(this.hasAccessNeedGroup)
-      )
-      await this.replaceStatement(priorQuad, quad)
-    } else {
-      await this.addStatement(quad)
-    }
+    await replaceStatement(data.id, factory, priorQuad, quad)
+  } else {
+    await addStatement(data.id, factory, quad)
   }
+  data.reciprocalRegistration = reciprocalRegistrationIri
+}
 
-  protected datasetFromData(): void {
-    super.datasetFromData()
-    const props: (keyof ClassData)[] = ['prefLabel', 'note']
-    for (const prop of props) {
-      if (this.data[prop]) {
-        this.dataset.add(
-          DataFactory.quad(
-            DataFactory.namedNode(this.iri),
-            SKOS[prop],
-            DataFactory.literal(this.data[prop])
-          )
-        )
-      }
-    }
+export async function discoverAndUpdateReciprocal(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch
+): Promise<void> {
+  const reciprocalRegistrationIri = await discoverReciprocal(data, factory, fetch)
+  if (reciprocalRegistrationIri) {
+    await updateReciprocal(data, factory, reciprocalRegistrationIri)
   }
+}
 
-  protected async bootstrap(): Promise<void> {
-    if (!this.data) {
-      await this.fetchData()
-    } else {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.SocialAgentRegistration))
-      this.datasetFromData()
-    }
-    await this.buildAccessGrant()
-    if (!this.reciprocal) {
-      await this.buildReciprocalRegistration()
-    }
+export async function setAccessNeedGroup(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  accessNeedGroupIri: string
+): Promise<void> {
+  const node = DataFactory.namedNode(data.id)
+  const quad = DataFactory.quad(
+    node,
+    INTEROP.terms.hasAccessNeedGroup,
+    DataFactory.namedNode(accessNeedGroupIri)
+  )
+  if (data.hasAccessNeedGroup) {
+    const priorQuad = DataFactory.quad(
+      node,
+      INTEROP.terms.hasAccessNeedGroup,
+      DataFactory.namedNode(data.hasAccessNeedGroup)
+    )
+    await replaceStatement(data.id, factory, priorQuad, quad)
+  } else {
+    await addStatement(data.id, factory, quad)
   }
-
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    reciprocal: boolean,
-    data?: SocialAgentRegistrationData
-  ): Promise<CRUDSocialAgentRegistration> {
-    const instance = new CRUDSocialAgentRegistration(iri, factory, reciprocal, data)
-    await instance.bootstrap()
-    return instance
-  }
+  data.hasAccessNeedGroup = accessNeedGroupIri
 }

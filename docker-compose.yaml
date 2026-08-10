@@ -43,7 +43,7 @@ services:
       - 4800
     ports:
       - "9229:9229"
-    working_dir: /sai/packages/css-storage-fixture
+    working_dir: /sai/environments/css
     command:
       - node
       - --inspect=0.0.0.0:9229
@@ -62,7 +62,7 @@ services:
           *temporal-env,
           *origin-env,
         ]
-      CSS_CONFIG: /sai/packages/css-storage-fixture/auth.json
+      CSS_CONFIG: /sai/environments/css/auth.json
       CSS_LOGGING_LEVEL: debug
       CSS_BASE_URL: https://auth.docker/
       CSS_AUTHORIZATION_ENDPOINT: https://ui.auth.docker/authorize
@@ -86,7 +86,7 @@ services:
       - 4600
     ports:
       - "9230:9230"
-    working_dir: /sai/packages/css-storage-fixture
+    working_dir: /sai/environments/css
     command:
       - node
       - --inspect=0.0.0.0:9230
@@ -96,7 +96,7 @@ services:
       - ${CAROOT}:/mkcert
     environment:
       <<: [*postgres-env, *sparql-env, *certs-env]
-      CSS_CONFIG: /sai/packages/css-storage-fixture/registry.json
+      CSS_CONFIG: /sai/environments/css/registry.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://reg.docker/
       CSS_PORT: 4600
@@ -119,7 +119,7 @@ services:
       - 4700
     ports:
       - "9231:9231"
-    working_dir: /sai/packages/css-storage-fixture
+    working_dir: /sai/environments/css
     command:
       - node
       - --inspect=0.0.0.0:9231
@@ -129,9 +129,8 @@ services:
       - ${CAROOT}:/mkcert
     environment:
       <<: [*postgres-env, *garage-env, *sparql-env, *certs-env]
-      CSS_CONFIG: /sai/packages/css-storage-fixture/data.json
+      CSS_CONFIG: /sai/environments/css/data.json
       CSS_LOGGING_LEVEL: info
-      CSS_ROOT_FILE_PATH: /sai/packages/css-storage-fixture/dev/data
       CSS_BASE_URL: https://data.docker/
       CSS_PORT: 4700
     labels:
@@ -383,7 +382,7 @@ services:
     ports:
       - 7878:80
     volumes:
-      - ./packages/css-storage-fixture/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./environments/css/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
 
   id:
     image: node:24-alpine

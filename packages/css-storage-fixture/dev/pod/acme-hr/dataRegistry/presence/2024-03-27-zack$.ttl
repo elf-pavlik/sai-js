@@ -1,8 +1,0 @@
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX schema: <https://schema.org/>
-PREFIX ex: <https://vocab.example/events/>
-
-<https://acme-hr.pod.docker/dataRegistry/presence/2024-03-27-zack>
-  a schema:Role ;
-  ex:agent 
-    <https://zack.pod.docker/profile/card#me> .

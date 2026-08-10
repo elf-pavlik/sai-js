@@ -1,7 +1,0 @@
-@prefix interop: <http://www.w3.org/ns/solid/interop#>.
-
-<https://bob.pod.docker/registrySet>
-  a interop:RegistrySet;
-  interop:hasAgentRegistry <https://bob.pod.docker/agentRegistry/> ;
-  interop:hasAuthorizationRegistry <https://bob.pod.docker/authorizationRegistry/> ;
-  interop:hasDataRegistry <https://bob-pro.pod.docker/dataRegistry/> .

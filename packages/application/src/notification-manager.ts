@@ -90,8 +90,8 @@ export class NotificationManager extends EventTarget {
         this.dispatchEvent(
           new CustomEvent('notification', {
             detail: {
-              type: getOneMatchingQuad(dataset, null, RDF.type)!.object.value,
-              object: getOneMatchingQuad(dataset, null, AS.object)!.object.value,
+              type: getOneMatchingQuad(dataset, null, RDF.terms.type)!.object.value,
+              object: getOneMatchingQuad(dataset, null, AS.terms.object)!.object.value,
             },
           })
         )

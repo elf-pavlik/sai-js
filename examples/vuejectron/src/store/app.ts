@@ -71,14 +71,11 @@ export const useAppStore = defineStore('app', () => {
     }
     notificationsManager.addEventListener('notification', ((event: CustomEvent) => {
       // handle application registration
-      if (
-        event.detail.object === session.registrationIri &&
-        event.detail.type === AS.Update.value
-      ) {
+      if (event.detail.object === session.registrationIri && event.detail.type === AS.Update) {
         handleRegistrationChange()
       }
       // handler regular resource updates
-      if (event.detail.type === AS.Update.value) {
+      if (event.detail.type === AS.Update) {
         handleResourceChange(event.detail.object)
       }
     }) as EventListener)
@@ -94,12 +91,13 @@ export const useAppStore = defineStore('app', () => {
   async function loadAgents(force = false): Promise<void> {
     if (agents.value.length && !force) return
     await ensureSaiSession()
+    const owners = await session.resourceOwners()
     const profiles = await Promise.all(
-      [...session.resourceOwners()].map((owner) => session.factory.readable.webIdProfile(owner))
+      [...owners].map((owner) => session.factory.webIdProfile(owner))
     )
 
     agents.value = profiles.map((profile) => ({
-      id: profile.iri,
+      id: profile.id,
       label: profile.label ?? 'unknown', // TODO think of a better fallback
     }))
   }
@@ -116,12 +114,12 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const servers: ResourceServer[] = []
     const scope = scopes.project
-    for (const resourceServer of session.resourceServers(ownerId, scope)) {
+    for (const resourceServer of await session.resourceServers(ownerId, scope)) {
       servers.push({
         id: resourceServer,
         label: resourceServer, // TODO replace with human readabel label
         owner: ownerId,
-        canCreate: session.canCreate(resourceServer, scope),
+        canCreate: await session.canCreate(resourceServer, scope),
       })
       const serverProjects: Project[] = []
 
@@ -215,7 +213,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function draftTask(projectId: string): Promise<Task> {
     await ensureSaiSession()
-    const iri = session.iriForChild(projectId, scopes.task)
+    const iri = await session.iriForChild(projectId, scopes.task)
     const ldoSolidTask = solidLdoDataset.usingType(TaskShapeType).fromSubject(iri)
     return ldoSolidTask
   }
@@ -266,7 +264,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const ldoProject = findProject(projectId)
 
-    const fileId = session.iriForChild(projectId, scope)
+    const fileId = await session.iriForChild(projectId, scope)
 
     // add reference from project to new file
     const cProject = changeData(ldoProject)
@@ -276,7 +274,7 @@ export const useAppStore = defineStore('app', () => {
     if (projectResult.isError) throw projectResult
 
     // upload file
-    const { ok } = await session.rawFetch(fileId, {
+    const { ok } = await session.fetch(fileId, {
       method: 'PUT',
       headers: { 'Content-Type': blob.type },
       body: blob,
@@ -331,29 +329,29 @@ export const useAppStore = defineStore('app', () => {
     currentProject.value = projects.value.find((p) => p['@id'] === projectId)
   }
 
-  function canUpdate(id: string): boolean {
+  async function canUpdate(id: string): Promise<boolean> {
     return session.canUpdate(id)
   }
 
-  function canDelete(id: string): boolean {
+  async function canDelete(id: string): Promise<boolean> {
     return session.canDelete(id)
   }
 
-  function canAddTasks(id: string): boolean {
+  async function canAddTasks(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.task)
   }
 
-  function canAddImages(id: string): boolean {
+  async function canAddImages(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.image)
   }
 
-  function canAddFiles(id: string): boolean {
+  async function canAddFiles(id: string): Promise<boolean> {
     return session.canCreateChild(id, scopes.file)
   }
 
   async function checkAuthoriztion(): Promise<boolean> {
     await ensureSaiSession()
-    return !!session.hasApplicationRegistration?.hasAccessGrant.granted
+    return !!session.hasApplicationRegistration?.granted
   }
 
   async function getAuthorizationRedirectUri(): Promise<string> {
@@ -455,7 +453,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const channelId = subscriptions.value.get(id)
     if (!channelId) throw new Error('channel not found')
-    const response = await session.rawFetch(channelId, { method: 'DELETE' })
+    const response = await session.fetch(channelId, { method: 'DELETE' })
     if (!response.ok) throw new Error('failed to unsubscribe')
     const project = projects.value.find((p) => p['@id'] === id)
     const result = (await Promise.all(

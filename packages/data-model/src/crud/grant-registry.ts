@@ -1,26 +1,35 @@
 import { INTEROP, RDF } from '@janeirodigital/interop-utils'
-import { DataFactory } from 'n3'
-import { CRUDContainer } from '.'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
-import type { CRUDData } from './resource'
+import { iriForContained as containerIriForContained, createContainer } from './container'
 
-export class CRUDGrantRegistry extends CRUDContainer {
-  declare factory: AuthorizationAgentFactory
+// ──────────────────────────
+// Types
+// ──────────────────────────
 
-  async bootstrap(): Promise<void> {
-    await this.fetchData()
-    if (this.data) {
-      this.dataset.add(DataFactory.quad(this.node, RDF.type, INTEROP.GrantRegistry))
-    }
-  }
+export type GrantRegistryData = {
+  id: string
+}
 
-  public static async build(
-    iri: string,
-    factory: AuthorizationAgentFactory,
-    data?: CRUDData
-  ): Promise<CRUDGrantRegistry> {
-    const instance = new CRUDGrantRegistry(iri, factory, data)
-    await instance.bootstrap()
-    return instance
-  }
+// ──────────────────────────
+// Behavior functions
+// ──────────────────────────
+
+export async function createGrantRegistry(
+  data: GrantRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<void> {
+  const dataset = new Store()
+  dataset.add(
+    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.GrantRegistry)
+  )
+  await createContainer(data.id, factory, dataset)
+}
+
+export function iriForContained(
+  data: GrantRegistryData,
+  factory: AuthorizationAgentFactory,
+  container = false
+): string {
+  return containerIriForContained(data.id, factory, container)
 }

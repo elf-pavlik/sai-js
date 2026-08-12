@@ -9,11 +9,15 @@ import { dataModelContext } from './context'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of an access need group. */
-export type AccessNeedGroupData = {
+/** Identity of an access need group. */
+export type AccessNeedGroupId = {
   id: string
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
+}
+
+/** Plain JSON representation of an access need group. */
+export type AccessNeedGroupData = AccessNeedGroupId & {
   hasAccessNeed: string[]
   /** The group's access needs, loaded recursively by the factory. */
   accessNeeds: AccessNeedData[]

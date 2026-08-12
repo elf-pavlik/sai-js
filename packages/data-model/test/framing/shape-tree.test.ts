@@ -25,6 +25,7 @@ describe('ShapeTree framing', () => {
       })),
     }).toEqual({
       id: TREE_IRI,
+      type: [SHAPETREES.ShapeTree],
       shape: 'https://data/shapetrees/shapes/Project',
       describesInstance: 'http://www.w3.org/2000/01/rdf-schema#label',
       expectsType: SHAPETREES.Resource,
@@ -52,6 +53,7 @@ describe('ShapeTree framing', () => {
     const store = await toStore(ShapeTree.toJsonLd(tree), TREE_IRI)
     const roundTripped = await ShapeTree.fromDataset(store, TREE_IRI)
     expect(roundTripped.shape).toBe(tree.shape)
+    expect(roundTripped.type).toEqual(tree.type)
     expect(roundTripped.describesInstance).toBe(tree.describesInstance)
     expect(roundTripped.expectsType).toBe(tree.expectsType)
     expect(roundTripped.descriptionLanguages).toEqual(tree.descriptionLanguages)

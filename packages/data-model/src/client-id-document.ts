@@ -11,11 +11,15 @@ import { dataModelContext } from './context'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a Solid OIDC client id document. */
-export type ClientIdDocumentData = {
+/** Identity of a Solid OIDC client id document. */
+export type ClientIdDocumentId = {
   id: string
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
+}
+
+/** Plain JSON representation of a Solid OIDC client id document. */
+export type ClientIdDocumentData = ClientIdDocumentId & {
   callbackEndpoint?: string
   hasAccessNeedGroup?: string
   clientName?: string

@@ -13,11 +13,15 @@ import { createContainer } from './crud/container'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a Data Registration. */
-export type DataRegistrationData = {
+/** Identity of a data registration. */
+export type DataRegistrationId = {
   id: string
   /** rdf:type IRIs — captured from framing on read, written on create */
   type: string[]
+}
+
+/** Plain JSON representation of a Data Registration. */
+export type DataRegistrationData = DataRegistrationId & {
   registeredShapeTree: string
   /** Resources contained in the registration (LDP containment, server-managed). */
   contains: string[]

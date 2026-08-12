@@ -1,9 +1,10 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { RoleRegistry } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
-import { Temporal } from '../temporal/client.js'
-import { processRoleMembershipChange, processRoleDeletion } from '../temporal/workflows/grants.js'
 import type * as S from 'effect/Schema'
+import { Temporal } from '../temporal/client.js'
+import { processRoleDeletion, processRoleMembershipChange } from '../temporal/workflows/grants.js'
 
 export const getRoles = async (saiSession: AuthorizationAgent) => {
   const roles = []
@@ -58,9 +59,12 @@ export const updateRole = async (
       taskQueue: 'create-grants',
       args: [
         {
-          webId: saiSession.webId,
-          roleId: id,
-          peers: affected,
+          webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+          roleId: { id, type: [INTEROP.Role] },
+          peers: affected.map((member) => ({
+            id: member,
+            type: [INTEROP.SocialAgent],
+          })),
         },
       ],
       workflowId: crypto.randomUUID(),
@@ -74,20 +78,19 @@ export const deleteRole = async (
   id: S.Schema.Type<typeof IRI>
 ): Promise<void> => {
   const role = await saiSession.factory.role(id)
-  await RoleRegistry.deleteRole(
-    saiSession.registrySet.hasRoleRegistry,
-    saiSession.factory,
-    id
-  )
+  await RoleRegistry.deleteRole(saiSession.registrySet.hasRoleRegistry, saiSession.factory, id)
   const temporal = new Temporal()
   await temporal.init()
   await temporal.client.workflow.execute(processRoleDeletion, {
     taskQueue: 'create-grants',
     args: [
       {
-        webId: saiSession.webId,
-        roleId: id,
-        peers: role.members,
+        webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+        roleId: { id, type: [INTEROP.Role] },
+        peers: role.members.map((member) => ({
+          id: member,
+          type: [INTEROP.SocialAgent],
+        })),
       },
     ],
     workflowId: crypto.randomUUID(),

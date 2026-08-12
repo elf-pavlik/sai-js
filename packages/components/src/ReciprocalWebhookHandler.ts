@@ -1,3 +1,4 @@
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   BadRequestHttpError,
   NotFoundHttpError,
@@ -44,8 +45,8 @@ export class ReciprocalWebhookHandler extends OperationHttpHandler {
         taskQueue: 'create-grants',
         args: [
           {
-            webId: channel.webId,
-            peerId: channel.peerId,
+            webId: { id: channel.webId, type: [INTEROP.SocialAgent] },
+            peerId: { id: channel.peerId, type: [INTEROP.SocialAgent] },
           },
         ],
         workflowId: crypto.randomUUID(),

@@ -11,10 +11,14 @@ import { dataModelContext } from '../context'
 // Types
 // ──────────────────────────
 
-export type SocialAgentInvitationData = {
+/** Identity of a social agent invitation. */
+export type SocialAgentInvitationId = {
   id: string
   /** rdf:type IRIs — captured from framing on read, written via compaction on write */
   type: string[]
+}
+
+export type SocialAgentInvitationData = SocialAgentInvitationId & {
   capabilityUrl: string
   prefLabel: string
   note?: string

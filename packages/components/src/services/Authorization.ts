@@ -365,9 +365,11 @@ export const recordAuthorization = async (
     taskQueue: 'create-grants',
     args: [
       {
-        webId: saiSession.webId,
-        authorizationGrantee: authorization.grantee,
-        dataAuthorizationIris: recorded.map((da) => da.id),
+        webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+        authorizationGrantee: {
+          id: authorization.grantee,
+          type: [authorization.agentType],
+        },
       },
     ],
     workflowId: crypto.randomUUID(),

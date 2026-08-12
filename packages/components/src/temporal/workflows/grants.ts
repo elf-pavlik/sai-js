@@ -1,19 +1,27 @@
-import type { FinalGrantData } from '@janeirodigital/interop-data-model'
+import type { AgentId, FinalGrantData, GrantId } from '@janeirodigital/interop-data-model'
 import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
+// NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
+// beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
+// built-ins). The value must match what producers put in `RoleId.type`.
+const ROLE_TYPE = 'http://www.w3.org/ns/solid/interop#Role'
+
 const {
-  findAffectedAuthorizations,
-  deleteAuthorizationsUsingRole,
+  findAffectedGrantees,
   getGrantees,
   getAuthorizations,
-  clearDataGrantsOnRegistration,
+  getExistingGrants,
   generateGrants,
+  checkEquivalence,
+  deleteDataGrants,
+  deleteAuthorizations,
+  findRoleUsage,
   storeDataGrant,
-  requestDelegation,
   createAcr,
+  requestDelegation,
   setDataGrantsOnRegistration,
-  ensurePeers,
+  clearDataGrantsOnRegistration,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 })
@@ -31,72 +39,6 @@ export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
   }
 }
 
-export async function updateGrantsForOneAgent(
-  payload: activities.GetAuthorizationsInput
-): Promise<void> {
-  const dataAuthorizationIris = await getAuthorizations(payload)
-  if (dataAuthorizationIris.length === 0) {
-    await clearDataGrantsOnRegistration(payload)
-    return
-  }
-  await executeChild(createGrantsForAgent, {
-    args: [
-      {
-        webId: payload.webId,
-        grantee: payload.peerId,
-        dataAuthorizationIris,
-      },
-    ],
-  })
-}
-
-export async function processRoleDeletion(
-  payload: activities.ProcessRoleMembershipChangeInput
-): Promise<void> {
-  const peersOrRoles = await deleteAuthorizationsUsingRole({
-    webId: payload.webId,
-    roleId: payload.roleId,
-  })
-  const peers = await ensurePeers({
-    webId: payload.webId,
-    peersOrRoles,
-  })
-  await executeChild(processRoleMembershipChange, {
-    args: [
-      {
-        ...payload,
-        peers: [...new Set([...payload.peers, ...peers])],
-      },
-    ],
-  })
-}
-
-export async function processRoleMembershipChange(
-  payload: activities.ProcessRoleMembershipChangeInput
-): Promise<void> {
-  await Promise.all(
-    payload.peers.map((peerId) =>
-      executeChild(updateGrantsForOneAgent, {
-        args: [
-          {
-            webId: payload.webId,
-            peerId,
-          },
-        ],
-      })
-    )
-  )
-  const data = { webId: payload.webId, peerId: payload.roleId, roleId: payload.roleId }
-  const authorizations = await findAffectedAuthorizations(data)
-  await Promise.all(
-    authorizations.map((input) =>
-      executeChild(updateGrantsForAuthorization, {
-        args: [input],
-      })
-    )
-  )
-}
-
 export async function createGrantsForAuthorization(
   payload: activities.CreateGrantsInput
 ): Promise<void> {
@@ -111,7 +53,107 @@ export async function createGrantsForAuthorization(
           {
             webId: payload.webId,
             grantee,
-            dataAuthorizationIris: payload.dataAuthorizationIris,
+          },
+        ],
+      })
+    )
+  )
+}
+
+export async function updateDelegatedGrants(
+  payload: activities.FindAffectedAuthorizationsInput
+): Promise<void> {
+  const grantees = await findAffectedGrantees(payload)
+  await Promise.all(
+    grantees.map((authorizationGrantee) =>
+      executeChild(createGrantsForAuthorization, {
+        args: [
+          {
+            webId: payload.webId,
+            authorizationGrantee,
+          },
+        ],
+      })
+    )
+  )
+}
+
+export async function processRoleMembershipChange(
+  payload: activities.ProcessRoleMembershipChangeInput
+): Promise<void> {
+  const usage = await findRoleUsage({ webId: payload.webId, roleId: payload.roleId })
+  const affected: AgentId[] = []
+  const seen = new Set<string>()
+  const add = (agent: AgentId) => {
+    if (seen.has(agent.id)) return
+    seen.add(agent.id)
+    affected.push(agent)
+  }
+  // role used as grantee → changed members' received grants changed
+  if (usage.usedAsGrantee) {
+    for (const peer of payload.peers) add(peer)
+  }
+  // role used as dataOwner → the *grantees of those authorizations* are affected
+  for (const grantee of usage.affectedGrantees) {
+    if (grantee.type.includes(ROLE_TYPE)) {
+      const members = await getGrantees({ webId: payload.webId, grantee })
+      for (const member of members) add(member)
+    } else {
+      add(grantee as AgentId)
+    }
+  }
+  await Promise.all(
+    affected.map((grantee) =>
+      executeChild(createGrantsForAgent, {
+        args: [
+          {
+            webId: payload.webId,
+            grantee,
+          },
+        ],
+      })
+    )
+  )
+}
+
+export async function processRoleDeletion(
+  payload: activities.ProcessRoleMembershipChangeInput
+): Promise<void> {
+  // scan BEFORE deletion — the usage info and the matched authorization ids
+  // must be captured while the authorizations still exist
+  const usage = await findRoleUsage({ webId: payload.webId, roleId: payload.roleId })
+  await deleteAuthorizations({
+    webId: payload.webId,
+    authorizations: usage.authorizations,
+  })
+  const affected: AgentId[] = []
+  const seen = new Set<string>()
+  const add = (agent: AgentId) => {
+    if (seen.has(agent.id)) return
+    seen.add(agent.id)
+    affected.push(agent)
+  }
+  // role.members ARE the grantees of grantee-authorizations; unresolvable
+  // after deletion (role resource gone) → must come from the service
+  if (usage.usedAsGrantee) {
+    for (const peer of payload.peers) add(peer)
+  }
+  // grantees of dataOwner-authorizations — route by type
+  for (const grantee of usage.affectedGrantees) {
+    if (grantee.type.includes(ROLE_TYPE)) {
+      const members = await getGrantees({ webId: payload.webId, grantee })
+      for (const member of members) add(member)
+    } else {
+      add(grantee as AgentId)
+    }
+  }
+  await Promise.all(
+    affected.map((grantee) =>
+      executeChild(createGrantsForAgent, {
+        args: [
+          {
+            webId: payload.webId,
+            grantee,
           },
         ],
       })
@@ -122,61 +164,71 @@ export async function createGrantsForAuthorization(
 export async function createGrantsForAgent(
   payload: activities.CreateGrantsForAgentInput
 ): Promise<void> {
-  const generatedGrants = await generateGrants(payload)
-
-  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
-  // multiple resources are PUT concurrently in the same container,
-  // causing "Multiple results for http://purl.org/dc/terms/modified".
-  // Change back to Promise.all after the CSS bug is fixed.
-  const allGrantIds: string[] = []
-  for (const grant of generatedGrants.sourceGrants) {
-    await storeGrantAndAcr(grant)
-    allGrantIds.push(grant.id)
-  }
-
-  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
-  // multiple resources are PUT concurrently in the same container,
-  // causing "Multiple results for http://purl.org/dc/terms/modified".
-  // Change back to Promise.all after the CSS bug is fixed.
-  const delegatedGrantIds = []
-  for (const grant of generatedGrants.delegatedGrants) {
-    delegatedGrantIds.push(await requestDelegation({ grantData: grant }))
-  }
-
-  const allGrantIris = [...allGrantIds, ...delegatedGrantIds.flat()]
-
-  // Clear existing data grants first, then add the new ones
-  await clearDataGrantsOnRegistration({
+  // SELF-CONTAINED: fetch ALL of the grantee's authorizations (incl. via roles)
+  const authorizations = await getAuthorizations({
     webId: payload.webId,
     peerId: payload.grantee,
   })
+  const existing = await getExistingGrants({ webId: payload.webId, peerId: payload.grantee })
 
+  // deny case — no authorizations: delete all existing grants + clear registration
+  if (authorizations.length === 0) {
+    // await deleteDataGrants({
+    //   webId: payload.webId,
+    //   grants: existing.map((grant) => ({ id: grant.id!, type: grant.type })),
+    // })
+    await clearDataGrantsOnRegistration({ webId: payload.webId, peerId: payload.grantee })
+    return
+  }
+
+  const generated = await generateGrants({
+    webId: payload.webId,
+    grantee: payload.grantee,
+    dataAuthorizations: authorizations,
+  })
+  // DUMMY for now → { reused: [] }; the workflow is fully wired for the real check
+  const { reused } = await checkEquivalence({
+    webId: payload.webId,
+    grantee: payload.grantee,
+    generated,
+    existing,
+  })
+  const reusedGenerated = new Set(reused.map((entry) => entry.generated))
+
+  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
+  // multiple resources are PUT concurrently in the same container,
+  // causing "Multiple results for http://purl.org/dc/terms/modified".
+  // Change back to Promise.all after the CSS bug is fixed.
+  const newGrantIds: GrantId[] = []
+  for (const grant of generated.sourceGrants) {
+    if (reusedGenerated.has(grant)) continue
+    await storeGrantAndAcr(grant)
+    newGrantIds.push({ id: grant.id, type: grant.type })
+  }
+
+  // TODO CSS SPARQL backend has a race condition on dcterms:modified when
+  // multiple resources are PUT concurrently in the same container,
+  // causing "Multiple results for http://purl.org/dc/terms/modified".
+  // Change back to Promise.all after the CSS bug is fixed.
+  for (const grant of generated.delegatedGrants) {
+    if (reusedGenerated.has(grant)) continue
+    const delegatedGrantIds = await requestDelegation({ grantData: grant })
+    newGrantIds.push(...delegatedGrantIds)
+  }
+
+  // delete the old grant resources that are not reused
+  const reusedExistingIds = new Set(reused.map((entry) => entry.existing.id))
+  // await deleteDataGrants({
+  //   webId: payload.webId,
+  //   grants: existing
+  //     .filter((grant) => !reusedExistingIds.has(grant.id))
+  //     .map((grant) => ({ id: grant.id!, type: grant.type })),
+  // })
+
+  await clearDataGrantsOnRegistration({ webId: payload.webId, peerId: payload.grantee })
   await setDataGrantsOnRegistration({
     webId: payload.webId,
     grantee: payload.grantee,
-    grantIris: allGrantIris,
-  })
-}
-
-export async function updateDelegatedGrants(
-  payload: activities.FindAffectedAuthorizationsInput
-): Promise<void> {
-  const result = await findAffectedAuthorizations(payload)
-  await Promise.all(
-    result.map((payload) =>
-      executeChild(updateGrantsForAuthorization, {
-        args: [payload],
-      })
-    )
-  )
-}
-
-export async function updateGrantsForAuthorization(
-  payload: activities.UpdateGrantsInput
-): Promise<void> {
-  await createGrantsForAuthorization({
-    webId: payload.webId,
-    authorizationGrantee: payload.grantee,
-    dataAuthorizationIris: payload.dataAuthorizationIris,
+    grants: [...newGrantIds, ...reused.map((entry) => entry.existing)],
   })
 }

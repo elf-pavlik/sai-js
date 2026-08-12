@@ -2,11 +2,15 @@ export { createContainer } from './container'
 export * from './agent-registration'
 export {
   type ApplicationRegistrationData,
+  type ApplicationRegistrationId,
+  type ApplicationId,
   createApplicationRegistration,
   loadApplicationRegistration,
 } from '../application-registration'
 export {
   type SocialAgentRegistrationData,
+  type SocialAgentRegistrationId,
+  type SocialAgentId,
   discoverReciprocal,
   discoverAndUpdateReciprocal,
   loadReciprocalRegistration,
@@ -15,10 +19,11 @@ export {
 } from './social-agent-registration'
 export {
   type SocialAgentInvitationData,
+  type SocialAgentInvitationId,
   setRegisteredAgent,
   putSocialAgentInvitation,
 } from './social-agent-invitation'
-export type { RoleData } from './role'
+export type { RoleData, RoleId } from './role'
 export { createDataRegistration } from '../data-registration'
 // explicit re-export to resolve getGranted ambiguity with ./agent-registration
 export {

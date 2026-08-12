@@ -19,14 +19,17 @@ import type { FinalGrantData, GeneratedGrants, GrantData } from './grant'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a Data Authorization. */
-export type DataAuthorizationData = {
+/** Identity of a data authorization resource. */
+export type DataAuthorizationId = {
   /** IRI of the data authorization resource; absent until assigned by the registry */
   id?: string
 
   /** rdf:type IRIs — captured from framing on read, written on PUT */
   type: string[]
+}
 
+/** Plain JSON representation of a Data Authorization. */
+export type DataAuthorizationData = DataAuthorizationId & {
   // String properties (single-value named nodes)
   grantee: string
   grantedBy: string

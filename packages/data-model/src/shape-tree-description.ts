@@ -5,11 +5,15 @@ import { dataModelContext } from './context'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a shape tree description resource. */
-export type ShapeTreeDescriptionData = {
+/** Identity of a shape tree description resource. */
+export type ShapeTreeDescriptionId = {
   id: string
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
+}
+
+/** Plain JSON representation of a shape tree description resource. */
+export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
   // TODO: handle missing labels
   prefLabel: string
   definition?: string

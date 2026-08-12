@@ -5,21 +5,31 @@ import { dataModelContext } from './context'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of an access description (need or group). */
-export type AccessDescriptionData = {
+/** Identity of an access description. */
+export type AccessDescriptionId = {
   id: string
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
+}
+
+/** Plain JSON representation of an access description (need or group). */
+export type AccessDescriptionData = AccessDescriptionId & {
   // TODO handle missing labels
   prefLabel: string
   definition?: string
 }
+
+/** Identity of an access need description. */
+export type AccessNeedDescriptionId = AccessDescriptionId
 
 /** Plain JSON representation of an access need description. */
 export type AccessNeedDescriptionData = AccessDescriptionData & {
   // TODO handle missing value
   hasAccessNeed: string
 }
+
+/** Identity of an access need group description. */
+export type AccessNeedGroupDescriptionId = AccessDescriptionId
 
 /** Plain JSON representation of an access need group description. */
 export type AccessNeedGroupDescriptionData = AccessDescriptionData & {

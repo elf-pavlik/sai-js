@@ -14,6 +14,7 @@ export const INTEROP = createVocabulary(
   'AllFromAgent',
   'AllFromRegistry',
   'AllFromRole',
+  'Application',
   'ApplicationRegistration',
   'AuthorizationRegistry',
   'creatorAccessMode',
@@ -68,6 +69,7 @@ export const INTEROP = createVocabulary(
   'scopeOfAuthorization',
   'scopeOfGrant',
   'SelectedFromRegistry',
+  'SocialAgent',
   'SocialAgentInvitation',
   'SocialAgentRegistration',
   'updatedAt',
@@ -106,6 +108,7 @@ export const SHAPETREES = createVocabulary(
   'references',
   'Resource',
   'shape',
+  'ShapeTree',
   'usesLanguage',
   'viaPredicate'
 )

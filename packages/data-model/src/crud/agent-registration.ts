@@ -14,10 +14,13 @@ import { addStatement, removeStatement } from './container'
 // Types
 // ──────────────────────────
 
-export type AgentRegistrationData = {
+export type AgentRegistrationId = {
   id: string
   /** rdf:type IRIs — captured from framing on read (via the derived modules), written via compaction on write */
   type: string[]
+}
+
+export type AgentRegistrationData = AgentRegistrationId & {
   registeredAgent: string
   hasDataGrant?: string[]
 }

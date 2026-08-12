@@ -11,12 +11,15 @@ import { dataModelContext } from '../context'
 // Types
 // ──────────────────────────
 
-export type RoleData = {
+export type RoleId = {
   id: string
-  prefLabel: string
-  members: string[]
   /** rdf:type IRIs — captured from framing on read, written via compaction on write */
   type: string[]
+}
+
+export type RoleData = RoleId & {
+  prefLabel: string
+  members: string[]
 }
 
 // ──────────────────────────

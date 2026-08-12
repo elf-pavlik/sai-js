@@ -2,13 +2,14 @@ import type {
   AuthorizationAgent,
   ShareDataInstanceStructure,
 } from '@janeirodigital/interop-authorization-agent'
+import { ShapeTree, setAccessNeedGroup } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   IRI,
   Resource,
   type ShareAuthorization,
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
-import { setAccessNeedGroup, ShapeTree } from '@janeirodigital/interop-data-model'
 import type * as S from 'effect/Schema'
 import { Temporal } from '../temporal/client.js'
 import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
@@ -51,26 +52,20 @@ export const shareResource = async (
     shareAuthorization.applicationId
   )
 
-  // group recorded data authorizations by grantee
-  const grouped = new Map<string, string[]>()
-  for (const dataAuthorization of recorded) {
-    const iris = grouped.get(dataAuthorization.grantee) ?? []
-    iris.push(dataAuthorization.id)
-    grouped.set(dataAuthorization.grantee, iris)
-  }
+  // grantees are social agents in the share flow (roles are not share targets)
+  const grantees = [...new Set(recorded.map((dataAuthorization) => dataAuthorization.grantee))]
 
   // TODO: consider a single workflow that will fire-and-forget all the child workflows
   const temporal = new Temporal()
   await temporal.init()
   await Promise.all(
-    [...grouped.entries()].map(([grantee, dataAuthorizationIris]) =>
+    grantees.map((grantee) =>
       temporal.client.workflow.start(createGrantsForAuthorization, {
         taskQueue: 'create-grants',
         args: [
           {
-            webId: saiSession.webId,
-            authorizationGrantee: grantee,
-            dataAuthorizationIris,
+            webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+            authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
           },
         ],
         workflowId: crypto.randomUUID(),

@@ -5,11 +5,15 @@ import { dataModelContext } from './context'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a WebID profile document. */
-export type WebIdProfileData = {
+/** Identity of a WebID profile document. */
+export type WebIdProfileId = {
   id: string
   /** rdf:type IRIs — captured from framing on read */
   type: string[]
+}
+
+/** Plain JSON representation of a WebID profile document. */
+export type WebIdProfileData = WebIdProfileId & {
   label?: string
   oidcIssuer?: string
 }

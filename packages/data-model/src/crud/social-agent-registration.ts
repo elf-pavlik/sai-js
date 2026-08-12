@@ -12,7 +12,7 @@ import { DataFactory, type Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
 import {
-  type AgentRegistrationData,
+  type AgentRegistrationId,
   toDataset as registrationToDataset,
 } from './agent-registration'
 import { addStatement, createContainer, replaceStatement } from './container'
@@ -21,12 +21,23 @@ import { addStatement, createContainer, replaceStatement } from './container'
 // Types
 // ──────────────────────────
 
-export type SocialAgentRegistrationData = AgentRegistrationData & {
+export type SocialAgentRegistrationId = AgentRegistrationId
+
+export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
+  registeredAgent: string
+  hasDataGrant?: string[]
   prefLabel: string
   note?: string
   hasAccessNeedGroup?: string
   /** IRI of the peer's reciprocal registration — loaded lazily, see `loadReciprocalRegistration` */
   reciprocalRegistration?: string
+}
+
+/** Identity of a social agent (boundary-facing; produced by the agent registries). */
+export type SocialAgentId = {
+  id: string
+  /** rdf:type IRIs — always `[INTEROP.SocialAgent]` when produced by the registries */
+  type: string[]
 }
 
 // ──────────────────────────

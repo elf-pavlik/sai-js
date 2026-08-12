@@ -1,4 +1,5 @@
 import {
+  RDF,
   SHAPETREES,
   XSD,
   getAllMatchingQuads,
@@ -21,9 +22,15 @@ export interface ShapeTreeReference {
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a shape tree. */
-export type ShapeTreeData = {
+/** Identity of a shape tree. */
+export type ShapeTreeId = {
   id: string
+  /** rdf:type IRIs — captured from the dataset on read (e.g. `[SHAPETREES.ShapeTree]`) */
+  type: string[]
+}
+
+/** Plain JSON representation of a shape tree. */
+export type ShapeTreeData = ShapeTreeId & {
   shape?: string
   describesInstance?: string
   expectsType?: string
@@ -62,6 +69,7 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Sh
   })
   return {
     id: iri,
+    type: getAllMatchingQuads(dataset, node, RDF.terms.type).map((quad) => quad.object.value),
     shape: getOneMatchingQuad(dataset, node, SHAPETREES.terms.shape)?.object.value,
     describesInstance: getOneMatchingQuad(dataset, node, SHAPETREES.terms.describesInstance)?.object
       .value,

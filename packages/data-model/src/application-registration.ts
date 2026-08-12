@@ -20,14 +20,24 @@ import { createContainer } from './crud/container'
  * (name/logo/accessNeedGroup/hasAuthorizationCallbackEndpoint) are not part of
  * the data model; consumers read them via `factory.clientIdDocument(registeredAgent)`.
  */
-export type ApplicationRegistrationData = {
+export type ApplicationRegistrationId = {
   id: string
   /** rdf:type IRIs — captured from framing on read, written on create */
   type: string[]
+}
+
+export type ApplicationRegistrationData = ApplicationRegistrationId & {
   registeredAgent: string
   hasDataGrant: string[]
   /** Derived: whether the registration has any data grants. */
   granted: boolean
+}
+
+/** Identity of an application (boundary-facing; produced by the agent registries). */
+export type ApplicationId = {
+  id: string
+  /** rdf:type IRIs — always `[INTEROP.Application]` when produced by the registries */
+  type: string[]
 }
 
 // ──────────────────────────

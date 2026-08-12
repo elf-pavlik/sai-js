@@ -14,14 +14,17 @@ import { childIris, frameDataInstance } from './data-instance'
 // Types
 // ──────────────────────────
 
-/** Plain JSON representation of a Data Grant. */
-export type GrantData = {
+/** Identity of a data grant resource. */
+export type GrantId = {
   /** IRI of the grant resource; absent until assigned by registry */
   id?: string
 
   /** rdf:type IRIs — captured from framing on read, written on PUT */
   type: string[]
+}
 
+/** Plain JSON representation of a Data Grant. */
+export type GrantData = GrantId & {
   // String properties (single-value named nodes)
   grantee: string
   grantedBy: string

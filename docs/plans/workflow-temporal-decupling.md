@@ -1,12 +1,15 @@
 # Workflow decoupling via the Activity Registry — outcome / producer / test-verification
 
-> **Status:** current state — `refactor-grants-workflows.md` is implemented and
-> `test/` passes (⚠️ HTTP-DELETE of old grant resources commented out — see that
-> plan, design decision 3). Sections 1–2 below document the **current** topology
-> (services/handlers start workflows directly). Sections 3–7 specify the
-> **target** topology: producers (admin authorization agents) write **activities**
-> to the org's Activity Registry (outbox); the main agent's webhook channel
-> delivers them and starts the workflows. The plan is organized around three
+> **Status:** implemented — Phases 0–2 and 4.1–4.2 are done; the suite is green
+> with **real CSS delivery** (Phase 2) and retries disabled for the dagger stack
+> (`temporal/dynamicconfig/development-sql.yaml`). Phases 3, 4.3, 4.4, 4.5 are
+> extracted to standalone plans (`webhook-subscription-bootstrap.md`,
+> `durable-webhook-delivery.md`, `authorization-revoked.md`,
+> `check-equivalence.md`). ⚠️ HTTP-DELETE of old grant resources commented out —
+> see `refactor-grants-workflows.md` design decision 3. Sections 1–2 document the
+> **target** topology (producers write **activities** to the Activity Registry
+> outbox; the main agent's webhook channel delivers them and starts the
+> workflows). The plan is organized around three
 > questions per workflow: **intended outcome** (observable end-state), **producer
 > method** (which service method changes the registry and writes the activity),
 > and **test verification** (how `test/` listens for the outcome and asserts it).
@@ -18,20 +21,26 @@
 
 ---
 
-## 1. Current state — direct workflow start/execute locations
+## 1. Workflow start/execute locations (target topology)
 
-All workflows are defined in `packages/components/src/temporal/workflows/` and
-started via the custom `Temporal` client wrapper (`packages/components/src/temporal/client.ts`).
+Producers PUT **activities** to the Activity Registry (§3.1); CSS delivers the
+`Add` to the main agent's pre-seeded webhook channel; `ActivityWebhookHandler`
+maps `activityType` → workflow and starts it. Only rows 1 and 6 still start
+workflows directly (peer-driven reciprocal channel / exempt grant issuance).
 
-| # | Started by | Method | Workflow | Task queue | Context |
+| # | Producer / trigger | Change written | Workflow started | Task queue | Context |
 |---|---|---|---|---|---|
-| 1 | `ReciprocalWebhookHandler` (`Update`) | `start` (fire-and-forget) | `updateDelegatedGrants` | `create-grants` | Peer registry changed; regenerates grantees of authorizations where the peer is data owner |
-| 2 | `services/ShareResource.ts` `shareResource` | `start` (fire-and-forget, per grantee) | `createGrantsForAuthorization` | `create-grants` | After sharing a data instance |
-| 3 | `services/RoleRegistry.ts` `updateRole` | `execute` (awaits) | `processRoleMembershipChange` | `create-grants` | Role member set changed |
-| 4 | `services/RoleRegistry.ts` `deleteRole` | `execute` (awaits) | `processRoleDeletion` | `create-grants` | Role deleted |
-| 5 | `services/Authorization.ts` `recordAuthorization` | `execute` (awaits) | `createGrantsForAuthorization` | `create-grants` | Access authorization recorded (granted/denied) |
-| 6 | `GrantIssuanceHandler` | `execute` (awaits) | `storeGrant` | `create-grants` | Data-owner side: delegated grant issued |
-| 7 | `InvitationHandler` | `start` (`startDelay: '10s'`) | `establishReciprocal` | `reciprocal-registration` | Social agent invitation accepted |
+| 1 | `ReciprocalWebhookHandler` (`Update`) | — (peer's registry, via reciprocal channel) | `updateDelegatedGrants` | `create-grants` | Peer registry changed; regenerates grantees of authorizations where the peer is data owner |
+| 2 | `services/ShareResource.ts` `shareResource` | `authorizationRecorded` (one per deduped grantee) | consumer (`processGranteeActivities`) | `create-grants` | After sharing a data instance |
+| 3 | `services/RoleRegistry.ts` `updateRole` | `roleMembershipChanged` | `processRoleMembershipChange` | `create-grants` | Role member set changed |
+| 4 | `services/RoleRegistry.ts` `deleteRole` | `roleDeleted` | `processRoleDeletion` | `create-grants` | Role deleted |
+| 5 | `services/Authorization.ts` `recordAuthorization` | `authorizationRecorded` / `authorizationRevoked` | consumer (`processGranteeActivities`) | `create-grants` | Access authorization recorded/revoked (see `authorization-revoked.md`) |
+| 6 | `GrantIssuanceHandler` | — (exempt) | `storeGrant` | `create-grants` | Data-owner side: delegated grant issued |
+| 7 | `InvitationHandler` | `agentRegistrationAdded` | `establishReciprocal` | `reciprocal-registration` | Social agent invitation accepted |
+
+Grantee activities (rows 2, 5) route to the **per-target consumer**
+(`processGranteeActivities`, deterministic `workflowId` per `(webId, grantee)`,
+start-or-signal-or-restart, drain + coalesce + mark `done` — §4.1).
 
 ## 2. Referenced workflow definitions
 
@@ -40,7 +49,9 @@ All grant workflows live in `packages/components/src/temporal/workflows/grants.t
 | Exported workflow | Purpose |
 |---|---|
 | `createGrantsForAuthorization` | Entry: resolves grantee (agent/role) via `getGrantees`, spawns `createGrantsForAgent` per resolved agent |
-| `createGrantsForAgent` | **Core, self-contained**: fetches all authorizations of the agent, generates all grants, `checkEquivalence` (dummy → reuse nothing), stores new grants + ACRs, requests delegations, updates the registration |
+| `createGrantsForAgent` | **Core, self-contained**: fetches all authorizations of the agent, generates all grants, `checkEquivalence` (dummy today — real reuse tracked in `check-equivalence.md`), stores new grants + ACRs, requests delegations, updates the registration (single PATCH) |
+| `processGranteeActivities` | **Per-target consumer** (§4.1): drains pending `authorizationRecorded`/`authorizationRevoked` activities for `(webId, grantee)`, coalesces bursts into one regeneration, marks them `done`; idle-waits for a signal before exiting |
+| `reconcileActivities` | **Reconciliation sweep** (§4.2): reprocesses every `pending` activity — grantee types join the consumer, role types run their workflow; role workflows mark their activity `done` via `activityIri` |
 | `processRoleMembershipChange` | Regenerates affected peers (role as grantee) ∪ grantees of authorizations using the role as dataOwner (`findRoleUsage`) |
 | `processRoleDeletion` | Scans usage **before** deletion, `deleteAuthorizations`, regenerates former members ∪ type-routed grantees |
 | `updateDelegatedGrants` | `findAffectedGrantees` → `createGrantsForAuthorization` per grantee |
@@ -204,8 +215,9 @@ container `Add` notification for real** — the pre-seeded channel's
 `KeyValueChannelStorage` entries (Phase 2) make the registry server's
 `WebhookEmitter` POST `{type:'Add', object, target}` to the pre-seeded sendTo;
 (3) `ActivityWebhookHandler` looks up the store by sendTo, fetches the activity
-with the `webId` session, maps `activityType` → workflow and starts it; (4) the
-test awaits the registration `Update` (§5) and asserts. Tests exercise the full
+with the `webId` session and maps `activityType` → workflow — grantee types to
+the per-target consumer (§4.1), role types to their workflow — and starts it;
+(4) the test awaits the registration `Update` (§5) and asserts. Tests exercise the full
 stack (registry change → activity → CSS delivery → handler → workflow →
 registration `Update`) as close to deployment as possible — no manual
 notification POST. (`reciprocal-webhook.test.ts` stays a direct POST to the
@@ -408,8 +420,6 @@ Pattern (per workflow, §4):
    `test/util.ts`).
 4. **Re-read and assert** — fetch the registration fresh →
    `getDataGrantIris` / `getDataGrants` → assert the exact grant set and fields.
-   This is topology-agnostic: it also works with the current direct `.execute`
-   topology (the `Update` arrives after the RPC returns).
 
 Poll fallback: `waitFor(predicate, { timeout, interval })` in `test/util.ts`
 (the plan's earlier proposal, §12 of the previous revision) stays for assertions
@@ -510,14 +520,11 @@ Tests that don't assert workflow outcomes need no change (`delegation-endpoint`,
       backstop) or by **polling/timers** (single source of truth; latency bounded
       by the poll interval). Recommendation: signal + periodic reconciliation
       sweep as backstop.
-12. **Test synchronization after decoupling (`.execute` → `.start`).** Replaced
-    by §5: await the registration `Update` via `receivesNotification`, then
-    re-read and assert. `roles.test.ts` `verifyAccessGrant` (7 call sites) and
-    `authorization.test.ts` (denied → `getGranted` falsy) switch from
-    assert-after-RPC to listen-await-assert. Outcome-polling (`waitFor`) remains
-    the topology-agnostic fallback; a more precise alternative — poll the
-    activity entry until status `done` — couples tests to outbox internals and
-    is not used.
+12. **Test synchronization (implemented).** §5 is the only synchronization
+    story: await the registration `Update` (CSS delivers it for real), then
+    re-read and assert. `roles.test.ts` `verifyAccessGrant` and
+    `authorization.test.ts` use listen-await-assert; `waitFor` remains the poll
+    fallback for assertions that don't ride on a notification.
 
 ---
 
@@ -536,12 +543,12 @@ Test-coverage map (which tests exercise which workflows):
 | Workflow | Tests that assert its outcome today |
 |---|---|
 | `createGrantsForAuthorization` (via `recordAuthorization`) | `authorization.test.ts` (denied → `getGranted` falsy); `roles.test.ts` AllFromRole block (`AuthorizeApp` setup + `verifyAccessGrant` after `AuthorizeApp` in "create authorization for role with existing members") |
-| `createGrantsForAuthorization` (via `shareResource`) | none — new test added in step 1.4 |
+| `createGrantsForAuthorization` (via `shareResource`) | `share.test.ts` — shared instance grant with `hasDataInstance` |
 | `processRoleMembershipChange` | `roles.test.ts` — `verifyAccessGrant` after `UpdateRole` (7 call sites total, split across steps 1.1/1.3) |
 | `processRoleDeletion` | `roles.test.ts` — `verifyAccessGrant` after `DeleteRole` (3 sites) |
 | `updateDelegatedGrants` | `reciprocal-webhook.test.ts` (already listens for `AS.Update`) |
 | `storeGrant` | `delegation-endpoint.test.ts` (exempt, unchanged) |
-| `establishReciprocal` | `invitation.test.ts` (asserts registration existence only) |
+| `establishReciprocal` | `invitation.test.ts` — asserts the reciprocal link appears (`waitFor`) |
 
 Synchronous (workflow-independent) assertions — role resource state
 (`findRole`), invitation/registration existence, `GetAuthorizationData`,
@@ -565,12 +572,15 @@ identical, so the current assert-after-RPC tests (`.execute` still awaited) and
 
 ### Phase 1 — Decouple one workflow at a time (suite green after every step)
 
-Step 1.1 builds the **consumer infrastructure**: the **pre-seeded app-store
-webhook channel** for the Activity Registry container (§3.5 — kv.json entries,
-test-only) + the single `activityType` → workflow handler. Later steps only add
-one `activityType` mapping and migrate the producer + its tests. Real
-subscription creation (CSS-side channel + runtime bootstrap) is deferred to
-Phases 2/3.
+Step 1.1 builds the **consumer infrastructure**: the **pre-seeded webhook
+channel** for the Activity Registry container (§3.5 — app-store + CSS-side kv
+entries) + the single `activityType` → workflow handler. Later steps only add
+one `activityType` mapping and migrate the producer + its tests. Runtime
+subscription creation (bootstrap/healing) is deferred to Phase 3
+(`webhook-subscription-bootstrap.md`). The Phase 1+2 gate is the dagger suite
+with **real CSS delivery** (tests no longer POST notifications manually) and
+Temporal retries disabled for fast failure visibility
+(`temporal/dynamicconfig/development-sql.yaml`).
 
 **Step 1.1 — `updateRole` → `roleMembershipChanged` → `processRoleMembershipChange`**
 
@@ -580,7 +590,8 @@ Phases 2/3.
   `{webId, roleId, peers}` (§3.1) when non-empty.
 - **Consumer (new):** `ActivityWebhookStore` + `ActivityWebhookHandler` and the
   `^/.sai/activity-webhook/.*` route (§3.5); the channel is **pre-seeded** in
-  `environments/data/kv.json` (alice + bob, test-only). Handler reads the
+  `environments/data/kv.json` (alice, bob, kim — app store + CSS-side entries,
+  Phase 2). Handler reads the
   `Add`ed activity, maps `roleMembershipChanged` → starts
   `processRoleMembershipChange` with the payload (`.start`).
 - **Tests:** migrate the `UpdateRole`-triggered `verifyAccessGrant` sites in
@@ -672,19 +683,19 @@ deployment): the manual notification POST is removed from the tests.
 
 ### Phase 3 — Check-and-create webhooks in real deployments (bootstrap/reconciliation)
 
+> Extracted to a detailed plan: [`webhook-subscription-bootstrap.md`](webhook-subscription-bootstrap.md).
+
 Real deployments have no pre-seeded kv.json — accounts are created at runtime
 via `bootstrapAccount`. The main agent must ensure its Activity Registry
-subscription exists: created on account creation, healed if missing (crash
-between account creation and subscription, manual kv edits, partial pre-seed).
+subscription exists: created on account creation (`ensureActivityWebhookChannel`
+workflow started from `bootstrapAccount`, idempotent via `findByTopic`), healed
+if missing (startup + periodic sweep: app-store entry AND the CSS-side channel
+`notifications/…` key; re-subscribe with the same sendTo). Fresh random sendTo
+in production; deterministic only in the dev/test pre-seed.
 
-| Step | Change |
-|---|---|
-| 3.1 | **On account creation**: subscribe the main agent to its own Activity Registry container — `SubscriptionClient.subscribe(hasActivityRegistry, WebhookChannel2023, sendTo)` + store the app entry (idempotent: skip if the store already has an entry for the topic). Lives in `AccountService.bootstrapAccount` (has the session + accountId) or a Temporal workflow started from it |
-| 3.2 | **Reconciliation (healing)**: per account, check the app-store entry AND the CSS-side channel (`KeyValueChannelStorage`): app entry exists but CSS channel missing → re-subscribe with the same sendTo (create-if-missing); both missing → create fresh. Runs at worker startup (accounts discovered via the kv store) and/or periodically — the same sweep that reprocesses pending activities (§6.11 / Phase 4.2) |
-| 3.3 | **Determinism note**: in real deployments sendTo is a fresh random uuid per creation (determinism matters only for tests — Phase 1 pre-seed — and optionally dev — Phase 2 pre-seed) |
-
-- Gate: `pnpm test` green; optional new test: bootstrap a fresh account
-  (`bootstrapAccount`) and assert the app-store entry + CSS channel exist.
+- Gate: `pnpm test` green; new test: bootstrap a fresh account
+  (`bootstrapAccount`) and assert the app-store entry + CSS channel exist; a
+  healing test deletes the CSS-side key and asserts the sweep restores delivery.
 
 ### Phase 4 — Hardening (behavior-preserving; suite green after every step)
 
@@ -692,22 +703,23 @@ between account creation and subscription, manual kv edits, partial pre-seed).
 |---|---|---|
 | 4.1 | **Per-target consumer workflows**: deterministic `workflowId` per `(webId, target)`; drain + coalesce bursts of `authorizationRecorded`/`authorizationRevoked` for the same grantee into one `createGrantsForAgent` run (§6.4/6.11) | Full regeneration is idempotent — same end-state; tests await the registration `Update`, not the number of workflows |
 | 4.2 | **Reconciliation sweep** ✅: `reconcileActivities` workflow (on-demand) reprocesses every `pending` activity — grantee types join the per-grantee consumer (deterministic `workflowId`; running consumers absorb them), role types run their workflow and are marked done; role workflows now mark their triggering activity done via `activityIri`. Test: `reconciliation.test.ts` (acme has no webhook channel → activity stays strictly `pending` → sweep → `done` + grants regenerated). `agentRegistrationAdded` skipped (accountId not resolvable in the sweep); a periodic/startup schedule belongs to Phase 3 |
-| 4.3 | **Durable webhook delivery**: custom emitter → `deliverWebhook` Temporal workflow with retry (§6.9) | Tests POST to the handler endpoint directly (they simulate the emitter) — unchanged |
-| 4.4 | **`authorizationRevoked`** activity support for admin revocation (§6.8) | Mirrors `authorizationRecorded` — same test pattern |
-| 4.5 | (cross-cutting, from `refactor-grants-workflows.md`) **real `checkEquivalence`** — reuse equivalent existing grants | Dummy → real is outcome-neutral by construction (reused grants keep their ACRs); extend `roles.test.ts`/new test to assert reuse (no new grant IRI on re-run) |
+| 4.3 | **Durable webhook delivery** — extracted to [`durable-webhook-delivery.md`](durable-webhook-delivery.md): `DurableWebhookEmitter` (registry + data servers) enqueues a `deliverWebhook` workflow; activity POSTs with bounded retry; 4xx non-retryable (§6.9) | Tests still pass: `reciprocal-webhook.test.ts` POSTs directly; activity tests await the registration `Update` (delivery latency grows by a workflow start) |
+| 4.4 | **`authorizationRevoked` support** — extracted to [`authorization-revoked.md`](authorization-revoked.md) (tracked there now): routing already exists; `recordAuthorization` writes the typed activity (`authorizationRevoked` for deny) | Mirrors `authorizationRecorded` — same test pattern; extend the deny test to assert the activity type |
+| 4.5 | **Real `checkEquivalence`** — extracted to [`check-equivalence.md`](check-equivalence.md) (tracked there now; was the future step of `refactor-grants-workflows.md`): reuse equivalent existing grants (field comparison incl. child trees; `delegationOfGrant` excluded for delegated grants); workflow already wired | Dummy → real is outcome-neutral; new test asserts reuse (no new grant IRI on unchanged re-run) |
 
-### Phase 5 — Documentation pass (no code changes, suite green)
+### Phase 5 — Documentation pass ✅ (no code changes, suite green)
 
 Every direct start in `packages/components/src` was removed **in its own
 decoupling step** (Phase 1, steps 1.1–1.5 each "drop `.execute(...)`"), and the
 `Temporal` client import becomes unused in each producer service in the same
-step. The only direct starts remaining after Phase 1 are intentional:
+step. The only direct starts remaining are intentional:
 `GrantIssuanceHandler` → `storeGrant` (exempt, §4.6) and
 `ReciprocalWebhookHandler` → `updateDelegatedGrants` (peer-driven reciprocal
 channel, §4.5). There is nothing dead to remove.
 
-- Update this document's §1 table to the target topology (rows 2–5 and 7 now
-  read "producer PUTs activity → handler starts workflow"); rows 1 and 6 stay.
-- Delete the `.execute`-based test-synchronization notes; §5 (listen-await-
-  assert) is the only synchronization story.
+**Done in this pass:** §1 rewritten to the target topology (rows 2–5 and 7 read
+"producer PUTs activity → handler starts workflow"; rows 1 and 6 stay); §2 adds
+the consumer + reconciliation sweep; `.execute`-based synchronization notes
+removed (§5 is the only synchronization story); test-coverage map and the
+Phase 1 gate updated for CSS delivery; extracted-plan pointers in Phases 3/4.
 - Gate: `pnpm test` + `pnpm typecheck` green.

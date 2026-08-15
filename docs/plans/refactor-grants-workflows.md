@@ -498,14 +498,17 @@ delegation endpoint's response IRIs to `GrantId`).
 
 ## Future step (after this plan)
 
-Implement real `checkEquivalence`:
+Implement real `checkEquivalence` — **now tracked in
+[`check-equivalence.md`](check-equivalence.md)** (extracted from this plan's
+future step; Phase 4.5 of `workflow-temporal-decupling.md`). Summary:
 
 - Compare each generated grant (source + delegated, **including child grant
   trees** — `hasInheritingGrant` / `inheritsFromGrant`) against existing grants
   field-by-field: `grantee`, `grantedBy`, `dataOwner`, `registeredShapeTree`,
   `hasDataRegistration`, `hasStorage`, `scopeOfGrant`, `accessMode`,
-  `creatorAccessMode`, `hasDataInstance`, `delegationOfGrant`,
-  `inheritsFromGrant`, children.
+  `creatorAccessMode`, `hasDataInstance`, `inheritsFromGrant`, children —
+  `delegationOfGrant` excluded for delegated grants (it is a freshly generated
+  IRI each run).
 - Return `reused: { existing: GrantId, generated }[]`. The workflow then: skips
   storing the generated counterpart, skips deleting the existing grant, and
   re-links the existing id on the registration (its ACR stays in place).

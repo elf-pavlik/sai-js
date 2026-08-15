@@ -567,5 +567,32 @@
  ],
  "accounts/index/activityWebhook/topic/https%3A%2F%2Fregistry%2Fkim%2Factivity%2F": [
   "9f942f30-2631-4403-9a1a-300f8faae267"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fb28700a4-eb9d-400f-aabf-ff0bcc765859": {
+  "id": "https://registry/.notifications/WebhookChannel2023/b28700a4-eb9d-400f-aabf-ff0bcc765859",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/alice/activity/",
+  "sendTo": "https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Falice%2Factivity%2F": [
+  "https://registry/.notifications/WebhookChannel2023/b28700a4-eb9d-400f-aabf-ff0bcc765859"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fd0f316ad-c7a0-410b-82eb-9a83489d3fdb": {
+  "id": "https://registry/.notifications/WebhookChannel2023/d0f316ad-c7a0-410b-82eb-9a83489d3fdb",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/bob/activity/",
+  "sendTo": "https://auth/.sai/activity-webhook/b82fc383-a56f-4736-8724-17c9cec6eea3"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Fbob%2Factivity%2F": [
+  "https://registry/.notifications/WebhookChannel2023/d0f316ad-c7a0-410b-82eb-9a83489d3fdb"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fdcdb6992-f033-4b01-b6cf-4065814a835b": {
+  "id": "https://registry/.notifications/WebhookChannel2023/dcdb6992-f033-4b01-b6cf-4065814a835b",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/kim/activity/",
+  "sendTo": "https://auth/.sai/activity-webhook/ccad737e-f100-4f78-841b-46fb4daf7310"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Fkim%2Factivity%2F": [
+  "https://registry/.notifications/WebhookChannel2023/dcdb6992-f033-4b01-b6cf-4065814a835b"
  ]
 }

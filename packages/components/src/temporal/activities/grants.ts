@@ -1,5 +1,7 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
+  ActivityRegistry,
+  type ActivityData,
   type AgentId,
   type AgentOrRoleId,
   AgentRegistry,
@@ -59,6 +61,8 @@ export interface ProcessRoleMembershipChangeInput {
   webId: SocialAgentId
   roleId: RoleId
   peers: SocialAgentId[]
+  /** IRI of the activity that triggered this workflow — marked done on success */
+  activityIri?: string
 }
 
 export interface RoleUsage {
@@ -487,4 +491,77 @@ export async function replaceDataGrantsOnRegistration(
     session.factory,
     payload.grants.map((grant) => grant.id!)
   )
+}
+
+// ---------------------------------------------------------------------------
+// Per-target consumer (Phase 4.1): drain + coalesce authorization activities
+// ---------------------------------------------------------------------------
+
+export interface GetPendingGranteeActivitiesInput {
+  webId: SocialAgentId
+  authorizationGrantee: AgentOrRoleId
+}
+
+/**
+ * The pending authorizationRecorded/authorizationRevoked activities targeting
+ * the given grantee in the activity registry (status 'pending').
+ */
+export async function getPendingGranteeActivities(
+  payload: GetPendingGranteeActivitiesInput
+): Promise<ActivityData[]> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const registry = session.registrySet.hasActivityRegistry
+  if (!registry) return []
+  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const pending: ActivityData[] = []
+  for (const iri of iris) {
+    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    if (activity.status !== 'pending') continue
+    if (
+      activity.activityType !== 'authorizationRecorded' &&
+      activity.activityType !== 'authorizationRevoked'
+    )
+      continue
+    const grantee = (activity.payload as { authorizationGrantee?: { id: string } } | undefined)
+      ?.authorizationGrantee
+    if (!grantee || grantee.id !== payload.authorizationGrantee.id) continue
+    pending.push(activity)
+  }
+  return pending
+}
+
+export interface GetPendingActivitiesInput {
+  webId: SocialAgentId
+}
+
+/** All pending activities (any type) in the webId's activity registry. */
+export async function getPendingActivities(
+  payload: GetPendingActivitiesInput
+): Promise<ActivityData[]> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const registry = session.registrySet.hasActivityRegistry
+  if (!registry) return []
+  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const pending: ActivityData[] = []
+  for (const iri of iris) {
+    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    if (activity.status === 'pending') pending.push(activity)
+  }
+  return pending
+}
+
+export interface MarkActivitiesDoneInput {
+  webId: SocialAgentId
+  activities: ActivityData[]
+}
+
+/** Mark the given activities 'done' (single SPARQL PATCH each). */
+export async function markActivitiesDone(payload: MarkActivitiesDoneInput): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  for (const activity of payload.activities) {
+    await ActivityRegistry.updateActivityStatus(activity.id, session.factory, 'done')
+  }
 }

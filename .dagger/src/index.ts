@@ -133,7 +133,7 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data')
+    const pgData = dag.cacheVolume('temporal-pg-data-98166451')
 
     const pg = dag
       .container()
@@ -379,6 +379,7 @@ export class SaiJs {
   async testBase(): Promise<Container> {
     const auth = await this.authService()
     const worker = await this.workerService()
+    const temporal = await this.temporalService()
     return dag
       .container()
       .from('node:24-alpine')
@@ -388,10 +389,12 @@ export class SaiJs {
       .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withServiceBinding('auth', auth)
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
       .withServiceBinding('worker', worker)
+      .withServiceBinding('temporal', temporal)
       .withServiceBinding('sparql', this.sparqlService())
       .withServiceBinding('id', this.idService())
       .withServiceBinding('garage', this.garageService())
@@ -405,7 +408,8 @@ export class SaiJs {
   ): Promise<string> {
     const args = ['npm', 'run', 'dagger:test']
     if (testFile) {
-      args.push(testFile)
+      // allow multiple files: --testFile="share.test.ts roles.test.ts"
+      args.push(...testFile.split(/\s+/))
     }
     return (await this.testBase()).withExec(args).stdout()
   }
@@ -417,7 +421,8 @@ export class SaiJs {
   ): Promise<Service> {
     const args = ['npm', 'run', 'dagger:debug']
     if (testFile) {
-      args.push(testFile)
+      // allow multiple files: --testFile="share.test.ts roles.test.ts"
+      args.push(...testFile.split(/\s+/))
     }
     return (await this.testBase()).withExposedPort(9240).asService({ args })
   }

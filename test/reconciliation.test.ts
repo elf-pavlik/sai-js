@@ -1,0 +1,61 @@
+import { buildSessionManager } from '@elfpavlik/sai-components'
+import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
+import { Client, Connection } from '@temporalio/client'
+import { describe, expect, test } from 'vitest'
+import { waitFor } from './util'
+
+const acmeId = 'https://id/acme'
+const aliceId = 'https://id/alice'
+const acmeRegForAlice = 'https://registry/acme/agent/je0s7n/'
+const seedGrant = 'https://registry/acme/grant/g4yhtm'
+
+describe('reconciliation sweep', () => {
+  test('processes a pending activity that was never delivered', async () => {
+    const manager = buildSessionManager()
+    const acmeSession = await manager.getSession(acmeId)
+
+    // acme has NO pre-seeded activity-webhook channel → CSS never delivers →
+    // the activity stays pending until the sweep processes it
+    const registry = acmeSession.registrySet.hasActivityRegistry!
+    const activity = await ActivityRegistry.createActivity(registry, acmeSession.factory, {
+      activityType: 'authorizationRecorded',
+      target: acmeSession.registrySet.hasAuthorizationRegistry.id,
+      payload: {
+        webId: { id: acmeId, type: [INTEROP.SocialAgent] },
+        authorizationGrantee: { id: aliceId, type: [INTEROP.SocialAgent] },
+      },
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    })
+    expect(activity.status).toBe('pending')
+    expect((await ActivityRegistry.loadActivity(activity.id, acmeSession.factory)).status).toBe(
+      'pending'
+    )
+
+    // run the sweep (executed by workflow type name — registered on the worker)
+    const connection = await Connection.connect({
+      address: process.env.TEMPORAL_ADDRESS ?? 'temporal:7233',
+    })
+    const client = new Client({ connection })
+    await client.workflow.execute('reconcileActivities', {
+      taskQueue: 'create-grants',
+      args: [{ webId: { id: acmeId, type: [INTEROP.SocialAgent] } }],
+      workflowId: 'reconciliation-test',
+    })
+
+    // the consumer drained it: activity marked done, alice's grants regenerated
+    await waitFor(
+      async () => {
+        const loaded = await ActivityRegistry.loadActivity(activity.id, acmeSession.factory)
+        return loaded.status === 'done'
+      },
+      { timeout: 30_000 }
+    )
+    const regForAlice = await acmeSession.factory.socialAgentRegistration(acmeRegForAlice)
+    const iris = await getDataGrantIris(regForAlice)
+    expect(iris.length).toBeGreaterThan(0)
+    // full regeneration replaced the seed grant with freshly generated ones
+    expect(iris).not.toContain(seedGrant)
+  })
+})

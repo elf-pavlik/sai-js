@@ -197,34 +197,40 @@ maps them via `map.json` — the `https://auth/` prefix covers the sendTo
 covers the topic and channel id (`https://reg.docker/…`). No `map.json` change
 needed.
 
-**Test flow with the pre-seeded channel (Phase 1):** (1) test PUTs the activity
-resource to `https://registry/<name>/activity/<uuid>` with the main agent's
-session (§3.1); (2) test POSTs `{type:'Add', object: <activity IRI>, target:
-<activity container>}` to the pre-seeded sendTo — simulating CSS delivery,
-exactly like `reciprocal-webhook.test.ts`; (3) `ActivityWebhookHandler` looks up
-the store by sendTo, fetches the activity with the `webId` session, maps
-`activityType` → workflow and starts it; (4) test awaits the registration
-`Update` (§5) and asserts.
+**Test flow with the pre-seeded channels (Phase 1+2):** (1) the producer RPC
+(e.g. `UpdateRole`) PUTs the activity resource to
+`https://registry/<name>/activity/<uuid>` (§3.1); (2) **CSS delivers the
+container `Add` notification for real** — the pre-seeded channel's
+`KeyValueChannelStorage` entries (Phase 2) make the registry server's
+`WebhookEmitter` POST `{type:'Add', object, target}` to the pre-seeded sendTo;
+(3) `ActivityWebhookHandler` looks up the store by sendTo, fetches the activity
+with the `webId` session, maps `activityType` → workflow and starts it; (4) the
+test awaits the registration `Update` (§5) and asserts. Tests exercise the full
+stack (registry change → activity → CSS delivery → handler → workflow →
+registration `Update`) as close to deployment as possible — no manual
+notification POST. (`reciprocal-webhook.test.ts` stays a direct POST to the
+handler: it simulates the *peer's* server delivering, which is out-of-process in
+tests.)
 
 **Caveats / decisions:**
 
-- **Pre-seed scope (decided).** The Phase 1 pre-seed covers only the app store
-  (`ActivityWebhookStore`) and is **test-only** — tests POST to the handler
-  directly and never touch CSS's own subscription state. CSS-side state for
-  **dev** and the create-if-missing bootstrap for **real deployments** are
-  separate phases (§7: Phase 2 and Phase 3).
-- **CSS-side channel state is separate.** CSS v8 stores its own subscription
-  state in the same kv store (`KeyValueChannelStorage`, keys
-  `encodeURIComponent(channel.id)` + `encodeURIComponent(channel.topic)`). Tests
-  don't need it (direct POST); Phase 2 pre-seeds it for dev; Phase 3 creates it
-  at runtime for real deployments.
+- **Pre-seed scope (decided).** The pre-seed covers the app store
+  (`ActivityWebhookStore`) **and** CSS's own subscription state
+  (`KeyValueChannelStorage`, keys `notifications/<encodeURIComponent(id|topic)>`)
+  in the same `environments/data/kv.json` — so **both dev and test get real CSS
+  delivery** with deterministic sendTo. The create-if-missing bootstrap for
+  **real deployments** (no pre-seed) is Phase 3.
+- **CSS-side channel state is pre-seeded (Phase 2).** CSS v8 reads its own
+  subscription state from the shared kv store; without those entries the
+  `WebhookEmitter` never fires. Phase 2 adds them; Phase 3 creates them at
+  runtime for real deployments.
 - **Per-account, not per-peer** — the Activity Registry subscription targets the
   agent's own container, so the store description and index differ from
   `reciprocalWebhook` (`topic` replaces `peerId`).
-- **Tests exercise the handler, not CSS delivery** — the direct-POST pattern
-  (inherited from `reciprocal-webhook.test.ts`) never exercises the real
-  subscription → emitter → sendTo path; that stays a dev-only/manual concern
-  until the durable-delivery work (§6.9).
+- **Delivery reliability is a Phase 4 concern.** CSS's default `WebhookEmitter`
+  is fire-and-forget (no retry) — the durable-delivery work (§6.9 / Phase 4.3)
+  closes that; until then a missed emitter POST surfaces as a test timeout, not
+  a silent wrong state.
 
 ---
 
@@ -392,9 +398,11 @@ Pattern (per workflow, §4):
 
 1. **Listen first** — open the notification stream on the target registration
    (`receivesNotification` discards the initial snapshot) *before* triggering.
-   The outbox path (activity PUT → webhook → workflow) adds latency, so this is
-   more important than today's direct topology.
-2. **Trigger** the RPC (or POST the webhook / activity).
+   The outbox path (activity PUT → CSS delivery → webhook → workflow) adds
+   latency, so this is more important than today's direct topology.
+2. **Trigger** the RPC — the producer service PUTs the activity; **CSS delivers
+   the `Add` to the pre-seeded webhook channel for real** (§3.5). No manual
+   notification POST in tests.
 3. **Await** `receivesNotification(authFetch, registrationId, AS.Update)` — the
    registration's channel is discovered via HEAD `Link` header (existing helper,
    `test/util.ts`).
@@ -639,21 +647,24 @@ Phases 2/3.
 already webhook-driven — the model for this pattern) and `storeGrant` (exempt,
 stays `.execute` on the main agent).
 
-### Phase 2 — Pre-seed the CSS side for dev (real webhook delivery)
+### Phase 2 — Pre-seed the CSS side (real webhook delivery in dev and tests)
 
-Phase 1's kv.json pre-seed covers only the app store, which is enough for tests
-(they POST to the handler directly) but not for real delivery: CSS v8 reads its
-own subscription state from the same kv store (`KeyValueChannelStorage`:
-`encodeURIComponent(channel.id)` → channel, `encodeURIComponent(channel.topic)`
-→ channel[]). Without those keys, a producer PUTting an activity in dev
-produces no notification.
+Phase 1's kv.json pre-seed covers only the app store. For **real** delivery, CSS
+v8 needs its own subscription state in the same kv store
+(`KeyValueChannelStorage` under the `notifications/` ContainerPathStorage
+prefix: `notifications/<encodeURIComponent(channel.id)>` → channel,
+`notifications/<encodeURIComponent(channel.topic)>` → channel[]). Without those
+keys the `WebhookEmitter` never fires — a producer PUTting an activity produces
+no notification. Tests **rely on CSS delivery** (full-stack, close to
+deployment): the manual notification POST is removed from the tests.
 
 | Step | Change |
 |---|---|
-| 2.1 | Add the **CSS-side entries** to `environments/data/kv.json` (canonical → mapped to dev automatically): `https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F<uuid>` → the channel object (`{id, type, topic, sendTo}` — the same object `SubscriptionClient.subscribe` returns) and `https%3A%2F%2Fregistry%2F<name>%2Factivity%2F` → `[channel]` (the per-topic list CSS reads when delivering). Same accounts (alice, bob) and same topic/sendTo as Phase 1, so dev and test share the deterministic sendTo |
-| 2.2 | Verify **end-to-end in dev**: PUT an activity to the activity registry → CSS delivers the `Add` to the pre-seeded sendTo → handler starts the workflow → grant outcome observable. Confirm the emitter reads channel state from storage only (no `.notifications` resource needed in `registry.trig`) |
+| 2.1 | Add the **CSS-side entries** to `environments/data/kv.json` (canonical → mapped to dev automatically): `notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F<uuid>` → the channel object (`{id, type, topic, sendTo}` — the same object `SubscriptionClient.subscribe` returns and the `WebhookEmitter` reads) and `notifications/https%3A%2F%2Fregistry%2F<name>%2Factivity%2F` → `[channel]` (the per-topic list CSS reads when delivering). Same accounts (alice, bob, kim) and same topic/sendTo as Phase 1, so dev and test share the deterministic sendTo |
+| 2.2 | **Drop the simulation in tests**: remove `deliverActivityNotification` from `test/util.ts` and all call sites (`roles`, `authorization`, `share`, `invitation`) — tests now RPC → await the registration `Update`, letting CSS deliver the `Add` (full stack). `reciprocal-webhook.test.ts` stays a direct POST (peer's server is out-of-process) |
+| 2.3 | Verify **end-to-end**: the dagger suite is the gate (CSS delivers in the test stack — the same kv.json seeds the registry server's channel storage); manual dev verification that the same flow works against docker hostnames |
 
-- Gate: `pnpm test` green (unchanged — tests still POST directly) + manual dev
+- Gate: `pnpm test` green (now exercising real CSS delivery) + manual dev
   verification.
 - Note: the reciprocal channels can get the same CSS-side pre-seed for dev
   parity, but that's only needed if dev exercises reciprocal delivery; not part
@@ -680,7 +691,7 @@ between account creation and subscription, manual kv edits, partial pre-seed).
 | Step | Change | Why tests stay green |
 |---|---|---|
 | 4.1 | **Per-target consumer workflows**: deterministic `workflowId` per `(webId, target)`; drain + coalesce bursts of `authorizationRecorded`/`authorizationRevoked` for the same grantee into one `createGrantsForAgent` run (§6.4/6.11) | Full regeneration is idempotent — same end-state; tests await the registration `Update`, not the number of workflows |
-| 4.2 | **Reconciliation sweep**: reprocess stale/pending activity entries (§6.11) | Add a test: mark an activity pending, run the sweep, assert the outcome via the existing listen-await-assert pattern |
+| 4.2 | **Reconciliation sweep** ✅: `reconcileActivities` workflow (on-demand) reprocesses every `pending` activity — grantee types join the per-grantee consumer (deterministic `workflowId`; running consumers absorb them), role types run their workflow and are marked done; role workflows now mark their triggering activity done via `activityIri`. Test: `reconciliation.test.ts` (acme has no webhook channel → activity stays strictly `pending` → sweep → `done` + grants regenerated). `agentRegistrationAdded` skipped (accountId not resolvable in the sweep); a periodic/startup schedule belongs to Phase 3 |
 | 4.3 | **Durable webhook delivery**: custom emitter → `deliverWebhook` Temporal workflow with retry (§6.9) | Tests POST to the handler endpoint directly (they simulate the emitter) — unchanged |
 | 4.4 | **`authorizationRevoked`** activity support for admin revocation (§6.8) | Mirrors `authorizationRecorded` — same test pattern |
 | 4.5 | (cross-cutting, from `refactor-grants-workflows.md`) **real `checkEquivalence`** — reuse equivalent existing grants | Dummy → real is outcome-neutral by construction (reused grants keep their ACRs); extend `roles.test.ts`/new test to assert reuse (no new grant IRI on re-run) |

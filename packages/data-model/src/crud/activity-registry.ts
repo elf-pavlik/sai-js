@@ -1,15 +1,21 @@
 import {
   INTEROP,
   RDF,
+  deletePatch,
   fetchJsonLd,
   frameDoc,
+  insertPatch,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext, linkedIrisJsonLd } from '../context'
-import { iriForContained as containerIriForContained, createContainer } from './container'
+import {
+  applyPatch,
+  iriForContained as containerIriForContained,
+  createContainer,
+} from './container'
 
 // ──────────────────────────
 // Types
@@ -104,4 +110,30 @@ export async function loadActivity(
     status: node.status,
     createdAt: node.createdAt,
   }
+}
+
+/**
+ * Set the status of an activity resource (single SPARQL PATCH replacing the
+ * current status literal). Used by the per-target consumer to mark processed
+ * entries 'done'.
+ */
+export async function updateActivityStatus(
+  iri: string,
+  factory: AuthorizationAgentFactory,
+  status: string
+): Promise<void> {
+  const current = await loadActivity(iri, factory)
+  const node = DataFactory.namedNode(iri)
+  const sparqlUpdate = [
+    await deletePatch(
+      new Store([
+        DataFactory.quad(node, INTEROP.terms.status, DataFactory.literal(current.status)),
+      ])
+    ),
+    await insertPatch(
+      new Store([DataFactory.quad(node, INTEROP.terms.status, DataFactory.literal(status))])
+    ),
+  ].join(';')
+  // patch the activity resource directly (it is its own description resource)
+  await applyPatch(iri, factory, sparqlUpdate, iri)
 }

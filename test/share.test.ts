@@ -2,7 +2,7 @@ import { buildSessionManager } from '@elfpavlik/sai-components'
 import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitNotification, deliverActivityNotification, openNotificationStream } from './util'
+import { awaitNotification, openNotificationStream } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -56,8 +56,7 @@ describe('share resource', () => {
     expect(_tag).toBe('Success')
     expect(value).toEqual(expect.objectContaining({ callbackEndpoint: 'https://test-client' }))
 
-    // the service PUT an authorizationRecorded activity per grantee — deliver it
-    await deliverActivityNotification(aliceSession)
+    // CSS delivers the authorizationRecorded Add to the pre-seeded channel (Phase 2)
     const received = await awaitNotification(stream, AS.Update)
     expect(received).toBeTruthy()
 

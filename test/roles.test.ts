@@ -3,7 +3,7 @@ import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-mo
 import { AS } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
-import { awaitNotification, deliverActivityNotification, openNotificationStream } from './util'
+import { awaitNotification, openNotificationStream } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -88,7 +88,8 @@ async function awaitGrantChange(
   const registration = await grantor.findSocialAgentRegistration(granteeId)
   const stream = await openNotificationStream(grantor.fetch, registration.id)
   await trigger()
-  await deliverActivityNotification(grantor)
+  // CSS delivers the activity Add to the pre-seeded webhook channel (Phase 2) —
+  // the workflow runs and the registration Update arrives on this stream
   const received = await awaitNotification(stream, AS.Update)
   expect(received).toBeTruthy()
 }
@@ -261,6 +262,15 @@ describe('role-based access', () => {
     })
 
     test('create authorization for role with existing members', async () => {
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
+
+      // open the stream BEFORE the setup RPCs — with CSS delivery the workflows
+      // start immediately on each activity PUT, so the Update may already be
+      // emitted by the time the RPCs return
+      const regForDan = await bobSession.findSocialAgentRegistration(danId)
+      const stream = await openNotificationStream(bobSession.fetch, regForDan.id)
+
       await rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
@@ -278,12 +288,9 @@ describe('role-based access', () => {
       expect(body[0].grantedBy).toBe(bobId)
       expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
-      const manager = buildSessionManager()
-      const bobSession = await manager.getSession(bobId)
-
-      // both the setup UpdateRole and the AuthorizeApp wrote activities — deliver
-      // them all and await the resulting registration Update
-      await awaitGrantChange(bobSession, danId, () => Promise.resolve())
+      // the Update from either the setup UpdateRole or the AuthorizeApp
+      const received = await awaitNotification(stream, AS.Update)
+      expect(received).toBeTruthy()
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 

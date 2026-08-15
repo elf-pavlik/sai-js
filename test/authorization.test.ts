@@ -2,7 +2,7 @@ import { buildSessionManager } from '@elfpavlik/sai-components'
 import { AuthorizationRegistry, getGranted } from '@janeirodigital/interop-data-model'
 import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitNotification, deliverActivityNotification, openNotificationStream } from './util'
+import { awaitNotification, openNotificationStream } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 // TODO: import
@@ -154,7 +154,7 @@ describe('denied', () => {
     const granted = await rpcCall(rpcPayload(grantedAuthorization), bobCookie)
     expect(Array.isArray(granted)).toBe(true)
     expect(granted.length).toBeGreaterThan(0)
-    await deliverActivityNotification(session)
+    // CSS delivers the authorizationRecorded Add (Phase 2)
     const grantReceived = await awaitNotification(grantStream, AS.Update)
     expect(grantReceived).toBeTruthy()
     expect(await getGranted(await session.findApplicationRegistration(clientId))).toBeTruthy()
@@ -164,7 +164,7 @@ describe('denied', () => {
     const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
     expect(Array.isArray(denied)).toBe(true)
     expect(denied.length).toBe(0)
-    await deliverActivityNotification(session)
+    // CSS delivers the authorizationRecorded Add (Phase 2)
     const denyReceived = await awaitNotification(denyStream, AS.Update)
     expect(denyReceived).toBeTruthy()
 

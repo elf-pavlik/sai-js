@@ -1,5 +1,12 @@
-import type { AgentId, FinalGrantData, GrantId } from '@janeirodigital/interop-data-model'
-import { executeChild, proxyActivities } from '@temporalio/workflow'
+import type {
+  ActivityData,
+  AgentId,
+  FinalGrantData,
+  GrantId,
+  SocialAgentId,
+} from '@janeirodigital/interop-data-model'
+import { WorkflowExecutionAlreadyStartedError } from '@temporalio/common'
+import { condition, defineSignal, executeChild, proxyActivities, setHandler } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
@@ -21,6 +28,9 @@ const {
   createAcr,
   requestDelegation,
   replaceDataGrantsOnRegistration,
+  getPendingGranteeActivities,
+  getPendingActivities,
+  markActivitiesDone,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 })
@@ -35,6 +45,64 @@ export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
   // Promise.all after the CSS SPARQL backend dcterms:modified bug is fixed
   for (const grant of payload) {
     await storeGrantAndAcr(grant)
+  }
+}
+
+/**
+ * Signal a running per-grantee consumer to wake up and drain new activities
+ * (start-or-signal pattern — the handler signals on AlreadyStarted).
+ */
+export const granteeActivitiesSignal = defineSignal<[]>('granteeActivitiesSignal')
+
+/** How long an idle consumer waits for a signal before exiting. */
+const GRANTEE_IDLE_TIMEOUT = '3 seconds'
+
+/**
+ * Per-target consumer (Phase 4.1): started by the webhook handler with a
+ * deterministic workflowId per (webId, authorizationGrantee). Drains the
+ * pending authorizationRecorded/authorizationRevoked activities for that
+ * grantee, coalescing bursts into a single regeneration (full regeneration is
+ * idempotent), and marks them done. After an empty drain it waits for a signal
+ * (new activity) before exiting, so an activity arriving while the consumer
+ * is running is never lost (start-or-signal; residual exit-window gaps are the
+ * reconciliation sweep's backstop, §6.11 / Phase 4.2).
+ */
+export async function processGranteeActivities(
+  payload: activities.CreateGrantsInput
+): Promise<void> {
+  let idle = false
+  setHandler(granteeActivitiesSignal, () => {
+    idle = false
+  })
+  while (true) {
+    const pending = await getPendingGranteeActivities({
+      webId: payload.webId,
+      authorizationGrantee: payload.authorizationGrantee,
+    })
+    if (pending.length === 0) {
+      // wait for a signal (a new activity was routed to this consumer) or exit idle
+      idle = true
+      const signaled = await condition(() => !idle, GRANTEE_IDLE_TIMEOUT)
+      if (!signaled) break
+      continue
+    }
+    const grantees = await getGrantees({
+      webId: payload.webId,
+      grantee: payload.authorizationGrantee,
+    })
+    await Promise.all(
+      grantees.map((grantee) =>
+        executeChild(createGrantsForAgent, {
+          args: [
+            {
+              webId: payload.webId,
+              grantee,
+            },
+          ],
+        })
+      )
+    )
+    await markActivitiesDone({ webId: payload.webId, activities: pending })
   }
 }
 
@@ -113,6 +181,12 @@ export async function processRoleMembershipChange(
       })
     )
   )
+  if (payload.activityIri) {
+    await markActivitiesDone({
+      webId: payload.webId,
+      activities: [{ id: payload.activityIri }] as ActivityData[],
+    })
+  }
 }
 
 export async function processRoleDeletion(
@@ -158,6 +232,74 @@ export async function processRoleDeletion(
       })
     )
   )
+  if (payload.activityIri) {
+    await markActivitiesDone({
+      webId: payload.webId,
+      activities: [{ id: payload.activityIri }] as ActivityData[],
+    })
+  }
+}
+
+/**
+ * Reconciliation sweep (Phase 4.2): reprocess every pending activity in the
+ * webId's Activity Registry — the correctness backstop for missed deliveries,
+ * handler crashes and consumer failures (§6.11). Reuses the same routing as
+ * the webhook handler: grantee activities join the per-grantee consumer
+ * (deterministic workflowId — a running consumer absorbs them), role
+ * activities run their workflow and are marked done. Idempotent by
+ * construction (full regeneration; re-patching 'done' is a no-op).
+ * `agentRegistrationAdded` is skipped (accountId is not resolvable here).
+ */
+export async function reconcileActivities(payload: {
+  webId: SocialAgentId
+}): Promise<void> {
+  const pending = await getPendingActivities({ webId: payload.webId })
+  const granteeGroups = new Map<string, ActivityData[]>()
+  const roleActivities: ActivityData[] = []
+  for (const activity of pending) {
+    if (
+      activity.activityType === 'authorizationRecorded' ||
+      activity.activityType === 'authorizationRevoked'
+    ) {
+      const granteeId = (activity.payload as { authorizationGrantee?: { id: string } })
+        ?.authorizationGrantee?.id
+      if (!granteeId) continue
+      const group = granteeGroups.get(granteeId) ?? []
+      group.push(activity)
+      granteeGroups.set(granteeId, group)
+    } else if (
+      activity.activityType === 'roleMembershipChanged' ||
+      activity.activityType === 'roleDeleted'
+    ) {
+      roleActivities.push(activity)
+    }
+  }
+  for (const [granteeId, group] of granteeGroups) {
+    const authorizationGrantee = (
+      group[0].payload as { authorizationGrantee: { id: string; type: string[] } }
+    ).authorizationGrantee
+    try {
+      await executeChild(processGranteeActivities, {
+        workflowId: `grantee:${payload.webId.id}:${granteeId}`,
+        args: [{ webId: payload.webId, authorizationGrantee }],
+      })
+    } catch (err) {
+      if (!(err instanceof WorkflowExecutionAlreadyStartedError)) throw err
+      // a consumer is already draining for this grantee — it picks up the activities
+    }
+  }
+  for (const activity of roleActivities) {
+    if (activity.activityType === 'roleMembershipChanged') {
+      await executeChild(processRoleMembershipChange, {
+        args: [activity.payload as activities.ProcessRoleMembershipChangeInput],
+      })
+    } else {
+      await executeChild(processRoleDeletion, {
+        args: [activity.payload as activities.ProcessRoleMembershipChangeInput],
+      })
+    }
+    await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+  }
 }
 
 export async function createGrantsForAgent(

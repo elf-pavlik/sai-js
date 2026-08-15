@@ -19,6 +19,7 @@ export const registrySetTemplate = ({ id, webId, uas, dataRegistry }: RegistrySe
       interop:hasRoleRegistry <${id}role/>;
       interop:hasAuthorizationRegistry <${id}authorization/>;
       interop:hasGrantRegistry <${id}grant/>;
+      interop:hasActivityRegistry <${id}activity/>;
       interop:hasDataRegistry
         <${dataRegistry}>.
   }
@@ -41,6 +42,11 @@ export const registrySetTemplate = ({ id, webId, uas, dataRegistry }: RegistrySe
   GRAPH <meta:${id}role/> {
     <${id}role/>
       a interop:RoleRegistry, ldp:Resource.
+  }
+
+  GRAPH <meta:${id}activity/> {
+    <${id}activity/>
+      a interop:ActivityRegistry, ldp:Resource.
   }
 
   GRAPH <meta:${id}.acr> {

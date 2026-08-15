@@ -1,7 +1,9 @@
 import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
 import { describe, expect, test } from 'vitest'
+import { deliverActivityNotification, waitFor } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
+const kimId = 'https://id/kim'
 
 describe('create invitation', () => {
   const aliceId = 'https://id/alice'
@@ -84,7 +86,7 @@ describe('accept invitation', () => {
     const body = await response.json()
     const { _tag, value } = body[0]
     expect(_tag).toBe('Success')
-    expect(value.id).toBe('https://id/kim')
+    expect(value.id).toBe(kimId)
     expect(value).toEqual(expect.objectContaining(acceptData))
 
     const manager = buildSessionManager()
@@ -92,5 +94,14 @@ describe('accept invitation', () => {
     const registration = await session.findSocialAgentRegistration(value.id)
     expect(registration).toBeDefined()
     // TODO: validate data using SocialAgentRegistration shape
+
+    // deliver the agentRegistrationAdded activity (invitee side) and wait for
+    // the reciprocal link — the establishReciprocal workflow outcome
+    const kimSession = await manager.getSession(kimId)
+    await deliverActivityNotification(kimSession)
+    await waitFor(async () => {
+      const kimRegForBob = await kimSession.findSocialAgentRegistration(bobId)
+      return kimRegForBob?.reciprocalRegistration
+    })
   })
 })

@@ -17,11 +17,17 @@
       "storage": { "@id": "urn:solid-server:default:AccountStorage" }
     },
     {
+      "@id": "urn:sai:default:ActivityWebhookStore",
+      "@type": "ActivityWebhookStore",
+      "storage": { "@id": "urn:solid-server:default:AccountStorage" }
+    },
+    {
       "@id": "urn:solid-server:default:PrimaryParallelInitializer",
       "@type": "ParallelHandler",
       "handlers": [
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
-        { "@id": "urn:sai:default:ReciprocalWebhookStore" }
+        { "@id": "urn:sai:default:ReciprocalWebhookStore" },
+        { "@id": "urn:sai:default:ActivityWebhookStore" }
       ]
     },
     {
@@ -29,7 +35,8 @@
       "@type": "ParallelHandler",
       "handlers": [
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
-        { "@id": "urn:sai:default:ReciprocalWebhookStore" }
+        { "@id": "urn:sai:default:ReciprocalWebhookStore" },
+        { "@id": "urn:sai:default:ActivityWebhookStore" }
       ]
     },
     {

@@ -9,6 +9,7 @@ import {
   AccessNeedGroup as AccessNeedGroupModule,
   AccessNeed as AccessNeedModule,
   AgentRegistry,
+  ActivityRegistry,
   type DataAuthorizationData,
   type GrantData,
   ShapeTree,
@@ -29,8 +30,6 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
 import type * as S from 'effect/Schema'
-import { Temporal } from '../temporal/client.js'
-import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 const formatAccessNeed = async (
   accessNeed: AccessNeedData,
@@ -359,20 +358,20 @@ export const recordAuthorization = async (
       )
     }
   }
-  const temporal = new Temporal()
-  await temporal.init()
-  await temporal.client.workflow.execute(createGrantsForAuthorization, {
-    taskQueue: 'create-grants',
-    args: [
-      {
-        webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
-        authorizationGrantee: {
-          id: authorization.grantee,
-          type: [authorization.agentType],
-        },
+  const activityRegistry = saiSession.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  await ActivityRegistry.createActivity(activityRegistry, saiSession.factory, {
+    activityType: 'authorizationRecorded',
+    target: saiSession.registrySet.hasAuthorizationRegistry.id,
+    payload: {
+      webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+      authorizationGrantee: {
+        id: authorization.grantee,
+        type: [authorization.agentType],
       },
-    ],
-    workflowId: crypto.randomUUID(),
+    },
+    status: 'pending',
+    createdAt: new Date().toISOString(),
   })
   return response
 }

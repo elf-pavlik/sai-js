@@ -50,6 +50,7 @@
           { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" },
           { "@id": "urn:sai:default:GrantIssuanceRouter" },
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
+          { "@id": "urn:sai:default:ActivityWebhookRouter" },
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
           { "@id": "urn:sai:default:InvitationRouter" }
         ]
@@ -95,8 +96,7 @@
         "comment": "Handles request from another agent accepting an invitation.",
         "@type": "InvitationHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {
@@ -139,6 +139,21 @@
         "@type": "ReciprocalWebhookHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "reciprocalWebhookStore": { "@id": "urn:sai:default:ReciprocalWebhookStore" }
+      }
+    },
+    {
+      "comment": "Handles webhook notifications from the Activity Registry.",
+      "@id": "urn:sai:default:ActivityWebhookRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/activity-webhook/.*"],
+      "allowedMethods": ["POST"],
+      "handler": {
+        "@id": "urn:sai:default:ActivityWebhookHandler",
+        "comment": "Handles webhook notifications for activity resources.",
+        "@type": "ActivityWebhookHandler",
+        "activityWebhookStore": { "@id": "urn:sai:default:ActivityWebhookStore" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {

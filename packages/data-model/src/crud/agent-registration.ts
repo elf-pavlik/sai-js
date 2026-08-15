@@ -1,6 +1,8 @@
 import {
   INTEROP,
+  deletePatch,
   discoverAccessResource,
+  insertPatch,
   parseTurtle,
   serializeTurtle,
 } from '@janeirodigital/interop-utils'
@@ -8,7 +10,7 @@ import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory, GrantData } from '..'
 import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
 import type { AgentAndClient } from '../templates/types'
-import { addStatement, removeStatement } from './container'
+import { addStatement, applyPatch, removeStatement } from './container'
 
 // ──────────────────────────
 // Types
@@ -125,4 +127,37 @@ export async function removeAllDataGrants(
 ): Promise<void> {
   const iris = await getDataGrantIris(data)
   await Promise.all(iris.map((iri) => removeDataGrant(data, factory, iri)))
+}
+
+/**
+ * Replace the registration's hasDataGrant links in a single PATCH: removes
+ * the links to grants no longer in the set and adds the new ones, so the
+ * registration emits exactly one Update notification. `grantIris` is the FULL
+ * new set (may be []). No-op (no PATCH) when the set is unchanged.
+ */
+export async function replaceDataGrants(
+  data: AgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  grantIris: string[]
+): Promise<void> {
+  const current = await getDataGrantIris(data)
+  const currentSet = new Set(current)
+  const targetSet = new Set(grantIris)
+  const removed = currentSet.difference(targetSet)
+  const added = targetSet.difference(currentSet)
+  if (removed.size === 0 && added.size === 0) return
+
+  const node = DataFactory.namedNode(data.id)
+  const removeQuads = [...removed].map((iri) =>
+    DataFactory.quad(node, INTEROP.terms.hasDataGrant, DataFactory.namedNode(iri))
+  )
+  const insertQuads = [...added].map((iri) =>
+    DataFactory.quad(node, INTEROP.terms.hasDataGrant, DataFactory.namedNode(iri))
+  )
+  const sparqlUpdate = [
+    ...(removed.size ? [await deletePatch(new Store(removeQuads))] : []),
+    ...(added.size ? [await insertPatch(new Store(insertQuads))] : []),
+  ].join(';')
+  await applyPatch(data.id, factory, sparqlUpdate)
+  data.hasDataGrant = [...grantIris]
 }

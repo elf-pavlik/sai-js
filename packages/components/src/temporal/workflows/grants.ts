@@ -20,8 +20,7 @@ const {
   storeDataGrant,
   createAcr,
   requestDelegation,
-  setDataGrantsOnRegistration,
-  clearDataGrantsOnRegistration,
+  replaceDataGrantsOnRegistration,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 })
@@ -171,13 +170,17 @@ export async function createGrantsForAgent(
   })
   const existing = await getExistingGrants({ webId: payload.webId, peerId: payload.grantee })
 
-  // deny case — no authorizations: delete all existing grants + clear registration
+  // deny case — no authorizations: clear all existing grants + registration
   if (authorizations.length === 0) {
     // await deleteDataGrants({
     //   webId: payload.webId,
     //   grants: existing.map((grant) => ({ id: grant.id!, type: grant.type })),
     // })
-    await clearDataGrantsOnRegistration({ webId: payload.webId, peerId: payload.grantee })
+    await replaceDataGrantsOnRegistration({
+      webId: payload.webId,
+      grantee: payload.grantee,
+      grants: [],
+    })
     return
   }
 
@@ -225,8 +228,7 @@ export async function createGrantsForAgent(
   //     .map((grant) => ({ id: grant.id!, type: grant.type })),
   // })
 
-  await clearDataGrantsOnRegistration({ webId: payload.webId, peerId: payload.grantee })
-  await setDataGrantsOnRegistration({
+  await replaceDataGrantsOnRegistration({
     webId: payload.webId,
     grantee: payload.grantee,
     grants: [...newGrantIds, ...reused.map((entry) => entry.existing)],

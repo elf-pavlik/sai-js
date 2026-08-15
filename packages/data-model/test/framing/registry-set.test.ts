@@ -8,7 +8,7 @@ import { docFromGraphs } from './helpers'
 const REGISTRY_SET_IRI = 'https://registry/alice/'
 
 // Graph <meta:https://registry/alice/> in registry.trig: the RegistrySet with
-// its five registries (hasDataRegistry is multi-valued).
+// its six registries (hasDataRegistry is multi-valued).
 describe('RegistrySet framing', () => {
   test('frames the registry set graph into RegistrySetData', async () => {
     const doc = await docFromGraphs([`meta:${REGISTRY_SET_IRI}`])
@@ -23,6 +23,7 @@ describe('RegistrySet framing', () => {
       hasGrantRegistry: { id: 'https://registry/alice/grant/' },
       hasAgentRegistry: { id: 'https://registry/alice/agent/' },
       hasRoleRegistry: { id: 'https://registry/alice/role/' },
+      hasActivityRegistry: { id: 'https://registry/alice/activity/' },
       hasDataRegistry: [{ id: 'https://data/alice-home/' }, { id: 'https://data/alice-work/' }],
       factory,
     })

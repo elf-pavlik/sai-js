@@ -14,10 +14,9 @@ import {
   RoleRegistry,
   type SocialAgentId,
   type SocialAgentRegistrationData,
-  addDataGrant,
   dataGrantTemplate,
   getDataGrantIris,
-  removeAllDataGrants,
+  replaceDataGrants,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -459,14 +458,19 @@ export async function requestDelegation(payload: { grantData: GrantData }): Prom
 // Registration link/unlink
 // ---------------------------------------------------------------------------
 
-export interface SetDataGrantsOnRegistrationInput {
+export interface ReplaceDataGrantsOnRegistrationInput {
   webId: SocialAgentId
   grantee: AgentId
   grants: GrantId[]
 }
 
-export async function setDataGrantsOnRegistration(
-  payload: SetDataGrantsOnRegistrationInput
+/**
+ * Set the grantee's registration hasDataGrant links to exactly `grants` in a
+ * single PATCH (remove old + insert new) → exactly one Update notification on
+ * the registration. Deny case: `grants: []`.
+ */
+export async function replaceDataGrantsOnRegistration(
+  payload: ReplaceDataGrantsOnRegistrationInput
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
@@ -478,28 +482,9 @@ export async function setDataGrantsOnRegistration(
   if (!agentRegistration) {
     throw new Error('agent registration for the grantee does not exist')
   }
-  for (const grant of payload.grants) {
-    await addDataGrant(agentRegistration, session.factory, grant.id!)
-  }
-}
-
-export interface ClearDataGrantsOnRegistrationInput {
-  webId: SocialAgentId
-  peerId: AgentId
-}
-
-export async function clearDataGrantsOnRegistration(
-  payload: ClearDataGrantsOnRegistrationInput
-): Promise<void> {
-  const manager = buildSessionManager()
-  const session = await manager.getSession(payload.webId.id)
-  const agentRegistration = await AgentRegistry.findRegistration(
-    session.registrySet.hasAgentRegistry,
+  await replaceDataGrants(
+    agentRegistration,
     session.factory,
-    payload.peerId.id
+    payload.grants.map((grant) => grant.id!)
   )
-  if (!agentRegistration) {
-    throw new Error('agent registration for the peer does not exist')
-  }
-  await removeAllDataGrants(agentRegistration, session.factory)
 }

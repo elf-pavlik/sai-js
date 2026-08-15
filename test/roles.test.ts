@@ -1,6 +1,9 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { AS } from '@janeirodigital/interop-utils'
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
+import { awaitNotification, deliverActivityNotification, openNotificationStream } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -70,6 +73,24 @@ async function rpcCall(payload: unknown, cookie: string) {
   const result = body[0]
   expect(result._tag).toBe('Success')
   return result.value
+}
+
+/**
+ * Open the notification stream on the grantor's registration for `granteeId`
+ * BEFORE triggering the change, then deliver the activity notification and
+ * await the single registration `Update` (see plan §5 / §3.5).
+ */
+async function awaitGrantChange(
+  grantor: AuthorizationAgent,
+  granteeId: string,
+  trigger: () => Promise<unknown>
+): Promise<void> {
+  const registration = await grantor.findSocialAgentRegistration(granteeId)
+  const stream = await openNotificationStream(grantor.fetch, registration.id)
+  await trigger()
+  await deliverActivityNotification(grantor)
+  const received = await awaitNotification(stream, AS.Update)
+  expect(received).toBeTruthy()
 }
 
 describe('role-based access', () => {
@@ -147,28 +168,33 @@ describe('role-based access', () => {
   })
 
   test('grant is created when kim is added to role and revoked when removed', async () => {
-    await rpcCall(
-      rpcPayload({
-        _tag: 'UpdateRole',
-        id: roleId,
-        label: 'Test',
-        members: [kimId],
-      }),
-      aliceCookie
-    )
+    const manager = buildSessionManager()
+    const aliceSession = await manager.getSession(aliceId)
 
+    await awaitGrantChange(aliceSession, kimId, () =>
+      rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: roleId,
+          label: 'Test',
+          members: [kimId],
+        }),
+        aliceCookie
+      )
+    )
     await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, true)
 
-    await rpcCall(
-      rpcPayload({
-        _tag: 'UpdateRole',
-        id: roleId,
-        label: 'Test',
-        members: [],
-      }),
-      aliceCookie
+    await awaitGrantChange(aliceSession, kimId, () =>
+      rpcCall(
+        rpcPayload({
+          _tag: 'UpdateRole',
+          id: roleId,
+          label: 'Test',
+          members: [],
+        }),
+        aliceCookie
+      )
     )
-
     await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, false)
   })
 
@@ -207,28 +233,30 @@ describe('role-based access', () => {
       const initialRole = await bobSession.findRole(whizRoleId)
       const initialMembers = initialRole?.members ?? []
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'UpdateRole',
-          id: whizRoleId,
-          label: initialRole?.prefLabel ?? 'Whiz',
-          members: [...initialMembers, danId],
-        }),
-        bobCookie
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'UpdateRole',
+            id: whizRoleId,
+            label: initialRole?.prefLabel ?? 'Whiz',
+            members: [...initialMembers, danId],
+          }),
+          bobCookie
+        )
       )
-
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'UpdateRole',
-          id: bizRoleId,
-          label: 'Biz',
-          members: [],
-        }),
-        bobCookie
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'UpdateRole',
+            id: bizRoleId,
+            label: 'Biz',
+            members: [],
+          }),
+          bobCookie
+        )
       )
-
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
     })
 
@@ -250,6 +278,12 @@ describe('role-based access', () => {
       expect(body[0].grantedBy).toBe(bobId)
       expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
+
+      // both the setup UpdateRole and the AuthorizeApp wrote activities — deliver
+      // them all and await the resulting registration Update
+      await awaitGrantChange(bobSession, danId, () => Promise.resolve())
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 
@@ -261,26 +295,31 @@ describe('role-based access', () => {
       expect(body[0].grantedBy).toBe(bobId)
       expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'UpdateRole',
-          id: whizRoleId,
-          label: 'Whiz',
-          members: [danId],
-        }),
-        bobCookie
-      )
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
 
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'UpdateRole',
+            id: whizRoleId,
+            label: 'Whiz',
+            members: [danId],
+          }),
+          bobCookie
+        )
+      )
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'DeleteRole',
-          id: whizRoleId,
-        }),
-        bobCookie
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'DeleteRole',
+            id: whizRoleId,
+          }),
+          bobCookie
+        )
       )
-
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
     })
 
@@ -292,26 +331,31 @@ describe('role-based access', () => {
       expect(body[0].grantedBy).toBe(bobId)
       expect(body[0].id).toMatch('https://registry/bob/authorization/')
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'UpdateRole',
-          id: whizRoleId,
-          label: 'Whiz',
-          members: [danId],
-        }),
-        bobCookie
-      )
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
 
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'UpdateRole',
+            id: whizRoleId,
+            label: 'Whiz',
+            members: [danId],
+          }),
+          bobCookie
+        )
+      )
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'DeleteRole',
-          id: bizRoleId,
-        }),
-        bobCookie
+      await awaitGrantChange(bobSession, danId, () =>
+        rpcCall(
+          rpcPayload({
+            _tag: 'DeleteRole',
+            id: bizRoleId,
+          }),
+          bobCookie
+        )
       )
-
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
     })
   })

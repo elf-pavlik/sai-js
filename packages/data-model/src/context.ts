@@ -81,7 +81,15 @@ export const dataModelContext: JsonLdContext = {
   hasGrantRegistry: iriTermDef(INTEROP, 'hasGrantRegistry'),
   hasRoleRegistry: iriTermDef(INTEROP, 'hasRoleRegistry'),
   hasDataRegistry: iriTermDef(INTEROP, 'hasDataRegistry', { set: true }),
+  hasActivityRegistry: iriTermDef(INTEROP, 'hasActivityRegistry'),
   callbackEndpoint: iriTermDef(INTEROP, 'hasAuthorizationCallbackEndpoint'),
+
+  // activity registry (outbox) — literals stay plain (no @id coercion)
+  activityType: { '@id': INTEROP.activityType },
+  target: iriTermDef(INTEROP, 'target'),
+  payload: { '@id': INTEROP.payload },
+  status: { '@id': INTEROP.status },
+  createdAt: { '@id': INTEROP.createdAt },
 
   // interop — multi-value node references
   accessMode: iriTermDef(INTEROP, 'accessMode', { set: true }),

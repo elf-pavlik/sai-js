@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, addDataGrant, getDataGrantIris } from '../../src'
+import { AuthorizationAgentFactory, addDataGrant, getDataGrantIris, replaceDataGrants } from '../../src'
 import { expect } from '../expect'
 
 const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
@@ -58,5 +58,29 @@ describe('addDataGrant', () => {
     expect(beforeIris).not.toContain(newGrantIri)
     await addDataGrant(agentRegistration, factory, newGrantIri)
     expect(agentRegistration.hasDataGrant).toContain(newGrantIri)
+  })
+})
+
+describe('replaceDataGrants', () => {
+  test('replaces the whole data grant set', async () => {
+    const agentRegistration = await factory.socialAgentRegistration(snippetIri)
+    const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
+    const beforeIris = await getDataGrantIris(agentRegistration)
+    expect(beforeIris.length).toBeGreaterThan(0)
+    await replaceDataGrants(agentRegistration, factory, [newGrantIri])
+    expect(agentRegistration.hasDataGrant).toEqual([newGrantIri])
+  })
+
+  test('clears the whole data grant set with an empty list', async () => {
+    const agentRegistration = await factory.socialAgentRegistration(snippetIri)
+    await replaceDataGrants(agentRegistration, factory, [])
+    expect(agentRegistration.hasDataGrant).toEqual([])
+  })
+
+  test('no-op when the set is unchanged', async () => {
+    const agentRegistration = await factory.socialAgentRegistration(snippetIri)
+    const beforeIris = await getDataGrantIris(agentRegistration)
+    await replaceDataGrants(agentRegistration, factory, beforeIris)
+    expect(agentRegistration.hasDataGrant).toEqual(beforeIris)
   })
 })

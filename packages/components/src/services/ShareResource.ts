@@ -2,7 +2,7 @@ import type {
   AuthorizationAgent,
   ShareDataInstanceStructure,
 } from '@janeirodigital/interop-authorization-agent'
-import { ShapeTree, setAccessNeedGroup } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry, ShapeTree, setAccessNeedGroup } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   IRI,
@@ -11,8 +11,6 @@ import {
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { Temporal } from '../temporal/client.js'
-import { createGrantsForAuthorization } from '../temporal/workflows/grants.js'
 
 export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
   const resource = await saiSession.factory.dataInstance(iri, undefined, lang)
@@ -55,23 +53,23 @@ export const shareResource = async (
   // grantees are social agents in the share flow (roles are not share targets)
   const grantees = [...new Set(recorded.map((dataAuthorization) => dataAuthorization.grantee))]
 
-  // TODO: consider a single workflow that will fire-and-forget all the child workflows
-  const temporal = new Temporal()
-  await temporal.init()
-  await Promise.all(
-    grantees.map((grantee) =>
-      temporal.client.workflow.start(createGrantsForAuthorization, {
-        taskQueue: 'create-grants',
-        args: [
-          {
-            webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
-            authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
-          },
-        ],
-        workflowId: crypto.randomUUID(),
-      })
-    )
-  )
+  // one authorizationRecorded activity per deduped grantee → one notification,
+  // one workflow per grantee (sequential PUTs — CSS SPARQL backend races on
+  // concurrent PUTs in the same container)
+  const activityRegistry = saiSession.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  for (const grantee of grantees) {
+    await ActivityRegistry.createActivity(activityRegistry, saiSession.factory, {
+      activityType: 'authorizationRecorded',
+      target: saiSession.registrySet.hasAuthorizationRegistry.id,
+      payload: {
+        webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+        authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
+      },
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    })
+  }
 
   return {
     callbackEndpoint: clientIdDocument.callbackEndpoint!,

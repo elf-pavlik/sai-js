@@ -1,4 +1,4 @@
-import { AgentRegistry, setRegisteredAgent } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry, AgentRegistry, setRegisteredAgent } from '@janeirodigital/interop-data-model'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -11,17 +11,13 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
-import type { CustomWebIdStore } from './CustomWebIdStore.js'
 import type { SessionManager } from './SessionManager'
-import { Temporal } from './temporal/client.js'
-import { establishReciprocal } from './temporal/workflows/reciprocal.js'
 
 export class InvitationHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
-    private readonly sessionManager: SessionManager,
-    private readonly webIdStore: CustomWebIdStore
+    private readonly sessionManager: SessionManager
   ) {
     super()
   }
@@ -56,26 +52,21 @@ export class InvitationHandler extends OperationHttpHandler {
         socialAgentInvitation.prefLabel,
         socialAgentInvitation.note
       )
-      // start workflow to discover, add and subscribe to reciprocal registration
-      // delay it to make sure the other agent creates it after response from this handler
-      const accountId = await this.webIdStore.findAccout(inviteeId)
-      if (!accountId) {
-        throw new Error(`accountId not found (inviteeId: ${inviteeId})`)
-      }
-      const temporal = new Temporal()
-      await temporal.init()
-      await temporal.client.workflow.start(establishReciprocal, {
-        taskQueue: 'reciprocal-registration',
-        args: [
-          {
-            accountId,
-            webId: inviteeId,
-            peerId: invitedId,
-            registrationId: socialAgentRegistration.id,
-          },
-        ],
-        startDelay: '10s',
-        workflowId: crypto.randomUUID(),
+      // write the agentRegistrationAdded activity → the main agent's webhook
+      // handler starts establishReciprocal (retry policy replaces the old
+      // startDelay hack — §6.7)
+      const activityRegistry = sai.registrySet.hasActivityRegistry
+      if (!activityRegistry) throw new Error('activity registry not found in registry set')
+      await ActivityRegistry.createActivity(activityRegistry, sai.factory, {
+        activityType: 'agentRegistrationAdded',
+        target: socialAgentRegistration.id,
+        payload: {
+          webId: inviteeId,
+          peerId: invitedId,
+          registrationId: socialAgentRegistration.id,
+        },
+        status: 'pending',
+        createdAt: new Date().toISOString(),
       })
     }
 

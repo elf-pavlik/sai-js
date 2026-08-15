@@ -1,11 +1,42 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import { AuthorizationRegistry, getGranted } from '@janeirodigital/interop-data-model'
+import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
+import { awaitNotification, deliverActivityNotification, openNotificationStream } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 // TODO: import
 const agentType = 'http://www.w3.org/ns/solid/interop#Application'
 const clientId = 'https://data/test-client/public/id'
+const accessNeedGroup = 'https://data/test-client/public/access-needs#need-group-pm'
+
+function rpcPayload(authorization: unknown) {
+  return [
+    {
+      request: { _tag: 'AuthorizeApp', authorization },
+      headers: {},
+      traceId: '13c2035f72f45c1ebbf13b055b7dc526',
+      spanId: '685581075752b8a2',
+      sampled: true,
+    },
+  ]
+}
+
+async function rpcCall(payload: unknown, cookie: string) {
+  const response = await fetch(rpcEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify(payload),
+  })
+  expect(response.status).toBe(200)
+  const body = await response.json()
+  const result = body[0]
+  expect(result._tag).toBe('Success')
+  return result.value
+}
 
 describe('get authorization data', () => {
   const aliceId = 'https://id/alice'
@@ -88,51 +119,62 @@ describe('denied', () => {
   const bobId = 'https://id/bob'
   const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
 
-  const authorization = {
+  const grantedAuthorization = {
     grantee: clientId,
     agentType,
-    accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
+    accessNeedGroup,
+    dataAuthorizations: [
+      {
+        accessNeed: 'https://data/test-client/public/access-needs#need-project',
+        scope: 'AllFromAgent',
+        dataOwner: bobId,
+      },
+      { accessNeed: 'https://data/test-client/public/access-needs#need-task', scope: 'Inherited' },
+      { accessNeed: 'https://data/test-client/public/access-needs#need-image', scope: 'Inherited' },
+      { accessNeed: 'https://data/test-client/public/access-needs#need-file', scope: 'Inherited' },
+    ],
+    granted: true,
+  }
+
+  const deniedAuthorization = {
+    grantee: clientId,
+    agentType,
+    accessNeedGroup,
     granted: false,
   }
-  const payload = [
-    {
-      request: {
-        _tag: 'AuthorizeApp',
-        authorization,
-      },
-      headers: {},
-      traceId: '13c2035f72f45c1ebbf13b055b7dc526',
-      spanId: '685581075752b8a2',
-      sampled: true,
-    },
-  ]
 
   test('creates denied authorization', async () => {
-    const response = await fetch(rpcEndpoint, {
-      method: 'POST',
-      headers: {
-        ContentType: 'application/json',
-        Cookie: bobCookie,
-      },
-      body: JSON.stringify(payload),
-    })
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    const { _tag, value } = body[0]
-    expect(_tag).toBe('Success')
-    expect(Array.isArray(value)).toBe(true)
-    expect(value.length).toBe(0)
-
     const manager = buildSessionManager()
     const session = await manager.getSession(bobId)
-    const dataAuthorizations =
-      await AuthorizationRegistry.findDataAuthorizations(
-        session.registrySet.hasAuthorizationRegistry,
-        session.factory,
-        clientId
-      )
-    expect(dataAuthorizations.length).toBe(0)
     const registration = await session.findApplicationRegistration(clientId)
-    expect(registration && (await getGranted(registration))).toBeFalsy()
+    expect(registration).toBeDefined()
+
+    // grant first — authorizationRecorded activity → grants appear on the application registration
+    const grantStream = await openNotificationStream(session.fetch, registration.id)
+    const granted = await rpcCall(rpcPayload(grantedAuthorization), bobCookie)
+    expect(Array.isArray(granted)).toBe(true)
+    expect(granted.length).toBeGreaterThan(0)
+    await deliverActivityNotification(session)
+    const grantReceived = await awaitNotification(grantStream, AS.Update)
+    expect(grantReceived).toBeTruthy()
+    expect(await getGranted(await session.findApplicationRegistration(clientId))).toBeTruthy()
+
+    // deny — grants revoked (single registration Update)
+    const denyStream = await openNotificationStream(session.fetch, registration.id)
+    const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
+    expect(Array.isArray(denied)).toBe(true)
+    expect(denied.length).toBe(0)
+    await deliverActivityNotification(session)
+    const denyReceived = await awaitNotification(denyStream, AS.Update)
+    expect(denyReceived).toBeTruthy()
+
+    const dataAuthorizations = await AuthorizationRegistry.findDataAuthorizations(
+      session.registrySet.hasAuthorizationRegistry,
+      session.factory,
+      clientId
+    )
+    expect(dataAuthorizations.length).toBe(0)
+    const regAfterDeny = await session.findApplicationRegistration(clientId)
+    expect(await getGranted(regAfterDeny)).toBeFalsy()
   })
 })

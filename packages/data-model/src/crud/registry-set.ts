@@ -1,6 +1,7 @@
 import { fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
+import type { ActivityRegistryData } from './activity-registry'
 import type { AgentRegistryData } from './agent-registry'
 import type { AuthorizationRegistryData } from './authorization-registry'
 import type { DataRegistryData } from './data-registry'
@@ -20,6 +21,8 @@ export type RegistrySetData = {
   hasAgentRegistry: AgentRegistryData
   hasRoleRegistry: RoleRegistryData
   hasDataRegistry: DataRegistryData[]
+  /** present once the Activity Registry is seeded; producers throw without it */
+  hasActivityRegistry?: ActivityRegistryData
   factory: AuthorizationAgentFactory
 }
 
@@ -42,6 +45,7 @@ export async function loadRegistrySet(
     hasAgentRegistry: { id: node.hasAgentRegistry },
     hasRoleRegistry: { id: node.hasRoleRegistry },
     hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
+    hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,
     factory,
   }
 }

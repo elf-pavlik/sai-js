@@ -1,4 +1,5 @@
 import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
+import { ActivityRegistry } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 import { waitFor } from './util'
 
@@ -102,5 +103,30 @@ describe('accept invitation', () => {
       const kimRegForBob = await kimSession.findSocialAgentRegistration(bobId)
       return kimRegForBob?.reciprocalRegistration
     })
+
+    // establishReciprocal marked the agentRegistrationAdded activity done — a
+    // completion activity referencing it exists in kim's Activity Registry
+    const registry = kimSession.registrySet.hasActivityRegistry!
+    await waitFor(
+      async () => {
+        const completed = await ActivityRegistry.getCompletedActivityIris(
+          registry,
+          kimSession.factory
+        )
+        if (!completed.length) return false
+        const iris = await ActivityRegistry.getActivityIris(registry, kimSession.factory)
+        for (const iri of iris) {
+          const activity = await ActivityRegistry.loadActivity(iri, kimSession.factory)
+          if (
+            activity.activityType === 'agentRegistrationAdded' &&
+            completed.includes(activity.id)
+          ) {
+            return true
+          }
+        }
+        return false
+      },
+      { timeout: 30_000 }
+    )
   })
 })

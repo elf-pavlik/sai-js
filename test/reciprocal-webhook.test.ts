@@ -1,15 +1,20 @@
-import { buildOidcSession } from '@elfpavlik/sai-components'
+import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
+import { ActivityRegistry } from '@janeirodigital/interop-data-model'
 import {
   AS,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
 } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { receivesNotification } from './util'
+import { awaitEvent, openEventsStream, receivesNotification, waitFor } from './util'
 
 const aliceId = 'https://id/alice'
 const clientId = 'https://data/test-client/public/id'
 const sendTo = 'https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b'
+// alice's account cookie (value 8187358a-… → account e4fcefdc-…, webId
+// https://id/alice — the account with the pre-seeded activity-webhook
+// channel the events stream relies on)
+const aliceCookie = 'css-account=8187358a-2072-4dce-9c76-24caffcc84a4'
 
 describe('reciprocal webhook', () => {
   test('id', async () => {
@@ -38,5 +43,71 @@ describe('reciprocal webhook', () => {
       AS.Update
     )
     expect(check).toBeTruthy()
+
+    // the Update was routed through the outbox: a delegatedGrantsUpdated
+    // activity exists in alice's Activity Registry and is completed
+    // (a completion activity references it) after the workflow ran
+    const manager = buildSessionManager()
+    const aliceSession = await manager.getSession(aliceId)
+    const registry = aliceSession.registrySet.hasActivityRegistry!
+    await waitFor(
+      async () => {
+        const completed = await ActivityRegistry.getCompletedActivityIris(
+          registry,
+          aliceSession.factory
+        )
+        if (!completed.length) return false
+        const iris = await ActivityRegistry.getActivityIris(registry, aliceSession.factory)
+        for (const iri of iris) {
+          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.factory)
+          if (
+            activity.activityType === 'delegatedGrantsUpdated' &&
+            completed.includes(activity.id)
+          ) {
+            return true
+          }
+        }
+        return false
+      },
+      { timeout: 30_000 }
+    )
+  })
+
+  test('emits pending and done events for the delegatedGrantsUpdated activity', async () => {
+    // listen first — the server never replays
+    const stream = await openEventsStream(aliceCookie)
+    const response = await fetch(sendTo, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/ld+json',
+      },
+      body: JSON.stringify({
+        type: 'Update',
+      }),
+    })
+    expect(response.status).toBe(200)
+
+    // the container Add delivers the change activity → `pending` …
+    const pending = await awaitEvent(
+      stream,
+      (message) =>
+        message.type === 'activity' &&
+        message.activity?.activityType === 'delegatedGrantsUpdated' &&
+        message.activity.status === 'pending',
+      { close: false }
+    )
+    expect(pending).toBeDefined()
+    expect(pending?.activity.target).toBe('https://id/bob')
+
+    // … and the completion Add → `done`, enriched with the original payload
+    const done = await awaitEvent(
+      stream,
+      (message) =>
+        message.type === 'activity' &&
+        message.activity?.id === pending?.activity.id &&
+        message.activity.status === 'done'
+    )
+    expect(done).toBeDefined()
+    expect(done?.activity.payload.peerId.id).toBe('https://id/bob')
   })
 })

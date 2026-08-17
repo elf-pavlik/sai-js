@@ -7,6 +7,11 @@
   "import": [],
   "@graph": [
     {
+      "@id": "urn:sai:default:ActivityEvents",
+      "comment": "In-memory EventBus for UI sync (webId → open NDJSON streams).",
+      "@type": "ActivityEvents"
+    },
+    {
       "@id": "urn:sai:default:UiPushSubscriptionStore",
       "@type": "UiPushSubscriptionStore",
       "storage": { "@id": "urn:solid-server:default:AccountStorage" }

@@ -48,6 +48,7 @@
         "@type": "StatusWaterfallHandler",
         "handlers": [
           { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" },
+          { "@id": "urn:sai:default:EventsRouter" },
           { "@id": "urn:sai:default:GrantIssuanceRouter" },
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
@@ -138,7 +139,8 @@
         "comment": "Handles webhook notifications for reciprocal registrations.",
         "@type": "ReciprocalWebhookHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "reciprocalWebhookStore": { "@id": "urn:sai:default:ReciprocalWebhookStore" }
+        "reciprocalWebhookStore": { "@id": "urn:sai:default:ReciprocalWebhookStore" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {
@@ -153,7 +155,24 @@
         "comment": "Handles webhook notifications for activity resources.",
         "@type": "ActivityWebhookHandler",
         "activityWebhookStore": { "@id": "urn:sai:default:ActivityWebhookStore" },
-        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
+        "activityEvents": { "@id": "urn:sai:default:ActivityEvents" }
+      }
+    },
+    {
+      "comment": "Always-open NDJSON event stream for the UI.",
+      "@id": "urn:sai:default:EventsRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/events$"],
+      "allowedMethods": ["GET"],
+      "handler": {
+        "@id": "urn:sai:default:EventsHandler",
+        "comment": "Streams activity events to the UI.",
+        "@type": "EventsHandler",
+        "cookieStore": { "@id": "urn:solid-server:default:CookieStore" },
+        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" },
+        "activityEvents": { "@id": "urn:sai:default:ActivityEvents" }
       }
     },
     {

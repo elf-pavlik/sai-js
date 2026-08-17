@@ -137,15 +137,31 @@ The UI needs nothing else: `activityType` + `payload` say *what* changed,
   `activityIri?: string` to `ReciprocalRegistrationInput`; after
   `reciprocalWebhook(result)` succeeds, call `markActivitiesDone({ webId,
   activities: [{ id: activityIri }] })` (guard on `activityIri`).
+- `temporal/workflows/reciprocal.ts` (workflow, sandboxed): declare the
+  activity stub — add a second `proxyActivities<typeof grantsActivities>` set
+  (destructure `markActivitiesDone` from it) alongside the existing
+  `reciprocalActivities` proxy. Workflows can only call activities they proxy;
+  `markActivitiesDone` lives in `temporal/activities/grants.js`, so the stub
+  must be declared here before `establishReciprocal` can call it. No
+  `taskQueue` option needed: a proxied activity without one routes to the
+  workflow's own queue (`reciprocal-registration`), where the activity will
+  now be registered.
 - `workers/main.ts`: register `grantsActivities` on the `reciprocal-registration`
-  worker too (currently only `reciprocalActivities`) so `markActivitiesDone` is
-  available there.
+  worker too (currently only `reciprocalActivities`; `WorkerOptions.activities`
+  is a **single object**, so spread both:
+  `activities: { ...reciprocalActivities, ...grantsActivities }`) so
+  `markActivitiesDone` is available there. (The two modules export disjoint
+  names — reciprocal: `reciprocalRegistration`/`reciprocalWebhook`; grants:
+  `markActivitiesDone` et al. — no spread collision.)
 
 **Step 0.2 — `updateDelegatedGrants` becomes an activity producer.**
 
 - `ReciprocalWebhookHandler`: inject `sessionManager`; on `Update`, instead of
   starting `updateDelegatedGrants` directly, **PUT** a `delegatedGrantsUpdated`
-  activity (`ActivityRegistry.createActivity`, payload
+  activity (`ActivityRegistry.createActivity`, **`target` = the peer's webId
+  (`channel.peerId`) — the side whose reciprocal-registration `Update`
+  triggered this webhook; informational only, like other `target`s it is not
+  consumed by any workflow** — payload
   `{ webId: {id: channel.webId, …}, peerId: {id: channel.peerId, …} }` — the
   ready-made `updateDelegatedGrants` input). The container `Add` then routes
   through the same `ActivityWebhookHandler` path as every other producer.
@@ -184,11 +200,16 @@ The UI needs nothing else: `activityType` + `payload` say *what* changed,
 - New `packages/components/src/ActivityEvents.ts`: the
   `WrappedSetMultiMap<string, PassThrough>` bus, `subscribe`/`unsubscribe`,
   `onActivityAdded(webId, activity)`, `emit(webId, line)`.
-- `ActivityWebhookHandler`: inject `ActivityEvents`; after loading the
-  activity, push to the bus under `channel.webId`: change activities →
-  `status: 'pending'`; `activityCompleted` → load the completed activity via
-  `target` → `status: 'done'` (enriched with the original's
-  `activityType`/`payload`). `activityCompleted` never routes to a workflow.
+- `ActivityWebhookHandler`: inject `ActivityEvents`; **restructure so the bus
+  emit happens before dispatch — today the grantee branch
+  (`authorizationRecorded`/`authorizationRevoked`) returns 200 early, so an
+  emit added only at the bottom would skip exactly those activities**: after
+  loading the activity, push to the bus under `channel.webId` in one place
+  every `Add` passes through: change activities → `status: 'pending'`;
+  `activityCompleted` → load the completed activity via `target` →
+  `status: 'done'` (enriched with the original's `activityType`/`payload`).
+  Then dispatch as today (grantee start-or-signal branch, routing map).
+  `activityCompleted` never routes to a workflow.
 - Config: define `urn:sai:default:ActivityEvents` in
   `packages/components/config/storage/account.json` (alongside the existing
   stores); wire it into `ActivityWebhookHandler` in
@@ -289,15 +310,21 @@ Three kinds of refresh, explicitly split:
 - **`authorizationRevoked` is not yet produced.** `recordAuthorization`
   currently always PUTs `authorizationRecorded` (deny included); the events
   mapping is future-ready only (`authorization-revoked.md`).
-- **`agentRegistrationAdded` stuck-pending on permanent failure.**
-  `establishReciprocal` retries then fails; the activity stays `pending` and
-  the sweep can't reprocess it (no `accountId`). Decide: accept, or let the
-  sweep resolve `accountId` via the webId store.
-- **Reciprocal trigger reliability window.** Routing `updateDelegatedGrants`
-  through the outbox makes it depend on the fire-and-forget `Add` delivery;
-  the sweep (backstop) has no automatic schedule yet (decoupling plan
-  Phase 3). Decide: accept (consistent with other producers) or add a
-  scheduled sweep.
+- **`agentRegistrationAdded` stuck-pending on permanent failure. — decided:
+  accept.** `establishReciprocal` retries then fails; the activity stays
+  `pending` and the sweep can't reprocess it (no `accountId`). Accepted:
+  no replay means the events stream is unaffected (the activity just never
+  emits `done`; UI heals via mount/reconnect refetches) and the sweep skips
+  it today anyway. Future option: let the sweep resolve `accountId` via the
+  webId store.
+- **Reciprocal trigger reliability window. — decided: accept.** Routing
+  `updateDelegatedGrants` through the outbox makes it depend on the
+  fire-and-forget `Add` delivery, and `reconcileActivities` (the backstop)
+  has no caller/schedule in the codebase today — this is a pre-existing gap
+  for **all** producers, and Phase 0.2 turns it into a regression risk only
+  on a path that was previously synchronous. Accepted for now: consistent
+  with every other producer; a scheduled sweep can be added later (decoupling
+  plan Phase 3).
 - **WebId resolution — decided: `webIdLinks[0]`, for now.** The bus is keyed
   by the account's **first linked webId**, resolved exactly like `ApiHandler`
   (`cookieStore` → `webIdStore.findLinks(accountId)` → `webIdLinks[0]`), and

@@ -16,6 +16,8 @@ export interface ReciprocalRegistrationInput {
   webId: string
   peerId: string
   registrationId: string
+  /** IRI of the activity that triggered this workflow — marked done on success */
+  activityIri?: string
 }
 
 export interface ReciprocalWebhookInput {

@@ -86,7 +86,20 @@ export const INTEROP = createVocabulary(
 
 export const NOTIFY = createVocabulary(
   'http://www.w3.org/ns/solid/notifications#',
-  'vapidPublicKey'
+  'vapidPublicKey',
+  // terms used by the notifications ecosystem (@solid-notifications/*) directly at
+  // the top level — missing entries made buildChannel emit undefined predicates
+  'topic',
+  'sendTo',
+  'channelType',
+  'feature',
+  'receiveFrom',
+  'subscription',
+  'accept',
+  'endAt',
+  'rate',
+  'startAt',
+  'state'
 )
 
 export const RDF = createVocabulary('http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'type')

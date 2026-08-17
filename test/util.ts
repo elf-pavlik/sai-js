@@ -104,3 +104,73 @@ export async function waitFor<T>(
   if (lastError) throw lastError
   throw new Error(`waitFor timed out after ${timeout}ms`)
 }
+
+// ---------------------------------------------------------------------------
+// UI events stream (/.sai/events) — the NDJSON stream from refactor-ui.md
+// ---------------------------------------------------------------------------
+
+const EVENTS_ENDPOINT = 'https://auth/.sai/events'
+
+export interface EventsStream {
+  response: Response
+}
+
+/**
+ * Open the UI events stream with an account cookie (listen-first: call this
+ * BEFORE triggering the RPC/webhook that produces the activity you want to
+ * observe). The server never replays — only events after the connection is
+ * open are delivered.
+ */
+export async function openEventsStream(cookie: string): Promise<EventsStream> {
+  const response = await fetch(EVENTS_ENDPOINT, {
+    headers: { Cookie: cookie },
+  })
+  if (!response.ok) {
+    throw new Error(`failed connecting to events stream: ${EVENTS_ENDPOINT}, ${response.status}`)
+  }
+  if (!response.body) {
+    throw new Error('missing body of events stream')
+  }
+  return { response }
+}
+
+/**
+ * Read NDJSON lines until one matches the predicate. Returns the matching
+ * message, or undefined if the stream ends. Closes the stream unless
+ * `close: false` (staged reads — pending then done on the same connection).
+ *
+ * Each call acquires its own reader: between staged reads the previous
+ * reader is released, so a fresh one must be requested (reads continue from
+ * the same buffered position).
+ */
+export async function awaitEvent(
+  stream: EventsStream,
+  predicate: (message: { type: string; activity?: any }) => boolean,
+  options: { close?: boolean } = { close: true }
+): Promise<{ type: string; activity?: any } | undefined> {
+  const { response } = stream
+  // the body is unlocked between staged reads — acquire a fresh reader here
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) return undefined
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line) continue
+        const message = JSON.parse(line) as { type: string; activity?: any }
+        if (predicate(message)) return message
+      }
+    }
+  } finally {
+    reader.releaseLock()
+    // keep the stream open between staged reads (pending → done on the same
+    // connection); the caller closes it on the final read
+    if (options.close) await response.body.cancel()
+  }
+  return undefined
+}

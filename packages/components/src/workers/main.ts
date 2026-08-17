@@ -34,7 +34,9 @@ async function run() {
       connection,
       taskQueue: 'reciprocal-registration',
       workflowsPath: fileURLToPath(new URL('../temporal/workflows/reciprocal.js', import.meta.url)),
-      activities: reciprocalActivities,
+      // markActivitiesDone (from grants) is called by establishReciprocal — it
+      // must be registered on the queue that workflow runs on
+      activities: { ...reciprocalActivities, ...grantsActivities },
     })
 
     const grants = await Worker.create({

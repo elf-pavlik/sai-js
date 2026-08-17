@@ -34,6 +34,8 @@ export interface FindAffectedAuthorizationsInput {
   webId: SocialAgentId
   peerId: SocialAgentId
   roleId?: RoleId
+  /** IRI of the activity that triggered this workflow — marked done on success */
+  activityIri?: string
 }
 
 export interface CreateGrantsInput {

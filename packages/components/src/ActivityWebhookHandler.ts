@@ -12,6 +12,7 @@ import { WorkflowExecutionAlreadyStartedError } from '@temporalio/client'
 import { getLoggerFor } from 'global-logger-factory'
 import type { Workflow } from '@temporalio/common'
 import type { ActivityWebhookStore } from './ActivityWebhookStore.js'
+import type { ActivityEvents } from './ActivityEvents.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
@@ -21,6 +22,7 @@ import {
   processGranteeActivities,
   processRoleDeletion,
   processRoleMembershipChange,
+  updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
 import { establishReciprocal } from './temporal/workflows/reciprocal.js'
 
@@ -35,6 +37,7 @@ const activityWorkflows: Record<string, { workflow: Workflow; taskQueue: string 
     workflow: establishReciprocal,
     taskQueue: 'reciprocal-registration',
   },
+  delegatedGrantsUpdated: { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
 }
 
 const GRANTEE_ACTIVITY_TYPES = new Set(['authorizationRecorded', 'authorizationRevoked'])
@@ -48,7 +51,8 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
   public constructor(
     private readonly activityWebhookStore: ActivityWebhookStore,
-    private readonly sessionManager: SessionManager
+    private readonly sessionManager: SessionManager,
+    private readonly activityEvents: ActivityEvents
   ) {
     super()
   }
@@ -70,6 +74,24 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
     if (requestBody.type === 'Add' && requestBody.object) {
       const session = await this.sessionManager.getSession(channel.webId)
       const activity = await ActivityRegistry.loadActivity(requestBody.object, session.factory)
+
+      // Forward to the events bus BEFORE dispatch — every Add produces a line,
+      // including grantee activities (whose branch returns 200 early below).
+      // Change activities → `pending`; `activityCompleted` → load the completed
+      // activity via `target` → `done` (enrichment: the completion resource is
+      // minimal, the original's activityType/payload are what the UI needs).
+      if (activity.activityType === 'activityCompleted') {
+        try {
+          const completed = await ActivityRegistry.loadActivity(activity.target, session.factory)
+          this.activityEvents.onActivityAdded(channel.webId, { ...completed, status: 'done' })
+        } catch (err) {
+          this.logger.error(
+            `Failed to load completed activity ${activity.target}: ${(err as Error).message}`
+          )
+        }
+      } else {
+        this.activityEvents.onActivityAdded(channel.webId, { ...activity, status: 'pending' })
+      }
 
       if (GRANTEE_ACTIVITY_TYPES.has(activity.activityType)) {
         // per-target consumer: deterministic workflowId per (webId, grantee).
@@ -121,10 +143,16 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
         const temporal = new Temporal()
         await temporal.init()
         // agentRegistrationAdded needs the accountId (the channel is per-account);
-        // role workflows get the activity IRI to mark it done on success
+        // every type gets the activity IRI to mark it done on success
         const args =
           activity.activityType === 'agentRegistrationAdded'
-            ? [{ accountId: channel.accountId, ...(activity.payload as object) }]
+            ? [
+                {
+                  accountId: channel.accountId,
+                  ...(activity.payload as object),
+                  activityIri: requestBody.object,
+                },
+              ]
             : [{ ...(activity.payload as object), activityIri: requestBody.object }]
         await temporal.client.workflow.start(entry.workflow, {
           taskQueue: entry.taskQueue,

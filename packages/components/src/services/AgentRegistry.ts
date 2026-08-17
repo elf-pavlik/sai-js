@@ -30,6 +30,9 @@ export const buildSocialAgentProfile = async (
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
     accessRequested: !!registration.hasAccessNeedGroup,
+    // the grantor-side registration's hasDataGrant: the grants WE issued to
+    // this agent — first grant IRI; absent → the SocialAgentList warning badge
+    accessGrant: (await getDataGrantIris(registration))[0],
     accessNeedGroup: registration.reciprocalRegistration
       ? (await saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration))
           .hasAccessNeedGroup

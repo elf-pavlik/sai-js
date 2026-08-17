@@ -143,6 +143,12 @@ export async function updateDelegatedGrants(
       })
     )
   )
+  if (payload.activityIri) {
+    await markActivitiesDone({
+      webId: payload.webId,
+      activities: [{ id: payload.activityIri }] as ActivityData[],
+    })
+  }
 }
 
 export async function processRoleMembershipChange(
@@ -275,6 +281,11 @@ export async function reconcileActivities(payload: {
       activity.activityType === 'roleDeleted'
     ) {
       roleActivities.push(activity)
+    } else if (activity.activityType === 'delegatedGrantsUpdated') {
+      await executeChild(updateDelegatedGrants, {
+        args: [activity.payload as activities.FindAffectedAuthorizationsInput],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }
   }
   for (const [granteeId, group] of granteeGroups) {

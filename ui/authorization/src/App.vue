@@ -12,6 +12,22 @@
 
 <script lang="ts" setup>
 import { useTheme } from 'vuetify'
+import { watch } from 'vue'
+import { startEvents, stopEvents } from '@/events'
+import { useCoreStore } from '@/store/core'
+
+const coreStore = useCoreStore()
+
+// keep the /.sai/events stream open while signed in — full refresh on
+// (re)connect + completion-driven refreshes (see docs/plans/refactor-ui.md)
+watch(
+  () => coreStore.userId,
+  (userId) => {
+    if (userId) startEvents()
+    else stopEvents()
+  },
+  { immediate: true }
+)
 
 const theme = useTheme()
 

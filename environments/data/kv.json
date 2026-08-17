@@ -594,5 +594,14 @@
  },
  "notifications/https%3A%2F%2Fregistry%2Fkim%2Factivity%2F": [
   "https://registry/.notifications/WebhookChannel2023/dcdb6992-f033-4b01-b6cf-4065814a835b"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa5d8f331-700d-4178-919e-51d75fa9898c": {
+  "id": "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/bob/agent/jc5gt6/",
+  "sendTo": "https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Fbob%2Fagent%2Fjc5gt6%2F": [
+  "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c"
  ]
 }

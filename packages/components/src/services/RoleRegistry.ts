@@ -64,7 +64,6 @@ export const updateRole = async (
           type: [INTEROP.SocialAgent],
         })),
       },
-      status: 'pending',
       createdAt: new Date().toISOString(),
     })
   }
@@ -91,7 +90,6 @@ export const deleteRole = async (
         type: [INTEROP.SocialAgent],
       })),
     },
-    status: 'pending',
     createdAt: new Date().toISOString(),
   })
 }

@@ -66,7 +66,6 @@ export const shareResource = async (
         webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
         authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
       },
-      status: 'pending',
       createdAt: new Date().toISOString(),
     })
   }

@@ -65,7 +65,6 @@ export class InvitationHandler extends OperationHttpHandler {
           peerId: invitedId,
           registrationId: socialAgentRegistration.id,
         },
-        status: 'pending',
         createdAt: new Date().toISOString(),
       })
     }

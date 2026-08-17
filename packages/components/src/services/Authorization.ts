@@ -370,7 +370,6 @@ export const recordAuthorization = async (
         type: [authorization.agentType],
       },
     },
-    status: 'pending',
     createdAt: new Date().toISOString(),
   })
   return response

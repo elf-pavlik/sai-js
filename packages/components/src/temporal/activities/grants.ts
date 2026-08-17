@@ -504,7 +504,7 @@ export interface GetPendingGranteeActivitiesInput {
 
 /**
  * The pending authorizationRecorded/authorizationRevoked activities targeting
- * the given grantee in the activity registry (status 'pending').
+ * the given grantee in the activity registry (not yet completed).
  */
 export async function getPendingGranteeActivities(
   payload: GetPendingGranteeActivitiesInput
@@ -514,10 +514,15 @@ export async function getPendingGranteeActivities(
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
   const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
-  const pending: ActivityData[] = []
+  // one pass: partition completions into a completed-set, keep typed work items
+  const workItems: ActivityData[] = []
+  const completed = new Set<string>()
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.factory)
-    if (activity.status !== 'pending') continue
+    if (activity.activityType === 'activityCompleted') {
+      completed.add(activity.target)
+      continue
+    }
     if (
       activity.activityType !== 'authorizationRecorded' &&
       activity.activityType !== 'authorizationRevoked'
@@ -526,16 +531,19 @@ export async function getPendingGranteeActivities(
     const grantee = (activity.payload as { authorizationGrantee?: { id: string } } | undefined)
       ?.authorizationGrantee
     if (!grantee || grantee.id !== payload.authorizationGrantee.id) continue
-    pending.push(activity)
+    workItems.push(activity)
   }
-  return pending
+  return workItems.filter((activity) => !completed.has(activity.id))
 }
 
 export interface GetPendingActivitiesInput {
   webId: SocialAgentId
 }
 
-/** All pending activities (any type) in the webId's activity registry. */
+/**
+ * All pending activities (any non-completion type, no completion referencing
+ * them) in the webId's activity registry.
+ */
 export async function getPendingActivities(
   payload: GetPendingActivitiesInput
 ): Promise<ActivityData[]> {
@@ -544,12 +552,18 @@ export async function getPendingActivities(
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
   const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
-  const pending: ActivityData[] = []
+  // one pass: partition completions into a completed-set, keep the rest
+  const workItems: ActivityData[] = []
+  const completed = new Set<string>()
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.factory)
-    if (activity.status === 'pending') pending.push(activity)
+    if (activity.activityType === 'activityCompleted') {
+      completed.add(activity.target)
+    } else {
+      workItems.push(activity)
+    }
   }
-  return pending
+  return workItems.filter((activity) => !completed.has(activity.id))
 }
 
 export interface MarkActivitiesDoneInput {
@@ -557,11 +571,13 @@ export interface MarkActivitiesDoneInput {
   activities: ActivityData[]
 }
 
-/** Mark the given activities 'done' (single SPARQL PATCH each). */
+/** Mark the given activities done (one minimal completion activity each). */
 export async function markActivitiesDone(payload: MarkActivitiesDoneInput): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
+  const registry = session.registrySet.hasActivityRegistry
+  if (!registry) return
   for (const activity of payload.activities) {
-    await ActivityRegistry.updateActivityStatus(activity.id, session.factory, 'done')
+    await ActivityRegistry.createCompletion(registry, session.factory, activity.id)
   }
 }

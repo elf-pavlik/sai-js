@@ -241,14 +241,17 @@ export async function processRoleDeletion(
 }
 
 /**
- * Reconciliation sweep (Phase 4.2): reprocess every pending activity in the
- * webId's Activity Registry — the correctness backstop for missed deliveries,
- * handler crashes and consumer failures (§6.11). Reuses the same routing as
- * the webhook handler: grantee activities join the per-grantee consumer
+ * Reconciliation sweep (Phase 4.2): reprocess every pending activity — a
+ * non-completion with no `activityCompleted` referencing it — in the webId's
+ * Activity Registry; the correctness backstop for missed deliveries, handler
+ * crashes and consumer failures (§6.11). Reuses the same routing as the
+ * webhook handler: grantee activities join the per-grantee consumer
  * (deterministic workflowId — a running consumer absorbs them), role
- * activities run their workflow and are marked done. Idempotent by
- * construction (full regeneration; re-patching 'done' is a no-op).
- * `agentRegistrationAdded` is skipped (accountId is not resolvable here).
+ * activities run their workflow and are marked done (one completion activity
+ * per entry; duplicate completions are accepted — completion is a container
+ * `Add`, so reprocessing an already-done activity is harmless). Idempotent by
+ * construction (full regeneration). `agentRegistrationAdded` is skipped
+ * (accountId is not resolvable here).
  */
 export async function reconcileActivities(payload: {
   webId: SocialAgentId

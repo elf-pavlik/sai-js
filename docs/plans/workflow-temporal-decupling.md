@@ -51,7 +51,7 @@ All grant workflows live in `packages/components/src/temporal/workflows/grants.t
 | `createGrantsForAuthorization` | Entry: resolves grantee (agent/role) via `getGrantees`, spawns `createGrantsForAgent` per resolved agent |
 | `createGrantsForAgent` | **Core, self-contained**: fetches all authorizations of the agent, generates all grants, `checkEquivalence` (dummy today — real reuse tracked in `check-equivalence.md`), stores new grants + ACRs, requests delegations, updates the registration (single PATCH) |
 | `processGranteeActivities` | **Per-target consumer** (§4.1): drains pending `authorizationRecorded`/`authorizationRevoked` activities for `(webId, grantee)`, coalesces bursts into one regeneration, marks them `done`; idle-waits for a signal before exiting |
-| `reconcileActivities` | **Reconciliation sweep** (§4.2): reprocesses every `pending` activity — grantee types join the consumer, role types run their workflow; role workflows mark their activity `done` via `activityIri` |
+| `reconcileActivities` | **Reconciliation sweep** (§4.2): reprocesses every `pending` activity — grantee types join the consumer, role types run their workflow; role workflows mark their activity `done` via a completion `activity` (`activityIri`) |
 | `processRoleMembershipChange` | Regenerates affected peers (role as grantee) ∪ grantees of authorizations using the role as dataOwner (`findRoleUsage`) |
 | `processRoleDeletion` | Scans usage **before** deletion, `deleteAuthorizations`, regenerates former members ∪ type-routed grantees |
 | `updateDelegatedGrants` | `findAffectedGrantees` → `createGrantsForAuthorization` per grantee |
@@ -89,7 +89,6 @@ today:
      "activityType": "authorizationRecorded",   // routes to the workflow
      "target": "<IRI of the changed record or container>",
      "payload": { "webId": { "id": "...", "type": ["interop:SocialAgent"] }, "authorizationGrantee": { "id": "...", "type": ["interop:Application"] } },
-     "status": "pending",
      "createdAt": "<ISO 8601>"
    }
    ```
@@ -506,11 +505,12 @@ Tests that don't assert workflow outcomes need no change (`delegation-endpoint`,
     - **Location:** the Activity Registry is a registry in the registry set
       (`interop:hasActivityRegistry <.../activity/>` in
       `environments/data/registry.trig`), an LDP container whose members are
-      activity resources (`activityType`, `target`, `payload`, `status`,
+      activity resources (`activityType`, `target`, `payload`,
       `createdAt`). Seeded at bootstrap with the container + ACR (main agent
       Control; admin agents Write; main agent Read). The consumer marks entries
-      done (PATCH status) or removes them after processing; the reconciliation
-      sweep reprocesses pending entries.
+      done (one minimal `activityCompleted` completion activity) or removes
+      them after processing; the reconciliation sweep reprocesses entries with
+      no completion.
     - **Caveat (non-atomic write):** the activity PUT is a separate HTTP request
       from the registry change — if the admin agent crashes between the two, the
       follow-up is lost. Mitigations: write the activity first, then the change
@@ -561,7 +561,7 @@ activity; only workflow outcomes move async.
 | Step | Change |
 |---|---|
 | 0.1 | **Single-PATCH registration update** (§4.0): add `replaceDataGrantsOnRegistration` (`diff → one SPARQL PATCH`) next to `addDataGrant`/`removeAllDataGrants` in `packages/data-model/src/crud/agent-registration.ts`; `createGrantsForAgent` calls it once (deny case with `[]`); drop `clear`/`setDataGrantsOnRegistration` calls **and remove those two activities** (only `createGrantsForAgent` used them) |
-| 0.2 | **`ActivityRegistry` crud module** in `packages/data-model`: `ActivityData` type (`activityType`, `target`, `payload`, `status`, `createdAt`), `iriForContained`, `createContainer` (mirroring `grant-registry.ts`) |
+| 0.2 | **`ActivityRegistry` crud module** in `packages/data-model`: `ActivityData` type (`activityType`, `target`, `payload`, `createdAt`), `iriForContained`, `createContainer` (mirroring `grant-registry.ts`) |
 | 0.3 | **Seed** the Activity Registry: `interop:hasActivityRegistry <.../activity/>` in `environments/data/registry.trig` + container ACR (admin agents Write, main agent Control/Read) — inert until a producer writes to it |
 | 0.4 | **Test helpers** in `test/util.ts`: split `receivesNotification` into `openNotificationStream(authFetch, resourceId)` (open + discard initial snapshot) and `awaitNotification(stream, type)` (listen-first pattern, §5); add `waitFor(predicate, {timeout, interval})` poll fallback |
 
@@ -702,7 +702,7 @@ in production; deterministic only in the dev/test pre-seed.
 | Step | Change | Why tests stay green |
 |---|---|---|
 | 4.1 | **Per-target consumer workflows**: deterministic `workflowId` per `(webId, target)`; drain + coalesce bursts of `authorizationRecorded`/`authorizationRevoked` for the same grantee into one `createGrantsForAgent` run (§6.4/6.11) | Full regeneration is idempotent — same end-state; tests await the registration `Update`, not the number of workflows |
-| 4.2 | **Reconciliation sweep** ✅: `reconcileActivities` workflow (on-demand) reprocesses every `pending` activity — grantee types join the per-grantee consumer (deterministic `workflowId`; running consumers absorb them), role types run their workflow and are marked done; role workflows now mark their triggering activity done via `activityIri`. Test: `reconciliation.test.ts` (acme has no webhook channel → activity stays strictly `pending` → sweep → `done` + grants regenerated). `agentRegistrationAdded` skipped (accountId not resolvable in the sweep); a periodic/startup schedule belongs to Phase 3 |
+| 4.2 | **Reconciliation sweep** ✅: `reconcileActivities` workflow (on-demand) reprocesses every `pending` activity (no completion referencing it) — grantee types join the per-grantee consumer (deterministic `workflowId`; running consumers absorb them), role types run their workflow and are marked done; role workflows now mark their triggering activity done via a completion (activityIri). Test: `reconciliation.test.ts` (acme has no webhook channel → activity stays unprocessed → sweep → completion `Add` + grants regenerated). `agentRegistrationAdded` skipped (accountId not resolvable in the sweep); a periodic/startup schedule belongs to Phase 3 |
 | 4.3 | **Durable webhook delivery** — extracted to [`durable-webhook-delivery.md`](durable-webhook-delivery.md): `DurableWebhookEmitter` (registry + data servers) enqueues a `deliverWebhook` workflow; activity POSTs with bounded retry; 4xx non-retryable (§6.9) | Tests still pass: `reciprocal-webhook.test.ts` POSTs directly; activity tests await the registration `Update` (delivery latency grows by a workflow start) |
 | 4.4 | **`authorizationRevoked` support** — extracted to [`authorization-revoked.md`](authorization-revoked.md) (tracked there now): routing already exists; `recordAuthorization` writes the typed activity (`authorizationRevoked` for deny) | Mirrors `authorizationRecorded` — same test pattern; extend the deny test to assert the activity type |
 | 4.5 | **Real `checkEquivalence`** — extracted to [`check-equivalence.md`](check-equivalence.md) (tracked there now; was the future step of `refactor-grants-workflows.md`): reuse equivalent existing grants (field comparison incl. child trees; `delegationOfGrant` excluded for delegated grants); workflow already wired | Dummy → real is outcome-neutral; new test asserts reuse (no new grant IRI on unchanged re-run) |

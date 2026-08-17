@@ -16,7 +16,7 @@ describe('reconciliation sweep', () => {
     const acmeSession = await manager.getSession(acmeId)
 
     // acme has NO pre-seeded activity-webhook channel → CSS never delivers →
-    // the activity stays pending until the sweep processes it
+    // the activity stays unprocessed until the sweep processes it
     const registry = acmeSession.registrySet.hasActivityRegistry!
     const activity = await ActivityRegistry.createActivity(registry, acmeSession.factory, {
       activityType: 'authorizationRecorded',
@@ -25,13 +25,8 @@ describe('reconciliation sweep', () => {
         webId: { id: acmeId, type: [INTEROP.SocialAgent] },
         authorizationGrantee: { id: aliceId, type: [INTEROP.SocialAgent] },
       },
-      status: 'pending',
       createdAt: new Date().toISOString(),
     })
-    expect(activity.status).toBe('pending')
-    expect((await ActivityRegistry.loadActivity(activity.id, acmeSession.factory)).status).toBe(
-      'pending'
-    )
 
     // run the sweep (executed by workflow type name — registered on the worker)
     const connection = await Connection.connect({
@@ -44,11 +39,12 @@ describe('reconciliation sweep', () => {
       workflowId: 'reconciliation-test',
     })
 
-    // the consumer drained it: activity marked done, alice's grants regenerated
+    // the consumer drained it: a completion referencing the activity exists,
+    // and alice's grants regenerated
     await waitFor(
       async () => {
-        const loaded = await ActivityRegistry.loadActivity(activity.id, acmeSession.factory)
-        return loaded.status === 'done'
+        const completed = await ActivityRegistry.getCompletedActivityIris(registry, acmeSession.factory)
+        return completed.includes(activity.id)
       },
       { timeout: 30_000 }
     )

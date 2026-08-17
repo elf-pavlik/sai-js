@@ -1,10 +1,8 @@
 import {
   INTEROP,
   RDF,
-  deletePatch,
   fetchJsonLd,
   frameDoc,
-  insertPatch,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -12,7 +10,6 @@ import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext, linkedIrisJsonLd } from '../context'
 import {
-  applyPatch,
   iriForContained as containerIriForContained,
   createContainer,
 } from './container'
@@ -38,8 +35,6 @@ export type ActivityData = {
   target: string
   /** ready-made workflow input the producer builds at write time */
   payload: unknown
-  /** 'pending' until the consumer processes it, then 'done' (or removed) */
-  status: string
   createdAt: string
 }
 
@@ -107,33 +102,48 @@ export async function loadActivity(
     activityType: node.activityType,
     target: node.target,
     payload: node.payload ? JSON.parse(node.payload) : undefined,
-    status: node.status,
     createdAt: node.createdAt,
   }
 }
 
 /**
- * Set the status of an activity resource (single SPARQL PATCH replacing the
- * current status literal). Used by the per-target consumer to mark processed
- * entries 'done'.
+ * Record the completion of an activity: PUT a minimal `activityCompleted`
+ * activity whose `target` is the completed activity's IRI. Activity resources
+ * are never mutated — 'done' is represented by the existence of a completion,
+ * not by a status change. Uses a random IRI like any other activity; duplicate
+ * completions (concurrent completers) are accepted for now.
  */
-export async function updateActivityStatus(
-  iri: string,
+export async function createCompletion(
+  data: ActivityRegistryData,
   factory: AuthorizationAgentFactory,
-  status: string
+  completedIri: string
 ): Promise<void> {
-  const current = await loadActivity(iri, factory)
-  const node = DataFactory.namedNode(iri)
-  const sparqlUpdate = [
-    await deletePatch(
-      new Store([
-        DataFactory.quad(node, INTEROP.terms.status, DataFactory.literal(current.status)),
-      ])
-    ),
-    await insertPatch(
-      new Store([DataFactory.quad(node, INTEROP.terms.status, DataFactory.literal(status))])
-    ),
-  ].join(';')
-  // patch the activity resource directly (it is its own description resource)
-  await applyPatch(iri, factory, sparqlUpdate, iri)
+  const iri = iriForContained(data, factory)
+  const doc = withContext(dataModelContext, {
+    id: iri,
+    type: [INTEROP.Activity],
+    activityType: 'activityCompleted',
+    target: completedIri,
+    createdAt: new Date().toISOString(),
+  })
+  await putJsonLd(iri, factory.fetch, doc, { 'If-None-Match': '*' })
+}
+
+/**
+ * IRIs of all completed activities — the `target`s of every `activityCompleted`
+ * activity in the registry. Completions are terminal and never reference each
+ * other, so no transitive closure is needed. (One load per activity; used by the
+ * pending filters and by tests.)
+ */
+export async function getCompletedActivityIris(
+  data: ActivityRegistryData,
+  factory: AuthorizationAgentFactory
+): Promise<string[]> {
+  const iris = await getActivityIris(data, factory)
+  const completed: string[] = []
+  for (const iri of iris) {
+    const activity = await loadActivity(iri, factory)
+    if (activity.activityType === 'activityCompleted') completed.push(activity.target)
+  }
+  return completed
 }

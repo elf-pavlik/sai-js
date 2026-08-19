@@ -121,6 +121,10 @@
   "expires": "3026-01-08T18:05:16.680Z",
   "payload": "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
  },
+ "accounts/cookies/a1b9f0e2-3c4d-4e5f-8a7b-0c9d1e2f3a4b": {
+  "expires": "3026-01-08T18:05:16.680Z",
+  "payload": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+},
  "accounts/data/281efdff-8a0a-4f57-b058-250717899fae": {
   "linkedLoginsCount": 1,
   "id": "281efdff-8a0a-4f57-b058-250717899fae",

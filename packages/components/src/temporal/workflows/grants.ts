@@ -6,7 +6,13 @@ import type {
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/common'
-import { condition, defineSignal, executeChild, proxyActivities, setHandler } from '@temporalio/workflow'
+import {
+  condition,
+  defineSignal,
+  executeChild,
+  proxyActivities,
+  setHandler,
+} from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
@@ -26,7 +32,9 @@ const {
   findRoleUsage,
   storeDataGrant,
   createAcr,
+  removeDataGrantsFromRegistration,
   requestDelegation,
+  requestGrantRevocation,
   replaceDataGrantsOnRegistration,
   getPendingGranteeActivities,
   getPendingActivities,
@@ -46,6 +54,20 @@ export async function storeGrant(payload: FinalGrantData[]): Promise<void> {
   for (const grant of payload) {
     await storeGrantAndAcr(grant)
   }
+}
+
+/**
+ * Revoke grants in the data owner's registry: delete the given grant resources
+ * (the listed grants plus their inheriting children — the dependent closure is
+ * computed by the revocation handler) with the data owner's own session.
+ * Mirrors `storeGrant`: the worker performs the writes, so the deletes get
+ * Temporal activity-retry semantics. Idempotent — 404 is tolerated.
+ */
+export async function revokeGrants(payload: {
+  webId: SocialAgentId
+  grants: GrantId[]
+}): Promise<void> {
+  await deleteDataGrants(payload)
 }
 
 /**
@@ -143,6 +165,35 @@ export async function updateDelegatedGrants(
       })
     )
   )
+  if (payload.activityIri) {
+    await markActivitiesDone({
+      webId: payload.webId,
+      activities: [{ id: payload.activityIri }] as ActivityData[],
+    })
+  }
+}
+
+/**
+ * Requester hop (grantor-side, §5 System 1): POST the AccessRevocation to the
+ * data owner's delegation endpoint, then on success clear the grantor's
+ * registration projection (`hasDataGrant`) for the revoked grants, then mark
+ * the triggering activity done. The data owner's handler removes the listed
+ * grants plus their inheriting children; the response echo drives the link
+ * cleanup here.
+ */
+export async function processGrantsRevocation(
+  payload: activities.ProcessGrantsRevocationInput
+): Promise<void> {
+  await requestGrantRevocation({
+    webId: payload.webId,
+    dataOwner: payload.dataOwner,
+    grants: payload.grants,
+  })
+  await removeDataGrantsFromRegistration({
+    webId: payload.webId,
+    grantee: payload.grantee,
+    grants: payload.grants,
+  })
   if (payload.activityIri) {
     await markActivitiesDone({
       webId: payload.webId,
@@ -284,6 +335,11 @@ export async function reconcileActivities(payload: {
     } else if (activity.activityType === 'delegatedGrantsUpdated') {
       await executeChild(updateDelegatedGrants, {
         args: [activity.payload as activities.FindAffectedAuthorizationsInput],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (activity.activityType === 'grantsRevoked') {
+      await executeChild(processGrantsRevocation, {
+        args: [activity.payload as activities.ProcessGrantsRevocationInput],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }

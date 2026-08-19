@@ -190,7 +190,8 @@
         "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" },
         "uiPushSubscriptionStore": { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "accountService": { "@id": "urn:sai:default:AccountService" }
+        "accountService": { "@id": "urn:sai:default:AccountService" },
+        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
       }
     },
     {

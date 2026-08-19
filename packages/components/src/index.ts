@@ -19,6 +19,7 @@ export * from './AdminPermissionReader.js'
 export * from './HybridDataAccessor.js'
 export * from './S3DataAccessor.js'
 export * from './GrantIssuanceHandler.js'
+export * from './GrantRevocationHandler.js'
 export * from './vocabularies.js'
 
 export * from './util/uriTemplates.js'

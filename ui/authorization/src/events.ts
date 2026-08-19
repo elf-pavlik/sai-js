@@ -78,6 +78,7 @@ function handleActivity(activity: ActivityEvent) {
       appStore.listSocialAgentInvitations(true)
       break
     case 'delegatedGrantsUpdated':
+    case 'grantsRevoked':
       appStore.listSocialAgents(true)
       break
   }

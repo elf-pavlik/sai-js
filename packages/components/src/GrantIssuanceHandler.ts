@@ -1,6 +1,7 @@
 import {
   AccessRequest,
   type AccessRequestMessage,
+  AccessRevocation,
   type FinalGrantData,
   GrantRegistry,
   type IncomingGrantData,
@@ -23,6 +24,7 @@ import type {
 } from '@solid/community-server'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
+import { GrantRevocationHandler } from './GrantRevocationHandler.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
@@ -52,7 +54,22 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       throw new ForbiddenHttpError()
     }
 
+    // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
+    if (AccessRevocation.isAccessRevocationMessage(message)) {
+      return new GrantRevocationHandler(this.sparqlEndpoint).revoke(message, credentials, operation)
+    }
+    if (!AccessRequest.isAccessRequestMessage(message)) {
+      throw new BadRequestHttpError('invalid delegation message')
+    }
+    return this.issue(message, credentials, operation)
+  }
+
+  private async issue(
+    message: AccessRequestMessage,
+    credentials: Awaited<ReturnType<CredentialsExtractor['handleSafe']>>,
+    operation: OperationHttpHandlerInput['operation']
+  ): Promise<ResponseDescription> {
     const { grants } = message
     if (grants.length === 0) {
       throw new BadRequestHttpError('AccessRequest requires at least one grant')
@@ -106,22 +123,17 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
   }
 
   /**
-   * Parse the request body as an `interop:AccessRequest` envelope. Any other
-   * message type is rejected (the delegation endpoint dispatches on `type`).
+   * Parse the request body as JSON. The delegation endpoint dispatches on the
+   * message `type` (AccessRequest → issuance, AccessRevocation → revocation).
    */
-  private async parseMessage(
-    operation: OperationHttpHandlerInput['operation']
-  ): Promise<AccessRequestMessage> {
+  private async parseMessage(operation: OperationHttpHandlerInput['operation']): Promise<unknown> {
     let message: unknown
     try {
       message = JSON.parse(await readableToString(operation.body.data))
     } catch (err) {
       throw new BadRequestHttpError(err.message)
     }
-    if (AccessRequest.isAccessRequestMessage(message)) {
-      return message
-    }
-    throw new BadRequestHttpError('invalid AccessRequest message')
+    return message
   }
 
   private buildInheritingGrant(

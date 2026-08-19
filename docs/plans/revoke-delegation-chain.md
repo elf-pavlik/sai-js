@@ -1,18 +1,22 @@
 # Revocation of a delegation chain at the data-owner boundary
 
-> **Status:** design doc — the **first-cut implementation slice is pinned**
-> (contract, authority, atomicity, requester hop; TODOs tracked in §9).
+> **Status:** the **first-cut implementation slice has landed** — §10 steps
+> 1–5 are implemented (contract, authority, atomicity, requester hop,
+> data-owner UI RPC); remaining follow-up work is tracked in
+> [`revoke-delegation-chain-follow-ups.md`](revoke-delegation-chain-follow-ups.md).
 > Builds on the delegation model in
 > `refactor-grants-workflows.md` (delegated grants, commented-out DELETEs —
 > design decision 3) and on [`authorization-revoked.md`](authorization-revoked.md)
 > (typed producer activity). Replaces direct cross-peer DELETE of grant
 > resources with a **revocation operation at the delegation issuance boundary**
-> and **removes the `delegationOfGrant` link** in favor of match-based chain
-> validity.
+> and **replaces the `delegationOfGrant` link with match-based chain validity**
+> (the now-vestigial link's removal is
+> [follow-up 7](revoke-delegation-chain-follow-ups.md#7-drop-the-vestigial-delegationofgrant)).
 
 > **First cut** (§3, §5, §6): revocation deletes the **listed grants plus their
 > inheriting children** (one level, recursive-ready) only; full dependent-chain
-> calculation (the §2 predicate over D's SPARQL endpoint) is a tracked TODO.
+> calculation (the §2 predicate over D's SPARQL endpoint) is a tracked
+> follow-up ([item 1](revoke-delegation-chain-follow-ups.md#1-full-dependent-chain-calculation)).
 
 ## 1. Problem
 
@@ -99,7 +103,8 @@ request's `grants` on success, so the response is a confirmation echo.
 any grant is created or deleted**: every listed grant is loaded from D's
 registry — SPARQL via `SparqlEndpointFetcher`, exactly as in
 `SaiPermissionsEngine` — and authority-checked; if any check fails, nothing is
-mutated and the request fails (exact error-detail schema — TODO). This applies
+mutated and the request fails (exact error-detail schema —
+   [follow-up 6](revoke-delegation-chain-follow-ups.md#6-revocation-error-detail-schema)). This applies
 symmetrically to `AccessRequest` issuance (validate all grants before creating
 any; all entries must share the endpoint's `dataOwner`).
 
@@ -108,14 +113,16 @@ any; all entries must share the endpoint's `dataOwner`).
   that grant (mirror of the `GrantIssuanceHandler` client-identity check);
 - the requester is the **data owner** → may revoke any grant in its own
   registry; exposed to its own UI via an RPC path (§6).
-- Grantee self-revocation — TODO.
+- Grantee self-revocation —
+  [follow-up 5](revoke-delegation-chain-follow-ups.md#5-grantee-self-revocation).
 
 **Deletion.** After validation, DELETE the listed grants **plus their
 inheriting children** (`?child interop:inheritsFromGrant ?parent`, fixpoint
 loop over D's SPARQL endpoint — one level today, written recursive-ready)
 **with D's own session** (owner rights — no ACR/403 problem). The full
 dependent-chain calculation (§2 predicate) and the replace-vs-delete race are
-TODOs for a follow-up slice. Idempotent: revoking an already-removed grant is a
+[follow-ups 1/3](revoke-delegation-chain-follow-ups.md). Idempotent: revoking
+an already-removed grant is a
 no-op success — its id is still echoed in the response.
 
 ## 4. Trigger integration (grantor-side)
@@ -135,8 +142,9 @@ HTTP-DELETE of grant resources is **internal to the data owner's revocation
 handler only**; no peer ever DELETEs in another peer's registry.
 
 **First cut:** the grantor asks for revocation with the entry-point grant IRIs
-only; the semantic-delta derivation (reuse vs. re-issue) is a follow-up tied to
-the chain calculation and replace-vs-delete race TODOs.
+only; the semantic-delta derivation (reuse vs. re-issue) is the follow-up
+plan's [trigger integration](revoke-delegation-chain-follow-ups.md#4-trigger-integration--grantor-regeneration-requests-revocation),
+tied to the chain calculation and replace-vs-delete race items.
 
 ## 5. Propagation down the chain — two complementary systems
 
@@ -165,7 +173,8 @@ replacement needs none (§2).
 Property: the requester hop is deterministic; **every downstream hop depends on
 reciprocal-webhook polarity**. That dependence is what System 2 absorbs.
 Downstream hops (step 3 onward) rely on the §2 predicate, so in the first cut
-propagation beyond the requester hop is a follow-up.
+propagation beyond the requester hop is a follow-up (items 1/8/9 of the
+[follow-ups plan](revoke-delegation-chain-follow-ups.md)).
 
 ### System 2 — recurring reconciliation job per authorization agent
 
@@ -194,17 +203,23 @@ one) that re-derives each grantee's delegation projection.
 
 ## 6. Data-owner-initiated root revocation
 
-D revoking its direct peer A is the **same operation, locally triggered**: D
-revokes source grants (RPC path from D's own UI — precedent:
-`recordAuthorization`'s deny RPC in `authorization-revoked.md`; the handler
-takes the same boundary code path), deletes them + their inheriting children
-with D's own session, and D clears its own registration of A. Enforcement is
-thereby fixed for the whole chain regardless of propagation. In the first cut
-the fixpoint removes **listed + inheriting grants only**; full dependent-
-subchain removal arrives with the chain calculation (§2, TODO). Optionally D
-writes an observability activity into its own outbox (`delegationRevoked`) so
-its UI gets a `done` event — precedent: `ReciprocalWebhookHandler` already
-writes peer-driven activities into its own outbox.
+D revoking its direct peer A is the **same operation, locally triggered**: the
+`RevokeGrants` RPC (D's own UI — precedent: `recordAuthorization`'s deny RPC in
+`authorization-revoked.md`) feeds the same `GrantRevocationHandler.revokeGrants`
+core as the delegation endpoint (owner branch via the session's webId = D): it
+validates all-or-nothing and deletes the listed grants + their inheriting
+children with D's own session. The RPC service then clears D's own
+registration of the grantee — derived **per grant** from `grantedBy == D`
+(source grants only; a directly-revoked delegated grant has no registration
+link in D's registry — its grantor's projection is fixed by the requester hop /
+sweep). Enforcement is thereby fixed for the whole chain regardless of
+propagation. In the first cut the fixpoint removes **listed + inheriting
+grants only**; full dependent-subchain removal arrives with the chain
+calculation (§2, [follow-up 1](revoke-delegation-chain-follow-ups.md#1-full-dependent-chain-calculation)).
+The `grantsRevoked` observability activity in D's
+outbox is deliberately **not written**: the RPC response is the synchronous UI
+signal, and writing the activity would re-trigger D's own
+`ActivityWebhookHandler` → requester-hop workflow for a from-D-to-D no-op.
 
 ## 7. Observability / state machine
 
@@ -212,7 +227,7 @@ writes peer-driven activities into its own outbox.
   activity `pending` → workflow POSTs revocation + clears links →
   `markActivitiesDone` → UI `done` event (peer.md arc).
 - D's handler may record a completion/observability activity (per §6).
-- UI refresh mapping additions: a `delegationRevoked`-type `done` event maps to
+- UI refresh mapping additions: a `grantsRevoked`-type `done` event maps to
   `listSocialAgents` (+ applications), same as `delegatedGrantsUpdated`.
 
 ## 8. Design decisions
@@ -252,7 +267,7 @@ writes peer-driven activities into its own outbox.
     then mutated; any failure → no mutation.
 11. **Requester classes (first cut):** the grantor (`grantedBy` match,
     per-grant check) and the data owner (any grant in its registry, UI RPC
-    path). Grantee self-revocation — TODO.
+    path). Grantee self-revocation — [follow-up 5](revoke-delegation-chain-follow-ups.md#5-grantee-self-revocation).
 12. **Requester hop (in scope):** on success, the grantor writes a `pending`
     activity to its activity registry and runs a workflow clearing
     `hasDataGrant` (`replaceDataGrantsOnRegistration`), then
@@ -270,7 +285,7 @@ writes peer-driven activities into its own outbox.
     protocol but ACR-enforced: a grantor literally cannot DELETE a grant
     resource.
 
-## 9. Resolved & TODO
+## 9. Resolved & follow-ups
 
 **Pinned in this plan:**
 
@@ -292,31 +307,35 @@ writes peer-driven activities into its own outbox.
   grant resources is ACR-blocked; the owner's revocation handler is the only
   delete path.
 
-**TODOs (follow-up slices, tracked):**
+**Follow-ups (tracked as shippable slices in
+[`revoke-delegation-chain-follow-ups.md`](revoke-delegation-chain-follow-ups.md)):**
 
-- Full dependent-chain calculation (the §2 validity predicate, generalized to
-  recursive reachability over D's SPARQL endpoint) — the first cut revokes
-  listed + inheriting grants only.
-- Scope-coverage ordering formalization (`All` ⊃ `AllFromRegistry` ⊃
-  `SelectedFromRegistry`, `Inherited` as child scope) and mode coverage
-  per-mode vs. per-grant — required by the predicate and semantic-delta reuse.
-- Replace-vs-delete race: the old grant must leave D's registry when its
-  replacement is created (ordering/failure handling so enforcement never sees
-  both, or sees neither).
-- Grantee self-revocation ("remove my own access"): authority branch + UI
-  affordance.
-- Revocation error-detail schema for the all-or-nothing failure response.
-- Validate-request shape/rate for the System 2 sweep (per-grant validation
-  against D vs. pure projection re-derivation).
-- `reconcileActivities` scheduling (interval, backoff on D-unreachable,
-  per-account fan-out) — assumed by System 2, out of scope here.
+1. Full dependent-chain calculation (§2 predicate, recursive reachability over
+   D's SPARQL endpoint) — the first cut revokes listed + inheriting grants only.
+2. Scope-coverage ordering formalization and mode coverage per-mode vs.
+   per-grant — required by the predicate and semantic-delta reuse.
+3. Replace-vs-delete race (order delete-old/create-new so enforcement never
+   sees both, or neither).
+4. Trigger integration — grantor regeneration derives the semantic delta and
+   requests revocation; the `grantsRevoked` producer (currently none).
+5. Grantee self-revocation ("remove my own access"): authority branch + UI
+   affordance.
+6. Revocation error-detail schema for the all-or-nothing failure response.
+7. Drop the vestigial `delegationOfGrant` (DD3): model, generation, context,
+   framing tests, and persisted/seed triples.
+8. Validate-request shape/rate for the System 2 sweep (per-grant validation
+   against D vs. pure projection re-derivation).
+9. `reconcileActivities` scheduling (interval, backoff on D-unreachable,
+   per-account fan-out) — assumed by System 2, out of scope here.
 
 ## 10. Execution steps — each step leaves the repo green
 
 Every step below is a shippable checkpoint: code builds and **all tests pass**
 after each one. Steps 2 → 3 must land in order (the `type` dispatch built in
 Step 2 is reused by Step 3); steps 4 and 5 depend only on Step 3 and can be
-swapped or parallelized. No §9 TODO blocks any step.
+swapped or parallelized. No follow-up item (see
+[`revoke-delegation-chain-follow-ups.md`](revoke-delegation-chain-follow-ups.md))
+blocks any step.
 
 1. **Vocabulary + message models (pure additive).** Add `AccessRequest` /
    `AccessRevocation` to **both** `packages/utils/src/namespaces.ts` and
@@ -325,7 +344,8 @@ swapped or parallelized. No §9 TODO blocks any step.
    `grant.ts`, exported from index), moving the `IncomingGrantData` (embedded
    inheriting children) shape out of `test/delegation-endpoint.test.ts` into
    the model. **Green:** new terms/types only — zero behavior change; add
-   model unit/framing tests.
+   model unit/framing tests. **Status: landed** in the "access grant revocation"
+   commits.
 2. **`AccessRequest` envelope on issuance (coordinated break).** Dispatch the
    delegation endpoint on message `type`; `GrantIssuanceHandler` parses
    `{type, grants: […]}` instead of raw GrantData. Multi-grant all-or-nothing:
@@ -333,7 +353,8 @@ swapped or parallelized. No §9 TODO blocks any step.
    upstream SPARQL), then create all. **Green:** handler + envelope + tests
    change together — the break is contained to the handler and
    `test/delegation-endpoint.test.ts`; add single-grant, multi-grant, and
-   wrong-`dataOwner`-fails-all tests.
+   wrong-`dataOwner`-fails-all tests. **Status: landed** in the "access grant
+   revocation - refactor issuance" commit.
 3. **`AccessRevocation` handler (the core cut).** Dispatch on `AccessRevocation`;
    SPARQL-load each listed grant (`SparqlEndpointFetcher`, as in
    `SaiPermissionsEngine`); per-grant `grantedBy` authority check + data-owner
@@ -347,15 +368,31 @@ swapped or parallelized. No §9 TODO blocks any step.
    additive handler + tests — issue→revoke→registry empty + echo; re-revoke
    idempotent; unauthorized grantor fails with no mutation; inheriting
    children removed; issuing a delegated grant yields a read-only-for-grantor
-   ACR.
+   ACR. **Status: landed** in the "access grant revocation" commit.
 4. **Requester hop (grantor-side).** Workflow: `pending` activity → POST
    `AccessRevocation` → on success clear `hasDataGrant` (reuse
    `replaceDataGrantsOnRegistration` / `removeDataGrants`) →
-   `markActivitiesDone`; `delegationRevoked` done-event → `listSocialAgents`
+   `markActivitiesDone`; `grantsRevoked` done-event → `listSocialAgents`
    refresh mapping. **Green:** new workflow + tests only (activity
-   pending→done, registration link cleared).
+   pending→done, registration link cleared). **Status: landed** in the "access
+   grant revocation" commit (consumption side; the §4 producing trigger remains
+   [follow-up 4](revoke-delegation-chain-follow-ups.md#4-trigger-integration--grantor-regeneration-requests-revocation)
+   — no producer writes `grantsRevoked` yet).
 5. **Data-owner UI RPC + observability.** RPC path for D's own UI (deny-RPC
    precedent in `authorization-revoked.md`) hitting the same handler code path,
-   plus D clearing its own registration; optional `delegationRevoked`
+   plus D clearing its own registration; optional `grantsRevoked`
    observability activity in D's outbox. **Green:** additive RPC + tests (owner
-   revokes, registry + own registration cleaned).
+   revokes, registry + own registration cleaned). **Status: landed.**
+   **Landed as:** `RevokeGrants` RPC (`packages/api-messages/src/effect.ts`;
+   `grants: IRI[]` in, echo out) served by `ApiHandler` (new `sparqlEndpoint`
+   ctor param, wired in `config/http/handler/default.json` — the same variable
+   `GrantIssuanceHandler` uses, no new env vars) and implemented in
+   `services/Revocation.ts`, which reuses the endpoint's same code path
+   (`GrantRevocationHandler.revokeGrants` — validate-all-first, per-grant
+   authority, fixpoint closure) and then clears D's own `hasDataGrant` for the
+   removed **closure** where `grantedBy == D`, grouped by grantee. The optional
+   `grantsRevoked` observability activity is deliberately not written (§6).
+   Tests: `test/revocation-rpc.test.ts` (owner revokes → registry + own
+   registration cleaned; idempotent echo; mixed existing/removed echo) — acme
+   account cookie added to `environments/data/kv.json` (the RPC needs a
+   data-owner session cookie; the seed only had alice/bob/dan).

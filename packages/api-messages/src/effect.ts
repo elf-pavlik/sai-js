@@ -425,6 +425,14 @@ export class AuthorizeApp extends S.TaggedRequest<AuthorizeApp>()('AuthorizeApp'
   },
 }) {}
 
+export class RevokeGrants extends S.TaggedRequest<RevokeGrants>()('RevokeGrants', {
+  failure: S.Never,
+  success: S.Array(IRI),
+  payload: {
+    grants: S.Array(IRI),
+  },
+}) {}
+
 export class SaiService extends Context.Tag('SaiService')<
   SaiService,
   {
@@ -487,6 +495,9 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly authorizeApp: (
       authorization: S.Schema.Type<typeof Authorization>
     ) => Effect.Effect<S.Schema.Type<typeof AccessAuthorization>>
+    readonly revokeGrants: (
+      grants: readonly S.Schema.Type<typeof IRI>[]
+    ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
   }
 >() {}
 
@@ -615,6 +626,12 @@ export const router = RpcRouter.make(
     Effect.gen(function* () {
       const saiService = yield* SaiService
       return yield* saiService.authorizeApp(authorization)
+    })
+  ),
+  Rpc.effect(RevokeGrants, ({ grants }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.revokeGrants(grants)
     })
   )
 )

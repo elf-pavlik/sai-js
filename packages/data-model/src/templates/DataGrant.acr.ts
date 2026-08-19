@@ -47,7 +47,7 @@ export const dataGrantTemplate = ({
         a acp:AccessControl;
         acp:apply [
           a acp:Policy;
-          acp:allow acl:Read, acl:Write;
+          acp:allow acl:Read;
           acp:anyOf [
             a acp:Matcher;
             acp:agent <${grantor.agent}>;

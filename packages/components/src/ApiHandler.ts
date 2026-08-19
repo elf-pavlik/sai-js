@@ -28,6 +28,7 @@ import {
 } from './services/AgentRegistry.js'
 import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
+import { revokeGrants } from './services/Revocation.js'
 import { createRole, deleteRole, getRoles, updateRole } from './services/RoleRegistry.js'
 import {
   getResource,
@@ -42,7 +43,8 @@ export class ApiHandler extends OperationHttpHandler {
     private readonly webIdStore: WebIdStore,
     private readonly uiPushSubscriptionStore: UiPushSubscriptionStore,
     private readonly sessionManager: SessionManager,
-    private readonly accountService: AccountService
+    private readonly accountService: AccountService,
+    private readonly sparqlEndpoint: string
   ) {
     super()
   }
@@ -98,6 +100,8 @@ export class ApiHandler extends OperationHttpHandler {
           ),
         authorizeApp: (authorization) =>
           Effect.promise(() => recordAuthorization(session, authorization)),
+        revokeGrants: (grants) =>
+          Effect.promise(() => revokeGrants(session, this.sparqlEndpoint, grants)),
         registerPushSubscription: (subscription: PushSubscription) =>
           Effect.promise(() =>
             this.uiPushSubscriptionStore.create(session.webId, accountId, subscription)

@@ -1,12 +1,22 @@
-import { ACL, INTEROP, buildOidcSession, issuanceUrl } from '@elfpavlik/sai-components'
+import {
+  ACL,
+  INTEROP,
+  buildOidcSession,
+  buildSessionManager,
+  issuanceUrl,
+} from '@elfpavlik/sai-components'
+import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
 import { LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
+import { waitFor } from './util'
 import { SOLIDTREES } from './vocabularies'
 
 const bobId = 'https://id/bob'
+const aliceId = 'https://id/alice'
 const acmeId = 'https://id/acme'
 const testClient = 'https://data/test-client/public/id'
+const APPLICATION_TYPE = 'http://www.w3.org/ns/solid/interop#Application'
 const grantRegistry = 'https://registry/acme/grant/'
 // seeded in environments/data/registry.trig
 const seededGrantCount = 10
@@ -65,6 +75,154 @@ async function countGrants(): Promise<number> {
   const dataset = await parseTurtle(await response.text())
   return Array.from(dataset).filter((quad) => quad.predicate.value === LDP.contains).length
 }
+
+const revocationPayload = (grants: string[]): string =>
+  JSON.stringify({ type: [INTEROP.AccessRevocation], grants })
+
+async function issueProjectsGrant(): Promise<string[]> {
+  const session = await buildOidcSession(bobId)
+  const response = await session.authFetch(issuanceUrl(acmeId), {
+    method: 'POST',
+    body: issuancePayload([projectsGrantData]),
+  })
+  expect(response.status).toBe(200)
+  return (await response.json()) as string[]
+}
+
+describe('DelegationRevocationEndpoint', () => {
+  test('revokes a listed grant and its inheriting child', async (): Promise<void> => {
+    const ids = await issueProjectsGrant()
+    const [parentId, childId] = ids
+
+    // a grantor cannot DELETE grant resources directly (DD14 — read-only ACR)
+    const bobSession = await buildOidcSession(bobId)
+    const directDelete = await bobSession.authFetch(childId, { method: 'DELETE' })
+    expect(directDelete.status).toBe(403)
+
+    const session = await buildOidcSession(bobId)
+    const response = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      body: revocationPayload([parentId]),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual([parentId])
+
+    // the child dies with its parent — the registry is back to the seed
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
+  test('re-revoking an already-removed grant is an idempotent echo', async (): Promise<void> => {
+    const ids = await issueProjectsGrant()
+    const [parentId] = ids
+    const session = await buildOidcSession(bobId)
+
+    const first = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      body: revocationPayload([parentId]),
+    })
+    expect(first.status).toBe(200)
+    expect(await first.json()).toEqual([parentId])
+
+    const second = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      body: revocationPayload([parentId]),
+    })
+    expect(second.status).toBe(200)
+    expect(await second.json()).toEqual([parentId])
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
+  test('mixed existing and already-removed grants echoes both and removes the existing', async (): Promise<void> => {
+    const ids = await issueProjectsGrant()
+    const [parentId] = ids
+
+    const session = await buildOidcSession(bobId)
+    const response = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      body: revocationPayload([parentId, 'https://registry/acme/grant/does-not-exist']),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual([parentId, 'https://registry/acme/grant/does-not-exist'])
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
+  test('unauthorized grantor fails the whole request with no mutation', async (): Promise<void> => {
+    const ids = await issueProjectsGrant()
+    const [parentId] = ids
+
+    const kimSession = await buildOidcSession('https://id/kim')
+    const response = await kimSession.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      body: revocationPayload([parentId]),
+    })
+    expect(response.status).toBe(403)
+    expect(await countGrants()).toBe(seededGrantCount + 2)
+  })
+})
+
+describe('DelegationRevocationRequesterHop', () => {
+  test('pending activity → AccessRevocation → registration cleared → done', async () => {
+    // seeded fixtures (no runtime grant issuance): alice's application
+    // registration for testClient (registry/alice/agent/cvmsa4/) already links
+    // the seeded acme grants wwp4j6 (Project parent) and qwvbcu (inheriting
+    // Task child); the only writer is the requester-hop workflow
+    const aliceGrant = 'https://registry/acme/grant/wwp4j6'
+    const aliceChildGrant = 'https://registry/acme/grant/qwvbcu'
+
+    const manager = buildSessionManager()
+    const aliceSession = await manager.getSession(aliceId)
+
+    // pending grantsRevoked activity in alice's outbox → the seeded
+    // activity-webhook channel starts processGrantsRevocation
+    const activityRegistry = aliceSession.registrySet.hasActivityRegistry
+    if (!activityRegistry) throw new Error('activity registry not found')
+    await ActivityRegistry.createActivity(activityRegistry, aliceSession.factory, {
+      activityType: 'grantsRevoked',
+      target: aliceId,
+      payload: {
+        webId: { id: aliceId, type: [INTEROP.SocialAgent] },
+        grantee: { id: testClient, type: [APPLICATION_TYPE] },
+        dataOwner: acmeId,
+        grants: [
+          { id: aliceGrant, type: [INTEROP.DataGrant] },
+          { id: aliceChildGrant, type: [INTEROP.DataGrant] },
+        ],
+      },
+      createdAt: new Date().toISOString(),
+    })
+
+    // await the requester-hop workflow to completion FIRST — a failing test
+    // must not leave the workflow running into the next test's reseed
+    const registry = aliceSession.registrySet.hasActivityRegistry!
+    await waitFor(
+      async () => {
+        const completed = await ActivityRegistry.getCompletedActivityIris(
+          registry,
+          aliceSession.factory
+        )
+        if (!completed.length) return false
+        const all = await ActivityRegistry.getActivityIris(registry, aliceSession.factory)
+        for (const iri of all) {
+          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.factory)
+          if (activity.activityType === 'grantsRevoked' && completed.includes(activity.id)) {
+            return true
+          }
+        }
+        return false
+      },
+      { timeout: 30_000 }
+    )
+
+    // the grants are revoked in acme's registry (parent + inheriting child) …
+    expect(await countGrants()).toBe(seededGrantCount - 2)
+    // … and the grantor's registration projection is cleared
+    const refreshed = await aliceSession.findApplicationRegistration(testClient)
+    if (!refreshed) throw new Error('application registration not found')
+    const iris = await getDataGrantIris(refreshed)
+    expect(iris).not.toContain(aliceGrant)
+    expect(iris).not.toContain(aliceChildGrant)
+  })
+})
 
 describe('DelegationIssuanceEndpoint', () => {
   describe('agent delegates to application', (): void => {

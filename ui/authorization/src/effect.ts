@@ -24,6 +24,7 @@ import {
   ListSocialAgents,
   RegisterPushSubscription,
   RequestAccessUsingApplicationNeeds,
+  RevokeGrants,
   type ShareAuthorization,
   ShareResource,
   type UiRpcRouter,
@@ -220,6 +221,14 @@ export async function authorizeApp(authorization: S.Schema.Type<typeof Authoriza
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new AuthorizeApp({ authorization }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function revokeGrants(grants: readonly S.Schema.Type<typeof IRI>[]) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new RevokeGrants({ grants }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

@@ -9,17 +9,18 @@ import {
 } from '@solid/community-server'
 import type { OperationHttpHandlerInput } from '@solid/community-server'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/client'
-import { getLoggerFor } from 'global-logger-factory'
 import type { Workflow } from '@temporalio/common'
-import type { ActivityWebhookStore } from './ActivityWebhookStore.js'
+import { getLoggerFor } from 'global-logger-factory'
 import type { ActivityEvents } from './ActivityEvents.js'
+import type { ActivityWebhookStore } from './ActivityWebhookStore.js'
 import type { SessionManager } from './SessionManager'
-import { Temporal } from './temporal/client.js'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
 import type { ReciprocalRegistrationInput } from './temporal/activities/reciprocal.js'
+import { Temporal } from './temporal/client.js'
 import {
   granteeActivitiesSignal,
   processGranteeActivities,
+  processGrantsRevocation,
   processRoleDeletion,
   processRoleMembershipChange,
   updateDelegatedGrants,
@@ -38,6 +39,7 @@ const activityWorkflows: Record<string, { workflow: Workflow; taskQueue: string 
     taskQueue: 'reciprocal-registration',
   },
   delegatedGrantsUpdated: { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
+  grantsRevoked: { workflow: processGrantsRevocation, taskQueue: 'create-grants' },
 }
 
 const GRANTEE_ACTIVITY_TYPES = new Set(['authorizationRecorded', 'authorizationRevoked'])

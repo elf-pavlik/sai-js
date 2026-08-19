@@ -125,6 +125,12 @@ export const useAppStore = defineStore('app', () => {
     listRoles(true)
   }
 
+  async function revokeGrants(grants: readonly S.Schema.Type<typeof IRI>[]) {
+    await effect.revokeGrants(grants)
+    listSocialAgents(true)
+    listApplications(true)
+  }
+
   async function requestAccess(applicationId: string, agentId: string) {
     await effect.requestAccessUsingApplicationNeeds(applicationId, agentId)
     listSocialAgents(true)
@@ -176,6 +182,7 @@ export const useAppStore = defineStore('app', () => {
     getAuthoriaztion,
     listDataInstances,
     authorizeApp,
+    revokeGrants,
     requestAccess,
     listSocialAgents,
     listRoles,

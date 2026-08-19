@@ -45,7 +45,8 @@ export async function applyPatch(
     headers: { 'Content-Type': 'application/sparql-update' },
   })
   if (!response.ok) {
-    throw new Error(`failed to patch ${resourceIri}`)
+    const body = response.text ? await response.text().catch(() => '') : ''
+    throw new Error(`failed to patch ${resourceIri}: ${response.status} - ${body}`)
   }
 }
 

@@ -1,5 +1,7 @@
 # Simplify factories — `ApplicationFactory` as base, drop `readable`/`crud`/`immutable`
 
+> **Status:** ✅ done — Phases 1–3 landed (commit `e156f5e0 [data-model] simplify factories`).
+>
 > **Goal.** Collapse the three-factory hierarchy (`BaseFactory` + empty `ApplicationFactory` + `AuthorizationAgentFactory`) to **two**, with `ApplicationFactory` as the base class, and remove the `readable`/`crud`/`immutable` namespaces — every factory method becomes a top-level method.
 >
 > **Why now.** Since the move from classes to POJOs, the factory only *creates structures*: read methods build POJOs from the wire (`loadX(iri, fetch)` modules), and the `crud.*(iri, data)` / `immutable.dataGrant(iri, data)` branches just construct POJOs (`{ ...data, id: iri }`). No factory method ever writes — actual writes live in modules (`putRole`/`putJsonLd` in `crud/*`, SPARQL patches, `container.create`, component services). The namespace split is a leftover of the class era, and the empty `ApplicationFactory extends BaseFactory {}` exists only as a named alias.

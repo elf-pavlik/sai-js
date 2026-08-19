@@ -1,5 +1,7 @@
 # Refactor data-model — follow-up: CRUD domain resources as JSON-LD POJOs
 
+> **Status:** ✅ done — executed via commits `de0bee4b data model refactor - followup`, `ae6c4715 refactor data-instance`, `2d1862e6 improve jsonld use`, `54697865 cleanup fetch utils`. Carried-over open items at the bottom.
+>
 > Follow-up to [`refactor-data-model.md`](refactor-data-model.md). That plan's Phases 1–4 turned the **readable** layer into POJOs and its (reworked) **Phase 5** flipped the wire format to JSON-LD-first (fetchWrapper, mock, `data.json`, `setAcr`). This plan converts the remaining **CRUD domain resources** to the same POJO pattern — compacted & framed JSON-LD, raw JSON-LD GET/PUT, no `fetchWrapper`, no `DataFactory`/N3 Store / RDFJS dataset where the read/write pattern allows.
 >
 > **Phase structure (by read/write pattern, in this order):**
@@ -106,5 +108,5 @@ Survey of `packages/data-model/test/` found per-model test files that now cover 
 
 ## Carried-over open items
 
-- **Mock coverage**: no data-model unit test exercises roles today; the gate is root `test/roles.test.ts` (docker stack) + typechecks/build. Whether to add mock-based unit tests (role entries in `data.json` + fetch-mock round-trip) — pending user decision.
+- **Mock coverage**: ~~no data-model unit test exercises roles today~~ — **resolved**: `framing/role.test.ts` (plus the rest of the `framing/*` suites) landed in `improve-jsonld-use.md`; the gate for behavior is root `test/roles.test.ts` (docker stack) + typechecks/build.
 - **rdf:type inconsistency**: role writes `a interop:Role`; web-id-profile and client-id-document now capture `type` from framing too (read-only POJOs carry it per the pattern). **Grants — ✅ done**: fixtures now type grants `a interop:DataGrant` (replacing `interop:DelegatedDataGrant` — the delegation relationship stays expressed via `delegationOfGrant`); `GrantData` gained required `type: string[]` (captured from framing on read, emitted on PUT via `toJsonLd`; populated in `data-authorization.ts`'s four grant builders, `GrantIssuanceHandler` defaults to `[INTEROP.DataGrant]`). **Data authorizations — ✅ done**: `DataAuthorizationData` gained required `type: string[]` (same recipe — captured from framing on read via the `Array.isArray` array-coercion idiom, emitted on write via `toJsonLd`/`withContext`; populated with `[INTEROP.DataAuthorization.value]` in components `Authorization.ts` `buildDataAuthorizations`, authorization-agent `formatAuthorization`, and the `css-test-utils` account fixtures; `pojo` tests assert the `rdf:type` quad, `readable` tests assert the framed `type` + round-trip). Bonus fix: `grant.ts`'s `compactNodeToGrantData` used the non-coercing `node.type ?? []` (single-typed fixtures framed `type` as a string) — aligned to the same `Array.isArray` coercion.

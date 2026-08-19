@@ -1,7 +1,7 @@
 # Plan: Remove indirection between AuthorizationRegistry and DataAuthorizations
 
 > **Status: implemented** (commit `c6527fb3 authorizations as pojos`). Statuses below
-> reflect what was done. Remaining work is limited to unit-test migration (see §13).
+> reflect what was done. The remaining unit-test migration (see §13) was completed by the later data-model refactors.
 
 ## Current Architecture
 
@@ -38,7 +38,7 @@ This mirrors the completed `remove-access-grant-indirection.md` migration: the g
 | `packages/authorization-agent` | `authorization.ts`, `authorization-agent.ts` | ✅ |
 | `packages/components` | `services/Authorization.ts`, `services/ShareResource.ts`, `temporal/activities/grants.ts`, `temporal/workflows/grants.ts` | ✅ |
 | `packages/api-messages` | `effect.ts` — `AccessAuthorization` response changes to an array of recorded data authorizations (see Design Decisions #8) | ✅ |
-| Tests | Integration tests (`test/roles.test.ts`, `test/authorization.test.ts`) updated; unit tests in `packages/data-model` / `packages/authorization-agent` not yet migrated (see §13) | ⏳ |
+| Tests | Integration tests (`test/roles.test.ts`, `test/authorization.test.ts`) updated; unit tests migrated as part of the later data-model refactors (see §13) | ✅ |
 
 ---
 
@@ -379,24 +379,24 @@ export async function removeAllDataAuthorizations(registry: CRUDAuthorizationReg
 - Added `RecordedDataAuthorization` schema (the stored data authorization shape: `id`, `grantee`, `grantedBy`, `registeredShapeTree`, `scopeOfAuthorization`, optional `dataOwner`/`hasDataRegistration`/`satisfiesAccessNeed`/`inheritsFromAuthorization`, `accessMode`, optional `creatorAccessMode`/`hasDataInstance`/`hasInheritingAuthorization`).
 - `AccessAuthorization = S.Array(RecordedDataAuthorization)`. Denied authorizations return `[]` (no `id` needed — see Design Decision #8).
 
-### 13. Test Files ⏳ (partial)
+### 13. Test Files ✅ (integration done at the time; unit tests completed by the later refactors)
 
 **Done — integration tests (`test/`):**
 - `test/roles.test.ts` — updated to the new response shape (`body` is an array of recorded data authorizations, `body[0].grantee`/`grantedBy`/`id` assertions).
 - `test/authorization.test.ts` — "denied" test rewritten: response is `[]` for a denied authorization (`expect(Array.isArray(value)).toBe(true)`, `expect(value.length).toBe(0)`); registry check via `findDataAuthorizations(grantee)` instead of `findAuthorization`; no `id`/`callbackEndpoint` assertions.
 - `packages/css-storage-fixture/test/registry.trig` — fixture rewritten from `hasAccessAuthorization` to direct `hasDataAuthorization` links.
 
-**Not done — unit tests (still reference removed APIs, will not compile/run):**
-- `packages/data-model/test/readable/access-authorization.test.ts` — to be **deleted** (uses `factory.readable.accessAuthorization`, `ReadableDataAuthorization`).
-- `packages/data-model/test/immutable/access-authorization.test.ts` — to be **deleted** (uses `AccessAuthorizationData`, `factory.immutable.dataAuthorization`).
-- `packages/data-model/test/immutable/data-authorization.test.ts` — to be **rewritten** to `toDataset`/`toJsonLd` round-trips (mirror `immutable/data-grant.test.ts` which already uses the `Grant` namespace); currently imports `ImmutableDataAuthorization`.
-- `packages/data-model/test/readable/data-authorization.test.ts` — to be **rewritten** to `fromDataset`/`fromJsonLd` instead of the class; currently uses `factory.readable.dataAuthorization` (works) but legacy generator tests are skipped.
-- `packages/data-model/test/crud/access-consent-registry.test.ts` — registry links `hasDataAuthorization` directly (`getDataAuthorizationIris`, `addDataAuthorization`, `removeDataAuthorization`, `findDataAuthorizations`).
-- `packages/data-model/test/authorization-agent-factory.test.ts` — remove `accessAuthorization` factory tests, update `dataAuthorization` to POJO.
-- `packages/authorization-agent/test/authorization-agent.test.ts` — `recordAccessAuthorization` returns data authorizations; `generateDataGrants` takes IRIs; `findAuthorizationsForAgent` returns data authorizations.
+**Done — unit tests (completed as part of `refactor-data-model.md` / `refactor-data-model-followup.md` / `improve-jsonld-use.md`; the JSON-LD framing suites live in `packages/data-model/test/framing/`):**
+- `packages/data-model/test/readable/access-authorization.test.ts` — **deleted**.
+- `packages/data-model/test/immutable/access-authorization.test.ts` — **deleted**.
+- `packages/data-model/test/immutable/data-authorization.test.ts` — **rewritten** to `framing/data-authorization.test.ts` + the `pojo/*` round-trip suites.
+- `packages/data-model/test/readable/data-authorization.test.ts` — **rewritten** to the `fromJsonLd`/`frameDoc` read path (`readable/*`, `framing/*`).
+- `packages/data-model/test/crud/access-consent-registry.test.ts` — **updated** to `ldp:contains`-based `getDataAuthorizationIris`/`findDataAuthorizations` (see `simplify-authorization-containment.md`).
+- `packages/data-model/test/authorization-agent-factory.test.ts` — **updated** (`dataAuthorization` returns the POJO).
+- `packages/authorization-agent/test/authorization-agent.test.ts` — still `describe.skip`-gated; separately tracked in `simplify-authorization-containment.md` §8.
 
-**New (optional, not yet created):**
-- `packages/data-model/test/jsonld-utils.test.ts` — framing/RDF round-trip for a generic context.
+**New (optional):**
+- `packages/data-model/test/jsonld-utils.test.ts` — framing/RDF round-trip for a generic context — **not created as a dedicated file**; the `framing/*` suites cover the behavior, and the helpers moved to `@janeirodigital/interop-utils` with dedicated `packages/utils/test/jsonld.test.ts` (see `cleanup-fetch-utils.md`).
 
 ---
 
@@ -479,9 +479,9 @@ export async function generateDataAuthorizations(
 6. **api-messages** — `effect.ts`: `RecordedDataAuthorization` schema; `AccessAuthorization = S.Array(RecordedDataAuthorization)`.
 7. **integration tests** — `test/roles.test.ts`, `test/authorization.test.ts`, `packages/css-storage-fixture/test/registry.trig` updated.
 
-### ⏳ Not Done (unit tests only)
+### ✅ Done (unit tests — completed by the subsequent data-model refactors)
 
-8. **unit tests** — delete/rewrite `packages/data-model` and `packages/authorization-agent` tests per §13, then run full build.
+8. **unit tests** — delete/rewrite `packages/data-model` and `packages/authorization-agent` tests per §13, then run full build — **landed** as part of `refactor-data-model.md`/`refactor-data-model-followup.md`/`improve-jsonld-use.md`; only `authorization-agent.test.ts` remains `describe.skip`-gated (tracked in `simplify-authorization-containment.md` §8).
 
 ---
 

@@ -1,5 +1,7 @@
 # Remove Turtle serialization — drop `parseTurtle` and `serializeTurtle`
 
+> **Status:** ⬜ not started — none of the four phases have landed: `toNQuads` does not exist and `parseTurtle`/`serializeTurtle` are still in production use (`sparql-update.ts` SPARQL patch path, `setAcr` in `crud/agent-registration.ts`, `notification-manager.ts`).
+
 > **Goal.** Delete `packages/utils/src/turtle-parser.ts` (`parseTurtle`) and — after the write path is converted — `packages/utils/src/turtle-serializer.ts` (`serializeTurtle`) entirely. After this plan the codebase is JSON-LD-first on both sides of the wire:
 >
 > - **Reads** already go through `parseJsonld` / `fetchJsonLd` / `toStore` — all backed by `jsonld.toRDF`.
@@ -14,11 +16,11 @@
 > 3. **CSS notification streams** — `notification-manager.ts` and `test/util.ts` parse stream payloads as Turtle. Stock CSS `8.0.0-alpha.2` **hardcodes Turtle server-side** (`generateChannel` in `StreamingHttp2023Util.js` sets `accept: 'text/turtle'`; the client's `Accept` header is ignored), so requesting `application/ld+json` is not enough. Instead: a custom streaming HTTP emitter (in `@elfpavlik/sai-components`, the existing custom-CSS-components package) that streams **NDJSON of expanded JSON-LD notifications**; the clients read NDJSON and parse each line with `parseJsonld`/`toStore` (expanded docs need no context resolution).
 >
 > **Phase structure:**
-> 0. ⬜ **done?** — Add `toNQuads(doc, base?)` to `packages/utils/src/jsonld.ts` (wraps `jsonld.toRDF(doc, { format: 'application/n-quads' })`) with pinning unit tests (default graph → N-Triples, no graph labels, literal coercion semantics)
-> 1. ⬜ **done?** — Convert the SPARQL patch path: `insertPatch`/`deletePatch` accept a JSON-LD doc; `container.ts` helpers (`addStatement`/`removeStatement`/`replaceStatement`/`createContainer`) and crud modules build `withContext(dataModelContext, …)` docs instead of `DataFactory.quad` stores; update tests
-> 2. ⬜ **done?** — `setAcr` writes the ACR template string directly (drop the `parseTurtle`→`serializeTurtle` round trip)
-> 3. ⬜ **done?** — Custom CSS streaming HTTP emitter (`@elfpavlik/sai-components`): channel `accept` → `application/x-ndjson`, serializer emits expanded JSON-LD + `\n` per notification, emitter guarantees NDJSON framing; clients (`notification-manager.ts`, `test/util.ts`) read NDJSON and parse with `parseJsonld`/`toStore`
-> 4. ⬜ **done?** — Delete `turtle-parser.ts`, `turtle-serializer.ts`, `turtle-parser.test.ts`; remove the exports from `packages/utils/src/index.ts`; update the remaining tests that used them for fixtures
+> 0. ⬜ — Add `toNQuads(doc, base?)` to `packages/utils/src/jsonld.ts` (wraps `jsonld.toRDF(doc, { format: 'application/n-quads' })`) with pinning unit tests (default graph → N-Triples, no graph labels, literal coercion semantics)
+> 1. ⬜ — Convert the SPARQL patch path: `insertPatch`/`deletePatch` accept a JSON-LD doc; `container.ts` helpers (`addStatement`/`removeStatement`/`replaceStatement`/`createContainer`) and crud modules build `withContext(dataModelContext, …)` docs instead of `DataFactory.quad` stores; update tests
+> 2. ⬜ — `setAcr` writes the ACR template string directly (drop the `parseTurtle`→`serializeTurtle` round trip)
+> 3. ⬜ — Custom CSS streaming HTTP emitter (`@elfpavlik/sai-components`): channel `accept` → `application/x-ndjson`, serializer emits expanded JSON-LD + `\n` per notification, emitter guarantees NDJSON framing; clients (`notification-manager.ts`, `test/util.ts`) read NDJSON and parse with `parseJsonld`/`toStore`
+> 4. ⬜ — Delete `turtle-parser.ts`, `turtle-serializer.ts`, `turtle-parser.test.ts`; remove the exports from `packages/utils/src/index.ts`; update the remaining tests that used them for fixtures
 >
 > **Each phase ends green**: after every phase `npm run build` (turbo) + `npm test` (turbo, packages) must pass. Phases are ordered so the tests that pin a behavior change are added *before* the change that would break them. The `test/` integration workspace (dagger-only, §Verification) is verified by `tsc --noEmit` locally and the dagger suite as final gate.
 

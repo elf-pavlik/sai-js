@@ -1,5 +1,7 @@
 # Improve JSON-LD context & framing usage in data-model
 
+> **Status:** ✅ done — implemented (commit `2d1862e6 improve jsonld use`); deviations and resolutions recorded in the implementation-notes sections below.
+>
 > Consolidate the ~15 per-model JSON-LD contexts in `packages/data-model` into a **single shared context** (`dataModelContext`) that serves every model — reads (framing via `frameDoc`) and writes (`withContext`). Remove the duplicated IRI strings (generate terms from the `INTEROP`/`LDP`/`SHAPETREES`/`SKOS`/`RDFS`/`SOLID`/`OIDC` namespaces already exported by `@janeirodigital/interop-utils`), normalize term semantics (`@type: '@id'` coercion, `@container: '@set'`, `@omitDefault`), and settle the term-name collision (`prefLabel` vs `label`).
 >
 > References: [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/), [JSON-LD 1.1 Framing](https://www.w3.org/TR/json-ld11-framing/).

@@ -1,5 +1,7 @@
 # Plan: Simplify Data Grants as Plain JSON Objects
 
+> **Status:** ✅ done (historical) — superseded by the later data-model refactors; the Phase 7 test updates were completed as part of `refactor-data-model.md` / `improve-jsonld-use.md` (framing + pojo suites).
+
 ## Goal
 
 Replace the current class hierarchy for Data Grants (`ImmutableDataGrant`, `AbstractDataGrant`, `InheritableDataGrant`, `AllFromRegistryDataGrant`, `SelectedFromRegistryDataGrant`, `InheritedDataGrant`) with a single `GrantData` plain JSON object type. All behavior moves to a new `Grant` module as free functions that take a `GrantData` object as the first parameter.
@@ -323,7 +325,7 @@ export function dataRegistryIri(grant: GrantData): string {
 }
 ```
 
-Note: `randomUUID` is available via `factory.randomUUID` (from dependencies). The module function can either take it as a parameter or get it from the factory. Since `iriForNew` already accesses `grant.hasDataRegistration` (a string), we may want to inject `randomUUID` or have separate signatures — TBD during implementation.
+Note: `randomUUID` is available via `factory.randomUUID` (from dependencies). The module function can either take it as a parameter or get it from the factory. Since `iriForNew` already accesses `grant.hasDataRegistration` (a string), we may want to inject `randomUUID` or have separate signatures — TBD during implementation. **Resolved:** `Grant.iriForNew(grant, factory.randomUUID)` takes the uuid fn as a parameter; `randomUUID` stays public on the base factory (see `simplify-factories.md`).
 
 ### Phase 2 — Update `BaseFactory.readable.dataGrant()`
 
@@ -425,7 +427,7 @@ The following files need updates. The strategy is: **replace `instanceof` with `
 | `components/src/services/DataRegistry.ts` | `.dataRegistryIri` → `Grant.dataRegistryIri()`. `.getDataInstanceIterator()` → `Grant.getDataInstanceIterator()`. `.dataOwner` → direct property access. |
 | `components/src/services/Authorization.ts` | `instanceof InheritedDataGrant` → `scopeOfGrant === INTEROP.Inherited.value` check. |
 
-### Phase 7 — Update tests (run by user, not agent)
+### Phase 7 — Update tests ✅ (completed by the subsequent data-model refactors: `refactor-data-model.md`, `improve-jsonld-use.md`)
 
 After type-check passes and before we consider the implementation complete, update these test files:
 

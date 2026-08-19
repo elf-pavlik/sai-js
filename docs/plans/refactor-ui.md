@@ -1,6 +1,7 @@
 # UI sync via `/.sai/events` — keep the store in sync with webhook-triggered workflows
 
-> **Status:** planned. Since `workflow-temporal-decupling.md`, the RPCs
+> **Status:** ✅ done — implemented (commit `240bb321 [ui] refactor`).
+> Since `workflow-temporal-decupling.md`, the RPCs
 > (`AuthorizeApp`, `ShareResource`, `UpdateRole`, `DeleteRole`, invitation)
 > only PUT an activity to the Activity Registry and return; the workflow runs
 > later (CSS `Add` → `ActivityWebhookHandler` → Temporal → single-PATCH

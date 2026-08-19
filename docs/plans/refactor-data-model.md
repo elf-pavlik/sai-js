@@ -1,5 +1,7 @@
 # Plan: Refactor remaining data-model classes to POJOs (4 phases + optional JSON-LD migration + test-infra consolidation)
 
+> **Status:** ✅ done — Phases 1–4 landed; the reworked Phase 5 was completed via [`refactor-data-model-followup.md`](refactor-data-model-followup.md) (CRUD modules as JSON-LD POJOs) and Phase 6 via [`test-infra-consolidation.md`](test-infra-consolidation.md).
+
 ## Goal
 
 Continue the POJO migration already completed for Data Grants (`simplify-grant-as-pojos.md`) and Data Authorizations (`remove-access-authorization-indirection.md`) by converting the remaining class-based resources in `packages/data-model` to plain JSON objects (POJOs) with behavior moved to module-level free functions.
@@ -42,7 +44,7 @@ Root integration tests (`test/*.ts`) import the POJO exports `getGranted`, `Gran
 - `packages/application`: 7 passing / 13 skipped
 - `packages/authorization-agent`: tests are `describe.skip`-gated (server-dependent) — the gate for this package is **typecheck/build**
 **Updated after Phase 4 (current):** data-model 193 pass / 10 skip / 10 todo (36 files); application 7 pass / 13 skip; authorization-agent gate is typecheck/build; root integration tests adapted minimally in Phase 4 (`test/roles.test.ts`, `test/authorization.test.ts` — new `(data, factory)` signatures, see Phase 4 notes). (Pre-Phase-1 baseline 202; Phases 1–2 removed redundant `toBeInstanceOf` tests; Phase 3 kept counts identical; Phase 4 dropped/restructured some CRUD tests — 4 dropped-test decision items from the previous session remain open.)
-**Phase 5 (reworked) in progress — see Phase 5 section.** Wire format flipped to JSON-LD (wrapper, mock, data.json, setAcr) with all package tests unchanged (utils 40, test-utils 10, data-model 193/10/10, application 7/13); turbo build 9/9 + test 14/14. Next: convert CRUD domain modules to POJO GET/PUT (role.ts first).
+**Phase 5 (reworked) landed — see Phase 5 section and [`refactor-data-model-followup.md`](refactor-data-model-followup.md).** Wire format flipped to JSON-LD (wrapper, mock, data.json, setAcr); the CRUD modules were then converted to POJO GET/PUT — role.ts first, then the rest of the follow-up plan.
 
 ---
 
@@ -209,11 +211,11 @@ Converts the remaining write-side domain classes. The low-level write plumbing s
 - **`factory.crud.*` surface** — `applicationRegistration`, `socialAgentRegistration`, `socialAgentInvitation`, `role`, `roleRegistry`, `dataRegistry`, `dataRegistration`, `authorizationRegistry`, `grantRegistry`, `agentRegistry`, `registrySet`; `immutable.dataGrant` unchanged.
 - **`packages/repl` was in the blast radius** — `cli.ts`/`repl.ts` import the `CRUDRegistrySet` namespace and were adapted; not typechecked (no `tsc` gate) but must compile.
 - **Consumer gotcha (Phase 3 interplay):** `factory.readable.dataInstance(iri, shapeTreeIri?, descriptionLang?)` only populates `label`/`children` **when `descriptionLang` is passed** (the old `ReadableDataInstance.label` getter always computed it). Components' `listDataInstances` consequently returned `label: undefined` → RPC `ParseError` (`label: S.String` is required). Fix: `ApiHandler.ts` passes `'en'` → `listDataInstances(session, agentId, registrationId, 'en')` (service param `descriptionsLang = 'en'`, threaded into both `readable.dataInstance` calls). Follow-up: add `lang` to the `ListDataInstances` payload (mirroring `ListDataRegistries`) and drop the hardcoded default.
-- **Test outcome:** data-model 193 pass / 10 skip / 10 todo (36 files). A few CRUD tests were dropped rather than rewritten; restoring them in an alternative form is still pending user decision (see conversation).
+- **Test outcome:** data-model 193 pass / 10 skip / 10 todo (36 files). A few CRUD tests were dropped rather than rewritten; the duplicate-test consolidation resolving this landed in `refactor-data-model-followup.md` Phase 5.
 
 ---
 
-# Phase 5 — JSON-LD wire format + POJO GET/PUT (in progress, reworked)
+# Phase 5 — JSON-LD wire format + POJO GET/PUT ✅ (landed — continued in [`refactor-data-model-followup.md`](refactor-data-model-followup.md))
 
 > **Reworked:** remaining CRUD domain resources become compacted & framed JSON-LD POJOs; their GET/PUT bypasses `fetchWrapper`:
 > - GET → `fetch.raw(iri, { headers: { Accept: 'application/ld+json' } })` → `.json()` → `fromJsonLd(doc, iri)` (via `frameDoc`)
@@ -255,7 +257,7 @@ Per module: add a JSON-LD context (registry style — `@type: '@id'` + `@contain
 
 ## Remaining open items
 
-- **`authorization-agent/src/authorization.ts`** write — works either way now (wrapper PUT `dataset` → JSON-LD). Optional symmetry: `toJsonLd` + raw PUT (like grants). Pending user decision.
+- ~~**`authorization-agent/src/authorization.ts`** write — works either way now (wrapper PUT `dataset` → JSON-LD). Optional symmetry: `toJsonLd` + raw PUT (like grants). Pending user decision.~~ **Resolved** — the write was converted to `withContext(dataAuthorizationContext, …)` + `putJsonLd` JSON-LD PUT (`If-None-Match` kept) in `refactor-data-model-followup.md` Phase 2 §4.
 - **Order caveat (learned in Phase 3):** JSON-LD roundtrips do not preserve quad *order* — order-sensitive expectations (`descriptionLanguages`, `reliableDescriptionLanguages`) must compare sorted / order-independently.
 
 ---

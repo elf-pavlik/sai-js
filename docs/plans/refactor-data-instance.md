@@ -1,5 +1,7 @@
 # Refactor data-model — DataInstance
 
+> **Status:** ✅ done — complete (commits `ae6c4715 refactor data-instance`, `2d1862e6 improve jsonld use`).
+>
 > Extracted from **Phase 4** of [`refactor-data-model-followup.md`](refactor-data-model-followup.md). That plan's Phases 1–3 converted the CRUD domain resources to JSON-LD POJOs (raw JSON-LD GET/PUT, SPARQL patches via module functions). DataInstance was the remaining model with a **mixed PUT/PATCH/blob write side** and a **write-side class unused in production** — the scope decision has been resolved (**write side removed**, iteration reduced to bare IRIs), and the **read path is now N3-free (framed JSON-LD)**. This plan is complete.
 
 ## Current shape (after the write-side removal + N3-free read)

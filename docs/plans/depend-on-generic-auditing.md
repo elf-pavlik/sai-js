@@ -1,5 +1,7 @@
 # Plan: Remove `setTimestampsAndAgents` and rely on generic auditing
 
+> **Status:** ✅ done — `setTimestampsAndAgents` removed and the `creator` parameter dropped from every container create (commit `ddc80e23 depend on generic audit mechanism`); creation metadata is left to a (future) generic auditing mechanism. The doc originally had no status marker.
+
 ## Goal
 
 Remove `setTimestampsAndAgents` from `packages/data-model/src/crud/container.ts` and stop writing the interop properties it sets (`interop:registeredBy`, `interop:registeredWith`, `interop:registeredAt`, `interop:updatedAt`) from application code. Creation metadata should instead be provided by a generic auditing mechanism (server-side audit log / Solid server metadata), not hand-written by sai-js on every container creation.
@@ -89,5 +91,5 @@ This plan is named for, and gated on, a **generic auditing mechanism** being ava
 
 ## Open questions
 
-- Should `setTimestampsAndAgents` be removed only after the generic auditing lands, or can the dead writes be removed first (nothing reads them) with auditing added later? Recommended: remove the writes first — they are dead data and the `updatedAt` value is already misleading; auditing can be adopted independently.
+- Should `setTimestampsAndAgents` be removed only after the generic auditing lands, or can the dead writes be removed first (nothing reads them) with auditing added later? Recommended: remove the writes first — they are dead data and the `updatedAt` value is already misleading; auditing can be adopted independently. **Resolved (chosen):** the writes were removed first (commit `ddc80e23`); the generic auditing mechanism is still to come and is not a blocker.
 - Should the ACRs (`setAcr` in `crud/agent-registration.ts` and templates) also stop writing agent/client data once auditing exists? Out of scope here — they carry authorization data, not audit metadata — but worth a follow-up discussion.

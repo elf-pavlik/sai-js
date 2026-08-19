@@ -2,8 +2,8 @@
 
 > **Status:** ✅ implementation complete — data-model, authorization-agent and components
 > sources, the CSS fixture and the test-utils mock updated; data-model unit tests pass.
-> ⏳ `authorization-agent.test.ts` deferred (full rewrite required, see §8); ⏳ integration
-> tests not yet run (see §9).
+> `authorization-agent.test.ts` still deferred (full rewrite required, see §8) — the file
+> remains `describe.skip`-gated. Integration tests now run and pass in the suite (see §9).
 
 ## Motivation
 
@@ -67,7 +67,7 @@ AuthorizationRegistry (CRUDAuthorizationRegistry)
 | `packages/test-utils` | `src/data.json` (mock snippet) | ✅ |
 | Tests | `packages/data-model/test/crud/access-consent-registry.test.ts` | ✅ |
 | Tests | `packages/authorization-agent/test/authorization-agent.test.ts` | ⏳ deferred (full rewrite, see §8) |
-| Tests | `test/authorization.test.ts`, `test/roles.test.ts` (integration) | ⏳ not run (see §9) |
+| Tests | `test/authorization.test.ts`, `test/roles.test.ts` (integration) | ✅ run in the integration suite since the workflow refactor (see §9) |
 
 ---
 
@@ -285,7 +285,7 @@ shape, changed `generateDataGrants` signature) plus mock-data gaps (extend-test
 IRIs `5ae2442a…`/`99c56d7c…` missing from `data.json`; no DELETE support in the
 mock fetch). It will be fully rewritten in a separate step.
 
-### 9. Integration tests ⏳ not run
+### 9. Integration tests ✅ (verified by the subsequent workflow refactor)
 
 - `test/authorization.test.ts` — `findDataAuthorizations(clientId)` assertions
   still hold (denied authorization deletes resources → containment empty → `[]`).
@@ -293,8 +293,9 @@ mock fetch). It will be fully rewritten in a separate step.
   unchanged.
 - Verify both pass; update only if the delete-on-replace changes observable state.
 
-**Not yet executed** — requires the CSS fixture and a running test environment;
-pending the separate test-update step.
+**Since resolved** — the integration suite runs green from `refactor-grants-workflows.md`
+onward (`test/` passes; real CSS delivery via `workflow-temporal-decupling.md`), exercising
+exactly these behaviors (deny deletes → `[]`, delete-on-replace).
 
 ---
 
@@ -349,8 +350,8 @@ export async function replaceDataAuthorizationsForGrantee(
 4. ✅ **components** — `temporal/activities/grants.ts` (`deleteAuthorizationsUsingRole`).
 5. ✅ **fixture** — `css-storage-fixture/test/registry.trig` (move `hasDataAuthorization`
    → `ldp:contains` into the containers' own graphs; verified with an N3 TriG parse).
-6. ⏳ **integration tests** — run `test/authorization.test.ts`, `test/roles.test.ts`;
-   adjust if needed (not yet run).
+6. ✅ **integration tests** — `test/authorization.test.ts`, `test/roles.test.ts` run
+   in the suite since `refactor-grants-workflows.md` (see §9).
 
 ---
 

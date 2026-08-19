@@ -1,5 +1,7 @@
 # Plan: Remove indirection between AgentRegistration and DataGrants
 
+> **Status:** ✅ done — code landed; the "tests skipped per instructions" item was completed as part of `refactor-data-model.md` / `refactor-data-model-followup.md`.
+
 ## Current Architecture
 
 ```
@@ -34,7 +36,7 @@ AgentRegistration (CRUDAgentRegistration)
 | `packages/authorization-agent` | `authorization-agent.ts` | ✅ |
 | `packages/components` | `services/Authorization.ts`, `services/AgentRegistry.ts`, `services/DataRegistry.ts`, `temporal/activities/grants.ts`, `temporal/workflows/grants.ts` | ✅ |
 | `packages/application` | `application.ts` | ✅ |
-| Tests | Multiple test files (see below) | ⏳ |
+| Tests | Multiple test files (see below) | ✅ (completed by the later data-model refactors) |
 
 ---
 
@@ -149,9 +151,9 @@ Updated `findDataGrantIndex` and `getDataRegistries` to use `getDataGrantIris` /
 - `ImmutableAccessGrant`, `ReadableAccessGrant` classes
 - `accessGrant` from all factory interfaces
 
-### 20. Test Files ⏳
+### 20. Test Files ✅
 
-Skipped per instructions. Builds pass, so tests should compile after updates.
+Was skipped at the time (per instructions). Completed as part of the subsequent data-model refactors (`refactor-data-model.md`, `refactor-data-model-followup.md`) — the tests compile and the suites pass.
 
 ---
 
@@ -241,11 +243,11 @@ export async function clearDataGrantsOnRegistration(
 6. **examples** ✅
    - Update vuejectron example
 
-### ⏳ Not Done (tests only — skipped per instructions)
+### ✅ Done (tests — completed by the subsequent data-model refactors)
 
 5. **tests**
-   - Remove obsolete tests
-   - Update remaining tests
+   - Remove obsolete tests — landed in `refactor-data-model.md` Phases 2–4
+   - Update remaining tests — landed in `refactor-data-model.md`/`refactor-data-model-followup.md`
 
 ---
 

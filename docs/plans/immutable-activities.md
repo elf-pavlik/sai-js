@@ -1,6 +1,7 @@
 # Immutable activity registry — append-only log with minimal completion records
 
-> **Status:** planned. Turns the Activity Registry into an append-only log:
+> **Status:** ✅ done — implemented (commit `ee2b366c immutable activities`).
+> Turns the Activity Registry into an append-only log:
 > activity resources are **never mutated**; a workflow completing an activity
 > **PUTs a minimal completion activity** (`activityType: 'activityCompleted'`,
 > `target` = the completed activity's IRI — the existing `target` field, no new

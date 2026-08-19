@@ -1,5 +1,7 @@
 # Cleanup: drop `RdfFetch`/`fetchWrapper`, keep only `WhatwgFetch`
 
+> **Status:** ✅ done — all phases landed (commit `54697865 cleanup fetch utils`; Phases 2–3 executed together).
+>
 > **Goal.** Delete `packages/utils/src/fetch.ts` and the `RdfFetch` abstraction entirely. After this plan the codebase has a single fetch type — `WhatwgFetch` — and all RDF parsing happens via explicit JSON-LD helpers (`fetchJsonLd`, `documentValues`, `findNodeIdByType`, `frameDoc`, `toStore`, …), the pattern data-model already uses everywhere.
 >
 > **Why now.** Survey of every call site shows the wrapper's RDF features are nearly unused:

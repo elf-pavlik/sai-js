@@ -1,7 +1,8 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
-  ActivityRegistry,
+  type AccessRequestMessage,
   type ActivityData,
+  ActivityRegistry,
   type AgentId,
   type AgentOrRoleId,
   AgentRegistry,
@@ -12,6 +13,7 @@ import {
   type GeneratedGrants,
   type GrantData,
   type GrantId,
+  type IncomingGrantData,
   type RoleId,
   RoleRegistry,
   type SocialAgentId,
@@ -443,12 +445,17 @@ export async function requestDelegation(payload: { grantData: GrantData }): Prom
     payload.grantData.dataOwner,
     session.fetch
   )
+  // the delegation endpoint takes an interop:AccessRequest envelope (§3)
+  const message: AccessRequestMessage = {
+    type: [INTEROP.AccessRequest],
+    grants: [payload.grantData as unknown as IncomingGrantData],
+  }
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify(payload.grantData),
+    body: JSON.stringify(message),
   })
   if (!response.ok) {
     throw new Error(await response.json())

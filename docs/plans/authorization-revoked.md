@@ -91,6 +91,11 @@ Nothing else changes:
 
 ## 6. Out of scope / follow-ups
 
+- **Chain revocation (delegated grants down the chain):** this plan revokes
+  only the grantor's own grantee set (regenerate-to-empty). Removing the whole
+  delegation subchain — its grant resources and downstream propagation — is
+  a separate mechanism: the **revocation operation at the data-owner boundary**
+  in [`revoke-delegation-chain.md`](revoke-delegation-chain.md).
 - A dedicated admin-revoke RPC/UI (can reuse `authorizationRevoked`).
 - Special-casing revocations in the consumer (skip generation, just clear) —
   only if regeneration cost matters.

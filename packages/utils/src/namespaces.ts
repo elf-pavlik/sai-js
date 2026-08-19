@@ -8,6 +8,8 @@ export const INTEROP = createVocabulary(
   'AccessNeedGroup',
   'AccessNeedGroupDescription',
   'AccessRequired',
+  'AccessRequest',
+  'AccessRevocation',
   'accessNecessity',
   'Activity',
   'ActivityRegistry',

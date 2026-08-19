@@ -22,6 +22,10 @@ export { dataModelContext, iriTermDef, linkedIrisJsonLd } from './context'
 export type { GrantData, GrantId, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
 export { toJsonLd } from './grant'
+export type { AccessRequestMessage, IncomingGrantData } from './access-request'
+export * as AccessRequest from './access-request'
+export type { AccessRevocationMessage } from './access-revocation'
+export * as AccessRevocation from './access-revocation'
 export type {
   DataAuthorizationData,
   DataAuthorizationId,
@@ -51,7 +55,11 @@ export type { AccessDescriptionSetData } from './access-description-set'
 export * as AccessDescriptionSet from './access-description-set'
 export type { DataRegistrationData, DataRegistrationId } from './data-registration'
 export * as DataRegistration from './data-registration'
-export type { ApplicationRegistrationData, ApplicationRegistrationId, ApplicationId } from './application-registration'
+export type {
+  ApplicationRegistrationData,
+  ApplicationRegistrationId,
+  ApplicationId,
+} from './application-registration'
 export * as ApplicationRegistration from './application-registration'
 export type { DataOwnerData } from './data-owner'
 

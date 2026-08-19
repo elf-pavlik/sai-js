@@ -1,7 +1,9 @@
 import {
-  type GrantData,
+  AccessRequest,
+  type AccessRequestMessage,
   type FinalGrantData,
   GrantRegistry,
+  type IncomingGrantData,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import {
@@ -50,129 +52,172 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       throw new ForbiddenHttpError()
     }
 
-    let topGrant: GrantData
-    try {
-      topGrant = JSON.parse(await readableToString(operation.body.data)) as GrantData
-    } catch (err) {
-      throw new BadRequestHttpError(err.message)
+    const message = await this.parseMessage(operation)
+    const { grants } = message
+    if (grants.length === 0) {
+      throw new BadRequestHttpError('AccessRequest requires at least one grant')
     }
-
-    const sai = await this.sessionManager.getSession(topGrant.dataOwner)
+    // all-or-nothing: the whole request must share one data owner (the owner
+    // of the endpoint's registry)
+    const dataOwners = new Set(grants.map((grant) => grant.dataOwner))
+    if (dataOwners.size !== 1) {
+      throw new BadRequestHttpError('all grants must have the same dataOwner')
+    }
+    const dataOwner = [...dataOwners][0]
+    const sai = await this.sessionManager.getSession(dataOwner)
 
     // TODO: support recursive inheritance
-    // Incoming payload embeds child grant data. Assign IRIs and build FinalGrantData for each.
-    // hasInheritingGrant comes in as embedded objects; we treat them as partial GrantData.
-    const childrenPayload = (topGrant as any).hasInheritingGrant ?? []
-    const grantId = GrantRegistry.iriForContained(
-      sai.registrySet.hasGrantRegistry,
-      sai.factory
-    )
-    const inheritingGrants: FinalGrantData[] = childrenPayload.map(
-      (childData: Record<string, unknown>) => ({
-        type: (childData.type as string[] | undefined) ?? [INTEROP.DataGrant],
-        grantee: childData.grantee as string,
-        grantedBy: childData.grantedBy as string,
-        dataOwner: childData.dataOwner as string,
-        registeredShapeTree: childData.registeredShapeTree as string,
-        hasDataRegistration: childData.hasDataRegistration as string,
-        hasStorage: childData.hasStorage as string,
-        scopeOfGrant: childData.scopeOfGrant as string,
-        accessMode: childData.accessMode as string[],
-        creatorAccessMode: childData.creatorAccessMode as string[] | undefined,
-        hasDataInstance: childData.hasDataInstance as string[] | undefined,
-        delegationOfGrant: childData.delegationOfGrant as string | undefined,
-        id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory),
-        inheritsFromGrant: grantId,
-      })
-    )
+    // Incoming payload embeds child grant data (one level). Assign IRIs and
+    // build FinalGrantData for each parent and its inheriting children.
+    const finalGrants: FinalGrantData[] = []
+    for (const topGrant of grants) {
+      const grantId = GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory)
+      const inheritingGrants = (topGrant.hasInheritingGrant ?? []).map((childData) =>
+        this.buildInheritingGrant(sai, childData, grantId)
+      )
+      finalGrants.push(
+        {
+          ...topGrant,
+          type: topGrant.type ?? [INTEROP.DataGrant],
+          id: grantId,
+          hasInheritingGrant: inheritingGrants.map((grant) => grant.id!),
+        },
+        ...inheritingGrants
+      )
+    }
 
+    // all-or-nothing: validate every grant in the request before any is stored
     const fetcher = new SparqlEndpointFetcher()
-
-    for (const grant of [topGrant, ...inheritingGrants]) {
-      // TODO: validate payload
-      if (credentials.agent.webId !== grant.grantedBy) {
-        // TODO: change to UnprocessableEntityHttpError
-        throw new BadRequestHttpError('invalid grantedBy')
-      }
-      // find grant that can be delegated
-      // TODO: handle multiple grants for the same registration, especially with inheritance
-      const accessModes = grant.accessMode.map((m) => `<${m}>`).join(' ')
-
-      const requiredInstances = grant.hasDataInstance?.length
-        ? grant.hasDataInstance.map((i) => `<${i}>`).join(' ')
-        : ''
-
-      const selectedScopeConstraint = requiredInstances
-        ? `
-            FILTER NOT EXISTS {
-              VALUES ?required { ${requiredInstances} }
-              FILTER NOT EXISTS {
-                ?s <${INTEROP.hasDataInstance}> ?required .
-              }
-            }
-        `
-        : ''
-
-      const scopeBlock =
-        grant.scopeOfGrant === INTEROP.SelectedFromRegistry
-          ? `
-          {
-            ?s <${INTEROP.scopeOfGrant}> <${INTEROP.AllFromRegistry}> .
-          }
-          UNION
-          {
-            ?s <${INTEROP.scopeOfGrant}> <${INTEROP.SelectedFromRegistry}> .
-            ${selectedScopeConstraint}
-          }
-        `
-          : `
-          ?s <${INTEROP.scopeOfGrant}> <${grant.scopeOfGrant}> .
-        `
-
-      const query = `
-    SELECT * WHERE {
-      GRAPH ?g {
-        ?s
-          <${INTEROP.dataOwner}> <${grant.dataOwner}>;
-          <${INTEROP.grantee}> <${grant.grantedBy}>;
-          <${INTEROP.registeredShapeTree}> <${grant.registeredShapeTree}>;
-          <${INTEROP.hasStorage}> <${grant.hasStorage}>;
-          <${INTEROP.hasDataRegistration}> <${grant.hasDataRegistration}>;
-          <${INTEROP.accessMode}> ?mode .
-
-        VALUES ?mode { ${accessModes} }
-
-        ${scopeBlock}
-      }
+    for (const grant of finalGrants) {
+      await this.validateDelegable(grant, credentials.agent.webId, fetcher)
     }
-    `
-      const bindingsStream = await fetcher.fetchBindings(this.sparqlEndpoint, query)
-      const queryResults = await arrayifyStream<IBindings>(bindingsStream)
-      if (!queryResults.length) {
-        // TODO: change to UnprocessableEntityHttpError
-        throw new BadRequestHttpError('no grant available for delegation')
-      }
-    }
-
-    const finalGrant: FinalGrantData = {
-      ...topGrant,
-      type: topGrant.type ?? [INTEROP.DataGrant],
-      id: grantId,
-      hasInheritingGrant: inheritingGrants.map((g) => g.id!),
-    }
-
-    const allGrants = [finalGrant, ...inheritingGrants]
 
     const temporal = new Temporal()
     await temporal.init()
     // TODO: we could use start but it could lead to race conditions
     await temporal.client.workflow.execute(storeGrant, {
       taskQueue: 'create-grants',
-      args: [allGrants],
+      args: [finalGrants],
       workflowId: crypto.randomUUID(),
     })
-    const doc = JSON.stringify(allGrants.map((g) => g.id))
+    const doc = JSON.stringify(finalGrants.map((grant) => grant.id))
     const representation = new BasicRepresentation(doc, operation.target, APPLICATION_JSON)
     return new OkResponseDescription(representation.metadata, representation.data)
+  }
+
+  /**
+   * Parse the request body as an `interop:AccessRequest` envelope. Any other
+   * message type is rejected (the delegation endpoint dispatches on `type`).
+   */
+  private async parseMessage(
+    operation: OperationHttpHandlerInput['operation']
+  ): Promise<AccessRequestMessage> {
+    let message: unknown
+    try {
+      message = JSON.parse(await readableToString(operation.body.data))
+    } catch (err) {
+      throw new BadRequestHttpError(err.message)
+    }
+    if (AccessRequest.isAccessRequestMessage(message)) {
+      return message
+    }
+    throw new BadRequestHttpError('invalid AccessRequest message')
+  }
+
+  private buildInheritingGrant(
+    sai: Awaited<ReturnType<SessionManager['getSession']>>,
+    childData: IncomingGrantData,
+    inheritsFromGrant: string
+  ): FinalGrantData {
+    return {
+      type: childData.type ?? [INTEROP.DataGrant],
+      grantee: childData.grantee,
+      grantedBy: childData.grantedBy,
+      dataOwner: childData.dataOwner,
+      registeredShapeTree: childData.registeredShapeTree,
+      hasDataRegistration: childData.hasDataRegistration,
+      hasStorage: childData.hasStorage,
+      scopeOfGrant: childData.scopeOfGrant,
+      accessMode: childData.accessMode,
+      creatorAccessMode: childData.creatorAccessMode,
+      hasDataInstance: childData.hasDataInstance,
+      delegationOfGrant: childData.delegationOfGrant,
+      id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory),
+      inheritsFromGrant,
+    }
+  }
+
+  /**
+   * Validate that one grant can be delegated: the requester is its
+   * `grantedBy`, and an upstream grant covering it exists in the data owner's
+   * registry.
+   */
+  private async validateDelegable(
+    grant: FinalGrantData,
+    requesterWebId: string,
+    fetcher: SparqlEndpointFetcher
+  ): Promise<void> {
+    if (requesterWebId !== grant.grantedBy) {
+      // TODO: change to UnprocessableEntityHttpError
+      throw new BadRequestHttpError('invalid grantedBy')
+    }
+    // find grant that can be delegated
+    // TODO: handle multiple grants for the same registration, especially with inheritance
+    const accessModes = grant.accessMode.map((m) => `<${m}>`).join(' ')
+
+    const requiredInstances = grant.hasDataInstance?.length
+      ? grant.hasDataInstance.map((i) => `<${i}>`).join(' ')
+      : ''
+
+    const selectedScopeConstraint = requiredInstances
+      ? `
+          FILTER NOT EXISTS {
+            VALUES ?required { ${requiredInstances} }
+            FILTER NOT EXISTS {
+              ?s <${INTEROP.hasDataInstance}> ?required .
+            }
+          }
+      `
+      : ''
+
+    const scopeBlock =
+      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
+        ? `
+        {
+          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.AllFromRegistry}> .
+        }
+        UNION
+        {
+          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.SelectedFromRegistry}> .
+          ${selectedScopeConstraint}
+        }
+      `
+        : `
+        ?s <${INTEROP.scopeOfGrant}> <${grant.scopeOfGrant}> .
+      `
+
+    const query = `
+  SELECT * WHERE {
+    GRAPH ?g {
+      ?s
+        <${INTEROP.dataOwner}> <${grant.dataOwner}>;
+        <${INTEROP.grantee}> <${grant.grantedBy}>;
+        <${INTEROP.registeredShapeTree}> <${grant.registeredShapeTree}>;
+        <${INTEROP.hasStorage}> <${grant.hasStorage}>;
+        <${INTEROP.hasDataRegistration}> <${grant.hasDataRegistration}>;
+        <${INTEROP.accessMode}> ?mode .
+
+      VALUES ?mode { ${accessModes} }
+
+      ${scopeBlock}
+    }
+  }
+  `
+    const bindingsStream = await fetcher.fetchBindings(this.sparqlEndpoint, query)
+    const queryResults = await arrayifyStream<IBindings>(bindingsStream)
+    if (!queryResults.length) {
+      // TODO: change to UnprocessableEntityHttpError
+      throw new BadRequestHttpError('no grant available for delegation')
+    }
   }
 }

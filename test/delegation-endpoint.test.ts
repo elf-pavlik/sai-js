@@ -1,17 +1,15 @@
 import { ACL, INTEROP, buildOidcSession, issuanceUrl } from '@elfpavlik/sai-components'
-import type { GrantData } from '@janeirodigital/interop-data-model'
+import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
+import { LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { SOLIDTREES } from './vocabularies'
-
-// Incoming payload has hasInheritingGrant as embedded objects (full grant data).
-// This mirrors the IncomingGrantData type in GrantIssuanceHandler.
-type IncomingGrantData = Omit<GrantData, 'hasInheritingGrant'> & {
-  hasInheritingGrant?: IncomingGrantData[]
-}
 
 const bobId = 'https://id/bob'
 const acmeId = 'https://id/acme'
 const testClient = 'https://data/test-client/public/id'
+const grantRegistry = 'https://registry/acme/grant/'
+// seeded in environments/data/registry.trig
+const seededGrantCount = 10
 
 const commonGrantData = {
   grantedBy: bobId,
@@ -26,7 +24,6 @@ const tasksGrantData: IncomingGrantData = {
   accessMode: [ACL.Read, ACL.Update],
   scopeOfGrant: INTEROP.Inherited,
 }
-
 const projectsGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
@@ -35,6 +32,39 @@ const projectsGrantData: IncomingGrantData = {
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [tasksGrantData],
 }
+// second delegable chain from the seed: acme-hr project → inherited task
+const hrCommonGrantData = {
+  ...commonGrantData,
+  hasStorage: 'https://data/acme-hr/',
+}
+const hrTasksGrantData: IncomingGrantData = {
+  ...hrCommonGrantData,
+  registeredShapeTree: SOLIDTREES.Task,
+  hasDataRegistration: 'https://data/acme-hr/v4n2qx/',
+  accessMode: [ACL.Read, ACL.Update],
+  scopeOfGrant: INTEROP.Inherited,
+}
+const hrProjectsGrantData: IncomingGrantData = {
+  ...hrCommonGrantData,
+  registeredShapeTree: SOLIDTREES.Project,
+  hasDataRegistration: 'https://data/acme-hr/p7t9km/',
+  accessMode: [ACL.Read, ACL.Update],
+  scopeOfGrant: INTEROP.AllFromRegistry,
+  hasInheritingGrant: [hrTasksGrantData],
+}
+
+const issuancePayload = (grants: IncomingGrantData[]): string =>
+  JSON.stringify({ type: [INTEROP.AccessRequest], grants })
+
+async function countGrants(): Promise<number> {
+  const session = await buildOidcSession(acmeId)
+  const response = await session.authFetch(grantRegistry, {
+    headers: { Accept: 'text/turtle' },
+  })
+  expect(response.status).toBe(200)
+  const dataset = await parseTurtle(await response.text())
+  return Array.from(dataset).filter((quad) => quad.predicate.value === LDP.contains).length
+}
 
 describe('DelegationIssuanceEndpoint', () => {
   describe('agent delegates to application', (): void => {
@@ -42,22 +72,56 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
-        body: JSON.stringify(projectsGrantData),
+        body: issuancePayload([projectsGrantData]),
       })
       expect(response.status).toBe(200)
       const ids = await response.json()
+      expect(ids).toHaveLength(2) // parent + inheriting child
       ids.forEach((id: string) => {
-        expect(id).toMatch('https://registry/acme/grant/')
+        expect(id).toMatch(grantRegistry)
       })
+      expect(await countGrants()).toBe(seededGrantCount + 2)
     })
-    test('invalid grantedBy', async (): Promise<void> => {
+    test('multiple grants are issued all-or-nothing', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
-        body: JSON.stringify({
-          ...projectsGrantData,
-          grantedBy: 'https://id/kim',
-        }),
+        body: issuancePayload([projectsGrantData, hrProjectsGrantData]),
+      })
+      expect(response.status).toBe(200)
+      const ids = await response.json()
+      expect(ids).toHaveLength(4) // two parents + two inheriting children
+      ids.forEach((id: string) => {
+        expect(id).toMatch(grantRegistry)
+      })
+      expect(await countGrants()).toBe(seededGrantCount + 4)
+    })
+    test('invalid grantedBy fails and nothing is created', async (): Promise<void> => {
+      const session = await buildOidcSession(bobId)
+      const response = await session.authFetch(issuanceUrl(acmeId), {
+        method: 'POST',
+        body: issuancePayload([{ ...projectsGrantData, grantedBy: 'https://id/kim' }]),
+      })
+      expect(response.status).toBe(400)
+      expect(await countGrants()).toBe(seededGrantCount)
+    })
+    test('different dataOwner fails all grants and nothing is created', async (): Promise<void> => {
+      const session = await buildOidcSession(bobId)
+      const response = await session.authFetch(issuanceUrl(acmeId), {
+        method: 'POST',
+        body: issuancePayload([
+          { ...projectsGrantData, dataOwner: 'https://id/kim' },
+          projectsGrantData,
+        ]),
+      })
+      expect(response.status).toBe(400)
+      expect(await countGrants()).toBe(seededGrantCount)
+    })
+    test('empty grants fails', async (): Promise<void> => {
+      const session = await buildOidcSession(bobId)
+      const response = await session.authFetch(issuanceUrl(acmeId), {
+        method: 'POST',
+        body: issuancePayload([]),
       })
       expect(response.status).toBe(400)
     })
@@ -66,7 +130,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId, clientId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
-        body: JSON.stringify(projectsGrantData),
+        body: issuancePayload([projectsGrantData]),
       })
       expect(response.status).toBe(403)
     })

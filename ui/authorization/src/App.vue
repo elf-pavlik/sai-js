@@ -32,7 +32,8 @@ watch(
 const theme = useTheme()
 
 function toggleDark(on: boolean) {
-  theme.global.name.value = on ? 'dark' : 'light'
+  if (on) theme.change('dark')
+  else theme.change('light')
 }
 
 const mq = window.matchMedia('(prefers-color-scheme: dark)')

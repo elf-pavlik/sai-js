@@ -1386,7 +1386,10 @@ GRAPH <https://registry/yoyo/grant/> {
   <https://registry/yoyo/grant/>
     ldp:contains
       <https://registry/yoyo/grant/p7n2vx>,
-      <https://registry/yoyo/grant/t5m8qr>.
+      <https://registry/yoyo/grant/t5m8qr>,
+      <https://registry/yoyo/grant/vbg74v>,
+      <https://registry/yoyo/grant/ds0emv>,
+      <https://registry/yoyo/grant/f76tbp>.
 
 }
 
@@ -1399,7 +1402,8 @@ GRAPH <https://registry/yoyo/authorization/> {
   <https://registry/yoyo/authorization/>
     ldp:contains
       <https://registry/yoyo/authorization/k2m5qp>,
-      <https://registry/yoyo/authorization/t8p3wr>.
+      <https://registry/yoyo/authorization/t8p3wr>,
+      <https://registry/yoyo/authorization/gwxh7q>.
 }
 
 
@@ -1438,6 +1442,18 @@ GRAPH <meta:https://registry/yoyo/authorization/t8p3wr> {
         <https://registry/yoyo/authorization/t8p3wr> a ldp:Resource .
 }
 
+GRAPH <https://registry/yoyo/authorization/gwxh7q> {
+  <https://registry/yoyo/authorization/gwxh7q>
+    a interop:AdminAuthorization;
+    interop:grantee <https://id/dan>;
+    interop:grantedBy <https://id/yoyo>;
+    interop:scopeOfAuthorization interop:All.
+}
+
+GRAPH <meta:https://registry/yoyo/authorization/gwxh7q> {
+        <https://registry/yoyo/authorization/gwxh7q> a ldp:Resource .
+}
+
 GRAPH <meta:https://registry/yoyo/role/> {
   <https://registry/yoyo/role/>
     a interop:RoleRegistry, ldp:Resource .
@@ -1458,7 +1474,8 @@ GRAPH <meta:https://registry/yoyo/agent/> {
   <https://registry/yoyo/agent/>
     a interop:AgentRegistry, ldp:Resource;
     interop:hasSocialAgentRegistration
-      <https://registry/yoyo/agent/z3k7wm/>.
+      <https://registry/yoyo/agent/z3k7wm/>,
+      <https://registry/yoyo/agent/ph8e70/>.
 }
 
 GRAPH <meta:https://registry/yoyo/.acr> {
@@ -1470,9 +1487,11 @@ GRAPH <https://registry/yoyo/.acr> {
     a acp:AccessControlResource;
     acp:resource <https://registry/yoyo/>;
     acp:accessControl
-      <https://registry/yoyo/.acr#fullOwnerAccess>;
+      <https://registry/yoyo/.acr#fullOwnerAccess>,
+      <https://registry/yoyo/.acr#fullAdminAccess>;
     acp:memberAccessControl
-      <https://registry/yoyo/.acr#fullOwnerAccess>.
+      <https://registry/yoyo/.acr#fullOwnerAccess>,
+      <https://registry/yoyo/.acr#fullAdminAccess>.
 
   <https://registry/yoyo/.acr#fullOwnerAccess>
     a acp:AccessControl;
@@ -1483,6 +1502,18 @@ GRAPH <https://registry/yoyo/.acr> {
         a acp:Matcher;
         acp:agent <https://id/yoyo>;
         acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+
+  <https://registry/yoyo/.acr#fullAdminAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
       ]
     ].
 }
@@ -1538,6 +1569,56 @@ GRAPH <https://registry/yoyo/agent/z3k7wm/.acr> {
     ].
 }
 
+GRAPH <meta:https://registry/yoyo/agent/ph8e70/> {
+  <https://registry/yoyo/agent/ph8e70/>
+    a interop:SocialAgentRegistration, ldp:Resource;
+    interop:registeredAgent <https://id/dan> ;
+    interop:reciprocalRegistration <https://registry/dan/agent/zdujx0/> ;
+    interop:hasAdminGrant <https://registry/yoyo/grant/vbg74v> ;
+    skos:prefLabel "Dan" ;
+    skos:note "An administrator of Yoyodyne." .
+}
+
+GRAPH <meta:https://registry/yoyo/agent/ph8e70/.acr> {
+        <https://registry/yoyo/agent/ph8e70/.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/agent/ph8e70/.acr> {
+  <https://registry/yoyo/agent/ph8e70/.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/yoyo/agent/ph8e70/>;
+    acp:accessControl
+      <https://registry/yoyo/agent/ph8e70/.acr#fullOwnerAccess>,
+      <https://registry/yoyo/agent/ph8e70/.acr#peerReadAccess>;
+    acp:memberAccessControl
+      <https://registry/yoyo/agent/ph8e70/.acr#fullOwnerAccess>,
+      <https://registry/yoyo/agent/ph8e70/.acr#peerReadAccess>.
+
+  <https://registry/yoyo/agent/ph8e70/.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/yoyo>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+
+  <https://registry/yoyo/agent/ph8e70/.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+      ]
+    ].
+}
+
 GRAPH <https://registry/yoyo/grant/p7n2vx> {
   <https://registry/yoyo/grant/p7n2vx>
     a interop:DataGrant;
@@ -1573,6 +1654,160 @@ GRAPH <https://registry/yoyo/grant/t5m8qr> {
 
 GRAPH <meta:https://registry/yoyo/grant/t5m8qr> {
         <https://registry/yoyo/grant/t5m8qr> a ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/grant/vbg74v> {
+  <https://registry/yoyo/grant/vbg74v>
+    a interop:AdminGrant;
+    interop:grantee <https://id/dan>;
+    interop:grantedBy <https://id/yoyo>;
+    interop:dataOwner <https://id/yoyo>;
+    interop:scopeOfAdminGrant interop:RegistrySet.
+}
+
+GRAPH <meta:https://registry/yoyo/grant/vbg74v> {
+        <https://registry/yoyo/grant/vbg74v> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/yoyo/grant/vbg74v.acr> {
+        <https://registry/yoyo/grant/vbg74v.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/grant/vbg74v.acr> {
+  <https://registry/yoyo/grant/vbg74v.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/yoyo/grant/vbg74v>;
+    acp:accessControl
+      <https://registry/yoyo/grant/vbg74v.acr#fullOwnerAccess>,
+      <https://registry/yoyo/grant/vbg74v.acr#peerReadAccess>.
+
+  <https://registry/yoyo/grant/vbg74v.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/yoyo>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+
+  <https://registry/yoyo/grant/vbg74v.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+      ]
+    ].
+}
+
+GRAPH <https://registry/yoyo/grant/ds0emv> {
+  <https://registry/yoyo/grant/ds0emv>
+    a interop:AdminGrant;
+    interop:grantee <https://id/dan>;
+    interop:grantedBy <https://id/yoyo>;
+    interop:dataOwner <https://id/yoyo>;
+    interop:scopeOfAdminGrant interop:DataRegistry;
+    interop:hasStorage <https://data/yoyo-eu/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/yoyo/grant/ds0emv> {
+        <https://registry/yoyo/grant/ds0emv> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/yoyo/grant/ds0emv.acr> {
+        <https://registry/yoyo/grant/ds0emv.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/grant/ds0emv.acr> {
+  <https://registry/yoyo/grant/ds0emv.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/yoyo/grant/ds0emv>;
+    acp:accessControl
+      <https://registry/yoyo/grant/ds0emv.acr#fullOwnerAccess>,
+      <https://registry/yoyo/grant/ds0emv.acr#peerReadAccess>.
+
+  <https://registry/yoyo/grant/ds0emv.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/yoyo>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+
+  <https://registry/yoyo/grant/ds0emv.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+      ]
+    ].
+}
+
+GRAPH <https://registry/yoyo/grant/f76tbp> {
+  <https://registry/yoyo/grant/f76tbp>
+    a interop:AdminGrant;
+    interop:grantee <https://id/dan>;
+    interop:grantedBy <https://id/yoyo>;
+    interop:dataOwner <https://id/yoyo>;
+    interop:scopeOfAdminGrant interop:DataRegistry;
+    interop:hasStorage <https://data/yoyo-na/>;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/yoyo/grant/f76tbp> {
+        <https://registry/yoyo/grant/f76tbp> a ldp:Resource .
+}
+
+GRAPH <meta:https://registry/yoyo/grant/f76tbp.acr> {
+        <https://registry/yoyo/grant/f76tbp.acr> a ldp:Resource .
+}
+
+GRAPH <https://registry/yoyo/grant/f76tbp.acr> {
+  <https://registry/yoyo/grant/f76tbp.acr#root>
+    a acp:AccessControlResource;
+    acp:resource <https://registry/yoyo/grant/f76tbp>;
+    acp:accessControl
+      <https://registry/yoyo/grant/f76tbp.acr#fullOwnerAccess>,
+      <https://registry/yoyo/grant/f76tbp.acr#peerReadAccess>.
+
+  <https://registry/yoyo/grant/f76tbp.acr#fullOwnerAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read, acl:Write, acl:Control;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/yoyo>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
+      ]
+    ].
+
+  <https://registry/yoyo/grant/f76tbp.acr#peerReadAccess>
+    a acp:AccessControl;
+    acp:apply [
+      a acp:Policy;
+      acp:allow acl:Read;
+      acp:anyOf [
+        a acp:Matcher;
+        acp:agent <https://id/dan>;
+        acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/kim/authorization/> {
@@ -3929,7 +4164,8 @@ GRAPH <https://registry/alice/grant/azgyc5.acr> {
     <https://registry/dan/agent/>
       a interop:AgentRegistry, ldp:Resource;
       interop:hasSocialAgentRegistration
-        <https://registry/dan/agent/moi15b/>.
+        <https://registry/dan/agent/moi15b/>,
+        <https://registry/dan/agent/zdujx0/>.
   }
 
   GRAPH <meta:https://registry/dan/role/> {
@@ -3990,6 +4226,55 @@ GRAPH <https://registry/alice/grant/azgyc5.acr> {
           a acp:Matcher;
           acp:agent <https://id/bob>;
           acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I>
+        ]
+      ].
+  }
+
+  GRAPH <meta:https://registry/dan/agent/zdujx0/> {
+    <https://registry/dan/agent/zdujx0/>
+      a interop:SocialAgentRegistration, ldp:Resource;
+      interop:registeredAgent <https://id/yoyo> ;
+      interop:reciprocalRegistration <https://registry/yoyo/agent/ph8e70/> ;
+      skos:prefLabel "YoYo" ;
+      skos:note "We collaborate on projects at Yoyodyne." .
+  }
+
+  GRAPH <meta:https://registry/dan/agent/zdujx0/.acr> {
+          <https://registry/dan/agent/zdujx0/.acr> a ldp:Resource .
+  }
+
+  GRAPH <https://registry/dan/agent/zdujx0/.acr> {
+    <https://registry/dan/agent/zdujx0/.acr#root>
+      a acp:AccessControlResource;
+      acp:resource <https://registry/dan/agent/zdujx0/>;
+      acp:accessControl
+        <https://registry/dan/agent/zdujx0/.acr#fullOwnerAccess>,
+        <https://registry/dan/agent/zdujx0/.acr#peerReadAccess>;
+      acp:memberAccessControl
+        <https://registry/dan/agent/zdujx0/.acr#fullOwnerAccess>,
+        <https://registry/dan/agent/zdujx0/.acr#peerReadAccess>.
+
+    <https://registry/dan/agent/zdujx0/.acr#fullOwnerAccess>
+      a acp:AccessControl;
+      acp:apply [
+        a acp:Policy;
+        acp:allow acl:Read, acl:Write, acl:Control;
+        acp:anyOf [
+          a acp:Matcher;
+          acp:agent <https://id/dan>;
+          acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>
+        ]
+      ].
+
+    <https://registry/dan/agent/zdujx0/.acr#peerReadAccess>
+      a acp:AccessControl;
+      acp:apply [
+        a acp:Policy;
+        acp:allow acl:Read;
+        acp:anyOf [
+          a acp:Matcher;
+          acp:agent <https://id/yoyo>;
+          acp:client <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv>
         ]
       ].
   }

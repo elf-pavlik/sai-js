@@ -10,10 +10,10 @@ primary source.
 |---|---|---|
 | ✅ done | 16 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
 | 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
-| ⬜ not started / design only | 5 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap` |
+| ⬜ not started / design only | 8 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**23 plans total.** All remaining work lives in the 6 non-done plans below —
+**26 plans total.** All remaining work lives in the 9 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -43,6 +43,9 @@ nothing open is blocked by an unlanded plan.
 | `webhook-subscription-bootstrap.md` | ⬜ not done (design only) | `ensureActivityWebhookChannel` at account creation + startup/periodic healing for real deployments (dev/test are pre-seeded) | `workflow-temporal-decupling` (Phase 3 extraction; builds on the landed ActivityRegistry module + `ActivityWebhookStore`/handler) |
 | `remove-turtle-serialization.md` | ⬜ not started (no phase landed) | Drops `parseTurtle`/`serializeTurtle`: `toNQuads` for SPARQL patches, template-direct ACR write, NDJSON notification streams (custom CSS emitter) | `improve-jsonld-use` (`dataModelContext`), `refactor-data-model-followup`/`cleanup-fetch-utils` (`fetchJsonLd`/`putJsonLd` infra), external `@elfpavlik/sai-components` |
 | `revoke-delegation-chain-follow-ups.md` | ⬜ all 9 items open | Items 1–9 of the revocation follow-up: full chain calculation, scope/mode-coverage ordering, replace-vs-delete race, grantor trigger integration (`grantsRevoked` producer), grantee self-revocation, error-detail schema, drop vestigial `delegationOfGrant`, sweep validation, `reconcileActivities` scheduling | `revoke-delegation-chain` (first cut) |
+| `federation.md` | ⬜ design note (org-admin companion) | Single-deployment shortcuts the org-admin data-plane relies on: shared SPARQL endpoint, global-fetch UAS/storage discovery, local pod-storage ownership, `hasRegistrySet` link across servers, webhook delivery; future federated lookups | `org-admin-feature` (umbrella) |
+| `events.md` | ⬜ design note (org-admin companion) | Domain-event (activityType) catalogue incl. the new `adminAuthorizationRecorded` event → parallel `createAdminGrants` + `syncAdminAcr` workflows; deferred/future events (data-registry-added regeneration, admin revocation) | `workflow-temporal-decupling` (outbox model); `org-admin-feature` (umbrella) |
+| `registry-set-permissions.md` | ⬜ not started (design) | Scope the blanket `#fullAdminAccess` per structural registry: per-container ACRs, GrantRegistry owner-only (admins never write grants; per-grant ACRs serve reads), ActivityRegistry Read + create/append (append-only immutable log) instead of blanket Write; seed ACR hygiene for the ACR-less yoyo DataGrants | `org-admin-feature` R1 |
 
 ## Dependency graph
 
@@ -98,6 +101,17 @@ refactor-grants-workflows  ✅
   validation then scheduling). Items 3 & 4 would also re-enable the
   `refactor-grants-workflows` commented-out delete.
 - `remove-turtle-serialization` — independent of the workflow/revocation arcs.
+
+### D. Org-admin workstream companion docs
+
+`org-admin-feature.md` is the umbrella for the org-admin workstream (itself not
+tracked in this index). Three companions:
+
+- `federation.md` — design note; cross-checks with `org-admin-feature` §2.4 (C2)
+  and the engine path in `registry-set-permissions`.
+- `events.md` — design note; builds on the `workflow-temporal-decupling` outbox
+  model (the `activityWorkflows` map / `GRANTEE_ACTIVITY_TYPES` dispatch).
+- `registry-set-permissions.md` — ⬜ design; follow-up to `org-admin-feature` R1.
 
 ## Custom Community Solid Server (CSS) components
 

@@ -133,11 +133,13 @@ export async function generateAuthorization(
     throw new Error('Previous denied authorizations can not be extended')
   }
 
-  const existingDataAuthorizations = await AuthorizationRegistry.findDataAuthorizations(
-    authorizationRegistry,
-    factory,
-    authorization.grantee
-  )
+  const existingDataAuthorizations = (
+    await AuthorizationRegistry.findDataAuthorizations(
+      authorizationRegistry,
+      factory,
+      authorization.grantee
+    )
+  ).filter((da) => da.type.includes(INTEROP.DataAuthorization))
 
   // TODO: agent has and access authorization, with data authorization (SelectedFromRegistry) which does not include this data instance
   // do we need to check access modes? (if same extend data authorization, if different create a new one)

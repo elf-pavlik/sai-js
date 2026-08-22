@@ -124,7 +124,7 @@
  "accounts/cookies/a1b9f0e2-3c4d-4e5f-8a7b-0c9d1e2f3a4b": {
   "expires": "3026-01-08T18:05:16.680Z",
   "payload": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-},
+ },
  "accounts/data/281efdff-8a0a-4f57-b058-250717899fae": {
   "linkedLoginsCount": 1,
   "id": "281efdff-8a0a-4f57-b058-250717899fae",
@@ -419,6 +419,16 @@
     "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
     "id": "d7e8f9a0-b1c2-4d3e-4f5a-6b7c8d9e0f1a"
    }
+  },
+  "**activityWebhook**": {
+   "5eb86482-3c89-435f-945e-6b5db56cc518": {
+    "webId": "https://id/yoyo",
+    "topic": "https://registry/yoyo/activity/",
+    "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+    "sendTo": "https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165",
+    "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/dbe91413-0feb-4c32-8c92-1cad21a296a5\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/yoyo/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165\"}",
+    "id": "5eb86482-3c89-435f-945e-6b5db56cc518"
+   }
   }
  },
  "accounts/index/password/e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b": [
@@ -607,5 +617,26 @@
  },
  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fagent%2Fjc5gt6%2F": [
   "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c"
+ ],
+ "accounts/index/activityWebhook/5eb86482-3c89-435f-945e-6b5db56cc518": [
+  "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+ ],
+ "accounts/index/activityWebhook/webId/https%3A%2F%2Fid%2Fyoyo": [
+  "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+ ],
+ "accounts/index/activityWebhook/topic/https%3A%2F%2Fregistry%2Fyoyo%2Factivity%2F": [
+  "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+ ],
+ "accounts/index/activityWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Factivity-webhook%2Fbb857af1-5cb5-4ace-b25a-a3f5d1a66165": [
+  "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fdbe91413-0feb-4c32-8c92-1cad21a296a5": {
+  "id": "https://registry/.notifications/WebhookChannel2023/dbe91413-0feb-4c32-8c92-1cad21a296a5",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/yoyo/activity/",
+  "sendTo": "https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Factivity%2F": [
+  "https://registry/.notifications/WebhookChannel2023/dbe91413-0feb-4c32-8c92-1cad21a296a5"
  ]
 }

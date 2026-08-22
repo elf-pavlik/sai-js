@@ -18,6 +18,7 @@ import type { PushSubscription } from 'web-push'
 import type { SessionManager } from './SessionManager'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import type { AccountService } from './services/Account.js'
+import { addAdmin, removeAdmin } from './services/Admin.js'
 import {
   acceptInvitation,
   createInvitation,
@@ -102,6 +103,8 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => recordAuthorization(session, authorization)),
         revokeGrants: (grants) =>
           Effect.promise(() => revokeGrants(session, this.sparqlEndpoint, grants)),
+        addAdmin: (webId) => Effect.promise(() => addAdmin(session, webId)),
+        removeAdmin: (webId) => Effect.promise(() => removeAdmin(session, webId)),
         registerPushSubscription: (subscription: PushSubscription) =>
           Effect.promise(() =>
             this.uiPushSubscriptionStore.create(session.webId, accountId, subscription)

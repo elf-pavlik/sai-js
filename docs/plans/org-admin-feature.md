@@ -40,13 +40,18 @@ single-store assumptions the engine path relies on):
   (idempotent rewrite, not incremental patch). The data server's
   `AdminPermissionReader` owner fast-path is unchanged — admins are not owners,
   they fall through to the engine.
-- **Pipeline.** `AddAdmin`/`RemoveAdmin` (RPC from the UI) records the
-  `AdminAuthorization` and writes a domain activity (`adminAuthorizationRecorded`)
-  to the org's Activity Registry; `ActivityWebhookHandler` starts **parallel
-  workflows** from the shared trigger — `createAdminGrants` (generate the
-  RegistrySet + per-data-registry grants) and `syncAdminAcr` (rewrite
-  `#fullAdminAccess`) — diverging after the trigger; the activity payload can be
-  adjusted to feed both.
+- **Pipeline.** `AddAdmin`/`RemoveAdmin` (RPC from the UI) synchronously
+  create/delete the `AdminAuthorization` in the org's AuthorizationRegistry
+  (erroring on already-admin / non-admin — decided) and write a domain activity
+  to the org's Activity
+  Registry — **distinct shapes**: `adminAuthorizationRecorded` on add,
+  `adminAuthorizationRevoked` on remove (mirroring the
+  `authorizationRecorded`/`authorizationRevoked` precedent — no `granted: false`
+  reuse). `ActivityWebhookHandler` starts **parallel workflows** from the
+  trigger — on add `createAdminGrants` (generate the RegistrySet +
+  per-data-registry grants) / on remove `revokeAdminGrants` (drop grants, link,
+  ACRs), plus `syncAdminAcr` (rewrite `#fullAdminAccess`) on both — diverging
+  after the trigger; the activity payload feeds both.
 - **No delegation or inheritance** for admin grants — no `delegationOfGrant`, no
   `inheritsFromGrant`, no delegation-endpoint involvement.
 - **Admin-authorization iteration is deferred** until the consuming
@@ -80,12 +85,15 @@ split.
 
 | Phase | Scope | Steps | Checkpoint
 |---|---|---|---|
-| **1 — Marking layer** (§3, R1) | vocab · data model · RPC · handler · workflows · seed | 1.1 §3.1 vocab; 1.2 §3.2 data model + iterator type-filter; 1.3 §3.3 RPC service; 1.4 §3.4 API messages; 1.5 §3.5 handler wiring; 1.6 §3.6 seed *(done, revised)*; 1.7 §3.7 admin workflows (grants + ACR) | build+test after each; UI not required yet
+| **1 — Marking layer** (§R1 + §3.6–3.9) | vocab · data model · RPC · handler · workflows · seed | 1.1 R1 vocabulary — `AdminAuthorization`/`AdminGrant`/`hasAdminGrant`/`scopeOfAdminGrant` (§3.9); 1.2 §3.8 type-filtered authorization iterators (replaces the superseded §3.2 flag model); 1.3 R1 RPC service — record `AdminAuthorization` + write activity (§3.9); 1.4 §3.4 API messages; 1.5 §3.5 handler wiring; 1.6 §3.6 seed *(done, revised)*; 1.7 §3.7 admin workflows (add: `createAdminGrants` + `syncAdminAcr`; remove: `revokeAdminGrants` + `syncAdminAcr`) | build+test after each; UI not required yet
 | **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e | build+test after each; e2e scaffolding may be needed before 2.6
 | **3 — Admin events forwarding** (§3 below) | reuse `ActivityWebhookHandler` / `AdminWebhookHandler` + shared forwarding module; events keyed to admin webId | 3.1 extract forwarding half; 3.2 subscription recognition + event keying; 3.3 wire admin events into UI | build+test after each
 | **4 — Docs update** (below) | `peer.md` · `social-graph.md` | edit both docs to reflect the implemented org-context + forwarding behavior | build+test; review diffs of both docs
 
 Phase 1 (steps 1.1–1.5) needs **no UI**; it is a backend-only vertical slice.
+Steps 1.1–1.5 were originally mapped to §3.1–§3.5, which Revision R1 supersedes —
+execute the R1 versions (§R1 + §3.6–§3.9, step table above), not the history
+sections.
 Phase 2 is the largest and is the one most likely to need steps split further
 while implementing (each §2.x section maps to roughly one step above).
 
@@ -131,8 +139,10 @@ Social Agent is an org admin", so the enforcement phase has something to read.
   from `ApiHandler.ts` via `@effect/rpc` (`RpcRouter.toHandlerNoStream(router)`),
   with request types + the `SaiService` interface + `router` defined in
   `packages/api-messages/src/effect.ts`.
-- There is **no** `AdminRegistration` term in the `INTEROP` vocabulary
-  (`packages/utils/src/namespaces.ts`).
+- There are **no admin terms** in the `INTEROP` vocabulary
+  (`packages/utils/src/namespaces.ts`): neither the superseded
+  `AdminRegistration` flag nor the R1 `AdminAuthorization`/`AdminGrant`/
+  `hasAdminGrant`/`scopeOfAdminGrant`.
 - Registration CRUD mutation primitives already exist:
   `addStatement`/`removeStatement` (`packages/data-model/src/crud/container.ts`,
   SPARQL PATCH on the registration resource).
@@ -140,7 +150,9 @@ Social Agent is an org admin", so the enforcement phase has something to read.
 ## 3. Change
 
 > **Superseded by Revision R1** for the marking model — the flag-based §3.1–§3.5
-> below are kept as history. §3.6 reflects R1; §3.7 is new.
+> below are kept as history. §3.6 reflects R1; §3.7 and §3.8 are new (R1).
+> The phase-map steps 1.1–1.5 map to **R1 content** (§R1 + §3.6–§3.9), not to
+> these history sections — see §3.9 for the per-step R1 spec.
 
 ### 3.1 Vocabulary
 
@@ -284,7 +296,7 @@ Added Dan as an admin of YoYo (IDs generated with `npx @paralleldrive/cuid2 --le
   a interop:SocialAgentRegistration, ldp:Resource;
   interop:registeredAgent <https://id/dan> ;
   interop:reciprocalRegistration <https://registry/dan/agent/zdujx0/> ;
-  interop:hasAdminGrant <https://registry/yoyo/grant/aq3m2r/> ;   # RegistrySet-scoped
+  interop:hasAdminGrant <https://registry/yoyo/grant/vbg74v/> ;   # RegistrySet-scoped
   skos:prefLabel "Dan" ;
   skos:note "An administrator of Yoyodyne." .
   ```
@@ -303,9 +315,9 @@ Added Dan as an admin of YoYo (IDs generated with `npx @paralleldrive/cuid2 --le
   ```
   plus its `.acr` (YoYo `fullOwnerAccess`, Dan `peerReadAccess`).
 - **New `AdminGrant`s** in the grant registry (`https://registry/yoyo/grant/`):
-  one **RegistrySet**-scoped (linked above via `hasAdminGrant`), plus one
-  **DataRegistry**-scoped per YoYo data registry — `yoyo-eu` and `yoyo-na` —
-  each with `interop:hasStorage <data registry>`;
+  one **RegistrySet**-scoped `vbg74v` (linked above via `hasAdminGrant`), plus
+  one **DataRegistry**-scoped per YoYo data registry — `ds0emv` → `yoyo-eu`,
+  `f76tbp` → `yoyo-na` — each with `interop:hasStorage <data registry>`;
   `interop:scopeOfAdminGrant interop:DataRegistry`;
   `interop:accessMode acl:Read`, and its own `.acr` (YoYo `fullOwnerAccess`,
   Dan `peerReadAccess`). The Read-only data grants are the engine's source for
@@ -318,21 +330,88 @@ Added Dan as an admin of YoYo (IDs generated with `npx @paralleldrive/cuid2 --le
 
 ### 3.7 Admin workflows (grants + ACR) — new
 
-`AddAdmin`/`RemoveAdmin` (RPC) record the `AdminAuthorization` and write the
-`adminAuthorizationRecorded` domain activity (`events.md`).
-`ActivityWebhookHandler` starts two **parallel workflows** from that shared
-trigger:
+`AddAdmin`/`RemoveAdmin` (RPC) synchronously create/delete the
+`AdminAuthorization` in the org's AuthorizationRegistry — mirroring the
+data-authorization and `deleteRole` paths — then write a domain activity to the
+org's Activity Registry (`events.md`) — **distinct shapes** for add and remove,
+no `granted: false` reuse:
+`adminAuthorizationRecorded` on `AddAdmin`, `adminAuthorizationRevoked` on
+`RemoveAdmin` (mirroring the `authorizationRecorded`/`authorizationRevoked`
+precedent). `ActivityWebhookHandler` starts **parallel workflows** from the
+trigger, diverging on the activity type:
+
+**Add — `adminAuthorizationRecorded`:**
 
 1. **`createAdminGrants`** — generate the RegistrySet-scoped AdminGrant (and
    link it on the registration) plus one Read-only DataRegistry-scoped grant
    per data registry found via the RegistrySet (`hasDataRegistry`), each with
    its own ACR;
 2. **`syncAdminAcr`** — rewrite `#fullAdminAccess` in the org's `.acr` from the
-   current admin list (idempotent; the last-admin guard reads the
-   AuthorizationRegistry as the single source of truth).
+   current admin list (idempotent).
 
-The activity payload can be adjusted to feed both. No delegation or inheritance
+**Remove — `adminAuthorizationRevoked`:** the RPC has already deleted the
+`AdminAuthorization` synchronously (decided, mirroring `deleteRole`); the
+workflows clean up the generated artifacts:
+
+1. **`revokeAdminGrants`** — delete the admin's RegistrySet- and
+   DataRegistry-scoped AdminGrants, unlink `hasAdminGrant` from the
+   registration, and remove their ACRs (mirroring `revokeGrants`);
+2. **`syncAdminAcr`** — same idempotent rewrite; the last-admin guard reads the
+   AuthorizationRegistry as the single source of truth and refuses to leave the
+   org adminless.
+
+The activity payload (org `webId` + `admin` webId) feeds both paths; the
+workflows diverge on the activity `activityType`. No delegation or inheritance
 for admin grants.
+
+**Last-admin guard (decided — both, [Q2]):** at RPC time `RemoveAdmin` refuses
+when the org's AuthorizationRegistry holds exactly one `AdminAuthorization`;
+at workflow time `syncAdminAcr` refuses to produce an adminless
+`#fullAdminAccess` (AuthorizationRegistry as single source of truth).
+
+**Workflow specs — outcome / producer / test verification (decided [Q4];
+revisit after implementation).**
+
+`createAdminGrants` (trigger `adminAuthorizationRecorded`):
+- **Outcome.** The admin's RegistrySet-scoped `AdminGrant` exists in the org's
+  GrantRegistry and is linked on the registration via `hasAdminGrant` (single
+  PATCH replace, mirroring §4.0 of `workflow-temporal-decupling.md` → one
+  `Update`), plus one Read-only `DataRegistry`-scoped grant per data registry
+  from the RegistrySet (`hasStorage`, `acl:Read`), each with its own `.acr`
+  (org `fullOwnerAccess`, admin `peerReadAccess`).
+- **Producer.** The `ActivityWebhookHandler` branch starts it on
+  `adminAuthorizationRecorded`, payload org `webId` + `admin`.
+- **Verification.** Listen on the admin's registration in the org's agent
+  registry (e.g. `yoyoSession.findSocialAgentRegistration('https://id/dan')`)
+  before the RPC; await `AS.Update`; re-read → assert the RegistrySet grant
+  plus one DataRegistry grant per `hasDataRegistry` member (`grantee`,
+  `grantedBy`, `dataOwner`, `scopeOfAdminGrant`, `hasStorage`, `accessMode`).
+  Idempotency: the workflow is idempotent against re-delivery (rewrites, does
+  not duplicate grants); the RPC itself rejects a duplicate `AddAdmin` before
+  any activity is written.
+
+`revokeAdminGrants` (trigger `adminAuthorizationRevoked`):
+- **Outcome.** The admin's RegistrySet- and DataRegistry-scoped AdminGrants are
+  deleted (resources + ACRs); `hasAdminGrant` unlinked from the registration
+  (single PATCH → one `Update`).
+- **Producer.** The handler branch on `adminAuthorizationRevoked`.
+- **Verification.** Same listen-await-re-read pattern; assert the link is gone
+  and grant resources 404 for the org session.
+
+`syncAdminAcr` (trigger either):
+- **Outcome.** The org's `.acr` `#fullAdminAccess` matchers equal the current
+  admin list — idempotent derived rewrite; refuses to drop the last admin.
+- **Producer.** The handler starts it in parallel with the grants workflow
+  (both activity types).
+- **Verification.** No registration notification — fetch
+  `https://registry/<org>/.acr` fresh (`waitFor` poll; org session) and assert
+  the `acp:anyOf` matcher set matches the admin list.
+
+**Test infra dependency (flag in the checkpoint):** the workflow tests ride the
+real-CSS-delivery path, so `environments/data/kv.json` needs the **yoyo**
+`**activityWebhook**` pre-seed (app store + CSS-side `notifications/…` keys),
+mirroring the existing alice/bob/kim entries — dan/yoyo have accounts and
+reciprocal channels today but no Activity-Registry channel.
 
 **TODO (not Phase 1):** on a new data registry added to the RegistrySet, expand
 the All-scope authorization into a fresh DataRegistry grant — future domain
@@ -363,6 +442,85 @@ never reused as a data authorization.
 
 Admin-side iteration is **deferred** (R1): when needed, a parallel
 `adminAuthorizations()` will filter `type.includes(INTEROP.AdminAuthorization)`.
+The **public** listing API stays deferred; the *internal* type-filtered admin
+read is now needed in Phase 1 — the RPC last-admin guard, `syncAdminAcr`, and
+the workflow inputs all read it via the [Q3]-chosen crud (§3.9).
+
+### 3.9 Phase-1 step specs (R1) — new
+
+Re-maps steps 1.1–1.5 of the phase table onto the R1 model. The other live
+Phase-1 sections are §3.6 (seed), §3.7 (workflows) and §3.8 (type filter);
+§3.1–§3.5 are history.
+
+- **1.1 Vocabulary** — add to `packages/utils/src/namespaces.ts` (INTEROP):
+  `AdminAuthorization`, `AdminGrant`, `hasAdminGrant`, `scopeOfAdminGrant`.
+  Scope values reuse existing terms — `interop:RegistrySet` /
+  `interop:DataRegistry` for `scopeOfAdminGrant`, `interop:All` for the
+  authorization's `scopeOfAuthorization`. **Do not add `AdminRegistration`**
+  (that was the superseded §3.1 flag term).
+- **1.2 Data model — type filter (§3.8)** — in
+  `packages/data-model/src/crud/authorization-registry.ts`, make
+  `dataAuthorizations`, `getDataAuthorizations`, `findDataAuthorizations` and
+  `findAuthorizationsDelegatingFromOwner` skip resources whose `type` lacks
+  `INTEROP.DataAuthorization`; mirror the same filter in
+  `packages/authorization-agent/src/authorization.ts`
+  (`recordAccessAuthorization` reuse/equivalence). One change covers the
+  workspace `authorization-agent` consumers and the Temporal authorizations
+  activities. The §3.2 registration-flag functions are history — do not
+  implement. The [Q3]-chosen admin crud (write + internal read, below) lives in
+  this same module.
+- **1.3 RPC service (`packages/components/src/services/Admin.ts`)** — runs on
+  the **org's own AA session** (decided [Q1]): `saiSession` *is* the org's
+  AuthorizationAgent, so the org is just `saiSession.registrySet` —
+  `hasAuthorizationRegistry` for the `AdminAuthorization`, `hasActivityRegistry`
+  for the activity — exactly like every existing service. For the admin webId:
+  record an `AdminAuthorization` (`grantee`, `grantedBy` the org,
+  `scopeOfAuthorization interop:All`, `iriForContained` + PUT as with
+  authorizations/activities), then PUT the domain activity via
+  `ActivityRegistry.createActivity` (`adminAuthorizationRecorded` on add /
+  `adminAuthorizationRevoked` on remove, events.md). **Synchronous
+  AuthorizationRegistry change + error semantics (decided):** the RPC changes
+  the registry first — create the `AdminAuthorization` on add, delete it on
+  remove (mirroring `recordAuthorization` / `deleteRole`) — and only then
+  writes the activity; `ActivityWebhookHandler` starts the workflows from it to
+  generate/remove grants and rewrite the ACR (§3.7). `AddAdmin` on an agent who
+  already holds an `AdminAuthorization` → error (no write, no activity);
+  `RemoveAdmin` on an agent who holds none → error. **Admin gate:** with the
+  org's own AA the caller is the owner — allowed by the gate and by ACR
+  `fullOwnerAccess`; the non-owner gate (caller holds an `AdminAuthorization`)
+  lands with Phase-2 context authz (§2.4). **Last-admin guard (decided both,
+  [Q2]):** RPC time — `RemoveAdmin` refuses when the org's AuthorizationRegistry
+  holds exactly one `AdminAuthorization`; workflow time — `syncAdminAcr`
+  enforces the same (§3.7). **`AdminAuthorization` write mechanism (decided
+  [Q3]):** data-model crud in `crud/authorization-registry.ts` —
+  `recordAdminAuthorization` writes via `iriForContained` + PUT (incl. the
+  container-link update); an internal type-filtered admin read serves the RPC
+  guard and `syncAdminAcr` (only the public iteration surface is deferred,
+  §3.8). The service calls it with the factory, like `RoleRegistry.createRole`;
+  the AA stays untouched.
+- **1.4 API messages** — `AddAdmin`/`RemoveAdmin` `TaggedRequest`s exactly as
+  §3.4 (R1-neutral), registered on `SaiService` and the `router` in
+  `packages/api-messages/src/effect.ts`.
+- **1.5 Handler wiring** — `packages/components/src/ApiHandler.ts`: add the
+  service to `SaiService.of({...})`; add an `ActivityWebhookHandler` branch
+  routing `adminAuthorizationRecorded` → `createAdminGrants` + `syncAdminAcr`
+  and `adminAuthorizationRevoked` → `revokeAdminGrants` + `syncAdminAcr` (two
+  starts per activity or one fan-out via `executeChild` — settle in
+  implementation, events.md).
+
+**Decided:** [Q1] org's own AA session (owner acts for the org; the non-owner
+admin gate lands in Phase 2). [Q2] last-admin guard both at RPC time and in
+`syncAdminAcr`. [Q3] data-model crud in `crud/authorization-registry.ts` (AA
+surface stays unchanged). [Q4] §3.7 now carries outcome/producer/verification
+specs for the three workflows — revisit after implementation. Plus: synchronous
+AuthorizationRegistry changes in the RPC (create/delete) with **error** on
+already-admin / non-admin (no no-op), the activity written only after the
+registry change — mirroring `recordAuthorization` / `deleteRole`.
+
+**Rationale ([Q3]):** the AA option would import the data-authorization
+reuse/equivalence machinery, which admin authorizations don't need (no access
+modes, no shape trees); the crud colocates admin read+write with the §3.8
+type-filter so one module serves the RPC guard, `syncAdminAcr`, and step 1.2.
 
 ## 4. Design decisions
 
@@ -392,6 +550,39 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
 
 ## 5. Testing
 
+> **R1:** the bullets below were written for the superseded flag model
+> (registrations no longer carry `AdminRegistration`; §3.1–§3.5 are history).
+> R1 testing targets: the type-filtered iterators (§3.8), the
+> `AddAdmin`/`RemoveAdmin` RPC (records the `AdminAuthorization` + writes the
+> activity; setup and write mechanism per the §3.9 decisions), and the §3.7
+> workflows.
+
+- **API messages**: schema compile (`AddAdmin`/`RemoveAdmin`). An end-to-end
+  ApiHandler test (if the harness supports it) can call the RPC and assert the
+  resulting `SocialAgent`.
+- **Data model — type filter (§3.8)**
+  (`packages/data-model/test/crud/authorization-registry.test.ts`): with both
+  an `AdminAuthorization` and a `DataAuthorization` in one registry,
+  `dataAuthorizations`, `getDataAuthorizations`, `findDataAuthorizations` and
+  `findAuthorizationsDelegatingFromOwner` return only the data authorization; a
+  registry holding only `AdminAuthorization`s yields empty results for all four
+  (no crash on the unknown `scopeOfAuthorization`). `authorization-agent`'s
+  `recordAccessAuthorization` reuse/equivalence also skips `AdminAuthorization`s.
+- **Service (§3.9)** (`packages/components` test of `services/Admin.ts`):
+  `AddAdmin` creates the `AdminAuthorization` and writes the
+  `adminAuthorizationRecorded` activity; `RemoveAdmin` deletes it and writes
+  `adminAuthorizationRevoked`. Unknown webId → error; **`AddAdmin` on an
+  existing admin → error (no write, no activity); `RemoveAdmin` on a non-admin
+  → error**. Setup: the org's own AA session ([Q1]); assert the RPC-time
+  last-admin guard ([Q2]) — `RemoveAdmin` on the last remaining admin errors
+  and writes no activity. Write mechanism: data-model crud in
+  `crud/authorization-registry.ts` ([Q3]).
+- **Workflows (§3.7)**: outcome/producer/verification specs added ([Q4] —
+  revisit after implementation); note the kv.json yoyo activity-webhook
+  pre-seed dependency.
+
+*(History — flag-model tests, superseded by R1:)*
+
 - **Data model** (`packages/data-model/test/crud/social-agent-registration.test.ts`):
   - `isAdmin` is `false` for a freshly created registration, `true` after
     `addAdmin`.
@@ -406,9 +597,6 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
   - `addAdmin`/`removeAdmin` return the updated `SocialAgent` profile and the
     registration reflects the flag on the next read.
   - Unknown webId → error.
-- **API messages**: schema compile (`AddAdmin`/`RemoveAdmin`). An end-to-end
-  ApiHandler test (if the harness supports it) can call the RPC and assert the
-  resulting `SocialAgent`.
 
 ## 6. Out of scope / follow-ups
 
@@ -421,8 +609,8 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
   paths:
   - **Structural registries (agent/auth/grant/role/activity) — ACP.** Access is
     controlled by the org's `.acr` files; granting an admin means the
-    `fullAdminAccess` matchers in `environments/data/registry.trig` (§3.3/§3.6),
-    aligned with `addAdmin`/`removeAdmin`. **Administrative Write/Control on the
+    `fullAdminAccess` matchers in `environments/data/registry.trig` (§R1/§3.6),
+    aligned by the `syncAdminAcr` workflow (§3.7). **Administrative Write/Control on the
     structural registries is fully covered this way.**
   - **Data registries / data instances — permission engine (open).** These are
     served by the **data service** and gated by the `SaiPermissionsEngine`
@@ -432,10 +620,11 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
     `listDataRegistries` / `listDataInstances` behave in an org context and
     whether `shareResource` needs a data instance (for a label) to work (see
     §2.8).
-- **Activity write.** Whether `addAdmin`/`removeAdmin` should append an
-  activity (`roleMembershipChanged`-style or a dedicated type) to the Activity
-  Registry — not needed until admins drive workflows. *Deferred — revisit when
-  admins drive workflows; the service hooks live in §3.3.*
+- **Activity write.** Decided (R1): `AddAdmin`/`RemoveAdmin` append a domain
+  activity to the org's Activity Registry — `adminAuthorizationRecorded` on
+  add, distinct `adminAuthorizationRevoked` on remove (own shape; no
+  `granted: false` reuse) — driving the grant/ACR workflows (`events.md`,
+  §3.7).
 - **Admin of *which* registry — ✅ confirmed: placement is sufficient, no
   explicit link needed.**
   - One RegistrySet per webId/org (derived deterministically via
@@ -449,8 +638,8 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
     **context** (the RegistrySet/Agent Registry being operated on), not by the
     registration itself.
 - **Seed lifetime.** The Dan-as-YoYo-admin seed (§3.6) is bootstrap data; the
-  runtime `addAdmin`/`removeAdmin` path (Phase 1, §3.1–3.5) is what grants
-  admins once implemented, superseding the hand-written seed.
+  runtime `AddAdmin`/`RemoveAdmin` path (Phase 1, §3.7–§3.9) is what
+  grants/revokes admins once implemented, superseding the hand-written seed.
 
 ---
 
@@ -466,8 +655,10 @@ Admin-side iteration is **deferred** (R1): when needed, a parallel
 A **context** is identified by a webId:
 - **Personal context** — the signed-in user's own webId (default).
 - **Organization (admin) context** — a webId the user administers, i.e. an org
-  whose Agent Registry holds an `AdminRegistration` for the user (the user's
-  reciprocal registration in that org's registry).
+  whose Agent Registry holds the user's registration with an **admin marker** (a
+  `hasAdminGrant` link to the RegistrySet-scoped `AdminGrant`, recorded as an
+  `AdminAuthorization` in the org's AuthorizationRegistry); reached from the
+  user's own registration via `reciprocalRegistration`.
 
 The backend **keeps the user's own AuthorizationAgent** (their UAS as the OIDC
 client — this is exactly what `fullAdminAccess` on the org's `.acr` matches) and
@@ -487,13 +678,15 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
 
 - **`SocialAgent.admin` boolean (moved up from the §6 UI follow-up).** Extend
   the `SocialAgent` message with an **`admin` boolean** and populate it in
-  `buildSocialAgentProfile` (from `isAdmin` on the registration, applying the
-  asymmetry below) so the UI can flag admins of the context org. *(Q6 — decided)*
+  `buildSocialAgentProfile` (from the registration's admin marker — a non-empty
+  `hasAdminGrant` link — applying the asymmetry below) so the UI can flag
+  admins of the context org. *(Q6 — decided)*
 - **Asymmetry (where the flag is read from).** The admin marking lives on the
   **org's registration of the user** (the reciprocal). So deciding which side to
   read depends on the context:
   - if `context === user's webId` (personal context): `admin` is read from the
-    **reciprocal** registration (`isAdmin(reciprocalRegistration)`);
+    **org's registration** of the user, reached via `reciprocalRegistration`
+    (the admin marker lives there, not on the user's own registration);
   - if `context` is an org other than the user: `admin` is read from **that
     org's registration** of the agent directly.
   Check `context === webId` to select which side applies.
@@ -549,8 +742,9 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   agent-id document is requested.
   - `AgentIdHandler` already builds the org's session and — for a requesting
     agent who is not the owner — lands in the `findSocialAgentRegistration`
-    branch (YoYo's registration of Dan). After that lookup, if `isAdmin(registration)`,
-    add `<${sai.registrySet.id}>; rel="${INTEROP.hasRegistrySet}"` alongside the
+    branch (YoYo's registration of Dan). After that lookup, if the registration
+    carries the admin marker (`hasAdminGrant`), add
+    `<${sai.registrySet.id}>; rel="${INTEROP.hasRegistrySet}"` alongside the
     existing `registeredAgent` link. Only admins get this second link.
   - Requires a new `hasRegistrySet` rel term in `packages/utils/src/namespaces.ts`
     (the vocab has no predicate pointing at a RegistrySet from an agent doc).
@@ -593,8 +787,9 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   currently operating in.
 - **Keeping the switcher/admin list fresh (event-driven).** The UI already
   subscribes to activity-registry events. When a reciprocal registration is
-  updated (e.g. the org's registration of the user changes its `AdminRegistration`
-  flag), `ReciprocalWebhookHandler` writes a `delegatedGrantsUpdated` activity to
+  updated (e.g. the org's registration of the user gains/loses its admin marker,
+  `hasAdminGrant`), `ReciprocalWebhookHandler` writes a `delegatedGrantsUpdated`
+  activity to
   the admin's Activity Registry. After that activity completes, the resulting
   event is **forwarded to the UI**, which re-runs `loadSocialAgents` to recompute
   the switchable contexts and `admin` flags. Combined with short-lived sessions
@@ -626,8 +821,9 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
 - **Toggle-admin and context switcher are separate UI concepts** and are not
   mixed or reused.
 - Discovery of switchable contexts via `ListSocialAgents` `admin` bool + reuse
-  of the agent's `label`; `admin` is read from the reciprocal in the personal
-  context (`context === webId`) and from the org's registration otherwise.
+  of the agent's `label`; `admin` is read from the org's registration of the
+  agent (reached via `reciprocalRegistration` in the personal context, directly
+  in an org context) — the marker is the `hasAdminGrant` link.
 - **`AddAdmin`/`RemoveAdmin` are admin-only**, and `removeAdmin`/the UI refuse
   to remove the last admin.
 - **Peer-scoped services use `context`, not `saiSession.webId`**, since reads are
@@ -656,7 +852,7 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
 - **Context perspective:** in an org context, `getDataRegistries`/peer reads use
   the context org, not the admin's webId, as the perspective.
 - **Event-driven refresh:** when the org updates the user's reciprocal
-  registration admin flag, `ReciprocalWebhookHandler` emits a `delegatedGrantsUpdated`
+  registration admin marker, `ReciprocalWebhookHandler` emits a `delegatedGrantsUpdated`
   activity that is forwarded to the UI after completion, re-running
   `loadSocialAgents` and updating the switcher/admin flags.
 - **Seed-driven e2e:** Dan logs in, switches to YoYo context, and can operate on
@@ -753,17 +949,16 @@ reflect only what the feature *breaks* or leaves undefined.
 
 ### Already consistent — do not change
 
-- Admin-flag change on the org's registration of the user is a reciprocal
+- Admin-marker change on the org's registration of the user is a reciprocal
   `Update` → `ReciprocalWebhookHandler` → `delegatedGrantsUpdated`
   (peer.md producer/consumer tables; social-graph §2 polarity). **No new
   activity type** — the producer/consumer tables in peer.md stay as-is except
   for the org-context notes below.
-- `AddAdmin`/`RemoveAdmin` are synchronous RPC and write no activity (out of
-  scope, §6) — no producer-table row is added.
-- The admin marking lives on the org's registration of the user, reachable via
-  the `reciprocalRegistration` link from the user's own registration — matches
-  the existing reciprocal convention in social-graph §5 and the §3.6 seed
-  (`ph8e70` carries the admin type, `zdujx0` does not).
+- The admin marking lives on the org's registration of the user (the
+  `hasAdminGrant` admin marker), reachable via the `reciprocalRegistration`
+  link from the user's own registration — matches the existing reciprocal
+  convention in social-graph §5 and the §3.6 seed (`ph8e70` carries the
+  `hasAdminGrant` marker to `vbg74v`, `zdujx0` does not).
 
 ### peer.md — "a single peer" must stop assuming one peer = one registry set
 
@@ -784,6 +979,12 @@ reflect only what the feature *breaks* or leaves undefined.
    §2.5 `delegatedGrantsUpdated` refresh).
 3. Update the layered-diagram actor label: a registered admin is a *client of
    another peer's registries*, not the owner of the registries it mutates (C1).
+4. **Producer-table rows for the admin activities (Phase 1).** `AddAdmin`/
+   `RemoveAdmin` *do* write org-context activities —
+   `adminAuthorizationRecorded` / `adminAuthorizationRevoked` (§3.7) —
+   processed by the **org's** AA/workflows. Add those two rows to the peer.md
+   producer/consumer tables (the earlier "write no activity" note no longer
+   applies).
 
 ### social-graph.md — new org↔admin edges
 

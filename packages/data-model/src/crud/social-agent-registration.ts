@@ -3,19 +3,18 @@ import {
   RDF,
   SKOS,
   type WhatwgFetch,
+  deletePatch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   fetchJsonLd,
   frameDoc,
+  insertPatch,
 } from '@janeirodigital/interop-utils'
-import { DataFactory, type Store } from 'n3'
+import { DataFactory, Store } from 'n3'
 import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
-import {
-  type AgentRegistrationId,
-  toDataset as registrationToDataset,
-} from './agent-registration'
-import { addStatement, createContainer, replaceStatement } from './container'
+import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
+import { addStatement, applyPatch, createContainer, replaceStatement } from './container'
 
 // ──────────────────────────
 // Types
@@ -26,6 +25,8 @@ export type SocialAgentRegistrationId = AgentRegistrationId
 export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   registeredAgent: string
   hasDataGrant?: string[]
+  /** AdminGrant IRIs (R1 admin marker) — captured from framing on read */
+  hasAdminGrant?: string[]
   prefLabel: string
   note?: string
   hasAccessNeedGroup?: string
@@ -62,6 +63,7 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgent
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredAgent: node.registeredAgent,
     hasDataGrant: node.hasDataGrant ?? [],
+    hasAdminGrant: node.hasAdminGrant ?? [],
     prefLabel: node.prefLabel ?? '',
     // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
     note: node.note ?? undefined,
@@ -199,4 +201,46 @@ export async function setAccessNeedGroup(
     await addStatement(data.id, factory, quad)
   }
   data.hasAccessNeedGroup = accessNeedGroupIri
+}
+
+// ──────────────────────────
+// Admin grant links (R1 admin marker on the registration)
+// ──────────────────────────
+
+/** The registration's AdminGrant IRIs (interop:hasAdminGrant). */
+export async function getAdminGrantIris(data: SocialAgentRegistrationData): Promise<string[]> {
+  return data.hasAdminGrant ?? []
+}
+
+/**
+ * Replace the registration's `hasAdminGrant` links to exactly `grantIris` in a
+ * single PATCH (remove old + insert new) — exactly one Update notification on
+ * the registration. `grantIris: []` unlinks (admin revoked). No-op when the
+ * links already match (idempotent against re-delivery).
+ */
+export async function replaceAdminGrantLinks(
+  data: SocialAgentRegistrationData,
+  factory: AuthorizationAgentFactory,
+  grantIris: string[]
+): Promise<void> {
+  const current = await getAdminGrantIris(data)
+  const currentSet = new Set(current)
+  const targetSet = new Set(grantIris)
+  const removed = currentSet.difference(targetSet)
+  const added = targetSet.difference(currentSet)
+  if (removed.size === 0 && added.size === 0) return
+
+  const node = DataFactory.namedNode(data.id)
+  const removeQuads = [...removed].map((iri) =>
+    DataFactory.quad(node, INTEROP.terms.hasAdminGrant, DataFactory.namedNode(iri))
+  )
+  const insertQuads = [...added].map((iri) =>
+    DataFactory.quad(node, INTEROP.terms.hasAdminGrant, DataFactory.namedNode(iri))
+  )
+  const sparqlUpdate = [
+    ...(removed.size ? [await deletePatch(new Store(removeQuads))] : []),
+    ...(added.size ? [await insertPatch(new Store(insertQuads))] : []),
+  ].join(';')
+  await applyPatch(data.id, factory, sparqlUpdate)
+  data.hasAdminGrant = [...grantIris]
 }

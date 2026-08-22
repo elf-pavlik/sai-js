@@ -81,6 +81,13 @@ function addState(state: { [key: string]: string }): WhatwgFetch {
       return response
     }
 
+    if (options?.method === 'DELETE') {
+      delete state[url]
+      const response = { ok: true } as Response
+      response.clone = () => ({ ...response })
+      return response
+    }
+
     return common(url, options, state)
   } as WhatwgFetch
 }

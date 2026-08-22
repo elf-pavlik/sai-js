@@ -17,6 +17,8 @@ import type { SessionManager } from './SessionManager'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
 import type { ReciprocalRegistrationInput } from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
+import { createAdminGrants, revokeAdminGrants, syncAdminAcr } from './temporal/workflows/admin.js'
+import type { AdminWorkflowInput } from './temporal/workflows/admin.js'
 import {
   granteeActivitiesSignal,
   processGranteeActivities,
@@ -43,6 +45,12 @@ const activityWorkflows: Record<string, { workflow: Workflow; taskQueue: string 
 }
 
 const GRANTEE_ACTIVITY_TYPES = new Set(['authorizationRecorded', 'authorizationRevoked'])
+
+// adminAuthorizationRecorded/adminAuthorizationRevoked route to the parallel
+// grants + ACR workflows (see events.md "New: admin event") — the RPC has
+// already changed the AuthorizationRegistry synchronously; the workflows
+// materialize the grants/links and rewrite the derived #fullAdminAccess.
+const ADMIN_ACTIVITY_TYPES = new Set(['adminAuthorizationRecorded', 'adminAuthorizationRevoked'])
 
 /**
  * Receives webhook notifications from the org's Activity Registry container
@@ -137,6 +145,30 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
             }
           }
         }
+        return new ResponseDescription(200)
+      }
+
+      if (ADMIN_ACTIVITY_TYPES.has(activity.activityType)) {
+        const admin = (activity.payload as { admin: { id: string; type: string[] } }).admin
+        const webId = { id: channel.webId, type: [INTEROP.SocialAgent] }
+        const temporal = new Temporal()
+        await temporal.init()
+        // parallel starts from the one activity: grants (add/remove diverge) + ACR rewrite
+        const grantsWorkflow =
+          activity.activityType === 'adminAuthorizationRecorded'
+            ? createAdminGrants
+            : revokeAdminGrants
+        const args: [AdminWorkflowInput] = [{ webId, admin, activityIri: requestBody.object }]
+        await temporal.client.workflow.start(grantsWorkflow, {
+          taskQueue: 'create-grants',
+          args,
+          workflowId: crypto.randomUUID(),
+        })
+        await temporal.client.workflow.start(syncAdminAcr, {
+          taskQueue: 'create-grants',
+          args: [{ webId, activityIri: requestBody.object }],
+          workflowId: crypto.randomUUID(),
+        })
         return new ResponseDescription(200)
       }
 

@@ -14,6 +14,8 @@ import {
   setHandler,
 } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
+import { createAdminGrants, revokeAdminGrants, syncAdminAcr } from './admin.js'
+import type { AdminWorkflowInput } from './admin.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
 // beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
@@ -342,6 +344,20 @@ export async function reconcileActivities(payload: {
         args: [activity.payload as activities.ProcessGrantsRevocationInput],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (
+      activity.activityType === 'adminAuthorizationRecorded' ||
+      activity.activityType === 'adminAuthorizationRevoked'
+    ) {
+      // admin activities — same routing as the webhook handler (grants + ACR rewrite)
+      const admin = (activity.payload as { admin: { id: string; type: string[] } }).admin
+      const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityIri: activity.id }]
+      await executeChild(
+        activity.activityType === 'adminAuthorizationRecorded'
+          ? createAdminGrants
+          : revokeAdminGrants,
+        { args }
+      )
+      await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
     }
   }
   for (const [granteeId, group] of granteeGroups) {

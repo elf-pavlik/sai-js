@@ -9,7 +9,9 @@ import {
   AuthorizationAgentFactory,
   discoverAndUpdateReciprocal,
   discoverReciprocal,
+  getAdminGrantIris,
   getDataGrantIris,
+  replaceAdminGrantLinks,
   setAccessNeedGroup,
 } from '../../src'
 import { expect } from '../expect'
@@ -152,5 +154,66 @@ describe('setAccessNeedGroup', () => {
     const anotherAccessNeedGroupIri = 'https://auth.alice.example/another-access-need-group'
     await setAccessNeedGroup(socialAgentRegistration, factory, anotherAccessNeedGroupIri)
     expect(socialAgentRegistration.hasAccessNeedGroup).toBe(anotherAccessNeedGroupIri)
+  })
+})
+
+describe('admin grant links (R1)', () => {
+  const snippetIri = 'https://auth.alice.example/registration-admin'
+  const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
+  const grantOne = 'https://auth.alice.example/grant-admin-1'
+  const grantTwo = 'https://auth.alice.example/grant-admin-2'
+
+  test('frames hasAdminGrant from the registration resource', async () => {
+    const socialAgentRegistration = await factory.socialAgentRegistration(snippetIri)
+    expect(await getAdminGrantIris(socialAgentRegistration)).toEqual([grantOne, grantTwo])
+  })
+
+  test('replaceAdminGrantLinks patches remove+insert in a single request', async () => {
+    const socialAgentRegistration = await factory.socialAgentRegistration(snippetIri)
+    const mockedFetch = vi.fn(statelessFetch)
+    const statefulFactory = new AuthorizationAgentFactory({ fetch: mockedFetch, randomUUID })
+    const grantThree = 'https://auth.alice.example/grant-admin-3'
+
+    await replaceAdminGrantLinks(socialAgentRegistration, statefulFactory, [grantOne, grantThree])
+
+    expect(mockedFetch).toBeCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('DELETE DATA'),
+      })
+    )
+    expect(mockedFetch).toBeCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('INSERT DATA'),
+      })
+    )
+    expect(socialAgentRegistration.hasAdminGrant).toEqual([grantOne, grantThree])
+  })
+
+  test('replaceAdminGrantLinks unlinks with an empty list', async () => {
+    const socialAgentRegistration = await factory.socialAgentRegistration(snippetIri)
+    const mockedFetch = vi.fn(statelessFetch)
+    const statefulFactory = new AuthorizationAgentFactory({ fetch: mockedFetch, randomUUID })
+
+    await replaceAdminGrantLinks(socialAgentRegistration, statefulFactory, [])
+
+    expect(mockedFetch).toBeCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('DELETE DATA'),
+      })
+    )
+    expect(socialAgentRegistration.hasAdminGrant).toEqual([])
+  })
+
+  test('replaceAdminGrantLinks is a no-op when the links already match', async () => {
+    const socialAgentRegistration = await factory.socialAgentRegistration(snippetIri)
+    const mockedFetch = vi.fn(statelessFetch)
+    const statefulFactory = new AuthorizationAgentFactory({ fetch: mockedFetch, randomUUID })
+
+    await replaceAdminGrantLinks(socialAgentRegistration, statefulFactory, [grantOne, grantTwo])
+
+    expect(mockedFetch).not.toHaveBeenCalled()
   })
 })

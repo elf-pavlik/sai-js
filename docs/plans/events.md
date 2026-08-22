@@ -38,35 +38,45 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 The `AddAdmin` / `RemoveAdmin` RPC records the change and writes a **domain
 activity** to the org's Activity Registry; `ActivityWebhookHandler` routes it to
 **parallel workflows** that materialize the side effects (grants + ACR
-matchers). Proposed shape — final naming/fields to settle during Phase 1:
+matchers). Shape (decided — `RemoveAdmin` has its own distinct activity, no
+`granted`-flag reuse):
 
 ```
-activityType: adminAuthorizationRecorded     (reuse for add and remove, or split — see below)
+activityType: adminAuthorizationRecorded     (`AddAdmin`)
+            / adminAuthorizationRevoked      (`RemoveAdmin`)
 target:      the org's AuthorizationRegistry (or RegistrySet)
 payload:     {
                webId:   { id: <org webId>, type: [interop:SocialAgent] },  // event owner
-               admin:   { id: <admin webId>, type: [interop:SocialAgent] },
-               granted: <boolean>                                          // true = add, false = remove
+               admin:   { id: <admin webId>, type: [interop:SocialAgent] }
              }
 ```
 
-- **Producer:** `AddAdmin`/`RemoveAdmin` RPC service (`services/Admin.ts`),
-  after recording the `AdminAuthorization` into the org's AuthorizationRegistry,
-  via `ActivityRegistry.createActivity`.
+Add vs. remove is distinguished by the `activityType` itself (mirroring the
+`authorizationRecorded` / `authorizationRevoked` pair).
+
+- **Producer:** `AddAdmin`/`RemoveAdmin` RPC service (`services/Admin.ts`):
+  the RPC changes the org's AuthorizationRegistry **synchronously** — create
+  the `AdminAuthorization` on add, delete it on revoke (mirroring
+  `recordAuthorization` / `deleteRole`; error on already-admin / non-admin) —
+  then writes the activity via `ActivityRegistry.createActivity`.
 - **Handler:** a new branch in `ActivityWebhookHandler` (parallel to
-  `GRANTEE_ACTIVITY_TYPES` / `activityWorkflows`). The trigger is **shared**;
-  the workflows **diverge after the trigger**:
-  1. `createAdminGrants` — generate AdminGrants from the AdminAuthorization:
-     one `scopeOfAdminGrant interop:RegistrySet` (the registration-linked admin
-     marker) + one `interop:DataRegistry` per data registry in the RegistrySet
-     (Read-only, for the engine);
-  2. `syncAdminAcr` — rewrite the org's `#fullAdminAccess` matchers in the
-     registries-server ACR from the admin list (derived artifact, idempotent
-     rewrite rather than incremental patch).
-  The activity payload can be adjusted as needed to feed both.
-- **Parallelism note (decided):** two workflows, same task queue family
-  (`create-grants`) or a dedicated queue; they may be started from the one
-  activity (two starts) or from one fan-out workflow via `executeChild` —
+  `GRANTEE_ACTIVITY_TYPES` / `activityWorkflows`). The **trigger is the shared
+  activity pair**; add and remove are distinguished by `activityType`
+  (decided — distinct shapes, no `granted` flag), and the workflows **diverge
+  after the trigger**:
+  - `adminAuthorizationRecorded` → `createAdminGrants` (from the
+    AdminAuthorization: one `scopeOfAdminGrant interop:RegistrySet`
+    registration-linked admin marker + one `interop:DataRegistry` per data
+    registry in the RegistrySet, Read-only, for the engine) + `syncAdminAcr`;
+  - `adminAuthorizationRevoked` → `revokeAdminGrants` (delete the admin's
+    AdminGrants, unlink `hasAdminGrant`, remove their ACRs) + `syncAdminAcr`.
+  `syncAdminAcr` — rewrite the org's `#fullAdminAccess` matchers in the
+  registries-server ACR from the admin list (derived artifact, idempotent
+  rewrite rather than incremental patch) — runs on both, reading the
+  AuthorizationRegistry as source of truth (last-admin guard).
+- **Parallelism note (decided):** two workflows per activity, same task queue
+  family (`create-grants`) or a dedicated queue; they may be started from the
+  one activity (two starts) or from one fan-out workflow via `executeChild` —
   settle during implementation.
 
 ## Marked TODO / future domain events
@@ -77,11 +87,11 @@ payload:     {
   `dataRegistryAdded`-style event (or fold into the existing admin
   regeneration) when registry-set mutation is implemented. **TODO — not part of
   Phase 1.**
-- **Admin removal event.** Decide during Phase 1 whether `RemoveAdmin` reuses
-  `adminAuthorizationRecorded` with `granted: false` or writes a distinct
-  `adminAuthorizationRevoked` (mirroring the `authorizationRevoked` precedent);
-  the revocation boundary (`GrantRevocationHandler`) should also handle admin
-  revocation and the last-admin guard.
+- **Admin removal event (decided).** `RemoveAdmin` writes a **distinct**
+  `adminAuthorizationRevoked` activity (own shape; no `granted: false` reuse of
+  `adminAuthorizationRecorded`), mirroring the `authorizationRevoked`
+  precedent. The revocation boundary (`GrantRevocationHandler`) should also
+  handle admin revocation (`revokeAdminGrants`) and the last-admin guard.
 - **Admin-authorization iteration is deferred** (see `org-admin-feature.md`
   R1): no `adminAuthorizations()` listing API until the consuming functionality
   is planned. The workflows must still read admin state (source of truth: the

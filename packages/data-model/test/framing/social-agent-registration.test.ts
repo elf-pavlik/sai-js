@@ -18,6 +18,7 @@ describe('SocialAgentRegistration framing', () => {
       type: [INTEROP.SocialAgentRegistration, LDP.Resource],
       registeredAgent: 'https://id/alice',
       hasDataGrant: ['https://registry/acme/grant/g4yhtm'],
+      hasAdminGrant: [],
       prefLabel: 'Alice',
       note: 'Chasing white rabits.',
       hasAccessNeedGroup: undefined,

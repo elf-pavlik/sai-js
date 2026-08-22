@@ -1,3 +1,12 @@
+## Git
+
+Only user can stage/unstage and commit with git. Agent can use git commands only to read needed information.
+
+### Tests
+
+Only user can run tests in /test they use dagger setup in /.dagger.
+Agent can run vitest tests in /packages
+
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 

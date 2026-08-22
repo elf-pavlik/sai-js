@@ -433,6 +433,18 @@ export class RevokeGrants extends S.TaggedRequest<RevokeGrants>()('RevokeGrants'
   },
 }) {}
 
+export class AddAdmin extends S.TaggedRequest<AddAdmin>()('AddAdmin', {
+  failure: S.Never,
+  success: SocialAgent,
+  payload: { webId: IRI },
+}) {}
+
+export class RemoveAdmin extends S.TaggedRequest<RemoveAdmin>()('RemoveAdmin', {
+  failure: S.Never,
+  success: SocialAgent,
+  payload: { webId: IRI },
+}) {}
+
 export class SaiService extends Context.Tag('SaiService')<
   SaiService,
   {
@@ -498,6 +510,8 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly revokeGrants: (
       grants: readonly S.Schema.Type<typeof IRI>[]
     ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
+    readonly addAdmin: (webId: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
+    readonly removeAdmin: (webId: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
   }
 >() {}
 
@@ -632,6 +646,18 @@ export const router = RpcRouter.make(
     Effect.gen(function* () {
       const saiService = yield* SaiService
       return yield* saiService.revokeGrants(grants)
+    })
+  ),
+  Rpc.effect(AddAdmin, ({ webId }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.addAdmin(webId)
+    })
+  ),
+  Rpc.effect(RemoveAdmin, ({ webId }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.removeAdmin(webId)
     })
   )
 )

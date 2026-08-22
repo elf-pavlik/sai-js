@@ -13,7 +13,9 @@ export {
   type SocialAgentId,
   discoverReciprocal,
   discoverAndUpdateReciprocal,
+  getAdminGrantIris,
   loadReciprocalRegistration,
+  replaceAdminGrantLinks,
   setAccessNeedGroup,
   createSocialAgentRegistration,
 } from './social-agent-registration'
@@ -43,7 +45,7 @@ export * as RegistrySet from './registry-set'
 export type { AgentRegistryData } from './agent-registry'
 export type { RoleRegistryData } from './role-registry'
 export type { DataRegistryData } from './data-registry'
-export type { AuthorizationRegistryData } from './authorization-registry'
+export type { AuthorizationRegistryData, AdminAuthorizationData } from './authorization-registry'
 export type { GrantRegistryData } from './grant-registry'
 export type { ActivityRegistryData, ActivityData } from './activity-registry'
 export type { RegistrySetData } from './registry-set'

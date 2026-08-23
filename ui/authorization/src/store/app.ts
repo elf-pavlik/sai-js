@@ -247,6 +247,7 @@ export const useAppStore = defineStore('app', () => {
     invitationList,
     setContext,
     switchContext,
+    currentContext,
     toggleAdmin,
     getResource,
     shareResource,

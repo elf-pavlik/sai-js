@@ -57,8 +57,7 @@ const acp = {
   anyOf: 'http://www.w3.org/ns/solid/acp#anyOf',
   apply: 'http://www.w3.org/ns/solid/acp#apply',
 }
-const ACL_READ_WRITE_CONTROL =
-  'http://www.w3.org/ns/auth/acl#Read, http://www.w3.org/ns/auth/acl#Write, http://www.w3.org/ns/auth/acl#Control'
+const ACL_READ_WRITE_CONTROL = 'acl:Read, acl:Write, acl:Control'
 
 /**
  * Build the admin's grant payloads in the org's GrantRegistry: the

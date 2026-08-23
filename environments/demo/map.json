@@ -4,7 +4,8 @@
     "https://id/yoyo": "https://yoyo.fed.quest",
     "https://id/alice": "https://alice.fed.quest",
     "https://id/bob": "https://bob.fed.quest",
-    "https://id/kim": "https://kim.fed.quest"
+    "https://id/kim": "https://kim.fed.quest",
+    "https://id/dan": "https://dan.fed.quest"
   },
   "prefixes": {
     "https://auth/": "https://auth.fed.quest/",
@@ -34,6 +35,10 @@
     "https://test-client": "https://vuejectron.fed.quest",
     "https://data/test-client/public/id": "https://vuejectron.fed.quest/id",
     "https://data/test-client/": "https://vuejectron.data.fed.quest/",
-    "meta:https://data/test-client/": "meta:https://vuejectron.data.fed.quest/"
+    "meta:https://data/test-client/": "meta:https://vuejectron.data.fed.quest/",
+    "https://data/dan-east/": "https://dan-east.data.fed.quest/",
+    "meta:https://data/dan-east/": "meta:https://dan-east.data.fed.quest/",
+    "https://data/dan-west/": "https://dan-west.data.fed.quest/",
+    "meta:https://data/dan-west/": "meta:https://dan-west.data.fed.quest/"
   }
 }

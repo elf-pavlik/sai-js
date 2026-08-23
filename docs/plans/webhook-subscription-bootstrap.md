@@ -21,6 +21,11 @@ Registry container:
 - channels can also be **lost or corrupted** at runtime (manual kv edits, a
   partial restore, a failed subscribe) — the app-store entry and the CSS-side
   channel are two separate pieces of state and can diverge.
+- the same machinery must cover **org-context admin channels** (Phase 3 of
+  `org-admin-feature.md`): when an agent is promoted to admin of an org, they
+  need a channel on the **org's** Activity Registry so org-context events reach
+  their UI stream — no runtime creation exists today, so real deployments
+  would leave admins blind to org-context workflow outcomes.
 
 ## 2. Goal
 
@@ -29,14 +34,16 @@ Registry container:
 2. **Healing** — at worker startup (and periodically) every account is checked:
    app-store entry present? CSS-side channel present? Create what's missing
    (create-if-missing), never duplicate.
-3. Deterministic sendTo only where it matters (tests/dev pre-seed); production
-   uses a fresh random sendTo per creation.
+3. **Admin (org-context) channels** — an admin is subscribed to the Activity
+   Registry of **each org they administer** (Phase 3 of `org-admin-feature.md`):
+   channel created on `AddAdmin`, removed on `RemoveAdmin`, healed by the same
+   sweep (§4.6). Dev/test pre-seed them in `environments/data/kv.json`.
 
 ## 3. Current wiring (as-is)
 
 | Piece | Where | Notes |
 |---|---|---|
-| Pre-seeded channels (dev/test) | `environments/data/kv.json` — `**activityWebhook**` account entries + `accounts/index/activityWebhook/*` + CSS-side `notifications/<encodeURIComponent(id\|topic)>` keys | alice/bob/kim; re-seeded by `beforeEach` |
+| Pre-seeded channels (dev/test) | `environments/data/kv.json` — `**activityWebhook**` account entries + `accounts/index/activityWebhook/*` + CSS-side `notifications/<encodeURIComponent(id\|topic)>` keys | alice/bob/kim/yoyo; dan's personal + YoYo-admin channels and bob's YoYo reciprocal channel (Phase 3, §4.6/org-admin §2.5); re-seeded by `beforeEach` |
 | App store | `ActivityWebhookStore` (`packages/components/src/ActivityWebhookStore.ts`) over `AccountLoginStorage` — type `activityWebhook`, fields `accountId/webId/topic/sendTo/channel`; methods today: `findBySendTo`, `create`, `delete` | needs `findByWebId`/`findByTopic` for reconciliation |
 | CSS-side channel | created by `SubscriptionClient.subscribe(topic, ChannelType.WebhookChannel2023, sendTo)` → the registry server's `KeyValueChannelStorage` (`notifications/…` keys) | the pattern in `activities/reciprocal.ts` `reciprocalWebhook` |
 | Account creation | `AccountService.bootstrapAccount` (`packages/components/src/services/Account.ts`) — POSTs `registrySetTemplate` (incl. the activity registry) to the quadstore + writes the account to kv | runs on the auth server; no subscription today |
@@ -147,6 +154,46 @@ A sweep workflow `reconcileActivityWebhookChannels` (distinct from the activity
 - **Real deployments**: fresh random sendTo per creation — nothing depends on a
   known sendTo; the handler finds the channel by the sendTo it was POSTed to.
 
+### 4.6 Admin (org-context) activity channels (Phase 3 of `org-admin-feature.md`)
+
+An admin follows an org's Activity Registry through a **separate webhook
+channel per (admin, org)** — the same store table, with `webId` = the **admin**
+(the `ActivityEvents` keying target — the events land in the *admin's* UI
+stream, not the org's), `topic` = the org's Activity Registry container, and
+`accountId` = the **admin's** account. `ActivityWebhookHandler` serves both
+channel kinds from one endpoint; the owner channel (`webId` = the topic's
+owner, recognized by `session(webId).registrySet.hasActivityRegistry.id ===
+topic`) forwards + dispatches workflows, the admin channel **forwards only**
+(§3.1 of `org-admin-feature.md`). The org's own owner channel always exists, so
+admin channels never take over workflow dispatch.
+
+- **Establishment — with `AddAdmin`.** In `createAdminGrants` (trigger
+  `adminAuthorizationRecorded`, runs as the org's AA), after the grants:
+  ensure the admin's org channel — `webId` = admin, `topic` = the org's
+  Activity Registry, `accountId` via `CustomWebIdStore.findAccout(adminWebId)`
+  (the auth-server kv webIdLink index). Subscribe with the **org's own
+  session** (the owner is unconditionally authorized to create a channel on
+  its own registry; the admin's `#fullAdminAccess` Write/Control would also
+  suffice but need not be relied on). Idempotent: `findByTopic` (or an
+  equivalent (webId, topic) lookup) skips an existing entry.
+- **Removal — with `RemoveAdmin`.** In `revokeAdminGrants` (trigger
+  `adminAuthorizationRevoked`): delete the admin's org channel — app-store
+  entry (`ActivityWebhookStore.delete`) and the CSS-side channel
+  (`SubscriptionClient.unsubscribe`, or kv `notifications/…` key removal,
+  mirroring the creation API). The demoted admin stops receiving org events;
+  `RemoveAdmin`'s last-admin guard already prevents the org ending up
+  adminless, and the owner channel keeps the registry subscribed regardless.
+- **Healing.** The §4.4 sweep iterates kv `activityWebhook` entries — admin
+  channels are ordinary entries and are repaired by the same create-if-missing
+  logic. The *deletion* direction for stale admin channels (entry present but
+  no matching `AdminAuthorization` in the org's registry) is optional and
+  deferred (§7).
+- **Expiry.** CSS `WebhookChannel2023` channels do not expire — the
+  `WebhookEmitter` `expiration` (durable-webhook-delivery.md §3) is the signed
+  message's PoP validity, not the channel's lifetime. Lifecycle is explicit
+  create/delete: main-agent channel on account creation, admin channels on
+  `AddAdmin`/`RemoveAdmin`.
+
 ## 5. Design decisions
 
 ### 5.1 Why a Temporal workflow (not inline in `bootstrapAccount`)
@@ -177,6 +224,16 @@ CSS side to match (re-subscribe same sendTo) — the handler only needs the app
 entry's sendTo/webId/topic to function, so healing the CSS side is what
 restores delivery.
 
+### 5.5 Admin channels: created by the org's AA, keyed to the admin's account
+
+Admin channels live on the **admin's account** (`accountId` = the admin, so
+they ride the same webIdLink/events stream as the admin's UI) but are created
+and removed by the **org's AA workflows** (`createAdminGrants` /
+`revokeAdminGrants`), which already own the admin-grant lifecycle and run with
+the org's session. This keeps the subscription in lock-step with admin-ness:
+promotion subscribes, demotion unsubscribes, and the pre-seeded dev/test
+channels are untouched by the create path (idempotent skip).
+
 ## 6. Tests
 
 - **New**: bootstrap a fresh account via the `bootstrapAccount` RPC
@@ -190,10 +247,22 @@ restores delivery.
 - Existing suite stays green: the pre-seeded accounts are untouched by the
   create path (idempotent skip) and the heal path only runs on demand.
 
+- **Admin channels**: after `AddAdmin` (real-CSS path) the admin's org
+  channel exists in the app store (`webId` = admin, `topic` = org activity
+  registry, `accountId` = admin) and the CSS-side key exists; a subsequent
+  org-context activity's `Add` reaches the admin's `/.sai/events` stream as
+  `pending`/`done` while the owner channel still dispatches the workflow.
+  After `RemoveAdmin` the entry is gone and the admin stream is quiet for org
+  events. Idempotency: re-running `createAdminGrants` does not duplicate the
+  entry.
+
 ## 7. Out of scope
 
 - The reconciliation sweep for activity **entries** (Phase 4.2) — separate.
 - Durable webhook **delivery** (`durable-webhook-delivery.md`) — separate.
 - Unsubscribing channels for deleted accounts (no account-deletion flow today).
+- **Sweeping stale admin channels** on demotion-failure leftovers (no
+  reconciled delete direction yet — the explicit `RemoveAdmin` path covers the
+  normal case).
 - Reciprocal webhook channels (created per-peer by `establishReciprocal` at
   runtime — already bootstrapped by their own workflow).

@@ -348,7 +348,9 @@ export async function reconcileActivities(payload: {
       activity.activityType === 'adminAuthorizationRecorded' ||
       activity.activityType === 'adminAuthorizationRevoked'
     ) {
-      // admin activities — same routing as the webhook handler (grants + ACR rewrite)
+      // admin activities — same routing as the webhook handler (grants + ACR
+      // rewrite, then complete the activity once BOTH succeeded; the children
+      // no longer mark done themselves — see processAdminChange)
       const admin = (activity.payload as { admin: { id: string; type: string[] } }).admin
       const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityIri: activity.id }]
       await executeChild(
@@ -358,6 +360,7 @@ export async function reconcileActivities(payload: {
         { args }
       )
       await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }
   }
   for (const [granteeId, group] of granteeGroups) {

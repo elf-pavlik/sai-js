@@ -2,7 +2,10 @@
 
 > Describes how the systems of *different* peers in the social graph interact.
 > The internal webhook (`ActivityWebhookHandler` on the account's own Activity
-> Registry) is **not** inter-peer and is out of scope here.
+> Registry) is **not** inter-peer and is out of scope here — except that the
+> **org-admin channel** (a webhook on *another peer's* — the org's — Activity
+> Registry container, feeding the admin's `ActivityWebhookHandler`) *is* an
+> inter-peer push edge; it is covered in §2 and §7.
 
 ## 1. Connection tiers
 
@@ -10,11 +13,11 @@ Inter-peer interactions come in three tiers; only the first is event-driven.
 
 | Tier | Kind | Direction | Examples |
 |---|---|---|---|
-| 1 | **push webhook** (only one) | peer registry → our handler | reciprocal webhook |
+| 1 | **push webhook** | peer registry → our handler | reciprocal webhook (per pair); org activity-registry admin channel (per administered org, §2/§7) |
 | 2 | one-shot request/response HTTP | initiatee → responder | invitation POST, delegation issuance POST, agent-id discovery doc |
-| 3 | authenticated pod reads/writes | our agent session ↔ peer pod | reciprocal discovery, ACR writes, profile/grant reads |
+| 3 | authenticated pod reads/writes | our agent session ↔ peer pod | reciprocal discovery, ACR writes, profile/grant reads, org-context registry access (§7) |
 
-## 2. Tier 1 — the reciprocal webhook (the only push edge)
+## 2. Tier 1 — the reciprocal webhook (the per-pair push edge)
 
 - **Created** by the `establishReciprocal` workflow (`temporal/activities/reciprocal.ts`), triggered only by an `agentRegistrationAdded` activity, written only by the **inviter's** `InvitationHandler`. Subscriptions are deduped per pair (`ReciprocalWebhookStore.findAllBetween`).
 - **What it watches:** `registration.reciprocalRegistration` — the *peer's registration of the inviter*, i.e. a resource in the **peer's registry**.
@@ -28,13 +31,28 @@ Inter-peer interactions come in three tiers; only the first is event-driven.
 
 There is no code path that creates the symmetric second edge on the invitee side (`acceptInvitation` RPC only links the reciprocal registration; it never subscribes).
 
+**A second, non-reciprocal push edge — the org activity-registry admin channel
+(org context, Phase 3).** An admin of an org subscribes to the org's
+**Activity Registry container** with a `WebhookChannel2023` whose `sendTo`
+reaches the admin's own `ActivityWebhookHandler`. Unlike the reciprocal
+webhook this is a **container-level** subscription (every `Add` on the org's
+activity outbox, not a per-registration `Update`) and is **not**
+invitation-polarity-dependent: one channel per (admin, org), created with the
+admin-grant lifecycle. The same handler serves both edge kinds, discriminated
+by whether the channel's webId owns the topic
+(`session.registrySet.hasActivityRegistry?.id === channel.topic`): the org's
+owner channel (also subscribed) forwards + dispatches workflows; the admin
+channel **forwards only**, keyed by the admin's webId — so org-context
+`pending`/`done` reach the admin's UI stream (R3 of `org-admin-feature.md`
+§3; runtime channel lifecycle in `webhook-subscription-bootstrap.md` §4.6).
+
 ## 3. Tier 2 — request/response endpoints
 
 | Endpoint | Handler | Direction | Purpose |
 |---|---|---|---|
 | `POST /.sai/invitations/<base64(webId)>.<uuid>` | `InvitationHandler` | invitee → inviter | bootstrap: register the invitee, write `agentRegistrationAdded` (which then creates the Tier-1 edge) |
 | `POST /.sai/grants/<base64(dataOwner)>` | `GrantIssuanceHandler` | **grantedBy → dataOwner** | delegated-grant issuance; validates a delegable grant (SPARQL), stores grant + ACR in the data owner's registry, runs `storeGrant` (exempt — bypasses the outbox) |
-| `GET/HEAD /.sai/agents/<base64(webId)>` | `AgentIdHandler` | any peer → us | authorization-agent client-id document (`hasAuthorizationRedirectEndpoint`, `hasDelegationIssuanceEndpoint`); used by `discoverAuthorizationAgent` / `discoverAgentRegistration` |
+| `GET/HEAD /.sai/agents/<base64(webId)>` | `AgentIdHandler` | any peer → us | authorization-agent client-id document (`hasAuthorizationRedirectEndpoint`, `hasDelegationIssuanceEndpoint`); used by `discoverAuthorizationAgent` / `discoverAgentRegistration`. For an **admin** of the org whose doc is requested (a non-owner requester whose social-agent registration carries the `hasAdminGrant` marker), the response also carries `Link: <org registry set>; rel="interop:hasRegistrySet"` — the header is evaluated against the request credentials, so it stays admin-only while the body stays public (§7) |
 
 ## 4. Tier 3 — authenticated pod accesses
 
@@ -68,3 +86,24 @@ After Bob's `createGrantsForAgent` regenerates Charlie's grants, it PATCHes `has
 2. **`GrantIssuanceHandler` bypasses the outbox** — the data-owner side of the delegation edge starts `storeGrant` directly (exempt, row 6 of the decoupling table); no activity is written, so the data owner's UI gets no `pending`/`done` event for incoming delegated grants (mount refetch only).
 3. **Directional reads only** — Tier-3 accesses have no notification counterpart; only the Tier-1 edge flows into the activity state machine.
 4. Two-directional social edges exist only when both sides invited each other; otherwise the pair has a single one-directional webhook.
+
+## 7. Org ↔ admin (org context)
+
+An administered org is a special peer the user acts *for*: the admin performs
+Tier-3 reads/writes against the **org's** registries with their own UAS, but
+the **org** is the data owner (C1) — the admin is *a client of another peer's
+registries*, not the owner of the registries it mutates.
+
+| Edge | Connection | Direction | Notes |
+|---|---|---|---|
+| (admin, org) | agent-id discovery (Tier 2, §3) | admin → org's `AgentIdHandler` | non-owner requester with the admin marker gets the `hasRegistrySet` Link header (the org's RegistrySet IRI) |
+| (admin, org) | org Activity-Registry webhook (Tier 1, §2) | org's registry → admin's `ActivityWebhookHandler` | forward-only admin channel; events keyed by the admin's webId |
+| (admin, org) | Tier-3 reads/writes on the org's registries | admin's UAS session, **org** as data owner | admitted by the org's `#fullAdminAccess` ACP matchers (rewritten from the admin list) |
+
+**Federated nuance.** The org's authorization agent may live on a **different
+server** than the admin's: the org's AA serves the agent-id doc (with the
+admin-only `hasRegistrySet` link) and runs the org's Activity Registry and its
+Temporal workflows; the admin channel's `sendTo` points at the **admin's own**
+server. The registry-set header therefore carries the authoritative org
+RegistrySet IRI across servers, and org-context events are delivered to the
+admin's server keyed under the admin's webId.

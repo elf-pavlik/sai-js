@@ -103,8 +103,13 @@ Add vs. remove is distinguished by the `activityType` itself (mirroring the
 - **Reciprocal registration updates** (admin flag change observed by the admin's
   own server) keep using `delegatedGrantsUpdated` (`ReciprocalWebhookHandler`)
   — unchanged, deliberate dual-cause reuse per `org-admin-feature.md` §2.5/§2.8.
-- **Phase 3 admin event forwarding:** admin UI learns about org-context
-  workflow outcomes; events are keyed by the admin's webId. The events above
-  land in the **org's** Activity Registry and are processed by the org's AA;
-  forwarding to the admin's stream is Phase 3 (`ActivityWebhookHandler` reuse,
-  §3 of `org-admin-feature.md`).
+- **Phase 3 admin event forwarding (R3, decided):** admin UI learns about
+  org-context workflow outcomes on its **existing** stream — one webhook
+  channel per (admin, org) on the org's Activity Registry, `webId` = the
+  admin, recognized by the same `ActivityWebhookHandler` (owner check) and
+  forwarded keyed by the admin's webId; no workflow dispatch on admin
+  channels (the org's owner channel + AA keep running the workflows).
+  Supplements — does not replace — the `delegatedGrantsUpdated` reciprocal
+  refresh above. Dev/test seed the channels in `environments/data/kv.json`;
+  real deployments create/remove them with the admin-grant lifecycle
+  (`webhook-subscription-bootstrap.md` §4.6).

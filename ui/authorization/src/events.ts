@@ -49,6 +49,19 @@ function fullRefresh() {
   appStore.listSocialAgentInvitations(true)
 }
 
+/** The registry owner an activity was written to — `payload.webId` on every
+ * activity (the producer's webId): a bare string on some shapes
+ * (`agentRegistrationAdded`), `{ id, type }` on the rest. Phase 3 forwards
+ * org-context activities onto the admin's stream keyed by the admin's webId
+ * (R3 of org-admin-feature.md §3.3) — the UI must refresh only the context the
+ * event belongs to.
+ */
+function registryOwner(activity: ActivityEvent): string | undefined {
+  const webId = (activity.payload as { webId?: string | { id: string } } | undefined)?.webId
+  if (!webId) return undefined
+  return typeof webId === 'string' ? webId : webId.id
+}
+
 /**
  * Completion-driven refresh — maps the completed activity's type to the
  * store refetches (§5 of the plan). `pending` events are ignored for now
@@ -57,6 +70,11 @@ function fullRefresh() {
 function handleActivity(activity: ActivityEvent) {
   if (activity.status !== 'done') return
   const appStore = useAppStore()
+  // org-context events arrive on the admin's stream for every org the user
+  // administers — refresh only the context that owns the activity; switching
+  // contexts already performs a full refresh (switchContext)
+  const owner = registryOwner(activity)
+  if (owner && appStore.currentContext() !== owner) return
   switch (activity.activityType) {
     case 'authorizationRecorded':
     case 'authorizationRevoked': {
@@ -79,6 +97,12 @@ function handleActivity(activity: ActivityEvent) {
       break
     case 'delegatedGrantsUpdated':
     case 'grantsRevoked':
+      appStore.listSocialAgents(true)
+      break
+    // org-admin (Phase 1/3): the admin marker lands via the grant workflow —
+    // refresh the context's agent list so toggle-admin flags stay current
+    case 'adminAuthorizationRecorded':
+    case 'adminAuthorizationRevoked':
       appStore.listSocialAgents(true)
       break
   }

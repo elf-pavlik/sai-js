@@ -87,7 +87,7 @@ split.
 |---|---|---|---|
 | **1 — Marking layer** (§R1 + §3.6–3.9) | vocab · data model · RPC · handler · workflows · seed | 1.1 R1 vocabulary — `AdminAuthorization`/`AdminGrant`/`hasAdminGrant`/`scopeOfAdminGrant` (§3.9); 1.2 §3.8 type-filtered authorization iterators (replaces the superseded §3.2 flag model); 1.3 R1 RPC service — record `AdminAuthorization` + write activity (§3.9); 1.4 §3.4 API messages; 1.5 §3.5 handler wiring; 1.6 §3.6 seed *(done, revised)*; 1.7 §3.7 admin workflows (add: `createAdminGrants` + `syncAdminAcr`; remove: `revokeAdminGrants` + `syncAdminAcr`) | build+test after each; UI not required yet
 | **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e; 2.8 org data access — `SaiPermissionsEngine` admin branch (§2.10) *(done)* | build+test after each; e2e scaffolding may be needed before 2.6; 2.8 needs the admin-credentialed data-read e2e
-| **3 — Admin events forwarding** (§3 below) | reuse `ActivityWebhookHandler` / `AdminWebhookHandler` + shared forwarding module; events keyed to admin webId | 3.1 extract forwarding half; 3.2 subscription recognition + event keying; 3.3 wire admin events into UI | build+test after each
+| **3 — Admin events forwarding** (§3 below) | **reuse `ActivityWebhookHandler`** (R3 — Option A): admin channels forward-only, owner channels keep dispatching; events keyed to admin webId | 3.1 extract forwarding half; 3.2 subscription recognition + event keying; 3.3 wire admin events into UI | build+test after each; kv.json seeds both dan channels (personal + YoYo admin)
 | **4 — Docs update** (below) | `peer.md` · `social-graph.md` | edit both docs to reflect the implemented org-context + forwarding behavior | build+test; review diffs of both docs
 
 Phase 1 (steps 1.1–1.5) needs **no UI**; it is a backend-only vertical slice.
@@ -948,36 +948,112 @@ workflows). The two halves are already cleanly separated in the handler:
 - **forwarding (shared):** the block that calls
   `activityEvents.onActivityAdded(channel.webId, ...)` for both `pending` and
   `done` — currently keyed by `channel.webId`;
-- **workflow dispatch (owner-only):** the `GRANTEE_ACTIVITY_TYPES` branch and
-  the `activityWorkflows` branch after it.
+- **workflow dispatch (owner-only):** the `GRANTEE_ACTIVITY_TYPES` branch, the
+  `ADMIN_ACTIVITY_TYPES` branch and the `activityWorkflows` branch after it.
 
-### 3.1 Extract the forwarding half (Option A or B)
+> **R3 — decisions (supersede the open options below; Phase 4 must record the
+> same model).** The admin's UI stream is **unchanged** — `EventsHandler` still
+> subscribes the browser stream under the account's own webId
+> (`webIdLinks[0]`, the admin). Org-context events reach that stream via
+> **separate webhook channels per (admin, org)**: a CSS-side
+> `WebhookChannel2023` on the org's Activity Registry container plus an
+> `ActivityWebhookStore` record with `webId` = the admin (the `ActivityEvents`
+> keying target), `topic` = the org's Activity Registry, `accountId` = the
+> admin's account. The same `ActivityWebhookHandler` serves both channel kinds
+> — an admin channel is recognized by the ownership check (§3.1) and forwards
+> only. Dev/test seed the channels in `environments/data/kv.json` (both dan
+> channels, §3.2); real deployments create/remove them with the admin-grant
+> lifecycle (`AddAdmin`/`RemoveAdmin` — `webhook-subscription-bootstrap.md`
+> §4.6).
 
-- **Option A — reuse `ActivityWebhookHandler`:** when the subscription is from
-  an **admin** and not the registry owner, forward only and skip workflow
-  dispatch — this requires knowing, in the handler, whether the subscribing
-  channel belongs to the org owner or to an admin.
-- **Option B — `AdminWebhookHandler` + shared forwarding module:** extract the
-  forwarding block above into a shared module and have the admin handler call
-  only that (never dispatch workflows).
+### 3.1 Extract the forwarding half *(decided: Option A — reuse `ActivityWebhookHandler`)*
 
-### 3.2 Admin subscription recognition + event keying
+When the subscription is from an **admin** and not the registry owner, forward
+only and skip workflow dispatch. The handler knows which scenario an incoming
+webhook is for without a schema change or a second route: after
+`findBySendTo` it builds the channel webId's session (already done to load the
+activity) and compares that webId's **own** Activity Registry with the
+subscribed topic —
 
-How an admin subscription is stored/recognized (a separate webhook channel, or
-the existing one tagged with the admin webId to receive events). Events must be
-keyed to the **admin's** webId (`ActivityEvents` is keyed by webId) so the
-admin UI receives them — not the org's. Decide whether this replaces the §2.5
-reciprocal-observer refresh or supplements it (i.e. the admin UI now gets live
-`pending`/`done` for org-context workflows, closing the §2.6 events gap noted
-in §2.8).
+```ts
+const session = await this.sessionManager.getSession(channel.webId)
+const isRegistryOwner = session.registrySet.hasActivityRegistry?.id === channel.topic
+```
 
-### 3.3 Wire admin events into the UI
+- **owner channel** (`isRegistryOwner` — e.g. alice/bob/kim/yoyo on their own
+  registry): forward (keyed by `channel.webId`) **and** dispatch workflows —
+  unchanged;
+- **admin channel** (not owner — e.g. dan on `https://registry/yoyo/activity/`):
+  forward (keyed by `channel.webId` = the admin, landing in the admin's UI
+  stream) **only**, return 200 before any dispatch branch.
 
-Subscribe the admin UI to the org's Activity Registry events alongside the
-existing personal-context stream, and refresh the relevant org-context views on
-`pending`/`done`. Depends on the Phase-2 registry-set resolution (`hasRegistrySet`
-link, §2.4/§2.8) to reach/authorize the org's Activity Registry from the admin
-side.
+The forwarding block is extracted into a helper both paths share. Option B
+(`AdminWebhookHandler` + shared module) is rejected: it would duplicate the
+channel lookup / activity loading / forwarding and add a second route to convey
+the same information the ownership check already provides.
+
+### 3.2 Admin subscription recognition + event keying *(decided: separate channel per (admin, org); supplements §2.5)*
+
+An admin subscription is a **separate webhook channel** — not a tag on the
+owner's — stored in the same `ActivityWebhookStore` table as the owner channel
+(schema unchanged; `findBySendTo` stays the lookup): `webId` = the **admin**,
+`topic` = the org's Activity Registry container, `accountId` = the admin's
+account. Recognition is the §3.1 ownership check — a channel whose webId is
+not the topic's owner is an admin channel. Events are keyed by `channel.webId`,
+i.e. the **admin's** webId, so they land in the admin's own UI stream
+(`ActivityEvents` is keyed by webId).
+
+This **supplements, does not replace**, the §2.5 reciprocal-observer refresh:
+`delegatedGrantsUpdated` (the admin's personal registry channel, triggered by
+the org's update of the admin's reciprocal registration) keeps covering the
+admin's *own* admin-status changes; the org channels add live `pending`/`done`
+for every org-context workflow outcome, closing the §2.6 events gap noted in
+§2.8. The admin UI thus receives two event sources on one stream:
+personal-registry activities (own channel) + org activities (one channel per
+administered org).
+
+A newly promoted admin (no org channel yet — runtime channel creation is
+`webhook-subscription-bootstrap.md` §4.6) still learns about the promotion via
+the §2.5 reciprocal path: the `hasAdminGrant` PATCH on the org's registration
+of them fires their **reciprocal webhook channel** → `delegatedGrantsUpdated`
+in their own Activity Registry → their personal channel forwards it. The seed
+therefore also includes **bob's reciprocal channel on YoYo's registration of
+him** (`https://registry/yoyo/agent/z3k7wm/`, §2.5 infrastructure).
+
+Seed (§3.6 addition): **both dan channels** land in `environments/data/kv.json`
+— dan's **personal** channel (`webId` dan, `topic`
+`https://registry/dan/activity/` — dan's registry set has its own Activity
+Registry) and dan's **YoYo admin** channel (`webId` dan, `topic`
+`https://registry/yoyo/activity/`), alongside the existing yoyo owner channel
+on the same topic. Two channels on one topic → two `Add` deliveries; only the
+owner one dispatches workflows.
+
+### 3.3 Wire admin events into the UI *(decided: current-context refresh; full refresh on switch)*
+
+The admin UI subscribes to the org's Activity Registry events through the
+same `/.sai/events` stream — no new stream, the server emits under the admin's
+webId (the channel's webId). Refresh behavior in `ui/authorization/src/events.ts`:
+
+- **only the current context refreshes.** A `done` event refreshes views when
+the event's registry owner (`payload.webId`) equals the current context —
+organizational events refresh org-context views while the user operates in
+that org; events for any other context are ignored (`switchContext` already
+performs a full store refresh, so no cross-context refetch is needed);
+- the done-mapping gains `adminAuthorizationRecorded` /
+  `adminAuthorizationRevoked` → `listSocialAgents` (admin flags in the
+  org-context agent list — closes the toggle-admin follower);
+- `pending` stays ignored (optional "applying…" indicator, out of scope).
+
+Example: Dan promotes Bob in the YoYo context → the RPC writes
+`adminAuthorizationRecorded` → yoyo's owner channel dispatches the grants/ACR
+workflows while dan's YoYo channel forwards `pending`/`done` into dan's stream
+→ `listSocialAgents` reruns against the YoYo context and Bob's admin flag
+appears without a manual refresh.
+
+No new admin-side reachability work: the admin's UAS can already read the
+org's Activity Registry via `#fullAdminAccess` (structural registries), and
+the channels are pre-seeded (real deployments: runtime creation per
+`webhook-subscription-bootstrap.md` §4.6).
 
 ---
 
@@ -1016,9 +1092,9 @@ reflect only what the feature *breaks* or leaves undefined.
    Registry and are processed by the **org's** AA/workflows (§2.6 C2), so their
    `pending`/`done` events are keyed by the *org* webId — not the admin's
    stream. Document the Phase-3 solution for how the admin UI learns about
-   org-context workflow outcomes (the chosen WebhookHandler Option A/B, the
-   admin subscription/event-keying, and whether it supplements or replaces the
-   §2.5 `delegatedGrantsUpdated` refresh).
+   org-context workflow outcomes — **R3: same-handler admin channels,
+   forward-only, keyed by the admin's webId, supplementing (not replacing)
+   the §2.5 `delegatedGrantsUpdated` refresh** (see R3 block under §3).
 3. Update the layered-diagram actor label: a registered admin is a *client of
    another peer's registries*, not the owner of the registries it mutates (C1).
 4. **Producer-table rows for the admin activities (Phase 1).** `AddAdmin`/

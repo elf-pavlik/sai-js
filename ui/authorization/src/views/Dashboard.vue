@@ -33,12 +33,12 @@
       <span>{{ $t('roles') }}</span>
     </v-btn>
 
-    <v-btn :to="{ name: 'data-registry-list', query: { agent: coreStore.userId } }">
+    <v-btn :to="{ name: 'data-registry-list', query: { agent: currentContext } }">
       <v-icon>mdi-hexagon-multiple-outline</v-icon>
 
       <span>{{ $t('data') }}</span>
     </v-btn>
-    <v-btn :to="{ name: 'settings', query: { agent: coreStore.userId } }">
+    <v-btn :to="{ name: 'settings', query: { agent: currentContext } }">
       <v-icon>mdi-cog-outline</v-icon>
 
       <span>{{ $t('settings') }}</span>
@@ -49,12 +49,15 @@
 <script lang="ts" setup>
 import { useAppStore } from '@/store/app'
 import { useCoreStore } from '@/store/core'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const coreStore = useCoreStore()
 const appStore = useAppStore()
 
 const enableNotificationsLoading = ref(false)
+
+/** registry views target the switched context, not just the user (org-admin §2.6) */
+const currentContext = computed(() => appStore.context ?? coreStore.userId)
 
 await coreStore.getPushSubscription()
 

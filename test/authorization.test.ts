@@ -9,11 +9,12 @@ const rpcEndpoint = 'https://auth/.sai/api'
 const agentType = 'http://www.w3.org/ns/solid/interop#Application'
 const clientId = 'https://data/test-client/public/id'
 const accessNeedGroup = 'https://data/test-client/public/access-needs#need-group-pm'
+const bobId = 'https://id/bob'
 
 function rpcPayload(authorization: unknown) {
   return [
     {
-      request: { _tag: 'AuthorizeApp', authorization },
+      request: { _tag: 'AuthorizeApp', authorization, context: bobId },
       headers: {},
       traceId: '13c2035f72f45c1ebbf13b055b7dc526',
       spanId: '685581075752b8a2',
@@ -50,6 +51,7 @@ describe('get authorization data', () => {
         agentId: clientId,
         agentType,
         lang,
+        context: aliceId,
       },
       headers: {},
       traceId: '13c2035f72f45c1ebbf13b055b7dc526',
@@ -116,7 +118,6 @@ describe('get authorization data', () => {
 })
 
 describe('denied', () => {
-  const bobId = 'https://id/bob'
   const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
 
   const grantedAuthorization = {

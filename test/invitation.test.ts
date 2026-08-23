@@ -19,6 +19,7 @@ describe('create invitation', () => {
       request: {
         _tag: 'CreateInvitation',
         ...invitationData,
+        context: aliceId,
       },
       headers: {},
       traceId: '13c2035f72f45c1ebbf13b055b7dc526',
@@ -66,6 +67,7 @@ describe('accept invitation', () => {
         _tag: 'AcceptInvitation',
         capabilityUrl: invKimToBob,
         ...acceptData,
+        context: bobId,
       },
       headers: {},
       traceId: '13c2035f72f45c1ebbf13b055b7dc526',

@@ -42,6 +42,7 @@ describe('share resource', () => {
               accessMode: [readMode],
               children: [],
             },
+            context: aliceId,
           },
           headers: {},
           traceId: '13c2035f72f45c1ebbf13b055b7dc526',

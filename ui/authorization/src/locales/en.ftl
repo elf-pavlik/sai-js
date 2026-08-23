@@ -86,3 +86,10 @@ delete-role = Delete Role
 delete-role-confirm = To confirm, type the role label below:
 grant-access = Grant Access
 select-application = Select Application
+
+# Context (org-admin)
+context = Context
+personal-context-person = Personal
+add-admin = Make admin
+remove-admin = Remove admin
+admin = Admin

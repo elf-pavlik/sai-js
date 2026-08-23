@@ -44,7 +44,7 @@ export const addAdmin = async (
     createdAt: new Date().toISOString(),
   })
 
-  return buildSocialAgentProfile(registration, saiSession)
+  return buildSocialAgentProfile(registration, saiSession, false)
 }
 
 /**
@@ -91,5 +91,5 @@ export const removeAdmin = async (
     createdAt: new Date().toISOString(),
   })
 
-  return buildSocialAgentProfile(registration, saiSession)
+  return buildSocialAgentProfile(registration, saiSession, false)
 }

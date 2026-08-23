@@ -86,7 +86,7 @@ split.
 | Phase | Scope | Steps | Checkpoint
 |---|---|---|---|
 | **1 — Marking layer** (§R1 + §3.6–3.9) | vocab · data model · RPC · handler · workflows · seed | 1.1 R1 vocabulary — `AdminAuthorization`/`AdminGrant`/`hasAdminGrant`/`scopeOfAdminGrant` (§3.9); 1.2 §3.8 type-filtered authorization iterators (replaces the superseded §3.2 flag model); 1.3 R1 RPC service — record `AdminAuthorization` + write activity (§3.9); 1.4 §3.4 API messages; 1.5 §3.5 handler wiring; 1.6 §3.6 seed *(done, revised)*; 1.7 §3.7 admin workflows (add: `createAdminGrants` + `syncAdminAcr`; remove: `revokeAdminGrants` + `syncAdminAcr`) | build+test after each; UI not required yet
-| **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e | build+test after each; e2e scaffolding may be needed before 2.6
+| **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e; 2.8 org data access — `SaiPermissionsEngine` admin branch (§2.10) | build+test after each; e2e scaffolding may be needed before 2.6; 2.8 needs the admin-credentialed data-read e2e
 | **3 — Admin events forwarding** (§3 below) | reuse `ActivityWebhookHandler` / `AdminWebhookHandler` + shared forwarding module; events keyed to admin webId | 3.1 extract forwarding half; 3.2 subscription recognition + event keying; 3.3 wire admin events into UI | build+test after each
 | **4 — Docs update** (below) | `peer.md` · `social-graph.md` | edit both docs to reflect the implemented org-context + forwarding behavior | build+test; review diffs of both docs
 
@@ -873,13 +873,13 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   be gated on `isAdmin`), whereas the agent-id document body is currently public.
 - Final list of personal-only RPCs (C3).
 - Which views are excluded from admin context (Q5).
-- **Admin access to data registries / data instances — open (design needed).**
+- **Admin access to data registries / data instances — moved to step 2.8** (design fixed by R1 pickup; implementation pending — §2.10).
   In an org context an admin reaches the org's *structural* registries via ACP
   (`fullAdminAccess`), but `listDataRegistries` / `listDataInstances` are served
   by the **data service** and gated by the `SaiPermissionsEngine` — admins
-  currently have **no** permission there. We still need to design how an admin
-  lists (and reads) the org's data registries/data instances; the
-  `TargetType.Registry` TODO in `SaiPermissionsEngine.ts:42` is the hook.
+  currently have **no** permission there. The
+  `TargetType.Registry` TODO in `SaiPermissionsEngine.ts:42` is the hook (R1:
+  the Read-only `DataRegistry`-scoped AdminGrant consumed by the engine).
   `shareResource` may also be affected if it needs to read a data instance
   (e.g. to display a label) before it can share — a peer/org-context
   `shareResource` must resolve that instance through the same permission path.
@@ -889,6 +889,48 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   of the registration to know the actual change, so the UI can refresh only what
   is affected (e.g. the switcher, not the whole social-agents list). Accepted as
   a known limitation for now.
+
+### 2.9 Revision R2 — Phase-2 implementation notes (supersedes where they conflict)
+
+Everything below is what **landed** in Phase 2; where it conflicts with §2.1–§2.8 above, R2 wins. Phase 4 must record the same model.
+
+- **Org-context execution — the org's own AA runs the operations (C2 iterated).** `resolveContext` (`packages/components/src/services/Context.ts`, the single central gate called by `ApiHandler` for every context-bearing RPC) does three things in an org context: (1) validates the admin marker (reciprocal `hasAdminGrant`, from the *user's* session); (2) resolves the org's RegistrySet IRI via the admin-only `hasRegistrySet` header (`AuthorizationAgent.getRegistrySet`, per §2.3 — unchanged); (3) builds the **org's own session** (`SessionManager.getSession(org, registrySetId)`) — the org's UAS, the same identity the org's Temporal workflows and peer-facing reads use. The org is actor + data owner; the admin only *authorizes entry*. Rationale (proved by e2e): peer/reciprocal registrations grant read to the **org**, not the admin — executing as the admin 403s (e.g. `registry/bob/agent/n4m8qx/` from YoYo's registration of Bob). Consequences: `creator` on writes becomes `{ agent: org, client: org's UAS }`, matching how the org's workflows already write; the webId-keyed registry-set map serves only the *resolution* half; no per-service context struct `{webId, registrySet}` was introduced — services keep operating on a session (the org's), with a `personal` flag added only for the admin-marker asymmetry in `buildSocialAgentProfile` (§2.2).
+- **C3 personal-only set corrected.** `ListSocialAgents` **is** context-aware (org-context lists feed the toggle-admin UI); the *personal invocation* is the discovery call. `GetUnregisteredApplication` stays context-less (no registry targeting). The rest of the C3 list is unchanged.
+- **AddAdmin/RemoveAdmin are context-targeted (delivers the §3.9 gate).** Both take `context` and are gated by `resolveContext` — the Phase-1 "non-owner admin gate lands with Phase-2 context authz" hand-off is now in place.
+- **Temporal worker registration — Phase-1 gap found in Phase 2.** The admin workflows (`createAdminGrants`/`revokeAdminGrants`/`syncAdminAcr`) were never registered on any worker, so `ActivityWebhookHandler` scheduled them into a queue nothing polled. The `create-grants` queue now bundles a combined module `temporal/workflows/create-grants.ts` (grants + admin) with the merged activities set. Extending §3.7's test-infra note: any workflow module used by the handler must be added to that bundle + activities.
+- **Q5 — no views excluded.** All registry-backed views re-target the switched context; push-subscription/settings remain personal by design. Revisit per-view exclusions later if org-context data views need it.
+- **§2.8 data-registry access — engine item moved to step 2.8 (§2.10).** The data service's `SaiPermissionsEngine` admin branch (`TargetType.Registry` TODO) is now its own step before Phase 3 — needed for *admin-credentialed* access to the org's data (org-context service reads already run as the org owner; validate that owner-side read in 2.8/Phase 4).
+- **UI.** Switcher derives from personal-context `ListSocialAgents.admin` + label; toggle-admin lives in the org context with the last-admin disable — as planned (§2.5).
+
+### 2.10 Step 2.8 spec — org data access via the permission engine (R1 pickup)
+
+Moves the §2.8 "admin access to data registries / data instances" item out of
+*open* into an executable step **before Phase 3**, on the R1 design: the
+Read-only `DataRegistry`-scoped AdminGrant is the engine's input, and
+`getAuthorizationData` already collects grants by `?s <interop:hasStorage>
+<storage>`, so the pickup is local to the engine.
+
+- **Goal.** An admin holding a Read-only `DataRegistry`-scoped AdminGrant for an
+  org's storage can read (and list) that org's data-registry /
+  data-registration / data-instance resources **with their own UAS credentials**
+  through the data service. Structural registries stay on ACP (`fullAdminAccess`).
+- **Engine changes.** In `SaiPermissionsEngine.getPermissions`, after the owner
+  fast-path (`AdminPermissionReader` — admins are not owners, they fall through
+  to the engine): when the target resolves to a storage the requester holds an
+  AdminGrant for (`TargetType.Registry`, plus the matching Registration/Resource
+  targets under that storage), grant `acl:Read` only. Replace the empty
+  `TargetType.Registry` `break` (`SaiPermissionsEngine.ts:42`) and mirror in
+  `SaiAuthorizationManager.ts:62` (`// TODO: add statements about
+  admins/trusted grants`). No Write/Create/Delete for admins via this path.
+- **Scope boundary.** The Phase-2 org-context *service* path already runs as the
+  org (owner) — this step covers **admin-credentialed** access: direct data-
+  service calls with the admin's own UAS, `shareResource` label resolution in an
+  org context, and future engine-driven flows.
+- **Verification (e2e).** With the seed's Dan-as-YoYo-admin + the `ds0emv`/
+  `f76tbp` Read-only AdminGrants (per data registry): Dan, with his own UAS
+  session (`buildOidcSession(danId)`), GETs `https://data/yoyo-eu/` and a data
+  registration under it → 200 (Read); a non-admin peer (e.g. Bob) → 403; no
+  admin Write path (PATCH → 403).
 
 ---
 

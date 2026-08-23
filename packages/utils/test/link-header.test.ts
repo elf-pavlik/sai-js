@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   getAgentRegistrationIri,
   getDescriptionResource,
+  getRegistrySetIri,
   getStorageDescription,
   targetDataRegistrationLink,
 } from '../src'
@@ -17,6 +18,24 @@ describe('getAgentRegistrationIri', () => {
     expect(getAgentRegistrationIri(linkHeaderText)).toBe(
       'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
     )
+  })
+})
+
+describe('getRegistrySetIri', () => {
+  const registrySetIri = 'https://registry/yoyo/'
+  const linkHeaderText = `
+    <${registrySetIri}>;
+    rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"
+  `
+
+  test('should match the registry set IRI', () => {
+    expect(getRegistrySetIri(linkHeaderText)).toBe(registrySetIri)
+  })
+
+  test('should ignore links with other rels', () => {
+    const agentIdLink =
+      '<https://id.sai/agents/random>; anchor="https://registry/yoyo/agent/ph8e70/"; rel="http://www.w3.org/ns/solid/interop#registeredAgent"'
+    expect(getRegistrySetIri(agentIdLink)).toBeUndefined()
   })
 })
 

@@ -6,8 +6,26 @@
       :title="agent.label"
       :subtitle="agent.note"
     >
+      <v-card-subtitle v-if="agent.admin">
+        <v-chip
+          size="small"
+          color="primary"
+          class="mr-1"
+        >
+          {{ $t('admin') }}
+        </v-chip>
+      </v-card-subtitle>
       <v-card-actions>
         <v-spacer />
+        <!-- org context only: promote/demote other admins (separate UI concept from the context switcher) -->
+        <v-btn
+          v-if="inOrgContext"
+          :disabled="agent.admin && adminCount <= 1"
+          :prepend-icon="agent.admin ? 'mdi-shield-remove-outline' : 'mdi-shield-plus-outline'"
+          @click="appStore.toggleAdmin(agent.id, !agent.admin)"
+        >
+          {{ agent.admin ? $t('remove-admin') : $t('add-admin') }}
+        </v-btn>
         <v-btn
           prepend-icon="mdi-hexagon-multiple-outline"
           :to="{name: 'data-registry-list', query: {agent: agent.id}}"
@@ -80,17 +98,27 @@
   </v-sheet>
 </template>
 <script lang="ts" setup>
+import { useCoreStore } from '@/store/core'
 import { useAppStore } from '@/store/app'
 import type { SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const coreStore = useCoreStore()
 const appStore = useAppStore()
 appStore.listSocialAgents()
 appStore.listSocialAgentInvitations()
 const showAdd = ref(false)
+
+/** switching contexts re-targets the list — the toggle only applies to an org context */
+const inOrgContext = computed(
+  () => !!appStore.context && appStore.context !== coreStore.userId
+)
+
+/** last-admin guard: refuse to demote the only remaining admin (the RPC enforces it too) */
+const adminCount = computed(() => appStore.socialAgentList.filter((agent) => agent.admin).length)
 
 function copyCapabilityUrl(invitation: S.Schema.Type<typeof SocialAgentInvitation>) {
   navigator.clipboard.writeText(invitation.capabilityUrl)

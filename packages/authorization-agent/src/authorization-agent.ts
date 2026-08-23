@@ -22,9 +22,11 @@ import {
   INTEROP,
   SPACE,
   type WhatwgFetch,
+  discoverAuthorizationAgent,
   discoverStorageDescription,
   fetchJsonLd,
   findNodeIdByType,
+  getRegistrySetIri,
 } from '@janeirodigital/interop-utils'
 import {
   type AccessAuthorizationStructure,
@@ -78,6 +80,15 @@ export class AuthorizationAgent {
   ownersIndex: { [key: string]: string } = {}
 
   registrySet: RegistrySetData
+
+  /**
+   * Registry sets keyed by webId (C2 of org-admin-feature.md): the session's
+   * own is eager-loaded into `registrySet`; every other context's is
+   * lazy-resolved on demand via `getRegistrySet` and cached here. Sessions are
+   * short-lived (one per request / temporal activity), so this map needs no
+   * cross-request invalidation.
+   */
+  registrySets: Map<string, RegistrySetData> = new Map()
 
   constructor(
     public webId: string,
@@ -226,6 +237,41 @@ export class AuthorizationAgent {
       this.registrySet = await this.factory.registrySet(this.registrySetId)
     }
   }
+
+  /**
+   * Resolve the RegistrySet for a webId. The session's own registry set is
+   * returned directly; any other webId's is discovered through that agent's
+   * authorization-agent (agent-id) document — fetched with this session's
+   * (authenticating agent's) fetch — via the admin-only
+   * `Link: <registrySet>; rel="interop:hasRegistrySet"` response header
+   * (served by AgentIdHandler), then loaded and cached per session.
+   *
+   * Federated case: the org's authorization agent may live on a different
+   * server than the caller's — the org's AA serves the registry-set link and
+   * the caller's fetch carries its own credentials, so the link is
+   * authoritative across servers.
+   */
+  public async getRegistrySet(webId: string): Promise<RegistrySetData> {
+    if (webId === this.webId) return this.registrySet
+    const cached = this.registrySets.get(webId)
+    if (cached) return cached
+    const authorizationAgentIri = await discoverAuthorizationAgent(webId, this.fetch)
+    if (!authorizationAgentIri) {
+      throw new Error(`cannot discover authorization agent for ${webId}`)
+    }
+    const response = await this.fetch(authorizationAgentIri, { method: 'HEAD' })
+    if (!response.ok) {
+      throw new Error(`failed to fetch authorization agent for ${webId}: ${response.status}`)
+    }
+    const registrySetId = getRegistrySetIri(response.headers.get('Link') ?? '')
+    if (!registrySetId) {
+      throw new Error(`${webId} does not expose a registry set to this agent`)
+    }
+    const registrySet = await this.factory.registrySet(registrySetId)
+    this.registrySets.set(webId, registrySet)
+    return registrySet
+  }
+
 
   public static async build(
     webId: string,

@@ -84,3 +84,10 @@ delete-role = Usuń rolę
 delete-role-confirm = Aby potwierdzić, wpisz etykietę roli poniżej:
 grant-access = Nadaj dostęp
 select-application = Wybierz aplikację
+
+# Context (org-admin)
+context = Kontekst
+personal-context-person = Osobisty
+add-admin = Ustaw administratora
+remove-admin = Usuń administratora
+admin = Administrator

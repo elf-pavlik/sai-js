@@ -5,6 +5,7 @@ import {
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   discoverAndUpdateReciprocal,
+  getAdminGrantIris,
   getDataGrantIris,
   getDataGrants,
 } from '@janeirodigital/interop-data-model'
@@ -18,18 +19,41 @@ import {
 import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
 
+/**
+ * Build the UI profile of a social agent from its registration.
+ *
+ * `personal` selects which side carries the admin marker (§2.2 asymmetry of
+ * org-admin-feature.md):
+ * - `true` (personal context) — `registration` is OUR registration of the
+ *   agent; the admin marker lives on the AGENT'S registration of us (reached
+ *   via `reciprocalRegistration`, non-empty `hasAdminGrant`);
+ * - `false` (org context) — `registration` is the ORG's registration of the
+ *   agent; the admin marker is read directly from it.
+ */
 export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
-  saiSession: AuthorizationAgent
-) =>
+  saiSession: AuthorizationAgent,
+  personal = true
+) => {
+  let admin = false
+  if (personal && registration.reciprocalRegistration) {
+    const reciprocal = await saiSession.factory.socialAgentRegistration(
+      registration.reciprocalRegistration
+    )
+    admin = (await getAdminGrantIris(reciprocal)).length > 0
+  } else if (!personal) {
+    admin = (await getAdminGrantIris(registration)).length > 0
+  }
+
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
-  SocialAgent.make({
+  return SocialAgent.make({
     id: IRI.make(registration.registeredAgent),
     label: registration.prefLabel,
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
     accessRequested: !!registration.hasAccessNeedGroup,
+    admin,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
     accessGrant: (await getDataGrantIris(registration))[0],
@@ -38,11 +62,12 @@ export const buildSocialAgentProfile = async (
           .hasAccessNeedGroup
       : undefined,
   })
+}
 
-export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
+export const getSocialAgents = async (saiSession: AuthorizationAgent, personal = true) => {
   const profiles = []
   for await (const registration of saiSession.socialAgentRegistrations) {
-    profiles.push(await buildSocialAgentProfile(registration, saiSession))
+    profiles.push(await buildSocialAgentProfile(registration, saiSession, personal))
   }
 
   const seenIds = new Set(profiles.map((p) => p.id))
@@ -69,6 +94,8 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent) => {
           id: ownerIri,
           label,
           accessRequested: false,
+          // no registration in this registry — no admin marker can be read
+          admin: false,
         })
       )
     }

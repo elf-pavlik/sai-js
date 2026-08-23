@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { NativeConnection, Worker } from '@temporalio/worker'
+import * as adminActivities from '../temporal/activities/admin.js'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
 import * as reciprocalActivities from '../temporal/activities/reciprocal.js'
@@ -42,14 +43,25 @@ async function run() {
     const grants = await Worker.create({
       connection,
       taskQueue: 'create-grants',
-      workflowsPath: fileURLToPath(new URL('../temporal/workflows/grants.js', import.meta.url)),
-      activities: grantsActivities,
+      workflowsPath: fileURLToPath(
+        new URL('../temporal/workflows/create-grants.js', import.meta.url)
+      ),
+      // grants + org-admin activities — the combined workflow module calls
+      // names from both (the admin workflows also use markActivitiesDone)
+      activities: { ...grantsActivities, ...adminActivities },
     })
 
     // Run all workers simultaneously
     await Promise.all([forward.run(), reciprocal.run(), grants.run()])
   } finally {
-    await connection.close()
+    // only close once every worker is done — while a worker still holds the
+    // connection close() throws IllegalStateError, which must not mask the
+    // actual worker failure below
+    try {
+      await connection.close()
+    } catch (err) {
+      console.error('failed to close connection:', err)
+    }
   }
 }
 

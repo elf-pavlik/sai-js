@@ -141,6 +141,14 @@ export const SocialAgent = S.Struct({
   accessNeedGroup: S.optional(S.String),
   accessRequested: S.Boolean,
   accessGrant: S.optional(S.String),
+  /**
+   * True when the agent holds an admin marker in the *current context's*
+   * registry. Asymmetry (§2.2 of org-admin-feature.md): in the personal
+   * context it is read from the agent's registration of the signed-in user
+   * (reached via `reciprocalRegistration`); in an org context it is read from
+   * the org's registration of the agent directly (non-empty `hasAdminGrant`).
+   */
+  admin: S.Boolean,
   //authorizationDate: S.String, // interop:registeredAt TODO: rename to not imply access
   //lastUpdateDate: S.optional(S.String), // interop:updatedAt
 })
@@ -274,7 +282,7 @@ export class RegisterPushSubscription extends S.TaggedRequest<RegisterPushSubscr
 export class ListApplications extends S.TaggedRequest<ListApplications>()('ListApplications', {
   failure: S.Never,
   success: ApplicationList,
-  payload: {},
+  payload: { context: IRI },
 }) {}
 
 export class GetUnregisteredApplication extends S.TaggedRequest<GetUnregisteredApplication>()(
@@ -296,6 +304,7 @@ export class GetAuthoriaztionData extends S.TaggedRequest<GetAuthoriaztionData>(
       agentType: S.Enums(AgentType),
       lang: S.String,
       accessNeedGroupIri: S.optional(IRI),
+      context: IRI,
     },
   }
 ) {}
@@ -306,13 +315,14 @@ export class GetResource extends S.TaggedRequest<GetResource>()('GetResource', {
   payload: {
     id: IRI,
     lang: S.String, // TODO lang code validation
+    context: IRI,
   },
 }) {}
 
 export class ListSocialAgents extends S.TaggedRequest<ListSocialAgents>()('ListSocialAgents', {
   failure: S.Never,
   success: SocialAgentList,
-  payload: {},
+  payload: { context: IRI },
 }) {}
 
 export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentInvitations>()(
@@ -320,14 +330,14 @@ export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentI
   {
     failure: S.Never,
     success: SocialAgentInvitationList,
-    payload: {},
+    payload: { context: IRI },
   }
 ) {}
 
 export class ListRoles extends S.TaggedRequest<ListRoles>()('ListRoles', {
   failure: S.Never,
   success: RoleList,
-  payload: {},
+  payload: { context: IRI },
 }) {}
 
 export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
@@ -336,6 +346,7 @@ export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
   payload: {
     label: S.String,
     members: S.Array(IRI),
+    context: IRI,
   },
 }) {}
 
@@ -346,6 +357,7 @@ export class UpdateRole extends S.TaggedRequest<UpdateRole>()('UpdateRole', {
     id: IRI,
     label: S.String,
     members: S.Array(IRI),
+    context: IRI,
   },
 }) {}
 
@@ -354,6 +366,7 @@ export class DeleteRole extends S.TaggedRequest<DeleteRole>()('DeleteRole', {
   success: S.Void,
   payload: {
     id: IRI,
+    context: IRI,
   },
 }) {}
 
@@ -365,6 +378,7 @@ export class ListDataRegistries extends S.TaggedRequest<ListDataRegistries>()(
     payload: {
       agentId: IRI,
       lang: S.String, // TODO lang code validation
+      context: IRI,
     },
   }
 ) {}
@@ -375,6 +389,7 @@ export class ListDataInstances extends S.TaggedRequest<ListDataInstances>()('Lis
   payload: {
     agentId: IRI,
     registrationId: IRI,
+    context: IRI,
   },
 }) {}
 
@@ -386,6 +401,7 @@ export class RequestAccessUsingApplicationNeeds extends S.TaggedRequest<RequestA
     payload: {
       applicationId: IRI,
       agentId: IRI,
+      context: IRI,
     },
   }
 ) {}
@@ -396,6 +412,7 @@ export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('Creat
   payload: {
     label: S.String,
     note: S.optional(S.String),
+    context: IRI,
   },
 }) {}
 
@@ -406,6 +423,7 @@ export class AcceptInvitation extends S.TaggedRequest<AcceptInvitation>()('Accep
     capabilityUrl: S.String,
     label: S.String,
     note: S.optional(S.String),
+    context: IRI,
   },
 }) {}
 
@@ -414,6 +432,7 @@ export class ShareResource extends S.TaggedRequest<ShareResource>()('ShareResour
   success: ShareAuthorizationConfirmation,
   payload: {
     authorization: ShareAuthorization,
+    context: IRI,
   },
 }) {}
 
@@ -422,6 +441,7 @@ export class AuthorizeApp extends S.TaggedRequest<AuthorizeApp>()('AuthorizeApp'
   success: AccessAuthorization,
   payload: {
     authorization: Authorization,
+    context: IRI,
   },
 }) {}
 
@@ -430,19 +450,20 @@ export class RevokeGrants extends S.TaggedRequest<RevokeGrants>()('RevokeGrants'
   success: S.Array(IRI),
   payload: {
     grants: S.Array(IRI),
+    context: IRI,
   },
 }) {}
 
 export class AddAdmin extends S.TaggedRequest<AddAdmin>()('AddAdmin', {
   failure: S.Never,
   success: SocialAgent,
-  payload: { webId: IRI },
+  payload: { webId: IRI, context: IRI },
 }) {}
 
 export class RemoveAdmin extends S.TaggedRequest<RemoveAdmin>()('RemoveAdmin', {
   failure: S.Never,
   success: SocialAgent,
-  payload: { webId: IRI },
+  payload: { webId: IRI, context: IRI },
 }) {}
 
 export class SaiService extends Context.Tag('SaiService')<
@@ -454,7 +475,9 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly registerPushSubscription: (
       subscription: PushSubscription
     ) => Effect.Effect<S.Schema.Type<typeof S.Void>>
-    readonly getApplications: () => Effect.Effect<S.Schema.Type<typeof ApplicationList>>
+    readonly getApplications: (
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof ApplicationList>>
     readonly getUnregisteredApplication: (
       id: IRI
     ) => Effect.Effect<S.Schema.Type<typeof UnregisteredApplication>>
@@ -462,56 +485,73 @@ export class SaiService extends Context.Tag('SaiService')<
       agentId: IRI,
       agentType: AgentType,
       lang: string,
-      accessNeedGroupIri?: IRI
+      accessNeedGroupIri: IRI | undefined,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof AuthorizationData>>
-    readonly getResource: (id: IRI, lang: string) => Effect.Effect<S.Schema.Type<typeof Resource>>
-    readonly getSocialAgents: () => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
-    readonly getRoles: () => Effect.Effect<S.Schema.Type<typeof RoleList>>
+    readonly getResource: (
+      id: IRI,
+      lang: string,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof Resource>>
+    readonly getSocialAgents: (context: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
+    readonly getRoles: (context: IRI) => Effect.Effect<S.Schema.Type<typeof RoleList>>
     readonly createRole: (
       label: string,
-      members: readonly S.Schema.Type<typeof IRI>[]
+      members: readonly S.Schema.Type<typeof IRI>[],
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof Role>>
     readonly updateRole: (
       id: IRI,
       label: string,
-      members: readonly S.Schema.Type<typeof IRI>[]
+      members: readonly S.Schema.Type<typeof IRI>[],
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof Role>>
-    readonly deleteRole: (id: IRI) => Effect.Effect<S.Schema.Type<typeof S.Void>>
-    readonly getSocialAgentInvitations: () => Effect.Effect<
+    readonly deleteRole: (id: IRI, context: IRI) => Effect.Effect<S.Schema.Type<typeof S.Void>>
+    readonly getSocialAgentInvitations: (context: IRI) => Effect.Effect<
       S.Schema.Type<typeof SocialAgentInvitationList>
     >
     readonly getDataRegistries: (
       agentId: IRI,
-      lang: string
+      lang: string,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof DataRegistryList>>
     readonly listDataInstances: (
       agentId: IRI,
-      registrationId: string
+      registrationId: string,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof DataInstanceList>>
     readonly requestAccessUsingApplicationNeeds: (
       applicationId: string,
-      agentId: string
+      agentId: string,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof S.Void>>
     readonly createInvitation: (
       label: string,
-      note?: string
+      note: string | undefined,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof SocialAgentInvitation>>
     readonly acceptInvitation: (
       capabilityUrl: string,
       label: string,
-      note?: string
+      note: string | undefined,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
     readonly shareResource: (
-      authorization: S.Schema.Type<typeof ShareAuthorization>
+      authorization: S.Schema.Type<typeof ShareAuthorization>,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof ShareAuthorizationConfirmation>>
     readonly authorizeApp: (
-      authorization: S.Schema.Type<typeof Authorization>
+      authorization: S.Schema.Type<typeof Authorization>,
+      context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof AccessAuthorization>>
     readonly revokeGrants: (
-      grants: readonly S.Schema.Type<typeof IRI>[]
+      grants: readonly S.Schema.Type<typeof IRI>[],
+      context: IRI
     ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
-    readonly addAdmin: (webId: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
-    readonly removeAdmin: (webId: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
+    readonly addAdmin: (webId: IRI, context: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
+    readonly removeAdmin: (webId: IRI, context: IRI) => Effect.Effect<
+      S.Schema.Type<typeof SocialAgent>
+    >
   }
 >() {}
 
@@ -540,10 +580,10 @@ export const router = RpcRouter.make(
       return yield* saiService.registerPushSubscription(subscription)
     })
   ),
-  Rpc.effect(ListApplications, () =>
+  Rpc.effect(ListApplications, ({ context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getApplications()
+      return yield* saiService.getApplications(context)
     })
   ),
   Rpc.effect(GetUnregisteredApplication, ({ id }) =>
@@ -552,112 +592,114 @@ export const router = RpcRouter.make(
       return yield* saiService.getUnregisteredApplication(id)
     })
   ),
-  Rpc.effect(GetAuthoriaztionData, ({ agentId, agentType, lang, accessNeedGroupIri }) =>
+  Rpc.effect(GetAuthoriaztionData, ({ agentId, agentType, lang, accessNeedGroupIri, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getAuthorizationData(agentId, agentType, lang, accessNeedGroupIri)
+      return yield* saiService.getAuthorizationData(agentId, agentType, lang, accessNeedGroupIri, context)
     })
   ),
-  Rpc.effect(GetResource, ({ id, lang }) =>
+  Rpc.effect(GetResource, ({ id, lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getResource(id, lang)
+      return yield* saiService.getResource(id, lang, context)
     })
   ),
-  Rpc.effect(ListSocialAgents, () =>
+  Rpc.effect(ListSocialAgents, ({ context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getSocialAgents()
+      return yield* saiService.getSocialAgents(context)
     })
   ),
-  Rpc.effect(ListSocialAgentInvitations, () =>
+  Rpc.effect(ListSocialAgentInvitations, ({ context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getSocialAgentInvitations()
+      return yield* saiService.getSocialAgentInvitations(context)
     })
   ),
-  Rpc.effect(ListRoles, () =>
+  Rpc.effect(ListRoles, ({ context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getRoles()
+      return yield* saiService.getRoles(context)
     })
   ),
-  Rpc.effect(CreateRole, ({ label, members }) =>
+  Rpc.effect(CreateRole, ({ label, members, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.createRole(label, members)
+      return yield* saiService.createRole(label, members, context)
     })
   ),
-  Rpc.effect(UpdateRole, ({ id, label, members }) =>
+  Rpc.effect(UpdateRole, ({ id, label, members, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.updateRole(id, label, members)
+      return yield* saiService.updateRole(id, label, members, context)
     })
   ),
-  Rpc.effect(DeleteRole, ({ id }) =>
+  Rpc.effect(DeleteRole, ({ id, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.deleteRole(id)
+      return yield* saiService.deleteRole(id, context)
     })
   ),
-  Rpc.effect(ListDataRegistries, ({ agentId, lang }) =>
+  Rpc.effect(ListDataRegistries, ({ agentId, lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getDataRegistries(agentId, lang)
+      return yield* saiService.getDataRegistries(agentId, lang, context)
     })
   ),
-  Rpc.effect(ListDataInstances, ({ agentId, registrationId }) =>
+  Rpc.effect(ListDataInstances, ({ agentId, registrationId, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.listDataInstances(agentId, registrationId)
+      return yield* saiService.listDataInstances(agentId, registrationId, context)
     })
   ),
-  Rpc.effect(RequestAccessUsingApplicationNeeds, ({ applicationId, agentId }) =>
+  Rpc.effect(
+    RequestAccessUsingApplicationNeeds,
+    ({ applicationId, agentId, context }) =>
+      Effect.gen(function* () {
+        const saiService = yield* SaiService
+        return yield* saiService.requestAccessUsingApplicationNeeds(applicationId, agentId, context)
+      })
+  ),
+  Rpc.effect(CreateInvitation, ({ label, note, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.requestAccessUsingApplicationNeeds(applicationId, agentId)
+      return yield* saiService.createInvitation(label, note, context)
     })
   ),
-  Rpc.effect(CreateInvitation, ({ label, note }) =>
+  Rpc.effect(AcceptInvitation, ({ capabilityUrl, label, note, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.createInvitation(label, note)
+      return yield* saiService.acceptInvitation(capabilityUrl, label, note, context)
     })
   ),
-  Rpc.effect(AcceptInvitation, ({ capabilityUrl, label, note }) =>
+  Rpc.effect(ShareResource, ({ authorization, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.acceptInvitation(capabilityUrl, label, note)
+      return yield* saiService.shareResource(authorization, context)
     })
   ),
-  Rpc.effect(ShareResource, ({ authorization }) =>
+  Rpc.effect(AuthorizeApp, ({ authorization, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.shareResource(authorization)
+      return yield* saiService.authorizeApp(authorization, context)
     })
   ),
-  Rpc.effect(AuthorizeApp, ({ authorization }) =>
+  Rpc.effect(RevokeGrants, ({ grants, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.authorizeApp(authorization)
+      return yield* saiService.revokeGrants(grants, context)
     })
   ),
-  Rpc.effect(RevokeGrants, ({ grants }) =>
+  Rpc.effect(AddAdmin, ({ webId, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.revokeGrants(grants)
+      return yield* saiService.addAdmin(webId, context)
     })
   ),
-  Rpc.effect(AddAdmin, ({ webId }) =>
+  Rpc.effect(RemoveAdmin, ({ webId, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.addAdmin(webId)
-    })
-  ),
-  Rpc.effect(RemoveAdmin, ({ webId }) =>
-    Effect.gen(function* () {
-      const saiService = yield* SaiService
-      return yield* saiService.removeAdmin(webId)
+      return yield* saiService.removeAdmin(webId, context)
     })
   )
 )

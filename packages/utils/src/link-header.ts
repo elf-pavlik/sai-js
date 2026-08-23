@@ -6,6 +6,15 @@ export function getAgentRegistrationIri(linkHeaderText: string): string | undefi
   return links.find((link) => link.rel === INTEROP.registeredAgent)?.anchor
 }
 
+/**
+ * `<registrySet>; rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"`
+ * — served by AgentIdHandler to admins of the org (Phase 2, org-admin-feature.md).
+ */
+export function getRegistrySetIri(linkHeaderText: string): string | undefined {
+  const links = LinkHeader.parse(linkHeaderText).refs
+  return links.find((link) => link.rel === INTEROP.hasRegistrySet)?.uri
+}
+
 export function getDescriptionResource(linkHeaderText: string): string | undefined {
   const links = LinkHeader.parse(linkHeaderText).refs
   return links.find((link) => link.rel === 'describedby')?.uri

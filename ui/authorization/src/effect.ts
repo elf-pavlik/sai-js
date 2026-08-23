@@ -3,6 +3,7 @@ import { RpcResolver } from '@effect/rpc'
 import { HttpRpcResolverNoStream } from '@effect/rpc-http'
 import {
   AcceptInvitation,
+  AddAdmin,
   type AgentType,
   type Authorization,
   AuthorizeApp,
@@ -23,6 +24,7 @@ import {
   ListSocialAgentInvitations,
   ListSocialAgents,
   RegisterPushSubscription,
+  RemoveAdmin,
   RequestAccessUsingApplicationNeeds,
   RevokeGrants,
   type ShareAuthorization,
@@ -91,10 +93,10 @@ export async function registerPushSubscription(subscription: PushSubscription) {
   return Effect.runPromise(program)
 }
 
-export async function listApplications() {
+export async function listApplications(context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListApplications())
+    return yield* client(new ListApplications({ context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -111,6 +113,7 @@ export async function getAuthoriaztionData(
   agentId: string,
   agentType: AgentType,
   lang: string,
+  context: string,
   accessNeedGroupIri?: string
 ) {
   const program = Effect.gen(function* () {
@@ -120,6 +123,7 @@ export async function getAuthoriaztionData(
         agentId: IRI.make(agentId),
         agentType,
         lang,
+        context: IRI.make(context),
         ...(accessNeedGroupIri ? { accessNeedGroupIri: IRI.make(accessNeedGroupIri) } : {}),
       })
     )
@@ -127,116 +131,150 @@ export async function getAuthoriaztionData(
   return Effect.runPromise(program)
 }
 
-export async function getResource(id: string, lang: string) {
+export async function getResource(id: string, lang: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new GetResource({ id: IRI.make(id), lang }))
+    return yield* client(new GetResource({ id: IRI.make(id), lang, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function listSocialAgents() {
+export async function listSocialAgents(context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListSocialAgents())
+    return yield* client(new ListSocialAgents({ context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function listRoles() {
+export async function listRoles(context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListRoles())
+    return yield* client(new ListRoles({ context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function listSocialAgentInvitations() {
+export async function listSocialAgentInvitations(context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListSocialAgentInvitations())
+    return yield* client(new ListSocialAgentInvitations({ context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function listDataRegistries(agentId: string, lang: string) {
+export async function listDataRegistries(agentId: string, lang: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListDataRegistries({ agentId: IRI.make(agentId), lang }))
+    return yield* client(
+      new ListDataRegistries({ agentId: IRI.make(agentId), lang, context: IRI.make(context) })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
 export async function listDataInstances(
   agentId: S.Schema.Type<typeof IRI>,
-  registrationId: S.Schema.Type<typeof IRI>
+  registrationId: S.Schema.Type<typeof IRI>,
+  context: string
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(
-      new ListDataInstances({ agentId: agentId, registrationId: registrationId })
-    )
-  }).pipe(Effect.provide(AuthLayer))
-  return Effect.runPromise(program)
-}
-
-export async function requestAccessUsingApplicationNeeds(applicationId: string, agentId: string) {
-  const program = Effect.gen(function* () {
-    const client = yield* makeClient
-    return yield* client(
-      new RequestAccessUsingApplicationNeeds({
-        applicationId: IRI.make(applicationId),
-        agentId: IRI.make(agentId),
+      new ListDataInstances({
+        agentId: agentId,
+        registrationId: registrationId,
+        context: IRI.make(context),
       })
     )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function createInvitation(label: string, note?: string) {
+export async function requestAccessUsingApplicationNeeds(
+  applicationId: string,
+  agentId: string,
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new CreateInvitation({ label, note }))
+    return yield* client(
+      new RequestAccessUsingApplicationNeeds({
+        applicationId: IRI.make(applicationId),
+        agentId: IRI.make(agentId),
+        context: IRI.make(context),
+      })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function acceptInvitation(capabilityUrl: string, label: string, note?: string) {
+export async function createInvitation(label: string, note: string | undefined, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new AcceptInvitation({ capabilityUrl, label, note }))
+    return yield* client(
+      new CreateInvitation({ label, note, context: IRI.make(context) })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function shareResource(authorization: S.Schema.Type<typeof ShareAuthorization>) {
+export async function acceptInvitation(
+  capabilityUrl: string,
+  label: string,
+  note: string | undefined,
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ShareResource({ authorization }))
+    return yield* client(
+      new AcceptInvitation({ capabilityUrl, label, note, context: IRI.make(context) })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function authorizeApp(authorization: S.Schema.Type<typeof Authorization>) {
+export async function shareResource(
+  authorization: S.Schema.Type<typeof ShareAuthorization>,
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new AuthorizeApp({ authorization }))
+    return yield* client(new ShareResource({ authorization, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function revokeGrants(grants: readonly S.Schema.Type<typeof IRI>[]) {
+export async function authorizeApp(
+  authorization: S.Schema.Type<typeof Authorization>,
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new RevokeGrants({ grants }))
+    return yield* client(new AuthorizeApp({ authorization, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function createRole(label: string, members: readonly S.Schema.Type<typeof IRI>[]) {
+export async function revokeGrants(
+  grants: readonly S.Schema.Type<typeof IRI>[],
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new CreateRole({ label, members }))
+    return yield* client(new RevokeGrants({ grants, context: IRI.make(context) }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function createRole(
+  label: string,
+  members: readonly S.Schema.Type<typeof IRI>[],
+  context: string
+) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new CreateRole({ label, members, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -244,19 +282,38 @@ export async function createRole(label: string, members: readonly S.Schema.Type<
 export async function updateRole(
   id: S.Schema.Type<typeof IRI>,
   label: string,
-  members: readonly S.Schema.Type<typeof IRI>[]
+  members: readonly S.Schema.Type<typeof IRI>[],
+  context: string
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new UpdateRole({ id, label, members }))
+    return yield* client(
+      new UpdateRole({ id, label, members, context: IRI.make(context) })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
 
-export async function deleteRole(id: S.Schema.Type<typeof IRI>) {
+export async function deleteRole(id: S.Schema.Type<typeof IRI>, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new DeleteRole({ id }))
+    return yield* client(new DeleteRole({ id, context: IRI.make(context) }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function addAdmin(webId: string, context: string) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new AddAdmin({ webId: IRI.make(webId), context: IRI.make(context) }))
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function removeAdmin(webId: string, context: string) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new RemoveAdmin({ webId: IRI.make(webId), context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

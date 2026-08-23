@@ -19,7 +19,7 @@ const q2v9pt = `${grantRegistry}q2v9pt` // Task child of x4j8lm
 function rpcPayload(grants: string[]) {
   return [
     {
-      request: { _tag: 'RevokeGrants', grants },
+      request: { _tag: 'RevokeGrants', grants, context: acmeId },
       headers: {},
       traceId: '13c2035f72f45c1ebbf13b055b7dc526',
       spanId: '685581075752b8a2',

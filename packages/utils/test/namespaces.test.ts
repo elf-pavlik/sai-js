@@ -6,6 +6,7 @@ describe('vocabularies', () => {
     expect(INTEROP.hasDataRegistration).toBe(
       'http://www.w3.org/ns/solid/interop#hasDataRegistration'
     )
+    expect(INTEROP.hasRegistrySet).toBe('http://www.w3.org/ns/solid/interop#hasRegistrySet')
     expect(ACL.Read).toBe('http://www.w3.org/ns/auth/acl#Read')
     expect(RDF.type).toBe('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
   })

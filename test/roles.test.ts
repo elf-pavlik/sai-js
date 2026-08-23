@@ -112,6 +112,7 @@ describe('role-based access', () => {
     const body = await rpcCall(
       rpcPayload({
         _tag: 'CreateRole',
+        context: aliceId,
         label: 'Test Role',
         members: [],
       }),
@@ -138,6 +139,7 @@ describe('role-based access', () => {
     await rpcCall(
       rpcPayload({
         _tag: 'DeleteRole',
+        context: aliceId,
         id: roleId,
       }),
       aliceCookie
@@ -151,6 +153,7 @@ describe('role-based access', () => {
     const body = await rpcCall(
       rpcPayload({
         _tag: 'UpdateRole',
+        context: aliceId,
         id: chumsRoleId,
         label: 'Chums',
         members: [bobId],
@@ -176,6 +179,7 @@ describe('role-based access', () => {
       rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
+        context: aliceId,
           id: roleId,
           label: 'Test',
           members: [kimId],
@@ -189,6 +193,7 @@ describe('role-based access', () => {
       rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
+        context: aliceId,
           id: roleId,
           label: 'Test',
           members: [],
@@ -202,6 +207,7 @@ describe('role-based access', () => {
   describe('AllFromRole scope', () => {
     const payload = rpcPayload({
       _tag: 'AuthorizeApp',
+      context: bobId,
       authorization: {
         grantee: whizRoleId,
         agentType: 'http://www.w3.org/ns/solid/interop#Role',
@@ -238,6 +244,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
+        context: bobId,
             id: whizRoleId,
             label: initialRole?.prefLabel ?? 'Whiz',
             members: [...initialMembers, danId],
@@ -251,6 +258,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
+        context: bobId,
             id: bizRoleId,
             label: 'Biz',
             members: [],
@@ -274,6 +282,7 @@ describe('role-based access', () => {
       await rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
+        context: bobId,
           id: whizRoleId,
           label: 'Whiz',
           members: [danId],
@@ -309,6 +318,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
+        context: bobId,
             id: whizRoleId,
             label: 'Whiz',
             members: [danId],
@@ -322,6 +332,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'DeleteRole',
+        context: bobId,
             id: whizRoleId,
           }),
           bobCookie
@@ -345,6 +356,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
+        context: bobId,
             id: whizRoleId,
             label: 'Whiz',
             members: [danId],
@@ -358,6 +370,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'DeleteRole',
+        context: bobId,
             id: bizRoleId,
           }),
           bobCookie

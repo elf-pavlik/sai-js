@@ -17,10 +17,27 @@ export const INTEROP = createVocabulary(
   'SelectedFromRegistry',
   'Inherited',
   'inheritsFromGrant',
+  'hasRegistrySet',
   'DataGrant',
   'AccessRequest',
   'AccessRevocation',
-  'SocialAgent'
+  'SocialAgent',
+  'AgentRegistry',
+  'AuthorizationRegistry',
+  'GrantRegistry',
+  'RoleRegistry',
+  'ActivityRegistry',
+  'All',
+  'AdminAuthorization',
+  'AdminGrant',
+  'hasAdminGrant',
+  'scopeOfAdminGrant',
+  'RegistrySet',
+  'DataRegistry',
+  'SocialAgentRegistration',
+  'ApplicationRegistration',
+  'hasSocialAgentRegistration',
+  'hasApplicationRegistration'
 )
 export const ACL = createVocabulary(
   'http://www.w3.org/ns/auth/acl#',

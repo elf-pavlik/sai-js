@@ -12,6 +12,7 @@ describe('request access', () => {
   const requestData = {
     applicationId: clientId,
     agentId: aliceId,
+    context: bobId,
   }
   const payload = [
     {

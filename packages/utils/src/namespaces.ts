@@ -54,6 +54,7 @@ export const INTEROP = createVocabulary(
   'hasDelegationIssuanceEndpoint',
   'hasGrantRegistry',
   'hasMember',
+  'hasRegistrySet',
   'hasRoleRegistry',
   'hasActivityRegistry',
   'hasSocialAgentInvitation',

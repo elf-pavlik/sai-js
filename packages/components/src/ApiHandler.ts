@@ -19,6 +19,7 @@ import type { SessionManager } from './SessionManager'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import type { AccountService } from './services/Account.js'
 import { addAdmin, removeAdmin } from './services/Admin.js'
+import { resolveContext } from './services/Context.js'
 import {
   acceptInvitation,
   createInvitation,
@@ -81,43 +82,107 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => this.accountService.checkHandle(handle)),
         bootstrapAccount: (handle: string) =>
           Effect.promise(() => this.accountService.bootstrapAccount(accountId, handle)),
-        getDataRegistries: (agentId, lang) =>
-          Effect.promise(() => getDataRegistries(session, agentId, lang)),
-        listDataInstances: (agentId, registrationId) =>
-          Effect.promise(() => listDataInstances(session, agentId, registrationId, 'en')),
-        getApplications: () => Effect.promise(() => getApplications(session)),
+        getDataRegistries: (agentId, lang, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getDataRegistries(ctx.session, agentId, lang)
+          }),
+        listDataInstances: (agentId, registrationId, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return listDataInstances(ctx.session, agentId, registrationId, 'en')
+          }),
+        getApplications: (context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getApplications(ctx.session)
+          }),
         getUnregisteredApplication: (id) =>
           Effect.promise(() => getUnregisteredApplication(session, id)),
-        getSocialAgents: () => Effect.promise(() => getSocialAgents(session)),
-        getRoles: () => Effect.promise(() => getRoles(session)),
-        createRole: (label, members) => Effect.promise(() => createRole(session, label, members)),
-        updateRole: (id, label, members) =>
-          Effect.promise(() => updateRole(session, id, label, members)),
-        deleteRole: (id) => Effect.promise(() => deleteRole(session, id)),
-        getSocialAgentInvitations: () => Effect.promise(() => getSocialAgentInvitations(session)),
-        getAuthorizationData: (agentId, agentType, lang, accessNeedGroupIri) =>
-          Effect.promise(() =>
-            getDescriptions(session, agentId, agentType, lang, accessNeedGroupIri)
-          ),
-        authorizeApp: (authorization) =>
-          Effect.promise(() => recordAuthorization(session, authorization)),
-        revokeGrants: (grants) =>
-          Effect.promise(() => revokeGrants(session, this.sparqlEndpoint, grants)),
-        addAdmin: (webId) => Effect.promise(() => addAdmin(session, webId)),
-        removeAdmin: (webId) => Effect.promise(() => removeAdmin(session, webId)),
+        getSocialAgents: (context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getSocialAgents(ctx.session, ctx.webId === ctx.userWebId)
+          }),
+        getRoles: (context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getRoles(ctx.session)
+          }),
+        createRole: (label, members, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return createRole(ctx.session, label, members)
+          }),
+        updateRole: (id, label, members, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return updateRole(ctx.session, id, label, members)
+          }),
+        deleteRole: (id, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return deleteRole(ctx.session, id)
+          }),
+        getSocialAgentInvitations: (context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getSocialAgentInvitations(ctx.session)
+          }),
+        getAuthorizationData: (agentId, agentType, lang, accessNeedGroupIri, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getDescriptions(ctx.session, agentId, agentType, lang, accessNeedGroupIri)
+          }),
+        authorizeApp: (authorization, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return recordAuthorization(ctx.session, authorization)
+          }),
+        revokeGrants: (grants, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return revokeGrants(ctx.session, this.sparqlEndpoint, grants)
+          }),
+        addAdmin: (webId, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return addAdmin(ctx.session, webId)
+          }),
+        removeAdmin: (webId, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return removeAdmin(ctx.session, webId)
+          }),
         registerPushSubscription: (subscription: PushSubscription) =>
           Effect.promise(() =>
             this.uiPushSubscriptionStore.create(session.webId, accountId, subscription)
           ),
-        getResource: (id, lang) => Effect.promise(() => getResource(session, id, lang)),
-        shareResource: (authorization) =>
-          Effect.promise(() => shareResource(session, authorization)),
-        requestAccessUsingApplicationNeeds: (applicationId, agentId) =>
-          Effect.promise(() => requestAccessUsingApplicationNeeds(session, applicationId, agentId)),
-        createInvitation: (label, note) =>
-          Effect.promise(() => createInvitation(session, { label, note })),
-        acceptInvitation: (capabilityUrl, label, note) =>
-          Effect.promise(() => acceptInvitation(session, { capabilityUrl, label, note })),
+        getResource: (id, lang, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return getResource(ctx.session, id, lang)
+          }),
+        shareResource: (authorization, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return shareResource(ctx.session, authorization)
+          }),
+        requestAccessUsingApplicationNeeds: (applicationId, agentId, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return requestAccessUsingApplicationNeeds(ctx.session, applicationId, agentId)
+          }),
+        createInvitation: (label, note, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return createInvitation(ctx.session, { label, note })
+          }),
+        acceptInvitation: (capabilityUrl, label, note, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context, this.sessionManager)
+            return acceptInvitation(ctx.session, { capabilityUrl, label, note })
+          }),
       })
     )
     const rpcHandler = RpcRouter.toHandlerNoStream(router)

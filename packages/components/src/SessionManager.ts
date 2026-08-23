@@ -12,7 +12,7 @@ export class SessionManager {
     private readonly expiration: number
   ) {}
 
-  public async getSession(webid: string): Promise<AuthorizationAgent> {
+  public async getSession(webid: string, registrySetId?: string): Promise<AuthorizationAgent> {
     const privateKey = await this.jwkGenerator.getPrivateKey()
     const publicKey = await this.jwkGenerator.getPublicKey()
 
@@ -29,8 +29,7 @@ export class SessionManager {
     })
     await oidc.login()
 
-    //TODO: get registryId as argument
-    return AuthorizationAgent.build(webid, agentId(webid), registryId(webid), {
+    return AuthorizationAgent.build(webid, agentId(webid), registrySetId ?? registryId(webid), {
       fetch: oidc.authFetch.bind(oidc),
       randomUUID: crypto.randomUUID.bind(crypto),
     })

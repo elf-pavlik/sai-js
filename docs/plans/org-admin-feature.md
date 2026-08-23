@@ -86,7 +86,7 @@ split.
 | Phase | Scope | Steps | Checkpoint
 |---|---|---|---|
 | **1 — Marking layer** (§R1 + §3.6–3.9) | vocab · data model · RPC · handler · workflows · seed | 1.1 R1 vocabulary — `AdminAuthorization`/`AdminGrant`/`hasAdminGrant`/`scopeOfAdminGrant` (§3.9); 1.2 §3.8 type-filtered authorization iterators (replaces the superseded §3.2 flag model); 1.3 R1 RPC service — record `AdminAuthorization` + write activity (§3.9); 1.4 §3.4 API messages; 1.5 §3.5 handler wiring; 1.6 §3.6 seed *(done, revised)*; 1.7 §3.7 admin workflows (add: `createAdminGrants` + `syncAdminAcr`; remove: `revokeAdminGrants` + `syncAdminAcr`) | build+test after each; UI not required yet
-| **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e; 2.8 org data access — `SaiPermissionsEngine` admin branch (§2.10) | build+test after each; e2e scaffolding may be needed before 2.6; 2.8 needs the admin-credentialed data-read e2e
+| **2 — Operating in context** (§2 below) | context model · discovery · RPC context · backend registry-set map · UI switcher/toggle · e2e | 2.1 `SocialAgent.admin` + discovery; 2.2 `context` field + context struct + context authn; 2.3 registry-set map + `AgentIdHandler` `hasRegistrySet` link; 2.4 service owner/target refactor; 2.5 admin events forwarding (→ Phase 3); 2.6 UI switcher + toggle-admin; 2.7 e2e; 2.8 org data access — `SaiPermissionsEngine` admin branch (§2.10) *(done)* | build+test after each; e2e scaffolding may be needed before 2.6; 2.8 needs the admin-credentialed data-read e2e
 | **3 — Admin events forwarding** (§3 below) | reuse `ActivityWebhookHandler` / `AdminWebhookHandler` + shared forwarding module; events keyed to admin webId | 3.1 extract forwarding half; 3.2 subscription recognition + event keying; 3.3 wire admin events into UI | build+test after each
 | **4 — Docs update** (below) | `peer.md` · `social-graph.md` | edit both docs to reflect the implemented org-context + forwarding behavior | build+test; review diffs of both docs
 
@@ -902,7 +902,7 @@ Everything below is what **landed** in Phase 2; where it conflicts with §2.1–
 - **§2.8 data-registry access — engine item moved to step 2.8 (§2.10).** The data service's `SaiPermissionsEngine` admin branch (`TargetType.Registry` TODO) is now its own step before Phase 3 — needed for *admin-credentialed* access to the org's data (org-context service reads already run as the org owner; validate that owner-side read in 2.8/Phase 4).
 - **UI.** Switcher derives from personal-context `ListSocialAgents.admin` + label; toggle-admin lives in the org context with the last-admin disable — as planned (§2.5).
 
-### 2.10 Step 2.8 spec — org data access via the permission engine (R1 pickup)
+### 2.10 Step 2.8 spec — org data access via the permission engine (R1 pickup)  *(implemented)*
 
 Moves the §2.8 "admin access to data registries / data instances" item out of
 *open* into an executable step **before Phase 3**, on the R1 design: the

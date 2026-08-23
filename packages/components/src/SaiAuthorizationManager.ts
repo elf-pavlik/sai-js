@@ -59,7 +59,10 @@ export class SaiAuthorizationManager implements AuthorizationManager {
         const results = await arrayifyStream<Quad>(grantsStream)
         data = data.concat(results)
       }
-      // TODO: add statements about admins/trusted grants
+      // AdminGrants carry `hasStorage` too (the Read-only DataRegistry-scoped
+      // ones) — they ride along in the same dataset and the engine's admin
+      // branch (SaiPermissionsEngine.findAdminModes, step 2.8 of
+      // org-admin-feature.md) consumes them by type/grantee/scope.
       return data
     } catch (err) {
       if (NotFoundHttpError.isInstance(err)) {

@@ -60,10 +60,18 @@ export class SaiPermissionsEngine implements PolicyEngine {
     let modes: string[] = []
     switch (targetType) {
       case TargetType.Registry:
-        // TODO: use extra data to check if it is an admin using their UAS
+        // admins hold a Read-only DataRegistry-scoped AdminGrant per storage
+        // (R1 / step 2.8 of org-admin-feature.md) — lets them list/read the
+        // org's data registries; structural registries stay on ACP
+        modes = await this.findAdminModes(authorizationData, credentials)
         break
       case TargetType.Registration:
-        modes = await this.findRegistrationModes(authorizationData, target, credentials, uas)
+        modes = [
+          ...new Set([
+            ...(await this.findRegistrationModes(authorizationData, target, credentials, uas)),
+            ...(await this.findAdminModes(authorizationData, credentials)),
+          ]),
+        ]
         break
       case TargetType.Resource:
         // could happen read on all and write on selected
@@ -86,7 +94,14 @@ export class SaiPermissionsEngine implements PolicyEngine {
             credentials,
             uas
           )
-          modes = [...new Set([...resourceModes, ...registryModes, ...inheritedModes])]
+          modes = [
+            ...new Set([
+              ...resourceModes,
+              ...registryModes,
+              ...inheritedModes,
+              ...(await this.findAdminModes(authorizationData, credentials)),
+            ]),
+          ]
         }
         break
       default:
@@ -134,6 +149,37 @@ export class SaiPermissionsEngine implements PolicyEngine {
     return modesBindings
       .map((b) => b.get('o')?.value)
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
+  }
+
+  /**
+   * The requester's Read-only DataRegistry-scoped AdminGrant for the target's
+   * storage (R1 / step 2.8 of org-admin-feature.md). `authorizationData` is
+   * already filtered by `getAuthorizationData` to grants with `hasStorage` =
+   * the target's storage, so matching `AdminGrant` + `grantee` +
+   * `scopeOfAdminGrant DataRegistry` here identifies an admin of *this*
+   * storage. Returns the grant's `accessMode`s (Read-only in the seed — the
+   * design keeps admins read-only through the data service; structural
+   * registries stay on ACP).
+   */
+  async findAdminModes(data: Quad[], credentials: Credentials): Promise<string[]> {
+    const agent = credentials.agent
+    if (!agent) return []
+    const store = new Store([...data])
+    const adminGrantQuery = `
+      SELECT * WHERE {
+        ?s
+          a <${INTEROP.AdminGrant}> ;
+          <${INTEROP.grantee}> <${agent}> ;
+          <${INTEROP.scopeOfAdminGrant}> <${INTEROP.DataRegistry}> .
+      }
+    `
+    const bindingsStream = await this.queryEngine.queryBindings(adminGrantQuery, {
+      sources: [store],
+    })
+    const bindings = await bindingsStream.toArray()
+    const adminGrantId = bindings[0]?.get('s')?.value
+    if (!adminGrantId) return []
+    return this.getAccessModes(data, adminGrantId)
   }
 
   // Inherited is the same as AllFromRegistry here

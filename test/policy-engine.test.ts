@@ -470,3 +470,146 @@ describe('protected resources (scope inherited, modes all)', () => {
     })
   })
 })
+
+describe('protected resources (admin grant, scope DataRegistry, mode Read)', () => {
+  // YoYo's data registry — Dan holds the Read-only DataRegistry-scoped
+  // AdminGrants (ds0emv → yoyo-eu, f76tbp → yoyo-na; step 2.8 of
+  // org-admin-feature.md). Structural registries stay on ACP; via the engine,
+  // an admin can read the org's data registries/registrations/instances with
+  // their own credentials, but never write.
+  const registry = 'https://data/yoyo-eu/'
+  const registrationId = 'https://data/yoyo-eu/w4n9kx/'
+  const id = 'https://data/yoyo-eu/w4n9kx/x8v2lm'
+  const danId = 'https://id/dan'
+  const bobId = 'https://id/bob'
+  const turtleBody = '<urn:foo:bar> <urn:foo:baz> "Beep Boop".'
+
+  describe('unauthenticated request', () => {
+    test('can not Create', async () => {
+      const response = await fetch(getRegistration(id), {
+        method: 'POST',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(401)
+    })
+    test('can not Read', async () => {
+      const response = await fetch(registry, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(401)
+    })
+    test('can not Update', async () => {
+      const response = await fetch(id, {
+        method: 'PUT',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(401)
+    })
+    test('can not Delete', async () => {
+      const response = await fetch(id, { method: 'DELETE' })
+      expect(response.status).toBe(401)
+    })
+  })
+
+  describe('authenticated request (admin, some agent/client)', () => {
+    const clientId = 'https://data/test-client/public/id'
+    let session
+    beforeAll(async () => {
+      session = await buildOidcSession(danId, clientId)
+    })
+
+    test('can Read registry', async () => {
+      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
+    })
+    test('can Read registration', async () => {
+      const response = await session.authFetch(registrationId, {
+        headers: { Accept: 'text/turtle' },
+      })
+      expect(response.status).toBe(200)
+    })
+    test('can Read instance', async () => {
+      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(200)
+    })
+    test('can not Create', async () => {
+      const response = await session.authFetch(getRegistration(id), {
+        method: 'POST',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(403)
+    })
+    test('can not Update', async () => {
+      const response = await session.authFetch(id, {
+        method: 'PUT',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(403)
+    })
+    test('can not Delete', async () => {
+      const response = await session.authFetch(id, { method: 'DELETE' })
+      expect(response.status).toBe(403)
+    })
+  })
+
+  describe('authenticated request (admin using UAS)', () => {
+    let session
+    beforeAll(async () => {
+      session = await buildOidcSession(danId)
+    })
+
+    test('can Read registry', async () => {
+      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(200)
+    })
+    test('can Read registration', async () => {
+      const response = await session.authFetch(registrationId, {
+        headers: { Accept: 'text/turtle' },
+      })
+      expect(response.status).toBe(200)
+    })
+    test('can Read instance', async () => {
+      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(200)
+    })
+    test('can not Create', async () => {
+      const response = await session.authFetch(getRegistration(id), {
+        method: 'POST',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(403)
+    })
+    test('can not Update', async () => {
+      const response = await session.authFetch(id, {
+        method: 'PUT',
+        headers: { 'Content-type': 'text/turtle' },
+        body: turtleBody,
+      })
+      expect(response.status).toBe(403)
+    })
+    test('can not Delete', async () => {
+      const response = await session.authFetch(id, { method: 'DELETE' })
+      expect(response.status).toBe(403)
+    })
+  })
+
+  describe('authenticated request (non-admin using UAS)', () => {
+    let session
+    beforeAll(async () => {
+      session = await buildOidcSession(bobId)
+    })
+
+    test('can not Read registry (listing is admin/owner-only)', async () => {
+      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(403)
+    })
+    test('can Read instance (bob already holds DataGrants from YoYo)', async () => {
+      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      expect(response.status).toBe(200)
+    })
+  })
+})

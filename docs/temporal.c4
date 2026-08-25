@@ -75,6 +75,36 @@ model {
     component AUI 'Authorization UI' 'ui' {
     }
   }
+  security Dan {
+    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
+    }
+    component Temporal 'Temporal Server' {
+    }
+    component Worker 'Temporal Worker' {
+    }
+    component Registry 'Registry' 'registry' {
+    }
+    component Data 'Data Registry' 'data' {
+    }
+    component UAS 'User Authorization Server' 'auth' {
+    }
+    component AUI 'Authorization UI' 'ui' {
+    }
+  }
+  security YoYo {
+    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
+    }
+    component Temporal 'Temporal Server' {
+    }
+    component Worker 'Temporal Worker' {
+    }
+    component Registry 'Registry' 'registry' {
+    }
+    component Data 'Data Registry' 'data' {
+    }
+    component UAS 'User Authorization Server' 'auth' {
+    }
+  }
   security Peers {
     component UAS 'User Authorization Server' 'auth' {
     }
@@ -173,7 +203,7 @@ views {
           with credentials
         '''
     }
-    Alice.UAS -> Alice.Registry 'Find Application Registration' {
+    Alice.UAS -> Alice.Registry 'Find Application Registration [Agent]' {
         notes'''
           since webid in credentials is the same as authorization agent owner
           it will search for application registration
@@ -202,7 +232,7 @@ views {
           with credentials
         '''
     }
-    Alice.UAS -> Alice.Registry 'Find Social Agent Registration' {
+    Alice.UAS -> Alice.Registry 'Find Social Agent Registration [Agent]' {
         notes'''
           since webid in credentials is different than authorization agent owner
           it will search for application registration
@@ -210,6 +240,138 @@ views {
     }
     Alice.Registry -> Alice.UAS 'Social Agent Registration'
     Alice.UAS -> Bob.UAS 'OK with Link in a header to social agent registration'
+  }
+
+  dynamic view org-registry-set-discovery {
+    title: 'Org Registry Set discovery'
+
+    include Dan, YoYo, Bob
+    include Dan.UAS, YoYo.UAS, YoYo.Registry
+
+    style YoYo {
+      color: green
+    }
+
+    style Dan {
+      color: indigo
+    }
+
+    style Bob {
+      color: gray
+    }
+
+    Dan.UAS -> YoYo.UAS 'HEAD authorization agent id' {
+        notes'''
+          with credentials
+        '''
+    }
+    YoYo.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
+        notes'''
+          admin marker — hasAdminGrant on the org's registration of the caller
+        '''
+    }
+    YoYo.Registry -> YoYo.UAS 'Social Agent Registration'
+    YoYo.UAS -> Dan.UAS 'OK with Link in a header to registry set' {
+        notes'''
+          rel=interop:hasRegistrySet — admin only, evaluated against request credentials
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'resolve RegistrySet' {
+        notes'''
+          load registry set — agent registry, role registry, grant registry, data registries
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'read org registries - role registry [Role]' {
+        notes'''
+          admin session reads with own credentials
+        '''
+    }
+    YoYo.Registry -> Dan.UAS 'roles'
+    Bob.UAS -> YoYo.UAS 'HEAD authorization agent id' {
+        notes'''
+          non-admin — no admin marker
+        '''
+    }
+    YoYo.UAS -> Bob.UAS '200 OK without hasRegistrySet link'
+  }
+
+  dynamic view org-admin-add {
+    title: 'Add org admin'
+
+    include Dan, YoYo
+    include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
+
+    style YoYo {
+      color: green
+    }
+
+    style Dan {
+      color: indigo
+    }
+
+    Dan.AUI -> Dan.UAS 'POST (RPC) AddAdmin — { webId: bob, context: yoyo }' {
+        navigateTo org-registry-set-discovery
+        notes'''
+          uses cookie session with User Authorization Server
+          resolves the org context — admin gate (hasAdminGrant) → registry set — then operates on the org's registries as the authorized admin
+        '''
+    }
+    Dan.UAS -> YoYo.UAS 'HEAD authorization agent id' {
+        notes'''
+          with credentials — learns the org's registry set location
+        '''
+    }
+    YoYo.UAS -> Dan.UAS 'OK with Link - interop:hasRegistrySet'
+    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]'
+    Dan.UAS -> YoYo.Registry 'record AdminAuthorization [Authorization]' {
+        notes'''
+          idempotent — errors when already exists
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRecorded activity [Activity]'
+    Dan.UAS -> Dan.AUI 'OK — admin flag in payload'
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]'
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminChange workflow'
+    YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
+    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminChange'
+    YoYo.Worker -> YoYo.Registry '(child workflow) createAdminGrants [Grant]' {
+        notes'''
+          store RegistrySet-scoped + per data registry AdminGrants, each with ACR
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) replace hasAdminGrant link [Agent]' {
+        notes'''
+          single PATCH — one Update on the org's registration of the admin
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+        notes'''
+          ACP resource — not a sub registry
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          only after grants AND ACR rewrite succeeded — single completion
+        '''
+    }
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+        notes'''
+          change activity → pending, completion → done (enriched with activityType + payload)
+        '''
+    }
+    Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
+        notes'''
+          /.sai/events NDJSON stream
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
+        notes'''
+          triggered by the done event — reload the org context agent list
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'list social agents with admin flag [Agent]'
+    YoYo.Registry -> Dan.UAS 'list'
+    Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
   }
 
   dynamic view authorization-data-app {
@@ -234,9 +396,9 @@ views {
     Alice.AUI -> Alice.UAS 'POST (RPC) getAuthorizationData'
     Alice.UAS -> App.CID 'GET discover access needs'
     App.CID -> Alice.UAS '200 OK'
-    Alice.UAS -> Alice.Data 'find relevant data registrations'
+    Alice.UAS -> Alice.Data 'find relevant data registrations [Data]'
     Alice.Data -> Alice.UAS 'list'
-    Alice.UAS -> Alice.Registry 'find relevant grants to relevant data registrations'
+    Alice.UAS -> Alice.Registry 'find relevant grants to relevant data registrations [Grant]'
     Alice.Registry -> Alice.UAS 'list'
     Alice.UAS -> App.CID 'GET access needs descriptions'
     App.CID -> Alice.UAS '200 OK'
@@ -255,73 +417,73 @@ views {
   dynamic view authorization {
     title: 'Authorization'
 
-    include Alice, App
-    include Alice.AUI, Alice.UAS, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
+    include Bob, App
+    include Bob.AUI, Bob.UAS, Bob.ActivityWebhookHandler, Bob.Registry, Bob.Temporal, Bob.Worker
 
-    style Alice {
-      color: green
+    style Bob {
+      color: indigo
     }
 
     style App {
       color: gray
     }
 
-    App -> Alice.AUI 'redirect'
-    Alice.AUI .overview Alice.UAS 'get authorization data' {
+    App -> Bob.AUI 'redirect'
+    Bob.AUI .overview Bob.UAS 'get authorization data' {
         navigateTo authorization-data-app
         notes'''
           needed to render the authorization screen
         '''
     }
-    Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
+    Bob.AUI -> Bob.UAS 'POST (RPC) authorization' {
         notes'''
           uses cookie session with User Authorization Server
         '''
     }
-    Alice.UAS -> Alice.Registry 'create Access Authorization [Authorization]'
-    Alice.UAS -> Alice.Registry '(ensure) application registration if does not exist [Agent]'
-    Alice.UAS -> Alice.Registry 'PUT authorizationRecorded activity [Activity]'
-    Alice.UAS -> Alice.AUI '202 Accepted'
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start per-grantee consumer (processGranteeActivities)'
-    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
-    Alice.Temporal -> Alice.Worker '(workflow) run processGranteeActivities'
+    Bob.UAS -> Bob.Registry 'create Access Authorization [Authorization]'
+    Bob.UAS -> Bob.Registry '(ensure) application registration if does not exist [Agent]'
+    Bob.UAS -> Bob.Registry 'PUT authorizationRecorded activity [Activity]'
+    Bob.UAS -> Bob.AUI '202 Accepted'
+    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Bob.ActivityWebhookHandler -> Bob.Temporal 'start per-grantee consumer (processGranteeActivities)'
+    Bob.Temporal -> Bob.ActivityWebhookHandler 'OK'
+    Bob.Temporal -> Bob.Worker '(workflow) run processGranteeActivities'
     parallel {
-      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
+      Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
           notes'''
             durable execution should ensure consistency
           '''
       }
-      Alice.Registry -> Alice.Worker 'OK'
+      Bob.Registry -> Bob.Worker 'OK'
     }
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.AUI 'done'
-    Alice.AUI -> App 'redirect back'
-    App .overview Alice.UAS 'discover application registration' {
+    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]'
+    Bob.ActivityWebhookHandler -> Bob.AUI 'done'
+    Bob.AUI -> App 'redirect back'
+    App .overview Bob.UAS 'discover application registration' {
         navigateTo applicationRegistrationDiscovery
     }
-    App -> Alice.Registry 'GET Application Registration'
-    Alice.Registry -> App 'Application Registration'
+    App -> Bob.Registry 'GET Application Registration [Agent]'
+    Bob.Registry -> App 'Application Registration'
   }
 
   dynamic view invitation-create {
     title: 'Create invitation'
 
-    include Kim, App
-    include Kim.AUI, Kim.UAS, Kim.Registry, Kim.Temporal, Kim.Worker
+    include Alice, App
+    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.Temporal, Alice.Worker
 
-    style Kim {
-      color: sky
+    style Alice {
+      color: green
     }
 
-    Kim.AUI -> Kim.UAS 'POST (RPC) createInvitation' {
+    Alice.AUI -> Alice.UAS 'POST (RPC) createInvitation' {
         notes'''
           uses cookie session with User Authorization Server
         '''
     }
-    Kim.UAS -> Kim.Registry 'create Social Agent Invitation'
-    Kim.Registry -> Kim.UAS '201 Created'
-    Kim.UAS -> Kim.AUI 'OK' {
+    Alice.UAS -> Alice.Registry 'create Social Agent Invitation [Agent]'
+    Alice.Registry -> Alice.UAS '201 Created'
+    Alice.UAS -> Alice.AUI 'OK' {
         notes'''
           SocialAgentInvitation in the payload
         '''
@@ -357,21 +519,21 @@ views {
         with credentials
       '''
     }
-    Kim.UAS -> Kim.Registry 'find Social Agent Invitation'
+    Kim.UAS -> Kim.Registry 'find Social Agent Invitation [Agent]'
     Kim.Registry -> Kim.UAS 'Social Agent Invitation'
-    Kim.UAS -> Kim.Registry 'create Social Agent Registration' {
+    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
       notes'''
         to keep indepotent check if already exists
       '''
     }
     Kim.Registry -> Kim.UAS '201 Created'
     Kim.UAS -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]'
-    Kim.UAS -> Kim.Registry 'update Social Agent Invitation'
+    Kim.UAS -> Kim.Registry 'update Social Agent Invitation [Agent]'
     Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
     Kim.ActivityWebhookHandler -> Kim.Temporal 'start establishReciprocal workflow'
     Kim.Registry -> Kim.UAS 'OK'
     Kim.UAS -> Bob.UAS 'WebId'
-    Bob.UAS -> Bob.Registry 'create Social Agent Registration' {
+    Bob.UAS -> Bob.Registry 'create Social Agent Registration [Agent]' {
       notes'''
         to keep indepotent check if already exists
       '''
@@ -393,36 +555,96 @@ views {
     Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]'
   }
 
+  dynamic view role-membership-change {
+    title: 'Role membership change'
+
+    include Alice, App
+    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker
+
+    style Alice {
+      color: green
+    }
+
+    Alice.AUI -> Alice.UAS 'POST (RPC) updateRole' {
+        notes'''
+          uses cookie session with User Authorization Server
+          role id, label and full members list
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'update role, diff members [Role]' {
+        notes'''
+          affected members = before.symmetricDifference(after)
+        '''
+    }
+    Alice.Registry -> Alice.UAS 'Role'
+    Alice.UAS -> Alice.Registry 'PUT roleMembershipChanged activity [Activity]' {
+        notes'''
+          only when members changed — peers = affected members
+        '''
+    }
+    Alice.UAS -> Alice.AUI 'OK'
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start processRoleMembershipChange workflow'
+    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
+    Alice.Temporal -> Alice.Worker '(workflow) run processRoleMembershipChange'
+    Alice.Worker -> Alice.Registry 'find role usage [Authorization]' {
+        notes'''
+          usedAsGrantee + dataOwner authorizations of the role
+        '''
+    }
+    parallel {
+      Alice.Worker -> Alice.Temporal '(child workflows) start create grants for each affected agent' {
+          notes'''
+            affected = peers (role used as grantee) + grantees of dataOwner authorizations
+          '''
+      }
+      Alice.Temporal -> Alice.Worker 'run createGrantsForAgent'
+      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
+          notes'''
+            members removed → no authorizations → registration cleared
+          '''
+      }
+      Alice.Registry -> Alice.Worker 'OK'
+      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]' {
+          notes'''
+            Update notification — grant present/absent
+          '''
+      }
+      Alice.Registry -> Alice.Worker 'OK'
+    }
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+  }
+
   dynamic view share-resource-get-data {
     title: 'Share resource - get data'
 
-    include Bob, App
-    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry, Bob.Data
+    include Alice, App
+    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data
 
-    style Bob {
-      color: indigo
+    style Alice {
+      color: green
     }
 
     style App {
       color: gray
     }
 
-    App.UI -> Bob.AUI 'redirect' {
+    App.UI -> Alice.AUI 'redirect' {
       notes'''
         indicate `resource`
       '''
     }
-    Bob.AUI -> Bob.UAS 'POST (RPC) getResource' {
+    Alice.AUI -> Alice.UAS 'POST (RPC) getResource' {
         notes'''
           uses cookie session
         '''
     }
-    Bob.UAS -> Bob.Data 'GET indicated resource'
-    Bob.Data -> Bob.UAS '200 OK'
-    Bob.UAS -> Bob.Registry 'find social agents with access'
-    Bob.Registry -> Bob.UAS '200 OK - list'
-    Bob.UAS -> Bob.AUI 'OK relevant data'
-    Bob.AUI -> Bob.UAS 'share resource' {
+    Alice.UAS -> Alice.Data 'GET indicated resource [Data]'
+    Alice.Data -> Alice.UAS '200 OK'
+    Alice.UAS -> Alice.Registry 'find social agents with access [Authorization][Agent]'
+    Alice.Registry -> Alice.UAS '200 OK - list'
+    Alice.UAS -> Alice.AUI 'OK relevant data'
+    Alice.AUI -> Alice.UAS 'share resource' {
       navigateTo share-resource
     }
   }
@@ -430,11 +652,11 @@ views {
   dynamic view share-resource {
     title: 'Share resource'
 
-    include Bob, App, Peers
-    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker, Peers.UAS
+    include Alice, App, Peers
+    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Peers.UAS
 
-    style Bob {
-      color: indigo
+    style Alice {
+      color: green
     }
 
     style App {
@@ -445,51 +667,51 @@ views {
       multiple: true
     }
 
-    App.UI -> Bob.AUI 'redirect' {
+    App.UI -> Alice.AUI 'redirect' {
       notes'''
         indicate `resource`
       '''
     }
-    Bob.AUI -> Bob.UAS 'get resource data' {
+    Alice.AUI -> Alice.UAS 'get resource data' {
       navigateTo share-resource-get-data
     }
-    Bob.AUI -> Bob.UAS 'POST (RPC) shareResource' {
+    Alice.AUI -> Alice.UAS 'POST (RPC) shareResource' {
         notes'''
           uses cookie session
           includes list of agents and access modes
         '''
     }
-    Bob.UAS -> Bob.Registry 'share data instance creates data authorizations [Authorization]' {
+    Alice.UAS -> Alice.Registry 'share data instance creates data authorizations [Authorization]' {
         notes'''
           synchronous
         '''
     }
-    Bob.Registry -> Bob.UAS 'data authorizations'
-    Bob.UAS -> Bob.Registry 'PUT authorizationRecorded activity [Activity]' {
+    Alice.Registry -> Alice.UAS 'data authorizations'
+    Alice.UAS -> Alice.Registry 'PUT authorizationRecorded activity [Activity]' {
         notes'''
           one per grantee
         '''
     }
-    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Bob.ActivityWebhookHandler -> Bob.Temporal 'start per-grantee consumer (processGranteeActivities)'
-    Bob.UAS -> Bob.AUI 'OK confirmation' {
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start per-grantee consumer (processGranteeActivities)'
+    Alice.UAS -> Alice.AUI 'OK confirmation' {
         notes'''
           callbackEndpoint in the payload
         '''
     }
-    Bob.AUI -> App.UI 'redirect back'
-    Bob.Temporal -> Bob.Worker '(workflow) run processGranteeActivities'
+    Alice.AUI -> App.UI 'redirect back'
+    Alice.Temporal -> Alice.Worker '(workflow) run processGranteeActivities'
     parallel {
-      Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
+      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
         notes'''
           durable execution should ensure consistency
         '''
       }
-      Bob.Registry -> Bob.Worker 'OK'
-      Bob.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)'
-      Peers.UAS -> Bob.Worker 'grant IRIs'
+      Alice.Registry -> Alice.Worker 'OK'
+      Alice.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)'
+      Peers.UAS -> Alice.Worker 'grant IRIs'
     }
-    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]'
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
   }
 
   dynamic view request-access {
@@ -515,7 +737,7 @@ views {
         uses cookie session
       '''
     }
-    Bob.UAS -> Bob.Registry 'find social agent registration'
+    Bob.UAS -> Bob.Registry 'find social agent registration [Agent]'
     Bob.Registry -> Bob.UAS '200 OK'
     Bob.UAS -> App.CID 'GET identity document' {
       notes'''
@@ -523,7 +745,7 @@ views {
       '''
     }
     App.CID -> Bob.UAS '200 OK'
-    Bob.UAS -> Bob.Registry 'add access need group to social agent registration'
+    Bob.UAS -> Bob.Registry 'add access need group to social agent registration [Agent]'
     Bob.Registry -> Bob.UAS '200 OK'
     Bob.UAS -> Bob.AUI 'OK confirmation'
     Alice.UAS .overview Bob.UAS 'authorize' {

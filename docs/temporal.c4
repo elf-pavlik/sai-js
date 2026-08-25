@@ -22,7 +22,9 @@ model {
     }
   }
   security Alice {
-    component WebhookReceiver 'WebhookReceiver' 'auth' {
+    component WebhookReceiver 'ReciprocalWebhookHandler' 'auth' {
+    }
+    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
     }
     component WebhookSender 'WebhookSender' 'reg' {
     }
@@ -44,6 +46,12 @@ model {
   security Bob {
     component WebhookSender 'WebhookSender' 'registry' {
     }
+    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
+    }
+    component Temporal 'Temporal Server' {
+    }
+    component Worker 'Temporal Worker' {
+    }
     component Registry 'Registry' 'registry' {
     }
     component Data 'Data Registry' 'data' {
@@ -54,11 +62,21 @@ model {
     }
   }
   security Kim {
+    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
+    }
+    component Temporal 'Temporal Server' {
+    }
+    component Worker 'Temporal Worker' {
+    }
     component Registry 'Registry' 'registry' {
     }
     component UAS 'User Authorization Server' 'auth' {
     }
     component AUI 'Authorization UI' 'ui' {
+    }
+  }
+  security Peers {
+    component UAS 'User Authorization Server' 'auth' {
     }
   }
   security App {
@@ -75,8 +93,8 @@ views {
   dynamic view reciprocalUpdate {
     title: 'Reciprocal registration update'
 
-    include Alice, ACME, Others
-    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Alice.Registry, Alice.WebhookSender, Others.WebhookReceiver
+    include Alice, ACME
+    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
 
     style Alice {
       color: green
@@ -86,36 +104,30 @@ views {
       color: indigo
     }
 
-    style Others {
-      color: gray
-    }
-
     ACME.WebhookSender -> Alice.WebhookReceiver 'notify'
-    Alice.WebhookReceiver -> Temporal 'start update delegations workflow'
-    Temporal -> Alice.WebhookReceiver 'OK'
+    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]'
     Alice.WebhookReceiver -> ACME.WebhookSender 'OK'
-    Temporal -> Worker '(workflow) run update delegations '
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow'
+    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
+    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
+    Alice.Worker -> Alice.Registry 'find affected authorizations [Authorization]'
     parallel {
-      Worker -> Temporal '(child workflows) start update grants workflows'
-      Temporal -> Worker 'run update grants workflow'
-      Worker -> DelegationIssuance '(activity) register delegation with resource owner'
-      DelegationIssuance -> Worker 'OK'
-      Worker -> Alice.Registry '(activity) update registration'
-      Alice.Registry -> Worker 'OK'
-      Worker -> Alice.WebhookSender '(activity) send notifications'
-      Alice.WebhookSender -> Worker 'OK'
+      Alice.Worker -> Alice.Temporal '(child workflows) start update grants workflows'
+      Alice.Temporal -> Alice.Worker 'run update grants workflow'
+      Alice.Worker -> DelegationIssuance '(activity) register delegation with resource owner'
+      DelegationIssuance -> Alice.Worker 'OK'
+      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]'
+      Alice.Registry -> Alice.Worker 'OK'
     }
-    parallel {
-      Alice.WebhookSender -> Others.WebhookReceiver 'notify'
-      Others.WebhookReceiver -> Alice.WebhookSender 'OK'
-    }
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
   }
 
   dynamic view delegationAfterNotification {
     title: 'Delegation after notification'
 
-    include Bob, Alice, App
-    include Bob.Registry, Bob.WebhookSender, Alice.WebhookReceiver, Temporal, Worker, Alice.Registry, Alice.StreamingHTTPSender, App.StreamingHTTPReceiver
+    include Bob, Alice
+    include Bob.Registry, Bob.WebhookSender, Alice.WebhookReceiver, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
 
     style Alice {
       color: green
@@ -125,22 +137,21 @@ views {
       color: indigo
     }
 
-    style App {
-      color: gray
-    }
-
     Bob.WebhookSender -> Alice.WebhookReceiver 'notify'
-    Alice.WebhookReceiver -> Temporal 'start update delegations workflow'
-    Temporal -> Alice.WebhookReceiver 'OK'
+    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]'
     Alice.WebhookReceiver -> Bob.WebhookSender 'OK'
-    Temporal -> Worker '(workflow) run update delegations'
-    Worker -> Temporal '(child workflows) start update grants workflows'
-    Temporal -> Worker '(workflow) run update grants workflow'
-    Worker -> Bob.Registry 'fetch agent registration'
-    Bob.Registry -> Worker 'SocialAgentRegistration'
-    Worker -> Alice.Registry '(activity) update registration'
-    Alice.Registry -> Worker 'OK'
-    Alice.Registry -> App.StreamingHTTPReceiver 'notify'
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow'
+    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
+    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
+    Alice.Worker -> Alice.Registry 'find affected authorizations [Authorization]'
+    parallel {
+      Alice.Worker -> Alice.Temporal '(child workflows) start update grants workflows'
+      Alice.Temporal -> Alice.Worker '(workflow) run update grants workflow'
+      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]'
+      Alice.Registry -> Alice.Worker 'OK'
+    }
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
   }
 
   dynamic view applicationRegistrationDiscovery {
@@ -175,7 +186,7 @@ views {
   dynamic view socialAgentRegistrationDiscovery {
     title: 'Social Agent Registration discovery'
 
-    include Bob, Alice 
+    include Bob, Alice
     include Bob.UAS, Alice.UAS, Alice.Registry
 
     style Alice {
@@ -235,73 +246,17 @@ views {
     Alice.AUI .overview Alice.UAS 'authorize' {
         navigateTo authorization
         notes'''
-          after user is done with authorization screen          
+          after user is done with authorization screen
         '''
     }
     Alice.AUI -> App.UI 'redirect back'
-  }
-
-  dynamic view old-authorization {
-    title: 'Authorization (old)'
-
-    include Alice, App
-    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry
-
-    style Alice {
-      color: green
-    }
-
-    style App {
-      color: gray
-    }
-
-    App.UI -> Alice.AUI 'redirect'
-    Alice.AUI .overview Alice.UAS 'get authorization data' {
-        navigateTo authorization-data-app
-        notes'''
-          needed to render the authorization screen          
-        '''
-    }
-    Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
-        notes'''
-          uses cookie session with User Authorization Server
-        '''
-    }
-    parallel {
-      Alice.UAS -> Alice.Registry 'Create Access Authorization' {
-          notes'''
-            this is not atomic, could fail in between
-            it also creates Access Grant with data grants
-          '''
-      }
-      Alice.Registry -> Alice.UAS 'Created'
-    Alice.UAS -> Alice.Registry '(activity) create agent registration if does not exist'
-    Alice.Registry -> Alice.UAS '201 Created'
-    }
-    Alice.UAS -> Alice.Registry '(activity) create Access Grant' {
-        notes'''
-          durable execution should ensure consistency
-          it will also create data grants
-        '''
-    }
-    Alice.Registry -> Alice.UAS 'Created'
-    Alice.UAS -> Alice.AUI '200 OK'
-    Alice.AUI -> App.UI 'redirect back'
-    App.UI .overview Alice.UAS 'discover application registration' {
-        navigateTo applicationRegistrationDiscovery
-        notes'''
-          It may need to keep trying unless 202 Accepted returned a notifications channel
-        '''
-    }
-    App.UI -> Alice.Registry 'GET Application Registration'
-    Alice.Registry -> App.UI 'Application Registration'
   }
 
   dynamic view authorization {
     title: 'Authorization'
 
     include Alice, App
-    include Alice.AUI, Alice.UAS, Temporal, Worker, Alice.Registry 
+    include Alice.AUI, Alice.UAS, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
 
     style Alice {
       color: green
@@ -315,7 +270,7 @@ views {
     Alice.AUI .overview Alice.UAS 'get authorization data' {
         navigateTo authorization-data-app
         notes'''
-          needed to render the authorization screen          
+          needed to render the authorization screen
         '''
     }
     Alice.AUI -> Alice.UAS 'POST (RPC) authorization' {
@@ -323,30 +278,24 @@ views {
           uses cookie session with User Authorization Server
         '''
     }
-    Alice.UAS -> Temporal '(workflow) start create Access Authorization'
-    Temporal -> Alice.UAS 'ack'
+    Alice.UAS -> Alice.Registry 'create Access Authorization [Authorization]'
+    Alice.UAS -> Alice.Registry '(ensure) application registration if does not exist [Agent]'
+    Alice.UAS -> Alice.Registry 'PUT authorizationRecorded activity [Activity]'
     Alice.UAS -> Alice.AUI '202 Accepted'
-    Temporal -> Worker 'run create Access Authorization'
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start per-grantee consumer (processGranteeActivities)'
+    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
+    Alice.Temporal -> Alice.Worker '(workflow) run processGranteeActivities'
     parallel {
-      Worker -> Alice.Registry '(activity) create Access Authorization' {
+      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
           notes'''
             durable execution should ensure consistency
-            it will also create data authorizations
           '''
       }
-      Alice.Registry -> Worker 'Created'
-    Worker -> Alice.Registry '(activity) create agent registration if does not exist'
-    Alice.Registry -> Worker '201 Created'
+      Alice.Registry -> Alice.Worker 'OK'
     }
-    Worker -> Alice.Registry '(activity) create Access Grant' {
-        notes'''
-          durable execution should ensure consistency
-          it will also create data grants
-        '''
-    }
-    Alice.Registry -> Worker 'Created'
-    Alice.UAS -> Alice.Registry 'Detect complete'
-    Alice.UAS -> Alice.AUI 'Notify complete'
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.AUI 'done'
     Alice.AUI -> App 'redirect back'
     App .overview Alice.UAS 'discover application registration' {
         navigateTo applicationRegistrationDiscovery
@@ -359,7 +308,7 @@ views {
     title: 'Create invitation'
 
     include Kim, App
-    include Kim.AUI, Kim.UAS, Temporal, Worker, Kim.Registry 
+    include Kim.AUI, Kim.UAS, Kim.Registry, Kim.Temporal, Kim.Worker
 
     style Kim {
       color: sky
@@ -379,14 +328,14 @@ views {
       }
   }
 
-  dynamic view invitation-accept-old {
-    title: 'Accept invitation (old)'
+  dynamic view invitation-accept {
+    title: 'Accept invitation'
     description: '''
       Test case: https://sai.js.org/
     '''
 
     include Bob, Kim
-    include Bob.AUI, Bob.UAS, Temporal, Worker, Bob.Registry, Kim.AUI, Kim.UAS
+    include Bob.AUI, Bob.UAS, Bob.Registry, Kim.AUI, Kim.UAS, Kim.Registry, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Worker
 
     style Kim {
       color: sky
@@ -409,16 +358,18 @@ views {
       '''
     }
     Kim.UAS -> Kim.Registry 'find Social Agent Invitation'
-    Kim.Registry -> Kim.UAS 'Social Agent Registration'
+    Kim.Registry -> Kim.UAS 'Social Agent Invitation'
     Kim.UAS -> Kim.Registry 'create Social Agent Registration' {
       notes'''
         to keep indepotent check if already exists
       '''
     }
     Kim.Registry -> Kim.UAS '201 Created'
+    Kim.UAS -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]'
     Kim.UAS -> Kim.Registry 'update Social Agent Invitation'
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start establishReciprocal workflow'
     Kim.Registry -> Kim.UAS 'OK'
-    Kim.UAS -> Kim.UAS 'TODO establish reciprocal (delayed)'
     Kim.UAS -> Bob.UAS 'WebId'
     Bob.UAS -> Bob.Registry 'create Social Agent Registration' {
       notes'''
@@ -426,12 +377,20 @@ views {
       '''
     }
     Bob.Registry -> Bob.UAS '201 Created'
-    Bob.UAS -> Bob.UAS 'TODO establish reciprocal (delayed)'
+    Bob.UAS -> Bob.Registry 'discover and update reciprocal registration [Agent]'
     Bob.UAS -> Bob.AUI 'OK' {
       notes'''
         Social Agent in the payload
       '''
     }
+    Kim.Temporal -> Kim.Worker '(workflow) run establishReciprocal'
+    Kim.Worker -> Kim.Registry '(activity) discover and update reciprocal registration [Agent]' {
+      notes'''
+        depends on Bob's UAS already creating on, can fail if not done already and will retry
+      '''
+    }
+    Kim.Worker -> Bob.Registry '(activity) subscribe webhook to reciprocal registration [Agent]'
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]'
   }
 
   dynamic view share-resource-get-data {
@@ -464,15 +423,15 @@ views {
     Bob.Registry -> Bob.UAS '200 OK - list'
     Bob.UAS -> Bob.AUI 'OK relevant data'
     Bob.AUI -> Bob.UAS 'share resource' {
-      navigateTo share-resource-old
+      navigateTo share-resource
     }
   }
 
-  dynamic view share-resource-old {
-    title: 'Share resource (old)'
+  dynamic view share-resource {
+    title: 'Share resource'
 
-    include Bob, Alice, App
-    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry
+    include Bob, App, Peers
+    include App.UI, Bob.AUI, Bob.UAS, Bob.Registry, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker, Peers.UAS
 
     style Bob {
       color: indigo
@@ -480,6 +439,10 @@ views {
 
     style App {
       color: gray
+    }
+
+    style Peers.UAS {
+      multiple: true
     }
 
     App.UI -> Bob.AUI 'redirect' {
@@ -496,20 +459,41 @@ views {
           includes list of agents and access modes
         '''
     }
-    parallel {
-      Bob.UAS -> Bob.Registry 'create authorizations'
-      Bob.Registry -> Bob.UAS '201 Created'
+    Bob.UAS -> Bob.Registry 'share data instance creates data authorizations [Authorization]' {
+        notes'''
+          synchronous
+        '''
     }
-    parallel {
-      Bob.UAS -> Bob.Registry 'create grants'
-      Bob.Registry -> Bob.UAS '201 Created'
+    Bob.Registry -> Bob.UAS 'data authorizations'
+    Bob.UAS -> Bob.Registry 'PUT authorizationRecorded activity [Activity]' {
+        notes'''
+          one per grantee
+        '''
     }
-    Bob.UAS -> Bob.AUI 'OK confirmation'
+    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Bob.ActivityWebhookHandler -> Bob.Temporal 'start per-grantee consumer (processGranteeActivities)'
+    Bob.UAS -> Bob.AUI 'OK confirmation' {
+        notes'''
+          callbackEndpoint in the payload
+        '''
+    }
     Bob.AUI -> App.UI 'redirect back'
+    Bob.Temporal -> Bob.Worker '(workflow) run processGranteeActivities'
+    parallel {
+      Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
+        notes'''
+          durable execution should ensure consistency
+        '''
+      }
+      Bob.Registry -> Bob.Worker 'OK'
+      Bob.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)'
+      Peers.UAS -> Bob.Worker 'grant IRIs'
+    }
+    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]'
   }
 
-  dynamic view request-access-old {
-    title: 'Request access (old)'
+  dynamic view request-access {
+    title: 'Request access'
 
     include Bob, Alice, App
     include App.CID, Bob.AUI, Bob.UAS, Bob.Registry, Alice.UAS
@@ -542,8 +526,6 @@ views {
     Bob.UAS -> Bob.Registry 'add access need group to social agent registration'
     Bob.Registry -> Bob.UAS '200 OK'
     Bob.UAS -> Bob.AUI 'OK confirmation'
-    Bob.Registry .overview Alice.UAS 'webhook' {
-    }
     Alice.UAS .overview Bob.UAS 'authorize' {
         navigateTo authorization
         notes'''

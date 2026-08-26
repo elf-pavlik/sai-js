@@ -3,6 +3,7 @@ import {
   DataRegistry as DataRegistryModule,
   getDataGrants,
   Grant,
+  labelFromNode,
   ShapeTree,
 } from '@janeirodigital/interop-data-model'
 import { DataInstance, DataRegistration, DataRegistry as DataRegistrySchema, IRI } from '@janeirodigital/sai-api-messages'
@@ -15,7 +16,9 @@ import type { ResolvedContext } from './Context.js'
 import {
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
+  sparqlTransportFor,
 } from './queries/org.js'
+import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
 
 const buildDataRegistry = async (
   registry: { id: string },
@@ -99,12 +102,12 @@ async function dataGrantIndexForAgent(
       return getDataGrants(reciprocalReg, ctx.session.factory)
     }
     const reciprocalReg = await getRegistrationFromSparql(
-      ctx.session.sparqlEndpoint,
+      sparqlTransportFor(ctx),
       socialAgentRegistration.reciprocalRegistration
     )
     return Promise.all(
       reciprocalReg.hasDataGrant.map((grantIri) =>
-        getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+        getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
       )
     )
   })()
@@ -144,10 +147,10 @@ async function getReciprocalGrantsSparql(
   ctx: ResolvedContext,
   reciprocalIri: string
 ): Promise<GrantData[]> {
-  const reciprocalReg = await getRegistrationFromSparql(ctx.session.sparqlEndpoint, reciprocalIri)
+  const reciprocalReg = await getRegistrationFromSparql(sparqlTransportFor(ctx), reciprocalIri)
   return Promise.all(
     reciprocalReg.hasDataGrant.map((grantIri) =>
-      getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+      getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
     )
   )
 }
@@ -205,7 +208,7 @@ export const listDataInstances = async (
               socialAgentRegistration.reciprocalRegistration
             )
           : await getRegistrationFromSparql(
-              ctx.session.sparqlEndpoint,
+              sparqlTransportFor(ctx),
               socialAgentRegistration.reciprocalRegistration
             )
       : undefined
@@ -216,7 +219,7 @@ export const listDataInstances = async (
           ? await getDataGrants(reciprocalReg, ctx.session.factory)
           : await Promise.all(
               reciprocalReg.hasDataGrant.map((grantIri) =>
-                getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+                getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
               )
             )
     } else {
@@ -227,7 +230,8 @@ export const listDataInstances = async (
     }
     const seenInstances = new Set<string>()
     for (const dataGrant of dataGrants) {
-      if (dataGrant.hasDataRegistration === registrationId) {
+      if (dataGrant.hasDataRegistration !== registrationId) continue
+      if (ctx.webId === ctx.userWebId) {
         for await (const instanceIri of Grant.getDataInstanceIterator(
           dataGrant,
           ctx.session.factory
@@ -243,6 +247,22 @@ export const listDataInstances = async (
             DataInstance.make({
               id: IRI.make(dataInstance.id),
               label: dataInstance.label,
+            })
+          )
+        }
+      } else {
+        // org context — the admin's session derefs no peer document
+        // (403); the org's server fetches peer docs with the org's session
+        // via /proxy-admin. Shape trees are public (admin-session fetch).
+        const shapeTree = await ctx.session.factory.shapeTree(dataGrant.registeredShapeTree)
+        for await (const instanceIri of peerInstanceIris(ctx, dataGrant)) {
+          if (seenInstances.has(instanceIri)) continue
+          seenInstances.add(instanceIri)
+          const node = await peerInstanceNode(ctx, instanceIri, shapeTree)
+          dataInstances.push(
+            DataInstance.make({
+              id: IRI.make(instanceIri),
+              label: labelFromNode(node),
             })
           )
         }

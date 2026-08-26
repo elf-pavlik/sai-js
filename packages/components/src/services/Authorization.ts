@@ -36,7 +36,9 @@ import type { ResolvedContext } from './Context.js'
 import {
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
+  sparqlTransportFor,
 } from './queries/org.js'
+import { dataRegistrationContains } from './peerProxy.js'
 
 const formatAccessNeed = async (
   accessNeed: AccessNeedData,
@@ -108,12 +110,13 @@ async function findSocialAgentDataRegistrations(
           id: IRI.make(dataGrant.hasDataRegistration),
           label: `${dataGrant.hasDataRegistration.split('/').slice(0, 4).join('/')}/`, // TODO get proper label
           shapeTree: accessNeed.registeredShapeTree,
-          // @ts-ignore
-          count: dataGrant.hasDataInstance
-            ? // @ts-ignore
-              dataGrant.hasDataInstance.length
-            : (await ctx.session.factory.dataRegistration(dataGrant.hasDataRegistration))
-                .contains.length,
+          // scopeOfGrant is the discriminator — `hasDataInstance` is only
+          // set on SelectedFromRegistry grants (empty [] otherwise, which is
+          // truthy and used to make the AllFromRegistry count silently 0).
+          count:
+            dataGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
+              ? dataGrant.hasDataInstance?.length ?? 0
+              : (await dataRegistrationContains(ctx, dataGrant.hasDataRegistration)).length,
         })
       }
     }
@@ -152,7 +155,7 @@ export const getDescriptions = async (
             socialAgentRegistration.reciprocalRegistration
           )
         : await getRegistrationFromSparql(
-            ctx.session.sparqlEndpoint,
+            sparqlTransportFor(ctx),
             socialAgentRegistration.reciprocalRegistration
           )
       : undefined
@@ -192,14 +195,14 @@ export const getDescriptions = async (
             socialAgentRegistration.reciprocalRegistration
           )
         : await getRegistrationFromSparql(
-            ctx.session.sparqlEndpoint,
+            sparqlTransportFor(ctx),
             socialAgentRegistration.reciprocalRegistration
           )
       const dataGrants = personal
         ? await getDataGrants(reciprocalRegistration, ctx.session.factory)
         : await Promise.all(
             reciprocalRegistration.hasDataGrant.map((grantIri) =>
-              getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+              getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
             )
           )
       const dataRegistrations = await findSocialAgentDataRegistrations(

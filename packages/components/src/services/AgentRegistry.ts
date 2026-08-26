@@ -24,6 +24,7 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
   listContained,
+  sparqlTransportFor,
 } from './queries/org.js'
 
 /**
@@ -43,7 +44,7 @@ async function getReciprocalRegistration(
   }
   return personal
     ? ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
-    : getRegistrationFromSparql(ctx.session.sparqlEndpoint, registration.reciprocalRegistration)
+    : getRegistrationFromSparql(sparqlTransportFor(ctx), registration.reciprocalRegistration)
 }
 
 /**
@@ -63,8 +64,9 @@ async function listSocialAgentRegistrations(
     }
     return registrations
   }
-  const iris = await listContained(ctx.session.sparqlEndpoint, ctx.registrySet.hasAgentRegistry.id)
-  return Promise.all(iris.map((iri) => getRegistrationFromSparql(ctx.session.sparqlEndpoint, iri)))
+  const transport = sparqlTransportFor(ctx)
+  const iris = await listContained(transport, ctx.registrySet.hasAgentRegistry.id)
+  return Promise.all(iris.map((iri) => getRegistrationFromSparql(transport, iri)))
 }
 
 export { listSocialAgentRegistrations }
@@ -86,7 +88,7 @@ export const findSocialAgentRegistrationInContext = async (
     )
   }
   return findRegistrationFromSparql(
-    ctx.session.sparqlEndpoint,
+    sparqlTransportFor(ctx),
     ctx.registrySet.hasAgentRegistry.id,
     webId
   )
@@ -148,13 +150,16 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
     if (!registration.reciprocalRegistration) continue
     const reciprocalReg = personal
       ? await ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
-      : await getRegistrationFromSparql(ctx.session.sparqlEndpoint, registration.reciprocalRegistration)
+      : await getRegistrationFromSparql(
+          sparqlTransportFor(ctx),
+          registration.reciprocalRegistration
+        )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
     const dataGrants = personal
       ? await getDataGrants(reciprocalReg, ctx.session.factory)
       : await Promise.all(
           reciprocalReg.hasDataGrant.map((grantIri) =>
-            getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+            getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
           )
         )
     for (const dataGrant of dataGrants) {

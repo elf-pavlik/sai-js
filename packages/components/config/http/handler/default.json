@@ -54,6 +54,7 @@
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
           { "@id": "urn:sai:default:AdminSparqlRouter" },
+          { "@id": "urn:sai:default:ProxyAdminRouter" },
           { "@id": "urn:sai:default:InvitationRouter" }
         ]
       }
@@ -87,12 +88,12 @@
       }
     },
     {
-      "comment": "Query-only SPARQL endpoint for org admins (QUERY method).",
+      "comment": "Query-only SPARQL endpoint for org admins (QUERY method; POST is the DPoP-verifiable transport — the access-token verifier whitelists only standard methods).",
       "@id": "urn:sai:default:AdminSparqlRouter",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "allowedPathNames": ["^/.sai/sparql-admin/.*"],
-      "allowedMethods": ["QUERY"],
+      "allowedMethods": ["QUERY", "POST"],
       "handler": {
         "@id": "urn:sai:default:AdminSparqlHandler",
         "comment": "Gate-kept SPARQL query endpoint: admin of the org (hasAdminGrant) may run SELECT/ASK/CONSTRUCT.",
@@ -100,6 +101,21 @@
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
         "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
+      }
+    },
+    {
+      "comment": "Read-only peer-data proxy for org admins (GET).",
+      "@id": "urn:sai:default:ProxyAdminRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/proxy-admin/.*"],
+      "allowedMethods": ["GET"],
+      "handler": {
+        "@id": "urn:sai:default:ProxyAdminHandler",
+        "comment": "Fetches a peer resource (data registration/instance) with the org's credentials and serves it to the admin's UI.",
+        "@type": "ProxyAdminHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {

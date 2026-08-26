@@ -2,7 +2,17 @@ import type {
   AuthorizationAgent,
   ShareDataInstanceStructure,
 } from '@janeirodigital/interop-authorization-agent'
-import { ActivityRegistry, ShapeTree, setAccessNeedGroup } from '@janeirodigital/interop-data-model'
+import {
+  ActivityRegistry,
+  computeChildren,
+  DataRegistration,
+  type DataAuthorizationData,
+  type DataInstanceData,
+  isBlob,
+  labelFromNode,
+  ShapeTree,
+  setAccessNeedGroup,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   IRI,
@@ -11,24 +21,134 @@ import {
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { findSocialAgentRegistrationInContext } from './AgentRegistry.js'
+import {
+  findSocialAgentRegistrationInContext,
+  listSocialAgentRegistrations,
+} from './AgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { fetchPeerDocument, peerInstanceNode } from './peerProxy.js'
+import { getDataAuthorization, listContained, sparqlTransportFor } from './queries/org.js'
+
+/**
+ * Grantees whose org-side data authorizations cover the resource — the
+ * org-context counterpart of `AA.findAgentsWithAccess`'s scope switch,
+ * evaluated over the ORG's authorization registry (via SPARQL) instead of
+ * the session's own. Pure — exported for unit tests.
+ */
+export function agentsWithAccessMatching(
+  authorizations: DataAuthorizationData[],
+  resource: DataInstanceData,
+  ownerWebId: string
+): string[] {
+  const agents = new Set<string>()
+  for (const authorization of authorizations) {
+    if (authorization.registeredShapeTree !== resource.shapeTreeIri) continue
+    switch (authorization.scopeOfAuthorization) {
+      case INTEROP.All:
+        agents.add(authorization.grantee)
+        break
+      case INTEROP.AllFromAgent:
+        if (authorization.dataOwner === ownerWebId) agents.add(authorization.grantee)
+        break
+      case INTEROP.AllFromRegistry:
+        if (authorization.hasDataRegistration === resource.dataRegistration?.id) {
+          agents.add(authorization.grantee)
+        }
+        break
+      case INTEROP.SelectedFromRegistry:
+        if (
+          authorization.hasDataRegistration === resource.dataRegistration?.id &&
+          (authorization.hasDataInstance ?? []).includes(resource.id)
+        ) {
+          agents.add(authorization.grantee)
+        }
+        break
+      default:
+        throw new Error(
+          `encountered incorrect Data Authorization with scope:${authorization.scopeOfAuthorization}`
+        )
+    }
+  }
+  return [...agents]
+}
+
+/**
+ * Org-context "who has access": data authorizations of the ORG's
+ * authorization registry, matched like `AA.findAgentsWithAccess` (with
+ * `ctx.webId` as the owner), filtered to agents registered with the org.
+ * Reads via SPARQL (`queries/org.ts`) — the admin session HTTP-derefs no
+ * peer document and holds no data grants; in real deployments the query
+ * goes over `/sparql-admin` (plan's last step).
+ */
+async function orgAgentsWithAccess(
+  ctx: ResolvedContext,
+  resource: DataInstanceData
+): Promise<string[]> {
+  const transport = sparqlTransportFor(ctx)
+  const authorizationIris = await listContained(transport, ctx.registrySet.hasAuthorizationRegistry.id)
+  const authorizations = await Promise.all(
+    authorizationIris.map((iri) => getDataAuthorization(transport, iri))
+  )
+  const agents = agentsWithAccessMatching(authorizations, resource, ctx.webId)
+  const registered = new Set(
+    (await listSocialAgentRegistrations(ctx)).map((registration) => registration.registeredAgent)
+  )
+  return agents.filter((agent) => registered.has(agent))
+}
+
+/**
+ * Org-context data-instance read: the instance (+ its registration) are
+ * peer data — the admin's session holds no grants on the peer's server, so
+ * both docs are fetched through `/proxy-admin` (the org's server fetches
+ * with the org's session) and framed from the fetched docs. Shape trees
+ * are public and stay on the admin-session factory. JSON-LD only: blob
+ * instances are out of scope (their description-resource HEAD is not
+ * proxied).
+ */
+async function orgContextDataInstance(
+  ctx: ResolvedContext,
+  iri: string,
+  lang: string
+): Promise<DataInstanceData> {
+  const registrationIri = `${iri.split('/').slice(0, -1).join('/')}/`
+  const registration = await DataRegistration.fromJsonLd(
+    await fetchPeerDocument(ctx.session, ctx.webId, registrationIri),
+    registrationIri
+  )
+  const shapeTree = await ctx.session.factory.shapeTree(registration.registeredShapeTree)
+  const node = await peerInstanceNode(ctx, iri, shapeTree)
+  return {
+    id: iri,
+    shapeTreeIri: registration.registeredShapeTree,
+    label: labelFromNode(node),
+    isBlob: isBlob(shapeTree),
+    dataRegistration: registration,
+    children: await computeChildren(node, shapeTree, ctx.session.factory, lang),
+  }
+}
 
 export const getResource = async (ctx: ResolvedContext, iri: string, lang: string) => {
-  const resource = await ctx.session.factory.dataInstance(iri, undefined, lang)
+  const resource = await (ctx.webId === ctx.userWebId
+    ? ctx.session.factory.dataInstance(iri, undefined, lang)
+    : orgContextDataInstance(ctx, iri, lang))
   if (!resource) throw new Error(`Resource not found: ${iri}`)
-  const shapeTree = await ctx.session.factory.shapeTree(resource.shapeTreeIri)
+  const shapeTree = await ctx.session.factory.shapeTree(resource.shapeTreeIri!)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.factory)
+  // Org context: "who has access" = the org's own data authorizations
+  // covering this resource, read via SPARQL (orgAgentsWithAccess);
+  // personal = the session's own registry via the AA.
+  const accessGrantedTo =
+    ctx.webId === ctx.userWebId
+      ? (await ctx.session.findSocialAgentsWithAccess(resource.id)).map(({ agent }) => agent)
+      : await orgAgentsWithAccess(ctx, resource)
   return Resource.make({
     id: IRI.make(resource.id),
     label: resource.label,
     shapeTree: {
-      id: IRI.make(resource.shapeTreeIri),
+      id: IRI.make(resource.shapeTreeIri!),
       label: shapeTreeDescription?.prefLabel,
     },
-    accessGrantedTo: (await ctx.session.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
-      IRI.make(agent)
-    ),
+    accessGrantedTo: accessGrantedTo.map((agent) => IRI.make(agent)),
     children: resource.children.map((child) => ({
       shapeTree: {
         id: IRI.make(child.shapeTree.iri),

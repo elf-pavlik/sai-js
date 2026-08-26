@@ -988,6 +988,27 @@ GRAPH <meta:https://registry/bob/grant/> {
 }
 
 GRAPH <https://registry/bob/grant/> {
+  <https://registry/bob/grant/>
+    ldp:contains <https://registry/bob/grant/t2v9cd> .
+}
+
+# Bob grants YoYo (org-context-proxy.md tests): AllFromRegistry read over
+# https://data/bob/avn9hv/ — the org-context peer-data read plane.
+GRAPH <https://registry/bob/grant/t2v9cd> {
+  <https://registry/bob/grant/t2v9cd>
+    a interop:DataGrant;
+    interop:grantee <https://id/yoyo>;
+    interop:grantedBy <https://id/bob>;
+    interop:dataOwner <https://id/bob>;
+    interop:registeredShapeTree shapetrees:Project;
+    interop:hasStorage <https://data/bob/>;
+    interop:hasDataRegistration <https://data/bob/avn9hv/>;
+    interop:scopeOfGrant interop:AllFromRegistry;
+    interop:accessMode acl:Read.
+}
+
+GRAPH <meta:https://registry/bob/grant/t2v9cd> {
+  <https://registry/bob/grant/t2v9cd> a ldp:Resource .
 }
 
 GRAPH <meta:https://registry/bob/authorization/> {
@@ -1172,6 +1193,8 @@ GRAPH <meta:https://registry/bob/agent/n4m8qx/> {
     a interop:SocialAgentRegistration, ldp:Resource;
     interop:registeredAgent <https://id/yoyo> ;
     interop:reciprocalRegistration <https://registry/yoyo/agent/z3k7wm/> ;
+    interop:hasAccessNeedGroup <https://data/test-client/public/access-needs#need-group-pm> ;
+    interop:hasDataGrant <https://registry/bob/grant/t2v9cd> ;
     skos:prefLabel "Yoyo" ;
     skos:note "A colleague working on projects." .
 }

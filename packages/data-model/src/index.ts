@@ -12,6 +12,14 @@ export * from './templates'
 export { ApplicationFactory } from './application-factory'
 export { AuthorizationAgentFactory } from './authorization-agent-factory'
 export type { DataInstanceData, ChildInfo } from './data-instance'
+export {
+  childIris,
+  computeChildren,
+  frameDataInstance,
+  frameDataInstanceFromDoc,
+  isBlob,
+  labelFromNode,
+} from './data-instance'
 export type { ShapeTreeData, ShapeTreeId, ShapeTreeReference } from './shape-tree'
 export * as ShapeTree from './shape-tree'
 export type { AccessNeedData, AccessNeedId } from './access-need'

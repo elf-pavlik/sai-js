@@ -1,13 +1,17 @@
 # Org-context data-instance reads — peer-data proxy
 
-> **Status:** direction decided (server-side proxy) — the `/.sai/proxy-admin`
-> endpoint and the shared admin gate are implemented in `packages/components`;
-> UI/server integration not started. Extracted from the
-> `org-context-sparql.md` §2.4 known issue (org-context `listDataInstances`
-> on peers' registries) + its linked open item ("whether peer-instance
-> content listing ever enters org-context scope"). No test currently
-> requires this behavior; upstream phases 1–3 are done/in-flight and are
-> prerequisites.
+> **Status: implemented and verified.** Direction decided (server-side
+> proxy): the `/.sai/proxy-admin` endpoint, the shared admin gate, the
+> admin-side clients (`fetchPeerDocument`, `peerInstanceIris`,
+> `sparqlTransportFor`) and all three wired data-plane paths (counts,
+> listing, `GetResource`) are implemented; the registry plane goes via
+> `/.sai/sparql-admin` (last step). Verified end-to-end in `/test`
+> (org-context proxy parity suite) + 262 package unit tests. Extracted from
+> the `org-context-sparql.md` §2.4 known issue (org-context
+> `listDataInstances` on peers' registries) + its linked open item
+> ("whether peer-instance content listing ever enters org-context scope")
+> — answered: yes, via the proxy. Upstream phases 1–3 are prerequisites,
+> done.
 
 ## Problem
 
@@ -36,8 +40,9 @@ What is dereferenced depends on the grant's scope:
 In org context the session is the **signed-in admin** (phase-3 context
 fix), and those HTTP requests carry the admin's UAS:
 
-- the peer's data-server ACRs grant `(peer, peerUAS)` (and grantee
-  identities); the admin matches nothing → **403**;
+- the peer's data server authorizes by **data grants** (the permission
+  engine, federation.md §1 — data registries/instances do not use ACRs);
+  the admin holds no grants (they flow to the org) → **403**;
 - the admin's own credentials don't help — grants flow to the **org**, not
   the individual admin;
 - the data instances legitimately *accessible* to the org (the peer issued
@@ -56,11 +61,14 @@ with the admin's UAS):
    `listDataInstances` bottleneck.
 2. `getDescriptions` → `findSocialAgentDataRegistrations`
    (`services/Authorization.ts`) — the per-registration instance **count**
-   for `AllFromRegistry` grants is `factory.dataRegistration(
+   for `AllFromRegistry` grants was `factory.dataRegistration(
    hasDataRegistration).contains.length`, an HTTP read of the peer's data
-   registration. Fires whenever a peer is a data owner in the org-context
-   authorization flow. `SelectedFromRegistry` counts come from grant
-   metadata and are fine.
+   registration — but the `contains` fallback was **dead**: `hasDataInstance`
+   defaults to `[]` (truthy), so the count was silently **0** in both
+   contexts. Fixed (rollout step 2): `scopeOfGrant` is the discriminator,
+   and the `contains` read goes through `dataRegistrationContains`
+   (personal: direct factory; org: `/proxy-admin`). `SelectedFromRegistry`
+   counts come from grant metadata and are fine.
 3. `getResource` (`services/ShareResource.ts`, via
    `AA.findAgentsWithAccess`) — **in scope**: a full-body single-instance
    read (`factory.dataInstance` + children + the "who has access" listing)
@@ -74,6 +82,35 @@ ctx.webId`) HTTP-reads the *org's own* data registration + instance docs
 as the admin — same 403 class on the org's own server (phase-3 §P3-5) —
 but it is *not* a peer-grantee case and is a separate fix if exercised.
 
+## Access model — what the admin's AA can and cannot read
+
+The admin's org-context session has three different reachabilities:
+
+- **The org's own registries (registry plane) — readable.** Registrations,
+  roles, authorizations, grants are read via the org's store
+  (`queries/org.ts`, SPARQL-backed in phases 2–3).
+- **Peers' registries — registry metadata (the reciprocal registration +
+  linked data grants): NOT readable directly** — those documents live in
+  the *peer's* registry, where the admin's session holds no data grants.
+  Bridged by `services/ReciprocalMirror.ts`: server-side sync (with the
+  **org's** session) copies each reciprocal registration and its grants
+  into graphs in the org's store, so the admin's AA reads them via SPARQL.
+- **Peers' data registries — content (`contains` + data instance
+  documents): NOT readable directly** — those live on the peer's data
+  server. The mirrors deliberately do **not** cover them (registry
+  metadata only). Bridged by `/.sai/proxy-admin`: the org's server
+  fetches them with the **org's** credentials (the grantee) and serves
+  them to the admin's side.
+
+`/.sai/sparql-admin` and `/.sai/proxy-admin` are the org server's two
+faces for the admin's AA to pull org-authority data across that boundary:
+SPARQL for the (mirror-backed) registry plane, proxied HTTP for the data
+plane. Both are called **by the admin's AA over HTTP** (authenticating as
+the admin) — the admin's server never holds the org's session, and the two
+sessions never share a handler/service: in the single-server dev/test env
+the calls are same-origin, in real deployments they cross independent
+servers.
+
 ## Why phases 1–3 / 4 don't fix it
 
 - **Phase 2 scope guard:** SPARQL reads cover *registry data only*
@@ -84,7 +121,9 @@ but it is *not* a peer-grantee case and is a separate fix if exercised.
   `contains` or instance documents — mirrors cover registry metadata only.
   This includes the `getDescriptions` AllFromRegistry count (Problem §2):
   it is a `contains` read of the peer's data registration, not grant
-  metadata.
+  metadata. Together with the proxy, the two bridges cover everything the
+  admin's AA cannot reach on the peer's server (Access model): the mirror
+  handles peers' *registry metadata*, the proxy peers' *data content*.
 - **Phase 4 (isolated-datasets-and-sparql):** splits stores per owner; the
   peer's data instances move to the peer's dataset, so even the internal
   SPARQL endpoint no longer sees them. The peer-data read plane needs an
@@ -104,6 +143,41 @@ The legitimate authority to read is the **data grant** the peer issued to
 the org: the org (its AA / its granted session) is the grantee. The open
 design question is how the admin's org-context view gets that authority.
 
+The proxy, as implemented, is the *federation-shaped* read path for peer
+data:
+
+- **Data plane stays authorized-HTTP; the proxy only swaps credentials.**
+  The peer's permission engine authorizes the org's UAS against its data
+  grants (federation.md §1) — exactly how any granted agent fetches — so
+  `/proxy-admin` never depends on shortcut 1 and survives the 4b per-owner
+  cutover by construction. It is the data-plane counterpart of the
+  registry-plane split: registry metadata is mirrored / cross-graph
+  (shortcuts 1/1a), data-instance content is fetched from the peer's
+  server as the grantee.
+- **No collision with mirror graphs.** Mirrors and `queries/org.ts` cover
+  the reciprocal registrations + linked grants (registry plane); the
+  proxy serves registration `contains` + instance documents, which were
+  never part of the store.
+- **Session-bound upstream (federation.md shortcut 2).** The proxy's
+  upstream fetch is the org's `authFetch` (session-bound credentials), not
+  the global fetch that `SaiPermissionsEngine`/`AdminPermissionReader` use
+  for discovery — consistent with the note that authorized reads must be
+  session-bound.
+- The only federation-adjacent prerequisite is the direction-4 check
+  (the peer's engine actually resolves the org's grants for the granted
+  instances) — a seed/visibility question on the peer side, not a
+  federation one.
+
+> **Consumption model — the `/sparql-admin` parallel.** Both endpoints
+> are used only when the **admin's AA fetches data from the org's AA**: the
+> admin side never reads the peer's servers directly — the org's server is
+> the bridge. `/sparql-admin` exposes the (mirror-backed) *registry plane*
+> of the org's store; `/proxy-admin` exposes the *data plane* fetch with
+> the org's credentials. The admin UI never calls either endpoint directly
+> (grep: no consumer under `ui/`); consumers are admin-side processes / the
+> services layer — e.g. the RPC handlers behind `listDataInstances` peer
+> branch, `getDescriptions` counts, `getResource`.
+
 ## Candidate directions (decision: 2 — server-side proxy)
 
 1. **Shared-store SPARQL listing (pre-4b only).** Read the registration's
@@ -113,29 +187,30 @@ design question is how the admin's org-context view gets that authority.
    "content stays HTTP" scope guard (labels are content-ish); dies at 4b.
 2. **Org-as-grantee proxy (server-side).** The org's server fetches the
    peer's data registration/instances with the **org's** credentials (the
-   grantee — legitimate on the peer's ACRs) and serves the results to the
-   admin's org-context UI. Needs a server-side org credential holder /
-   request-scoped org session for *data-plane* reads only — distinct from
-   the phase-3 "no second session" rule, which governs the registry plane.
-   This is the "proxy" the plan is named for. Read-only in scope: the
-   proxy never carries org-context writes onto peer servers (scope note in
-   Problem). Serves the listing (`listDataInstances` labels) and the
-   single-instance full-body read (`getResource`) alike — the grantee
-   authority covers both.
+   grantee — authorized by the peer's data grants) and serves the results
+   to the admin's org-context UI. Needs a server-side org credential
+   holder / request-scoped org session for *data-plane* reads only —
+   distinct from the phase-3 "no second session" rule, which governs the
+   registry plane. This is the "proxy" the plan is named for. Read-only
+   in scope: the proxy never carries org-context writes onto peer servers
+   (scope note in Problem). Serves the listing (`listDataInstances`
+   labels) and the single-instance full-body read (`getResource`) alike —
+   the grantee authority covers both.
 3. **Extend mirrors to data registrations/instances.** Org-local snapshots
    of peer data-registration `contains` (+ labels, or full documents);
    keeps reads local and survives 4b, at the cost of freshness/staleness
    (extend the phase-1 `syncReciprocalMirror` machinery + its
    staleness/backfill open items) and storage growth.
-4. **Peer ACR hygiene (grantee-first).** Ensure data instances' ACRs
-   actually include the grantee (org) so the *org's* session over HTTP
-   works on the peer's server. May be a seed/hygiene gap today
-   (`registry-set-permissions.md` touches ACR scoping); does not help the
-   admin directly — still needs the proxy authority (2) for the admin's
-   session.
+4. **Grantee visibility (peer engine).** Data registries/instances are
+   authorized by **data grants** — data registries do not use ACRs — so
+   the prerequisite is that the peer's permission engine resolves the
+   org's grants for the granted instances (federation.md §1: the engine
+   reads grants from the store). A seed/visibility gap today would 403;
+   folded into `/test` parity. Does not help the admin directly — still
+   needs the proxy authority (2) for the admin's session.
 
 **Decision: direction 2 (proxy), read-only** — implemented as
-`/.sai/proxy-admin` (below). Direction 4 (grantee ACR hygiene) is a
+`/.sai/proxy-admin` (below). Direction 4 (grantee visibility) is a
 *prerequisite* for the proxy to return 200 on affected instances, not an
 alternative authority model. Directions 1 and 3 are not chosen: 1 is a
 pre-4b-only metadata stopgap; 3 trades staleness/storage for locality.
@@ -154,24 +229,37 @@ the proxy never issues writes upstream).
   `orgWebIdFromPath` (base64url last segment, query/fragment-stripped).
 - **Upstream:** `sessionManager.getSession(orgWebId)` mints the **org's**
   saiSession server-side; `orgSession.fetch(target)` carries the org's UAS
-  — the grantee, legitimate on the peer's ACRs. The admin's UAS never
-  touches the peer's server. `Accept` is forwarded from the request;
-  the upstream representation + content-type are returned to the UI.
+  — the grantee, authorized by the peer's data grants. The admin's UAS
+  never touches the peer's server. JSON-LD only: `Accept:
+  application/ld+json` is pinned upstream and the response is served as
+  `application/ld+json` — no Accept forwarding, no content-type
+  passthrough, binary/other representations out of scope.
 - **Errors:** upstream 404 → NotFound; any other non-ok (notably 403 when
   the org is not actually granted — the direction-4 hygiene gap) →
   Forbidden with the upstream status/detail surfaced to the UI.
 - **Security:** target IRI must be absolute http(s); GET only; peer-side
-  access stays enforced by the peer's own ACRs (safe-by-ACL — the org's
-  credentials only succeed where the org is granted; no peer allow-list).
-  The phase-2 scope-guard rationale is preserved and strengthened: data
-  stays on authorized credential paths — the credential is now the org's.
-- **Integration (not started):** in org context the UI fetches peer
-  data-plane documents (registration `contains`, instance documents)
-  through `/proxy-admin`; RPC services (`listDataInstances` peer branch,
-  `getDescriptions` counts, `getResource`) keep registry-plane logic. Open:
-  whether the data-plane fetches happen client-side (RPC yields instance
-  IRIs, UI fetches docs via the proxy) or server-side (RPC gains an
-  org-credentialed data-plane fetch for the read scope only).
+  access is enforced by the peer's permission engine against its data
+  grants (safe-by-grant — the org's credentials only succeed where the
+  org holds a grant; no peer allow-list). The phase-2 scope-guard
+  rationale is preserved and strengthened: data stays on authorized
+  credential paths — the credential is now the org's.
+- **Consumption: server-side, like `/sparql-admin`.** The RPC services
+  (`listDataInstances` peer branch, `getDescriptions` counts,
+  `getResource`) are the intended consumers — they use the
+  org-credentialed data-plane fetch that backs this endpoint, the way the
+  registry plane is consumed server-side via SPARQL. The UI keeps
+  talking to `/.sai/api` only and never hits this endpoint directly (the
+  same relationship the UI has with `/sparql-admin` today). The
+  YoYo-side upstream fetch is extracted: `services/peerFetch.ts`
+  (`fetchPeerResource`), used by `ProxyAdminHandler` (`PeerFetchError` is
+  in `.componentsignore`). The admin side has its client:
+  `services/peerProxy.ts` (`fetchPeerDocument` — discovers the org's AA,
+  builds `/.sai/proxy-admin/<org>?iri=<target>`, GETs it with the admin's
+  session). The admin's AA never contacts the peer directly and never
+  mints the org's session locally: the org's server is the only party
+  whose credentials the peer's data grants authorize (the grantee), so
+  this is the data-plane leg of "admin's AA fetches from the org's AA" —
+  a cross-server HTTP call authenticated as the admin.
 
 ## Scope guard to settle
 
@@ -192,36 +280,117 @@ the proxy never issues writes upstream).
 
 ## Tests
 
-- `/test` (user-run): extend `org-context.test.ts` with a
-  `ListDataInstances` case on a peer's registration once a direction
-  lands (labeled + counted parity vs today's behavior where it 403s);
-  `getDataRegistries(peer)` metadata parity already covered in phases 2–3.
+- `/test` (user-run): **done — org-context proxy parity suite green.**
+  `ListDataInstances` on a peer's granted registration (labels, all
+  scopes), `GetAuthorizationData` AllFromRegistry count == direct count
+  (was 0), `GetResource` full-body on a peer-granted instance, and the
+  `/.sai/proxy-admin` endpoint contract (200 JSON-LD / 403 / 400s). Run in
+  `test/org-context.test.ts`; the seed gained `registry/bob/grant/t2v9cd`
+  (Bob → YoYo, AllFromRegistry over `data/bob/avn9hv/`).
   Same for the other read paths: `GetAuthorizationData` AllFromRegistry
-  counts over a peer registration, and `GetResource` on a peer-granted
-  instance (both 403 today).
+  counts over a peer registration (was 0 — dead `contains` fallback, fixed
+  in step 2), and `GetResource` on a peer-granted instance (403 today;
+  read resolved in step 3 — org-side `accessGrantedTo` from the org's data
+  authorizations via SPARQL, see Rollout step 3).
 - `/.sai/proxy-admin` endpoint cases: admin GET of a peer registration /
   instance the org is granted → 200 with the upstream body + content-type;
   non-admin / unknown org → 403 (indistinguishable); non-GET → 405;
-  missing / relative / non-http `iri` → 400; upstream 404 / 403 surfaced.
+  missing / relative / non-http `iri` → 400; upstream 404 / 403 surfaced;
+  upstream non-`application/ld+json` content-type → 400 (JSON-LD-only
+  contract); requests with a non-JSON-LD `Accept` still get JSON-LD.
 - Post-4b: cross-owner instance read (org admin lists the peer's granted
   instances across datasets; isolation — nothing outside grants).
 
 ## Open items
 
 - **Authority model: decided — direction 2 (proxy).** Remaining: the
-  direction-4 **ACR hygiene check** (are grantees actually in peer data
-  instance ACRs today? seed check — adjacent to
-  `registry-set-permissions.md`): without it the proxy 403s on the very
-  registries it is meant to serve. Folded into `/test` parity.
-- Integration point (client- vs server-side data-plane fetches through the
-  proxy) — see Implementation.
-- Blob/binary passthrough: the handler currently buffers the upstream body
-  as text; `isBlob` data instances need streaming with the upstream
-  content-type untouched.
+  direction-4 **grantee-visibility check** (does the peer's engine
+  resolve the org's grants for the granted instances? seed check —
+  federation.md §1; data registries/instances are authorized by data
+  grants, not ACRs): without it the proxy 403s on the very registries it
+  is meant to serve. Folded into `/test` parity.
+- Dan-side client: implemented — `services/peerProxy.ts`
+  (`fetchPeerDocument`, `PeerProxyError` in `.componentsignore`), wired
+  into all three data-plane paths (rollout steps 2–3: `getDescriptions`
+  counts, `listDataInstances` peer branch, `getResource`). The org-context
+  RPC services call `/proxy-admin` on the org's server over HTTP,
+  authenticated as the admin (the admin's own session — the only session
+  the admin's server holds). The org session is never minted on the
+  admin's server and never coexists with the admin's session in one
+  handler/service — Dan's AA and YoYo's AA are independent servers in
+  real deployments; the single-server dev/test env makes these same-origin
+  self-calls but must keep the same boundary.
+- **JSON-LD only (decided).** Binary/other representations are out of
+  scope for now: the endpoint pins `Accept: application/ld+json` upstream
+  and serves `application/ld+json`; `isBlob` data instances are not
+  proxied.
 - Whether the phase-2 scope guard's "data-instance content stays HTTP"
   clause gets an org-context exception — partly answered: the proxy keeps
   the data on authorized HTTP credential paths (the org's).
 - Mirror extension scope (metadata vs full content) and its staleness
   policy — not chosen; retained only as a 4b-compatible fallback if the
-  proxy hits unsolvable ACL gaps — links to
+  proxy hits unsolvable grant gaps — links to
   `isolated-datasets-and-sparql.md` open items.
+- **Last step — registry-plane SPARQL reads go via `/sparql-admin` —
+  done.** `queries/org.ts` now runs on a `SparqlTransport` and every
+  org-context consumer (`DataRegistry`, `Authorization`, `AgentRegistry`,
+  `ShareResource`) passes `sparqlTransportFor(ctx)`: personal → the
+  session's internal endpoint (unchanged); org context → YoYo's
+  `/sparql-admin` over HTTP `POST` with the admin's session (AA
+  discovery + base64url org webId, `application/sparql-query` body;
+  `application/sparql-results+json` and `text/turtle` responses parsed
+  back into the local term/store shapes). `POST` rather than `QUERY`: the
+  access-token verifier whitelists only standard methods (`QUERY` is not
+  in its `REQUEST_METHOD` set), so a DPoP-bound `QUERY` request fails
+  verification and the gate 403s — the endpoint accepts both
+  (`allowedMethods: ["QUERY", "POST"]`, `QUERY` kept for tooling).
+  Follow-up: switch the client back to HTTP `QUERY` once
+  `@solid/access-token-verifier`'s `REQUEST_METHOD` whitelist includes it
+  (upstream PR) — the endpoint already accepts both, so it's the client
+  method + the transport unit-test assertion only. Same results in the
+  single-server dev/test env (both resolve the shared store); cross-server
+  in real deployments, and it resolves against the org's graphs/mirrors
+  held by the org's server after the 4b cutover. Unit-verified
+  (`packages/components/test/peer-proxy.test.ts`: bindings, literal/lang
+  terms, CONSTRUCT turtle, non-ok surfaces the status).
+
+## Rollout — three green steps
+
+Each step ends with the full suite green (build + package vitest in
+`packages/components/test`, runnable by the agent; `/test` parity cases
+user-run):
+
+1. **Endpoint + client contract, in isolation — no service changes.**
+   Unit-test `fetchPeerResource`, `fetchPeerDocument` (AA discovery, URL
+   build, status mapping) and the JSON-LD-only content-type guard
+   (`packages/components/test/peer-proxy.test.ts`). Services untouched →
+   every existing suite stays green by construction.
+2. **`getDescriptions` AllFromRegistry count — done.** The count was
+   silently 0 for `AllFromRegistry` (dead `contains` fallback —
+   `hasDataInstance` defaults to `[]`, and `[]` is truthy); `scopeOfGrant`
+   is now the discriminator and the `contains` read goes through a shared
+   `dataRegistrationContains` helper: personal → direct factory deref,
+   org context → `fetchPeerDocument(ctx.session, ctx.webId,
+   hasDataRegistration)` + parse-only `DataRegistration.fromJsonLd(doc,
+   iri)`. Personal context untouched. Unit-verified
+   (`packages/components/test/peer-proxy.test.ts`: org → proxy path +
+   parse, personal → no proxy, upstream status propagation); `/test`
+   parity: org-context `GetAuthorizationData` AllFromRegistry count ==
+   direct count.
+3. **`listDataInstances` peer branch + `getResource` via the client —
+   done.** Org path iterates with `peerInstanceIris` (`AllFromRegistry`
+   via `dataRegistrationContains`, `SelectedFromRegistry` from grant
+   metadata, `Inherited` walks the parent grant + parent content through
+   `/proxy-admin`) and labels via `peerInstanceNode` + `labelFromNode`;
+   shape trees stay on the admin-session factory (public). `getResource`
+   org path fetches the registration + instance docs via the client and
+   frames from the fetched docs; org-context `accessGrantedTo` is the
+   ORG's data authorizations covering the resource, read via SPARQL
+   (`agentsWithAccessMatching` + `orgAgentsWithAccess` — the mirrored
+   switch of `AA.findAgentsWithAccess`, filtered to registered social
+   agents; in real deployments over `/sparql-admin`). Added a fetch-less
+   framing variant `DataInstance.frameDataInstanceFromDoc(doc, iri,
+   shapeTree)` to data-model (`frameDataInstance` now delegates to it).
+   Unit-verified: `peerInstanceIris` all three scopes +
+   `agentsWithAccessMatching`; `/test` parity: peer listing
+   (labels/counts, all scopes) + `GetResource` full-body.

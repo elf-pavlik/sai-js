@@ -80,6 +80,22 @@ function dataInstanceContext(shapeTree: ShapeTreeData): JsonLdContext {
 }
 
 /**
+ * Frame an already-fetched data instance document into a single JSON-LD
+ * node — no fetch. The org-context counterpart of `frameDataInstance`:
+ * the caller fetches the peer document through `/proxy-admin`
+ * (org-context-proxy.md) and parses here — the admin's session cannot
+ * deref peer documents, and the org session never exists on the admin's
+ * server.
+ */
+export async function frameDataInstanceFromDoc(
+  doc: unknown,
+  iri: string,
+  shapeTree: ShapeTreeData
+): Promise<Record<string, unknown>> {
+  return frameDoc(doc, dataInstanceContext(shapeTree), iri)
+}
+
+/**
  * Fetch and frame a data instance document into a single JSON-LD node —
  * the JSON-LD replacement for the fetchDataInstanceDataset +
  * computeLabel/computeChildren quad lookups.
@@ -94,10 +110,10 @@ export async function frameDataInstance(
   shapeTree: ShapeTreeData,
   docIri?: string
 ): Promise<Record<string, unknown>> {
-  return frameDoc(
+  return frameDataInstanceFromDoc(
     await fetchJsonLd(docIri ?? iri, factory.fetch),
-    dataInstanceContext(shapeTree),
-    iri
+    iri,
+    shapeTree
   )
 }
 

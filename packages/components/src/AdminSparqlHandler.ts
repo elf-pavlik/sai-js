@@ -1,10 +1,8 @@
-import { getAdminGrantIris, type SocialAgentRegistrationData } from '@janeirodigital/interop-data-model'
 import { serializeTurtle } from '@janeirodigital/interop-utils'
 import {
   arrayifyStream,
   BadRequestHttpError,
   BasicRepresentation,
-  ForbiddenHttpError,
   MethodNotAllowedHttpError,
   OkResponseDescription,
   OperationHttpHandler,
@@ -20,6 +18,7 @@ import { SparqlEndpointFetcher, type IBindings, type IUpdateTypes } from 'fetch-
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 import type { SessionManager } from './SessionManager'
+import { orgWebIdFromPath, requireOrgAdmin } from './services/adminGate.js'
 
 const SPARQL_QUERY_MEDIA_TYPE = 'application/sparql-query'
 
@@ -53,16 +52,20 @@ function termToJson(term: IBindings[string]): Record<string, unknown> {
  * Query-only SPARQL endpoint for org admins (org-context-sparql.md §2.2).
  *
  * Route `/.sai/sparql-admin/<base64url-org-webid>`, speaking the HTTP
- * `QUERY` method only (safe, read-only — draft-ietf-httpapi-safe-methods-wg):
- * the SPARQL query travels in the request body as
- * `application/sparql-query`. Updates (`application/sparql-update`,
- * INSERT/DELETE/…) and non-QUERY methods are rejected.
+ * `QUERY` method (safe, read-only — draft-ietf-httpapi-safe-methods-wg)
+ * and `POST` — the DPoP-verifiable transport: the access-token verifier
+ * whitelists only standard methods (`QUERY` is not in its
+ * `REQUEST_METHOD` set), so authenticated clients (the admin's AA) must
+ * use `POST` with the same `application/sparql-query` body. In both cases
+ * the SPARQL query travels in the request body; updates
+ * (`application/sparql-update`, INSERT/DELETE/…) and other methods are
+ * rejected.
  *
- * Gate (mirrors `AgentIdHandler`'s admin branch): the caller must be an
- * admin of the target org — its social-agent registration held by that org
- * carries a non-empty `hasAdminGrant` marker (403 otherwise). The org
- * itself never uses this endpoint; server-side reads go to the internal
- * endpoint directly.
+ * Gate (shared with `/proxy-admin`: `services/adminGate.ts` — the caller
+ * must be an admin of the target org: its social-agent registration held
+ * by that org carries a non-empty `hasAdminGrant` marker (403 otherwise).
+ * The org itself never uses this endpoint; server-side reads go to the
+ * internal endpoint directly.
  *
  * Queries are forwarded to the internal endpoint variable
  * (`urn:solid-server:default:variable:sparqlEndpoint`); SELECT/ASK results
@@ -86,37 +89,17 @@ export class AdminSparqlHandler extends OperationHttpHandler {
     operation,
     request,
   }: OperationHttpHandlerInput): Promise<ResponseDescription> {
-    // Belt-and-suspenders for the QUERY-only contract (the router already
-    // restricts the route to the QUERY method).
-    if (operation.method !== 'QUERY') {
-      throw new MethodNotAllowedHttpError(['QUERY'])
+    // Belt-and-suspenders for the read-only contract (the router already
+    // restricts the route to QUERY/POST).
+    if (operation.method !== 'QUERY' && operation.method !== 'POST') {
+      throw new MethodNotAllowedHttpError(['QUERY', 'POST'])
     }
 
     // Gate first — no server-side work is triggered for unauthenticated callers.
-    const credentials = await this.credentialsExtractor.handleSafe(request)
-    if (!credentials.agent) {
-      throw new ForbiddenHttpError('this endpoint requires credentials')
-    }
-
-    // Target org: base64url-encoded webId in the last path segment
-    // (the AgentIdHandler pattern).
-    const segment = operation.target.path.slice(operation.target.path.lastIndexOf('/') + 1)
-    if (!segment) {
-      throw new ForbiddenHttpError('missing org webId in path')
-    }
-    const orgWebId = Buffer.from(segment, 'base64url').toString('utf8')
-
-    let registration: SocialAgentRegistrationData | undefined
-    try {
-      const sai = await this.sessionManager.getSession(orgWebId)
-      registration = await sai.findSocialAgentRegistration(credentials.agent.webId)
-    } catch {
-      // An unknown org must be indistinguishable from "not an admin" of it.
-      throw new ForbiddenHttpError(`not an admin of ${orgWebId}`)
-    }
-    if (!registration || (await getAdminGrantIris(registration)).length === 0) {
-      throw new ForbiddenHttpError(`not an admin of ${orgWebId}`)
-    }
+    // Target org: base64url-encoded webId in the last path segment (the
+    // AgentIdHandler pattern); admin check shared with `/proxy-admin`.
+    const orgWebId = orgWebIdFromPath(operation.target.path)
+    await requireOrgAdmin(this.sessionManager, this.credentialsExtractor, request, orgWebId)
 
     // Query-only: require the sparql-query media type and reject updates.
     if (operation.body.metadata.contentType !== SPARQL_QUERY_MEDIA_TYPE) {

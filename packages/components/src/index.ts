@@ -1,5 +1,6 @@
 export * from './AgentIdHandler.js'
 export * from './AdminSparqlHandler.js'
+export * from './ProxyAdminHandler.js'
 export * from './InvitationHandler.js'
 export * from './ReciprocalWebhookHandler.js'
 export * from './ActivityWebhookHandler.js'

@@ -18,6 +18,30 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
+import {
+  getDataGrant as getDataGrantFromSparql,
+  getSocialAgentRegistration as getRegistrationFromSparql,
+} from './queries/org.js'
+
+/**
+ * Resolve the reciprocal registration of `registration` (the peer's
+ * registration of us / of the org). Personal context keeps the HTTP factory
+ * path; org context reads it from the session's internal SPARQL endpoint —
+ * the peer's graphs live in the shared store (federation.md shortcut 1) and
+ * would 403 over HTTP with the org's credentials.
+ */
+async function getReciprocalRegistration(
+  saiSession: AuthorizationAgent,
+  registration: SocialAgentRegistrationData,
+  personal: boolean
+): Promise<SocialAgentRegistrationData> {
+  if (!registration.reciprocalRegistration) {
+    throw new Error(`no reciprocal registration on ${registration.id}`)
+  }
+  return personal
+    ? saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration)
+    : getRegistrationFromSparql(saiSession.sparqlEndpoint, registration.reciprocalRegistration)
+}
 
 /**
  * Build the UI profile of a social agent from its registration.
@@ -35,11 +59,11 @@ export const buildSocialAgentProfile = async (
   saiSession: AuthorizationAgent,
   personal = true
 ) => {
+  const reciprocal = registration.reciprocalRegistration
+    ? await getReciprocalRegistration(saiSession, registration, personal)
+    : undefined
   let admin = false
-  if (personal && registration.reciprocalRegistration) {
-    const reciprocal = await saiSession.factory.socialAgentRegistration(
-      registration.reciprocalRegistration
-    )
+  if (personal && reciprocal) {
     admin = (await getAdminGrantIris(reciprocal)).length > 0
   } else if (!personal) {
     admin = (await getAdminGrantIris(registration)).length > 0
@@ -57,10 +81,7 @@ export const buildSocialAgentProfile = async (
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
     accessGrant: (await getDataGrantIris(registration))[0],
-    accessNeedGroup: registration.reciprocalRegistration
-      ? (await saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration))
-          .hasAccessNeedGroup
-      : undefined,
+    accessNeedGroup: reciprocal?.hasAccessNeedGroup,
   })
 }
 
@@ -73,11 +94,20 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent, personal =
   const seenIds = new Set(profiles.map((p) => p.id))
   for await (const registration of saiSession.socialAgentRegistrations) {
     if (!registration.reciprocalRegistration) continue
-    const reciprocalReg = await saiSession.factory.socialAgentRegistration(
-      registration.reciprocalRegistration
-    )
+    const reciprocalReg = personal
+      ? await saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration)
+      : await getRegistrationFromSparql(
+          saiSession.sparqlEndpoint,
+          registration.reciprocalRegistration
+        )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
-    const dataGrants = await getDataGrants(reciprocalReg, saiSession.factory)
+    const dataGrants = personal
+      ? await getDataGrants(reciprocalReg, saiSession.factory)
+      : await Promise.all(
+          reciprocalReg.hasDataGrant.map((grantIri) =>
+            getDataGrantFromSparql(saiSession.sparqlEndpoint, grantIri)
+          )
+        )
     for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
       if (seenIds.has(ownerIri)) continue

@@ -1,7 +1,9 @@
 # Org context + SPARQL read plane — combined plan
 
-> **Status:** phase 1 ✅ done (dormant mirror writer — verified: build, package
-> suites, `/test` user-run). Phase 2 (reads → SPARQL) next.
+> **Status:** phase 1 ✅ done (dormant mirror writer). **Phase 2 ✅ done**
+> (org-context peer-data reads via the session's internal SPARQL endpoint,
+> `AdminSparqlHandler` HTTP-QUERY route — build + package suites + `/test`
+> all green). Phase 3 (context/session fix) next.
 > Supersedes and merges the earlier drafts
 > `org-context-fix.md` / `sparql-reads.md` (deleted). Builds on Phase 2 of
 > `org-admin-feature.md` — read its §2.4 (C1/C2), §2.7–2.8 first.
@@ -69,7 +71,7 @@ sub-registries have no container-level `.acr`.
 | # | Scope | Checkpoint |
 |---|---|---|
 | ✅ **1 — Mirror writer (dormant)** | replicate reciprocal registrations + linked grants into graphs named after the source resources; implemented, **not wired**, no new test harness | ✅ green — build + package suites + `/test` (user-run) pass; mirror runtime behavior still deferred: call sites commented out until 4b, unregister flow future |
-| **2 — Reads → SPARQL** | all registry-set read operations query the SPARQL endpoint (internal, both contexts); sessions/context untouched; introduce gated `/sparql-admin`; characterization tests first | green, stepwise parity |
+| ✅ **2 — Reads → SPARQL** | org-context peer-data reads (reciprocal bodies + data grants, only when `webId != context`) move to SPARQL over the session's **internal** endpoint; gated `/sparql-admin` (HTTP `QUERY`), admin-facing; sessions/context untouched; everything else stays HTTP this phase | ✅ green — build + package suites + `/test` (user-run) pass |
 | **3 — Context/session fix** | `Context.ts` returns user session + resolved registry set; owner identity from context; class-C fixes; writes-only risk | green; one dagger verification of container-create path |
 | **4a — Endpoint registry** | per-owner endpoint addresses in `AccountLoginStorage`, env-var fallback retained | green |
 | **4b — Per-owner cutover** | one store per registry/storage; mirrors **must be active before cutover**; external admin-endpoint discovery | joint with user (`/test` harness) |
@@ -169,46 +171,97 @@ New handler (`AdminSparqlHandler`), wired in
 `packages/components/config/http/handler/default.json` next to the other
 `/.sai/…` routers:
 
-- **path-scoped route** carrying the target org, consistent with the other
-  `/.sai/…` routers (exact pattern settled during implementation;
-  `AgentIdHandler`'s `^/.sai/agents/.*` is the closest precedent);
-- query-only — accept `application/sparql-query`, never forward updates;
-- gate identical to `AgentIdHandler`'s admin branch: extract credentials,
-  find the caller's social-agent registration held by the target org,
-  require non-empty `hasAdminGrant` marker (403 otherwise);
-- forward the query to the internal endpoint variable
-  (`urn:solid-server:default:variable:sparqlEndpoint`), stream bindings
-  back as JSON;
+- **path-scoped route** `^/.sai/sparql-admin/.*`, carrying the target org
+  base64url-encoded in the last path segment — the `AgentIdHandler`
+  pattern (decode via `Buffer.from(segment, 'base64url').toString('utf8')`);
+- **HTTP `QUERY` method only** (safe, read-only — draft
+  `httpapi-safe-methods-wg`): the query travels in the request body as
+  `application/sparql-query`; `application/sparql-update`, `POST`, and any
+  mutating method are rejected with 405/415. CSS
+  `OperationRouterHandler` matches raw method strings (verified against
+  CSS 8.0.0-alpha.2), so `allowedMethods: ["QUERY"]` suffices;
+- **gate** identical to `AgentIdHandler`'s admin branch: extract
+  credentials, resolve the target org's session
+  (`sessionManager.getSession(orgWebId)`), find the caller's
+  social-agent registration held by that org, require non-empty
+  `hasAdminGrant` marker (403 otherwise);
+- **forward** the query to the internal endpoint variable
+  (`urn:solid-server:default:variable:sparqlEndpoint`) as POST
+  `application/sparql-query` (nginx→Oxigraph content-type routing,
+  `environments/css/oxigraph.nginx.conf`), streaming bindings back as
+  JSON (SELECT) / quads (CONSTRUCT, through the established
+  quads→JSON-LD path);
 - hygiene: execution timeout, forced LIMIT.
+- **consumer: admin-facing only.** Server-side org-context reads use the
+  internal endpoint directly (federation.md shortcut 1 — the shared
+  store already holds the peer graphs); `/sparql-admin`'s in-tree
+  consumers arrive with the phase-3 context fix and it becomes
+  load-bearing for org-context reads at the 4b per-owner split.
 
 ⚠️ **Known limitation (accepted for now, removed in 4b):** the internal
 endpoint is a global store — the gate restricts *who*, not *which graphs*.
 Trusted-env only until per-owner stores exist.
 
-### 2.3 View migration order (each its own mergeable step)
+### 2.3 View migration — scoped to what needs it now
 
-Reads move from SDK iteration to typed SPARQL SELECTs. In this phase
-**both** personal and org contexts use the internal endpoint; the
-personal/admin split becomes meaningful in phase 3.
+**Scope decision:** phase 2 migrates only the reads that will end up
+behind the admin SPARQL endpoint — the org-context RPC reads that
+dereference peer-side data (reciprocal bodies + data grants), only when
+`webId != context`. In this phase those reads go over the session's
+internal endpoint (shared store); in phase 3/4b they switch to
+`/sparql-admin` unchanged. Everything else stays exactly as today: personal
+context reads, simple per-resource GETs, and iteration-based views are
+re-evaluated *later* as opportunistic query optimizations — no behavioral
+need to change them now.
 
-1. **AgentRegistry views** — `getSocialAgents` (both passes),
-   `buildSocialAgentProfile`. Peer data (reciprocal bodies, peer grants)
-   queried directly from the global store's peer graphs for now; switched
-   to mirror graphs when activated (deadline 4b).
-2. **RoleRegistry + Admin views** — role listing, admin authorizations,
-   last-admin guard count.
-3. **Authorization/Grant views** — `getDescriptions` registry parts,
-   grant listing behind `revokeGrants`, `findAgentsWithAccess`.
-4. **DataRegistry metadata views** — registries/data-registrations
-   listings. Data-instance **content** fetches stay as-is.
+Initial step (one mergeable change):
+
+1. **Org-context peer-data reads** — `getSocialAgents` (both passes) and
+   `buildSocialAgentProfile` in org context (`personal=false`): reciprocal
+   registration bodies (label, `hasAccessNeedGroup`, admin marker — the
+   marker itself is read locally off the org's own registration) and
+   linked data grants (`dataOwner`, `hasStorage`, `accessMode`, …) come
+   from typed SPARQL SELECTs against the **session's internal endpoint**
+   (the shared store — federation.md shortcut 1; the org never calls its
+   own `/sparql-admin`), queried
+   **by resource IRI** (`GRAPH <iri> { … }`) — never by `saiSession.webId`;
+2. **Pass-2 labels stay HTTP** — grants carry a `dataOwner` IRI but no
+   label field, and registration `prefLabel`s only cover agents *we*
+   registered; `webIdProfile` GETs (public, not access-controlled — no
+   class-A risk) remain the label source, consistent with the scope
+   guard below;
+3. Everything else (`getApplications`, invitations, `getRoles`, admin
+   authorizations, `getDataRegistries`, personal context) is **explicitly
+   out of scope** this phase.
+
+Mirror relationship: queries are parametrized by the *resource IRI*, so in
+   the shared dev store they read the peers' live graphs; when mirror
+   graphs activate (4b) the same queries resolve to mirror content with
+   zero query changes. The dormant mirror call sites are **not** wired in
+   phase 2 — mirror graph names are the peers' own IRIs, so writing them
+   into the shared store would clobber the peers' live graphs.
 
 Implementation shape:
 
-- queries colocated with services (e.g. `services/queries/agentRegistry.ts`),
-  one function per view returning typed rows;
+- queries colocated with the org-read views
+  (`services/queries/org.ts`), one function per view returning typed rows;
 - **parameterize every query by registry-set/graph IRIs, never by
   `saiSession.webId`** — so phase 3 doesn't rewrite them;
-- endpoint injected per call (internal now; split arrives in phase 3/4);
+- **endpoint reach (decided):** `packages/authorization-agent` is a local
+  workspace package (root `node_modules` symlink), so its constructor
+  gains a **required** `sparqlEndpoint` in `AuthorizationAgentDependencies`,
+  stored on the instance; `SessionManager` (new ctor param wired from
+  `urn:solid-server:default:variable:sparqlEndpoint` in `default.json`)
+  passes it in `getSession`. Read fns use `saiSession.sparqlEndpoint` —
+  no per-call params, no `ResolvedContext` churn; the same field becomes
+  per-account in 4a. The only real caller is `SessionManager.getSession`;
+  the package's own test suite is `describe.skip`-ed top-to-bottom (and
+  already stale vs src), so a required param causes no test churn.
+- **server-side org reads use the internal endpoint** — the org never
+  calls its own `/sparql-admin` (federation.md shortcut 1: the shared
+  store already holds the peers' graphs, so reciprocal bodies + grants
+  are read cross-graph there); `/sparql-admin` is the admin-facing gate
+  (§2.2) whose consumers arrive with the context fix;
 - temporal activities / webhook handlers keep direct internal-endpoint
   access (owner identity, trusted).
 
@@ -233,18 +286,37 @@ Scope guard (decided): SPARQL reads **only registry data** (plus the
 admin-endpoint special case). WebID profiles, client-id documents,
 shape-tree descriptions and data-instance content stay plain HTTP GET —
 they are not access-controlled (webid/clientid) or belong to the data
-plane.
+plane. In this phase, **personal-context reads and iteration-based views
+are also unchanged** (see §2.3 scope decision) — SPARQL is used only
+where the admin endpoint is required.
 
 ### What deliberately does not change in this phase
 
 Writes (REST/LDP through AA sessions — ACP enforcement + workflow
 triggers), data-instance content fetches, public dereferences (client-id
-documents, WebID profiles, shape-tree descriptions).
+documents, WebID profiles, shape-tree descriptions), personal-context
+reads, and every iteration-based view not listed in §2.3 (applications,
+invitations, roles, authorizations, data registries).
 
 ### Green conditions
 
 Each step: full checkpoint green. Parity guaranteed by the
 characterization tests of §2.1 plus existing suites.
+
+### 2.4 Known issue — org-context `listDataInstances` on peers' registries
+
+**Tracked, no test currently requires it.** `listDataInstances(agentId, …)`
+with `agentId != session.webId` iterates instances through
+`Grant.getDataInstanceIterator`, which HTTP-dereferences the peer's data
+registration and instances with the session's credentials. In org context
+those are the org's credentials, which match no ACR on the peer's server
+(the peer's ACRs grant `(peer, peerUAS)` only), and the admin's own
+credentials don't help either. Data-instance *content* is deliberately
+out of scope for SPARQL reads and mirrors (scope guard: registry
+metadata only), so this phase cannot fix it. Consequence: an org admin
+can see the *metadata* of peers' data registries (grants → registration
+list) but cannot list the instances inside them. Revisit together with
+the peer-instance listing open item.
 
 ---
 
@@ -269,8 +341,12 @@ Personal: `{ session: userSession, registrySet: userSession.registrySet,
 webId: userSession.webId }`. Org: gate on admin marker as today, then
 `registrySet: await userSession.getRegistrySet(context)` — **no second
 session built**; drop the `sessionManager` parameter from
-`resolveContext`. Reads pick internal vs `/sparql-admin` endpoint from
-this struct.
+`resolveContext`. Server-side reads use the session's internal endpoint
+(shared store holds all graphs; per-owner split in 4a/4b); org-context
+reads switch to the org's `/sparql-admin` (discovered, carried in this
+struct) at the 4b per-owner cutover — authenticated as the **admin**,
+never as the org (the org uses its own internal endpoint for its own
+registry, §2.3).
 
 ### 3.2 Service migration (§2.4 of org-admin-feature)
 
@@ -387,8 +463,34 @@ Then drop the global env var.
   framing path (same POJOs as today), `SELECT` for cross-graph view joins.
 - SPARQL is used exclusively for registry data; webid/client-id profiles,
   shape trees and data-instance content remain regular HTTP GET.
-- `/sparql-admin`: path-scoped route, gate mirrors `AgentIdHandler`'s
-  admin-marker check, query-only.
+- `/sparql-admin`: path-scoped route `^/.sai/sparql-admin/.*` with the
+  target org base64url-encoded in the last path segment (`AgentIdHandler`
+  pattern); **HTTP `QUERY` method only** (`application/sparql-query`
+  body, safe/read-only; updates and `POST` rejected); gate = non-empty
+  `hasAdminGrant` on the caller's registration held by the target org;
+  forwards to the internal endpoint variable.
+- **Endpoint access:** `packages/authorization-agent` (local workspace
+  package) gains an optional `sparqlEndpoint` on the AA
+  (`AuthorizationAgentDependencies`); `SessionManager.getSession` sets it
+  from `urn:solid-server:default:variable:sparqlEndpoint`.
+- **Read transport split:** server-side org-context reads use the internal
+  endpoint (federation.md shortcut 1 — the shared store holds peer
+  graphs); `/sparql-admin` is the admin-facing gate, consumed by external
+  admin clients now and by org-context reads at the 4b per-owner split
+  (authenticated as the admin, never the org).
+- **Known issue (§2.4):** org-context `listDataInstances` on peers' data
+  registries has no working path (data-instance content is out of scope
+  for SPARQL/mirrors); no test requires it; tracked.
+- **Phase-2 migration scope:** only org-context peer-data reads
+  (`getSocialAgents` both passes + `buildSocialAgentProfile`,
+  `webId != context`) move to SPARQL, through `/sparql-admin`; all other
+  reads (personal context, simple GETs, iteration views) stay unchanged
+  until a later optimization pass. Pass-2 labels keep the HTTP
+  `webIdProfile` source (grants/registrations carry no usable label for
+  grant-owned agents).
+- Mirror call sites stay dormant through phase 2; phase-2 queries read
+  the peers' live graphs in the shared store and are IRI-parametrized so
+  they resolve to mirror graphs unchanged at 4b.
 - ACP does not cascade: containers inherit root `memberAccessControl`;
   resources with own `.acr` don't. Seeded-resource mutation gap accepted
   as debt (future `syncAdminAcr` generalization).
@@ -413,4 +515,20 @@ Then drop the global env var.
   is missing) as the durable backstop beyond activity retries.
 - Query timeouts / forced LIMIT values at the admin endpoint.
 - Whether peer-instance content listing ever enters org-context scope
-  (currently no; mirrors cover registry metadata only).
+  (currently no; mirrors cover registry metadata only) — linked to the
+  §2.4 known issue.
+
+## Phase-2 kickoff decisions (resolved)
+
+- Endpoint supplied **on the AA constructor** in the local
+  `packages/authorization-agent` package (**required** `sparqlEndpoint` in
+  `AuthorizationAgentDependencies`), set by `SessionManager.getSession`;
+  no signature churn in read fns. (Package tests: all `describe.skip`-ed,
+  stale vs src — no vitest churn.)
+- Server-side org reads use the **internal** endpoint; the org never
+  calls its own `/sparql-admin` (it must pass its own gate as the admin).
+- `/sparql-admin` speaks **HTTP `QUERY`** (safe — read-only) only.
+- Mirrors stay **dormant until phase 4b**; the central internal endpoint
+  already holds the original peer graphs (`federation.md` shortcut 1),
+  which phase-2 reads target directly. IRI-parametrized queries resolve
+  to mirror graphs unchanged at 4b.

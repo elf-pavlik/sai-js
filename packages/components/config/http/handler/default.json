@@ -53,6 +53,7 @@
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
+          { "@id": "urn:sai:default:AdminSparqlRouter" },
           { "@id": "urn:sai:default:InvitationRouter" }
         ]
       }
@@ -83,6 +84,22 @@
           "authorizationEndpoint": { "@id": "urn:sai:default:AuthorizationEndpointRoute" },
           "delegationEndpoint": { "@id": "urn:sai:default:DelegationEndpointRoute" }
         }
+      }
+    },
+    {
+      "comment": "Query-only SPARQL endpoint for org admins (QUERY method).",
+      "@id": "urn:sai:default:AdminSparqlRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/sparql-admin/.*"],
+      "allowedMethods": ["QUERY"],
+      "handler": {
+        "@id": "urn:sai:default:AdminSparqlHandler",
+        "comment": "Gate-kept SPARQL query endpoint: admin of the org (hasAdminGrant) may run SELECT/ASK/CONSTRUCT.",
+        "@type": "AdminSparqlHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
+        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
       }
     },
     {
@@ -201,6 +218,7 @@
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
       "regOrigin": { "@id": "urn:sai:default:variable:regOrigin" },
+      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
       "expiration": 60
     }
   ]

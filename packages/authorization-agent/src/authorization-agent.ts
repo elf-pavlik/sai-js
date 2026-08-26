@@ -37,6 +37,8 @@ import {
 interface AuthorizationAgentDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
+  /** Internal SPARQL endpoint the session reads registry data from (org-context-sparql.md §2.3). */
+  sparqlEndpoint: string
 }
 
 export interface AgentWithAccess {
@@ -75,6 +77,9 @@ export class AuthorizationAgent {
 
   fetch: WhatwgFetch
 
+  /** Internal SPARQL endpoint (shared store) this session reads registry data from. */
+  sparqlEndpoint: string
+
   webIdProfile: WebIdProfileData
 
   ownersIndex: { [key: string]: string } = {}
@@ -97,6 +102,7 @@ export class AuthorizationAgent {
     public registrySetId?: string
   ) {
     this.fetch = dependencies.fetch
+    this.sparqlEndpoint = dependencies.sparqlEndpoint
     this.factory = new AuthorizationAgentFactory({
       fetch: this.fetch,
       randomUUID: dependencies.randomUUID,

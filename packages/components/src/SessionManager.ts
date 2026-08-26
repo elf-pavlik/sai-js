@@ -9,7 +9,8 @@ export class SessionManager {
     private readonly baseUrl: string,
     private readonly jwkGenerator: JwkGenerator,
     private regOrigin: string,
-    private readonly expiration: number
+    private readonly expiration: number,
+    private readonly sparqlEndpoint: string
   ) {}
 
   public async getSession(webid: string, registrySetId?: string): Promise<AuthorizationAgent> {
@@ -32,6 +33,7 @@ export class SessionManager {
     return AuthorizationAgent.build(webid, agentId(webid), registrySetId ?? registryId(webid), {
       fetch: oidc.authFetch.bind(oidc),
       randomUUID: crypto.randomUUID.bind(crypto),
+      sparqlEndpoint: this.sparqlEndpoint,
     })
   }
 }

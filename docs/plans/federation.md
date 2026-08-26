@@ -45,7 +45,8 @@ single-store deployments.
 
 ### 1a. Reciprocal mirroring is the federated replacement for cross-graph reads
 
-`org-context-sparql.md` phases 1/4b introduce local read-only copies of the
+`org-context-sparql.md` phase 1 + `isolated-datasets-and-sparql.md` 4b
+introduce local read-only copies of the
 peer-side data org-context reads need: each org mirrors its peers'
 reciprocal registrations (+ linked data grants) into graphs named after the
 source resource IRIs, kept fresh by webhook-driven `syncReciprocalMirror`
@@ -59,7 +60,8 @@ workflows. In a federated deployment this is not an optimization but the
   cutover** — with one shared store, mirror graphs would collide with the
   live peer graphs of the same name;
 - existing registrations need a one-time **backfill** before any per-owner
-  cutover — a listed prerequisite of `org-context-sparql.md` phase 4b;
+  cutover — a listed prerequisite of `isolated-datasets-and-sparql.md`
+  phase 4b;
 - unregister propagation (mirror deletion when a peer removes the
   registration) has no flow yet and must exist before 4b as well.
 

@@ -3,14 +3,17 @@
 > **Status:** phase 1 ✅ done (dormant mirror writer). **Phase 2 ✅ done**
 > (org-context peer-data reads via the session's internal SPARQL endpoint,
 > `AdminSparqlHandler` HTTP-QUERY route — build + package suites + `/test`
-> all green). Phase 3 (context/session fix) next.
+> all green). **Phase 3 ✅ done** (context/session fix — P3-1–P3-4 +
+> P3-2b; build + package suites + `/test` all green; committed).
 > Supersedes and merges the earlier drafts
 > `org-context-fix.md` / `sparql-reads.md` (deleted). Builds on Phase 2 of
 > `org-admin-feature.md` — read its §2.4 (C1/C2), §2.7–2.8 first.
 >
-> Four phases, in this order. Each phase ends all-green (`npm run build &&
-> npm run test`; `/test` runs are user-only — dagger setup), except **4b**
-> which is a joint checkpoint (dagger harness changes are user-side).
+> Four phases, in this order. Phases 1–3 live in this document; **phase 4
+> (per-owner datasets) lives in `isolated-datasets-and-sparql.md`**. Each
+> phase ends all-green (`npm run build && npm run test`; `/test` runs are
+> user-only — dagger setup), except **4b** which is a joint checkpoint
+> (dagger harness changes are user-side).
 
 ## Problem
 
@@ -72,13 +75,13 @@ sub-registries have no container-level `.acr`.
 |---|---|---|
 | ✅ **1 — Mirror writer (dormant)** | replicate reciprocal registrations + linked grants into graphs named after the source resources; implemented, **not wired**, no new test harness | ✅ green — build + package suites + `/test` (user-run) pass; mirror runtime behavior still deferred: call sites commented out until 4b, unregister flow future |
 | ✅ **2 — Reads → SPARQL** | org-context peer-data reads (reciprocal bodies + data grants, only when `webId != context`) move to SPARQL over the session's **internal** endpoint; gated `/sparql-admin` (HTTP `QUERY`), admin-facing; sessions/context untouched; everything else stays HTTP this phase | ✅ green — build + package suites + `/test` (user-run) pass |
-| **3 — Context/session fix** | `Context.ts` returns user session + resolved registry set; owner identity from context; class-C fixes; writes-only risk | green; one dagger verification of container-create path |
-| **4a — Endpoint registry** | per-owner endpoint addresses in `AccountLoginStorage`, env-var fallback retained | green |
-| **4b — Per-owner cutover** | one store per registry/storage; mirrors **must be active before cutover**; external admin-endpoint discovery | joint with user (`/test` harness) |
+| ✅ **3 — Context/session fix** | `Context.ts` returns user session + resolved registry set; owner identity from context; class-C fixes; writes-only risk | ✅ green — build + package suites + `/test` (user-run) pass; container-create probe as Dan confirmed (commit `50b44bf4`) |
+| — **Phase 4** (extracted) | per-owner datasets + SPARQL endpoints (endpoint registry, store split, mirror activation, admin-endpoint discovery) — see `isolated-datasets-and-sparql.md` | joint with user (`/test` harness) |
 
 Dependencies: 3 needs nothing from 1; 2 may consume global graphs directly
-(mirrors optional until 4b); mirrors must be wired and populated **before**
-the 4b cutover (cross-graph queries die once stores split).
+(mirrors optional until the store split); mirrors must be wired and
+populated **before** the per-owner cutover (`isolated-datasets-and-sparql.md`
+4b) — cross-graph queries die once stores split.
 
 ---
 
@@ -305,18 +308,16 @@ characterization tests of §2.1 plus existing suites.
 
 ### 2.4 Known issue — org-context `listDataInstances` on peers' registries
 
-**Tracked, no test currently requires it.** `listDataInstances(agentId, …)`
-with `agentId != session.webId` iterates instances through
-`Grant.getDataInstanceIterator`, which HTTP-dereferences the peer's data
-registration and instances with the session's credentials. In org context
-those are the org's credentials, which match no ACR on the peer's server
-(the peer's ACRs grant `(peer, peerUAS)` only), and the admin's own
-credentials don't help either. Data-instance *content* is deliberately
-out of scope for SPARQL reads and mirrors (scope guard: registry
-metadata only), so this phase cannot fix it. Consequence: an org admin
-can see the *metadata* of peers' data registries (grants → registration
-list) but cannot list the instances inside them. Revisit together with
-the peer-instance listing open item.
+**Extracted → [`org-context-proxy.md`](org-context-proxy.md).** Summary:
+org-context instance listing of peers' data registrations has no working
+path — `Grant.getDataInstanceIterator` HTTP-dereferences the peer's data
+registration/instances with the admin's credentials, which no peer ACR
+matches. The peer-data *metadata* reads are SPARQL-migrated (phases 2–3);
+instance *content* stays HTTP by the scope guard, mirrors cover registry
+metadata only, and the per-owner split (4b) removes even the shared-store
+fallback. The new plan owns the decision space (proxy / mirror-extended /
+grantee-ACR) and the "does peer-instance listing enter org-context scope"
+question. No test currently requires it.
 
 ---
 
@@ -327,12 +328,11 @@ the peer-instance listing open item.
 Ordered, each step ends green (build + package suites; `/test` user-run).
 `packages/components/src` unless noted. Site counts below are grep-verified.
 
-1. **Baseline probe (user-run, do FIRST).** Run the current org-context
-   suite green; manually exercise `CreateRole` + `AddAdmin` in the org
-   context as Dan. This is the §3.4 guard: it must confirm the
-   **container-create** path works under non-cascading member access
-   *before* services are mass-edited (mutating seeded resources is known
-   debt — out of scope, see below).
+1. ✅ **Baseline probe (user-run, do FIRST).** Current org-context suite
+   green; CreateRole + AddAdmin in the org context as Dan exercised the
+   **container-create** path under non-cascading member access (the §3.4
+   guard) — passed (mutating seeded resources is known debt, out of
+   scope, no test).
 
 2. ✅ **P3-1 — `ResolvedContext` (`services/Context.ts`)** (implemented):
    - `resolveContext(userSession, context)` — no second session; org
@@ -378,9 +378,10 @@ Ordered, each step ends green (build + package suites; `/test` user-run).
 
    *(Unexercised-org-context notes folded in: `authorizeApp`/
    `shareResource` still record through the AA's own registry set —
-   commented as debt; `listDataInstances` instance content stays §2.4.)*
+   commented as debt; `listDataInstances` instance content →
+   `org-context-proxy.md`.)*
 
-6. **P3-5 — verification (user-run).** `/test/org-context.test.ts`
+6. ✅ **P3-5 — verification (user-run).** `/test/org-context.test.ts`
    assertions unchanged; role creation now genuinely authenticates via
    **Dan's UAS** (`#fullAdminAccess` on un-`.acr`-ed containers) instead of
    the org's `fullOwnerAccess`; org-context reads resolve via the internal
@@ -388,16 +389,17 @@ Ordered, each step ends green (build + package suites; `/test` user-run).
    registration resources as Dan → 403 (own `.acr`, `fullOwnerAccess`
    only) — **no test exercises it**; fresh resources created under
    un-`.acr`-ed containers (roles, AdminAuthorizations, invitations)
-   inherit `#fullAdminAccess` and work — that is what the dagger probe in
-   step 1 must prove. Edge to watch: org-context `revokeGrants` deletes
-   grant closures (seeded grants have own `.acr`) — unverified in tests;
-   keep on the debt umbrella, don't extend scope.
+   inherit `#fullAdminAccess` and work — verified by the baseline probe.
+   Edge to watch: org-context `revokeGrants` deletes grant closures
+   (seeded grants have own `.acr`) — unverified in tests; kept on the
+   debt umbrella, not extended in scope.
 
 7. **Excluded from phase 3 (verify, don't change):** temporal
    activities/webhooks keep building their own org sessions
    (server-side, trusted, legitimate); `getApplications`/invitations/
    access-request flows take `ctx` but stay personal-context-oriented in
-   behavior; data-instance content reads unchanged (§2.4 known issue).
+   behavior; data-instance content reads unchanged (see
+   `org-context-proxy.md`).
 
 ### 3.1 `ResolvedContext`
 
@@ -446,8 +448,8 @@ reads stay untouched (the user's own ACRs match the user's session).
   `services/queries/org.ts`. Also the mirror-covered peer branches that
   are still HTTP: `getDataRegistries` peer branch, `findDataGrantIndex`,
   `listDataInstances` peer branch (reciprocal bodies + grants);
-  `listDataInstances` **instance content** stays on the §2.4 debt
-  umbrella (mirrors cover registry metadata only).
+  `listDataInstances` **instance content** stays on the debt umbrella
+  → `org-context-proxy.md`.
 - `saiSession.registrySet.*` → `ctx.registrySet.*`
   (AgentRegistry ×3, RoleRegistry ×4, Authorization ×5, Admin ×6,
   DataRegistry ×1, ShareResource ×3);
@@ -499,64 +501,20 @@ generalization); tracked as follow-up, not in this plan's scope.
 
 ---
 
-## Phase 4 — per-owner SPARQL endpoints
+## Phase 4 — per-owner datasets & SPARQL (extracted)
 
-### 4a — Endpoint registry (green everywhere)
+Extracted into **`docs/plans/isolated-datasets-and-sparql.md`**: the
+per-owner endpoint registry (**4a**, green everywhere) and the per-owner
+store cutover (**4b**, joint checkpoint — mirror activation,
+serialized syncs, external admin-endpoint discovery, environment work;
+cross-owner isolation + mirror-freshness tests).
 
-Per-owner endpoint addresses in `AccountLoginStorage` — the
-`ReciprocalWebhookStore` pattern (`RECIPROCAL_WEBHOOK_STORAGE_TYPE`):
-
-```
-type 'sparqlEndpoint' = { accountId, webId: string, endpoint: string }
-```
-
-- provisioned at account/registry-set bootstrap (`services/Account.ts`);
-- `SessionManager.getSession(webId)` resolves the record, hands each AA
-  its own internal endpoint; **env-var fallback retained** so nothing else
-  must change yet;
-- migrate direct consumers (`SaiPermissionsEngine`,
-  `SaiAuthorizationManager`, `GrantRevocationHandler`) to session-scoped /
-  looked-up endpoints.
-
-### 4b — Per-owner store cutover (joint checkpoint)
-
-Prerequisite checklist before flipping environments:
-
-- [ ] mirrors wired and backfilled for all existing reciprocals (until this
-      cutover, phases 2–3 read peer graphs directly from the shared store —
-      see `federation.md` shortcuts 1/1a); re-enabling = uncommenting the two
-      disabled call sites (`ActivityWebhookHandler` `delegatedGrantsUpdated`
-      fan-out + `establishReciprocal` initial-mirror step). The worker env
-      var + `sparql` service binding are **already added** in
-      `.dagger/src/index.ts`, so re-enabling is code-only. The mirror write deliberately lives ONLY at
-      those workflow-orchestration sites — never inside the
-      `reciprocalRegistration` discovery activity
-      (cross-graph queries die once stores split);
-- [ ] mirror syncs serialized per (webId, peerId): deterministic workflowId
-      with start-or-absorb (grantee-consumer pattern) — random workflowIds
-      today allow two syncs for the same reciprocal to race, and a stale-diff
-      drop could remove a graph a concurrent newer sync just re-linked;
-- [ ] `/sparql-admin` forwards into the **org's own store** — closes the
-      global-graph caveat from §2.2;
-- [ ] external discovery for admins, mirroring C2's mechanism:
-      `AgentIdHandler` exposes the org's admin-endpoint IRI to admins
-      (third `Link` header with new rel, e.g. `hasSparqlEndpoint`, or a
-      field in the agent-id document body next to
-      `hasDelegationIssuanceEndpoint` — term naming tbd); AA resolves +
-      caches it like `getRegistrySet`; `ResolvedContext` carries it;
-
-Environment work (user-side): per-store containers + nginx wiring in
-`environments/css`, seed loading per owner, `setup.ts`/`kv.json` updates.
-Then drop the global env var.
-
-### Tests
-
-- `/test` (user-run): cross-owner isolation — Dan querying Alice's
-  endpoint → 403 by gate; Dan's queries never see Alice graphs even at his
-  own endpoint; org-context flows green end-to-end against per-owner
-  stores; mirror freshness e2e (peer update → webhook → `waitFor` → view
-  reflects; unregister → mirror deleted).
-- Package vitest: endpoint-record CRUD, bootstrap wiring.
+In short: phases 2–3 read the peers' live graphs from the shared store
+(`federation.md` shortcut 1); 4b splits the store per owner, activates the
+phase-1 mirrors (uncommenting the two call sites), and points
+`/sparql-admin` + `ResolvedContext` at the org's own dataset. The
+IRI-parametrized queries of phases 2–3 resolve to mirror graphs with **zero
+query changes**.
 
 ---
 
@@ -582,47 +540,41 @@ Then drop the global env var.
 - **Read transport split:** server-side org-context reads use the internal
   endpoint (federation.md shortcut 1 — the shared store holds peer
   graphs); `/sparql-admin` is the admin-facing gate, consumed by external
-  admin clients now and by org-context reads at the 4b per-owner split
-  (authenticated as the admin, never the org).
+  admin clients now; org-context reads switch to it (authenticated as the
+  admin, never the org) at the per-owner split —
+  `isolated-datasets-and-sparql.md`.
 - **Known issue (§2.4):** org-context `listDataInstances` on peers' data
   registries has no working path (data-instance content is out of scope
   for SPARQL/mirrors); no test requires it; tracked.
 - **Phase-2 migration scope:** only org-context peer-data reads
   (`getSocialAgents` both passes + `buildSocialAgentProfile`,
-  `webId != context`) move to SPARQL, through `/sparql-admin`; all other
-  reads (personal context, simple GETs, iteration views) stay unchanged
-  until a later optimization pass. Pass-2 labels keep the HTTP
+  `webId != context`) move to SPARQL over the session's internal endpoint;
+  all other reads (personal context, simple GETs, iteration views) stay
+  unchanged until a later optimization pass. Pass-2 labels keep the HTTP
   `webIdProfile` source (grants/registrations carry no usable label for
   grant-owned agents).
-- Mirror call sites stay dormant through phase 2; phase-2 queries read
+- Mirror call sites stay dormant through phase 3; phases 2–3 queries read
   the peers' live graphs in the shared store and are IRI-parametrized so
-  they resolve to mirror graphs unchanged at 4b.
+  they resolve to mirror graphs unchanged at the per-owner cutover
+  (`isolated-datasets-and-sparql.md`).
 - ACP does not cascade: containers inherit root `memberAccessControl`;
   resources with own `.acr` don't. Seeded-resource mutation gap accepted
   as debt (future `syncAdminAcr` generalization).
-- Endpoint-per-owner addresses in `AccountLoginStorage`; external admin
-  discovery mirrors the `hasRegistrySet` mechanism.
 - No new package-level test harness for `packages/components`; verification
   rides `/test` dagger checkpoints, reviewed/run/committed by the maintainer
   after each step.
 
 ## Open items
 
-- rel term / doc field name for endpoint discovery (vocab addition).
-- Mirror staleness policy (re-poll on webhook gap?) and initial backfill
-  tooling for existing registrations — **a phase-4b prerequisite only**;
-  phases 2–3 do not depend on mirrors being populated. Note: the
-  `done` status of a `delegatedGrantsUpdated` activity reflects grant
-  regeneration only — the parallel mirror-sync workflow retries
-  independently. **Decided:** when `reconcileActivities` is scheduled
-  (currently never scheduled — Phase 4.2), its `delegatedGrantsUpdated`
-  branch also re-runs `syncReciprocalMirror` for the failed-mirror case,
-  plus a drift-scan arm (reciprocal-linked registrations whose mirror graph
-  is missing) as the durable backstop beyond activity retries.
-- Query timeouts / forced LIMIT values at the admin endpoint.
+- Query timeouts / forced LIMIT values at the admin endpoint ($2.2
+  hygiene; `isolated-datasets-and-sparql.md` 4b forwards `/sparql-admin`
+  into the org's own store).
 - Whether peer-instance content listing ever enters org-context scope
-  (currently no; mirrors cover registry metadata only) — linked to the
-  §2.4 known issue.
+  (currently no; mirrors cover registry metadata only) — **extracted to
+  `org-context-proxy.md`**, linked to the §2.4 known issue.
+
+(rel term for endpoint discovery and mirror staleness/backfill moved to
+`isolated-datasets-and-sparql.md` open items.)
 
 ## Phase-2 kickoff decisions (resolved)
 

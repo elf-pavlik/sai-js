@@ -8,12 +8,12 @@ primary source.
 
 | Status | Count | Plans |
 |---|---|---|
-| ✅ done | 16 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
-| 🔶 partial (first cut landed) | 2 | `revoke-delegation-chain`, `org-context-sparql` (phase 1: dormant mirror writer) |
-| ⬜ not started / design only | 8 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions` |
+| ✅ done | 17 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
+| 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
+| ⬜ not started / design only | 10 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `org-context-proxy` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**27 plans total.** All remaining work lives in the 10 non-done plans below —
+**29 plans total.** All remaining work lives in the 12 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -46,7 +46,9 @@ nothing open is blocked by an unlanded plan.
 | `federation.md` | ⬜ design note (org-admin companion) | Single-deployment shortcuts the org-admin data-plane relies on: shared SPARQL endpoint, global-fetch UAS/storage discovery, local pod-storage ownership, `hasRegistrySet` link across servers, webhook delivery; future federated lookups | `org-admin-feature` (umbrella) |
 | `events.md` | ⬜ design note (org-admin companion) | Domain-event (activityType) catalogue incl. the new `adminAuthorizationRecorded` event → parallel `createAdminGrants` + `syncAdminAcr` workflows; deferred/future events (data-registry-added regeneration, admin revocation) | `workflow-temporal-decupling` (outbox model); `org-admin-feature` (umbrella) |
 | `registry-set-permissions.md` | ⬜ not started (design) | Scope the blanket `#fullAdminAccess` per structural registry: per-container ACRs, GrantRegistry owner-only (admins never write grants; per-grant ACRs serve reads), ActivityRegistry Read + create/append (append-only immutable log) instead of blanket Write; seed ACR hygiene for the ACR-less yoyo DataGrants | `org-admin-feature` R1 |
-| `org-context-sparql.md` | 🔶 partial (phase 1 landed: dormant mirror writer; verified (build, tests, /test)) | Four-phase org-context correctness + read-plane migration: dormant reciprocal-mirror writer → all registry-set reads via SPARQL (internal endpoint both contexts, gated `/sparql-admin`) → context/session fix (`Context.ts` stops minting org sessions; writes-only impact) → per-owner endpoints in internal storage + mirror activation + external discovery. Records the non-cascading-ACR constraint and the seeded-resource mutation gap as known debt | `org-admin-feature` Phase 2 (C2); supersedes its §2.8 registry-set-resolution open items |
+| `org-context-sparql.md` | ✅ done (phases 1–3 landed, committed `50b44bf4`; /test green) | Org-context correctness + read-plane migration, phases 1–3 of this document: dormant reciprocal-mirror writer → all registry-set reads via SPARQL (internal endpoint both contexts, gated `/sparql-admin` HTTP `QUERY`) → context/session fix (`Context.ts` stops minting org sessions; owner identity from context; class-C fixes). Records the non-cascading-ACR constraint and the seeded-resource mutation + peer-instance-listing gaps as known debt. Phase 4 (per-owner datasets) extracted to `isolated-datasets-and-sparql` | `org-admin-feature` Phase 2 (C2); supersedes its §2.8 registry-set-resolution open items |
+| `isolated-datasets-and-sparql.md` | ⬜ not started (design only) | Per-owner datasets + SPARQL: 4a endpoint registry in `AccountLoginStorage` (env-var fallback) → 4b per-owner store cutover (joint checkpoint): mirror activation + backfill, serialized syncs, `/sparql-admin` → the org's own store, external admin-endpoint discovery, environment work, cross-owner isolation + mirror-freshness tests. The IRI-parametrized reads of `org-context-sparql` phases 2–3 resolve to mirrors unchanged | `org-context-sparql` (phases 1–3); `federation.md` shortcuts 1/1a |
+| `org-context-proxy.md` | ⬜ not started (design only) | The org-context `listDataInstances` known issue (extracted from `org-context-sparql` §2.4): admins can see peers' data-registration *metadata* but cannot list the *instances* (HTTP dereference as the admin 403s; mirrors cover registry metadata only). Design space: org-as-grantee proxy, mirror-extension, peer ACR hygiene (grantee-first), and whether instance listing enters org-context scope | `org-context-sparql` (§2.4 + phases 2–3); `isolated-datasets-and-sparql` (4b data-plane analogue); `registry-set-permissions` (ACR hygiene) |
 
 ## Dependency graph
 
@@ -113,8 +115,62 @@ tracked in this index). Four companions:
 - `events.md` — design note; builds on the `workflow-temporal-decupling` outbox
   model (the `activityWorkflows` map / `GRANTEE_ACTIVITY_TYPES` dispatch).
 - `registry-set-permissions.md` — ⬜ design; follow-up to `org-admin-feature` R1.
-- `org-context-sparql.md` — ⬜ design; four-phase plan fixing the org-context
-  session model and migrating the read plane to SPARQL.
+- `org-context-sparql.md` — ✅ done (phases 1–3 landed: dormant mirror
+  writer; SPARQL read plane; context/session fix); per-owner phase 4
+  extracted to `isolated-datasets-and-sparql`.
+- `isolated-datasets-and-sparql.md` — ⬜ design; extracted phase 4:
+  per-owner datasets + SPARQL endpoints, mirror activation + backfill,
+  external admin-endpoint discovery — joint `/test` checkpoint at the
+  store-split cutover.
+- `org-context-proxy.md` — ⬜ design; extracted §2.4 known issue:
+  org-context peer data-instance listing (authority model for the
+  admin's reads of granted instances; proxy / mirror / ACR-hygiene
+  directions).
+
+## Federation
+
+**[`federation.md`](federation.md)** — design note, not a tracked plan:
+documents the **single-deployment shortcuts** the org-admin data plane
+relies on and what actually breaks once servers/stores split. It is the
+primary reference for the per-owner work; each shortcut maps to a plan
+below:
+
+| `federation.md` shortcut | What it is | Plan(s) that address / depend on it |
+|---|---|---|
+| **1 — shared SPARQL store** | one triple store behind the registry + data servers; every graph visible from every endpoint | `org-context-sparql.md` phases 2–3 (reads resolve against it today); ended by the `isolated-datasets-and-sparql.md` 4b store split |
+| **1a — reciprocal mirrors** | the federated replacement for cross-graph reads: org-local copies of peers' registrations + grants, named after the source IRIs | `org-context-sparql.md` phase 1 (dormant writer; IRI-parametrized queries make the cutover query-free); `isolated-datasets-and-sparql.md` 4b (activation, backfill, serialized syncs) |
+| **2 — UAS/storage discovery via global fetch** | discovery uses the global fetch, not a session-bound one — fine on one compose network | no dedicated plan yet; revisit when servers split across hosts (noted in `federation.md`) |
+| **3 — pod/storage ownership is local** | `podStore.getOwners` decides "owner of this storage" per server | no dedicated plan yet (the data-plane admin-status path, see "Cases the design must keep working" in `federation.md`) |
+| **4 — org's AA serves the registry-set link across servers** | the *intended* federation shape for the registry plane: `Link: rel="interop:hasRegistrySet"` served by the org's agent-id doc, resolved by the admin's AA | `org-admin-feature.md` §2.4 (C2, umbrella — not tracked in this index) |
+| **5 — activity/outbox delivery on one notification path** | webhooks from the org's Activity Registry → admin UI assume co-location | `durable-webhook-delivery.md` (cross-server delivery, ⬜); `webhook-subscription-bootstrap.md` (channel provisioning for real deployments, ⬜) |
+
+Directly related plans: **`isolated-datasets-and-sparql.md`** (the
+per-owner cutover that ends shortcut 1 and makes 1a load-bearing),
+**`org-context-sparql.md`** (phases 2–3 consume shortcut 1; phase 1 writes
+shortcut 1a's mirrors), **`org-context-proxy.md`** (the data-plane
+analogue — org-context reads of peers' granted *data instances*, which
+neither the shared store's registry metadata nor the mirrors cover), and
+the two webhook-delivery plans above (shortcut
+5). Adjacent: `registry-set-permissions.md` (which server's ACRs grant
+what across owners — seed hygiene for ACR-less yoyo DataGrants).
+
+## Security
+
+Security-relevant work that spans plans is catalogued here; a section of
+the plan is only listed once the plan spells out an enforcement boundary.
+For now:
+
+- **[`isolated-datasets-and-sparql.md`](isolated-datasets-and-sparql.md)** —
+  the per-owner SPARQL read plane's authorization boundaries: per-owner
+  endpoint records in `AccountLoginStorage` (4a), the `/sparql-admin`
+  `hasAdminGrant` gate forwarding into the org's own store (4b, closing
+  the who-not-which-graphs caveat), the mirror **single-writer invariant**
+  (only server-side sync writes mirror graphs; admin code read-only), and
+  the cross-owner isolation tests (Dan querying Alice's endpoint → 403 by
+  gate; no cross-graph leakage even at his own endpoint).
+
+(More plans will be listed here as their security aspects are spelled
+out — e.g. ACR/ACP scoping such as `registry-set-permissions.md`.)
 
 ## Custom Community Solid Server (CSS) components
 

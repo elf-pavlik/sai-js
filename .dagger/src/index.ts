@@ -133,7 +133,7 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data-48668484')
+    const pgData = dag.cacheVolume('temporal-pg-data-6487864')
 
     const pg = dag
       .container()
@@ -233,8 +233,13 @@ export class SaiJs {
       )
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+      // temporal activities query/update the registry store directly (e.g.
+      // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
+      // kept so re-enabling needs no dagger change
+      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', temporal)
+      .withServiceBinding('sparql', this.sparqlService())
       .withExposedPort(9235)
       .asService({
         args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],

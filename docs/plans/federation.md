@@ -32,10 +32,36 @@ but today the registry and data servers point at **the same triple store**
   graph is in the same store the data server queries.
 - `GrantIssuanceHandler.validateDelegable` queries the data owner's registry
   the same way (cross-server grant lookup assumed impossible without this).
+- **Org-context reads (phases 2–3 of `org-context-sparql.md`) query peer
+  graphs directly** from this shared store — reciprocal registrations and
+  their data grants are read cross-graph instead of being dereferenced over
+  HTTP. This shortcut silently stands in for replication: the moment stores
+  split per owner (phase 4b), those graphs vanish from the org's endpoint
+  and the **local reciprocal mirrors become load-bearing** (see below).
 
 **Future:** federated SPARQL endpoints / per-server query fan-out, or an
 explicit cross-server grant lookup. TODO — not blocking the current
 single-store deployments.
+
+### 1a. Reciprocal mirroring is the federated replacement for cross-graph reads
+
+`org-context-sparql.md` phases 1/4b introduce local read-only copies of the
+peer-side data org-context reads need: each org mirrors its peers'
+reciprocal registrations (+ linked data grants) into graphs named after the
+source resource IRIs, kept fresh by webhook-driven `syncReciprocalMirror`
+workflows. In a federated deployment this is not an optimization but the
+**only** source for those reads:
+
+- the org's store contains nothing about peers except what the org mirrored;
+- freshness is eventually-consistent via webhook delivery (depends on
+  shortcut 5 / `durable-webhook-delivery.md`);
+- **the sync workflows are implemented but disabled until the per-owner
+  cutover** — with one shared store, mirror graphs would collide with the
+  live peer graphs of the same name;
+- existing registrations need a one-time **backfill** before any per-owner
+  cutover — a listed prerequisite of `org-context-sparql.md` phase 4b;
+- unregister propagation (mirror deletion when a peer removes the
+  registration) has no flow yet and must exist before 4b as well.
 
 ### 2. UAS / storage discovery uses the global `fetch`
 
@@ -86,3 +112,7 @@ for cross-server webhook delivery.
   a storage-ownership registry.
 - **Webhook/Activity cross-server delivery** (shortcut 5) so admin UI events
   don't depend on co-location.
+- **Mirror completeness at per-owner cutover** (shortcut 1a): every live
+  reciprocal registration must be mirrored and fresh before an org moves to
+  its own store — otherwise org-context views silently lose peer-derived
+  rows (labels, access-requested flags, grants).

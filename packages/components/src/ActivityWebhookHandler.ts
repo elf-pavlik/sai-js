@@ -29,21 +29,37 @@ import {
   processRoleMembershipChange,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
-import { establishReciprocal } from './temporal/workflows/reciprocal.js'
+import {
+  establishReciprocal,
+  // TODO(org-context-sparql phase 4b): imported now so re-enabling the
+  // mirror-sync fan-out below is a pure uncomment (no import edit needed)
+  syncReciprocalMirror,
+} from './temporal/workflows/reciprocal.js'
 
-// activityType → workflow + task queue (the single handler stays dumb; producers
+// activityType → workflows + task queues (the single handler stays dumb; producers
 // write the typed change and the payload is the ready-made workflow input).
+// Most types run a single workflow; `delegatedGrantsUpdated` fans out in
+// parallel (grant regeneration + local reciprocal-mirror sync).
 // authorizationRecorded/authorizationRevoked are NOT here — they route to the
 // per-target consumer (processGranteeActivities, Phase 4.1).
-const activityWorkflows: Record<string, { workflow: Workflow; taskQueue: string }> = {
-  roleMembershipChanged: { workflow: processRoleMembershipChange, taskQueue: 'create-grants' },
-  roleDeleted: { workflow: processRoleDeletion, taskQueue: 'create-grants' },
-  agentRegistrationAdded: {
-    workflow: establishReciprocal,
-    taskQueue: 'reciprocal-registration',
-  },
-  delegatedGrantsUpdated: { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
-  grantsRevoked: { workflow: processGrantsRevocation, taskQueue: 'create-grants' },
+const activityWorkflows: Record<
+  string,
+  Array<{ workflow: Workflow; taskQueue: string }>
+> = {
+  roleMembershipChanged: [{ workflow: processRoleMembershipChange, taskQueue: 'create-grants' }],
+  roleDeleted: [{ workflow: processRoleDeletion, taskQueue: 'create-grants' }],
+  agentRegistrationAdded: [
+    { workflow: establishReciprocal, taskQueue: 'reciprocal-registration' },
+  ],
+  delegatedGrantsUpdated: [
+    { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
+    // TODO(org-context-sparql phase 4b): re-enable mirror sync once SPARQL
+    // endpoints are per-owner. Until then mirror graphs share their names
+    // with the LIVE peer graphs in the single shared store — DROP/INSERT
+    // here would destroy the peers' actual resources (federation.md 1a):
+    // { workflow: syncReciprocalMirror, taskQueue: 'reciprocal-registration' },
+  ],
+  grantsRevoked: [{ workflow: processGrantsRevocation, taskQueue: 'create-grants' }],
 }
 
 const GRANTEE_ACTIVITY_TYPES = new Set(['authorizationRecorded', 'authorizationRevoked'])
@@ -172,8 +188,8 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
         return new ResponseDescription(200)
       }
 
-      const entry = activityWorkflows[activity.activityType]
-      if (entry) {
+      const entries = activityWorkflows[activity.activityType]
+      if (entries) {
         const temporal = new Temporal()
         await temporal.init()
         // agentRegistrationAdded needs the accountId (the channel is per-account);
@@ -188,11 +204,13 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
                 },
               ]
             : [{ ...(activity.payload as object), activityIri: requestBody.object }]
-        await temporal.client.workflow.start(entry.workflow, {
-          taskQueue: entry.taskQueue,
-          args: args as [ReciprocalRegistrationInput],
-          workflowId: crypto.randomUUID(),
-        })
+        for (const entry of entries) {
+          await temporal.client.workflow.start(entry.workflow, {
+            taskQueue: entry.taskQueue,
+            args: args as [ReciprocalRegistrationInput],
+            workflowId: crypto.randomUUID(),
+          })
+        }
       }
     }
     return new ResponseDescription(200)

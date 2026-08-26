@@ -9,11 +9,11 @@ primary source.
 | Status | Count | Plans |
 |---|---|---|
 | ✅ done | 16 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
-| 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
+| 🔶 partial (first cut landed) | 2 | `revoke-delegation-chain`, `org-context-sparql` (phase 1: dormant mirror writer) |
 | ⬜ not started / design only | 8 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**26 plans total.** All remaining work lives in the 9 non-done plans below —
+**27 plans total.** All remaining work lives in the 10 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -46,6 +46,7 @@ nothing open is blocked by an unlanded plan.
 | `federation.md` | ⬜ design note (org-admin companion) | Single-deployment shortcuts the org-admin data-plane relies on: shared SPARQL endpoint, global-fetch UAS/storage discovery, local pod-storage ownership, `hasRegistrySet` link across servers, webhook delivery; future federated lookups | `org-admin-feature` (umbrella) |
 | `events.md` | ⬜ design note (org-admin companion) | Domain-event (activityType) catalogue incl. the new `adminAuthorizationRecorded` event → parallel `createAdminGrants` + `syncAdminAcr` workflows; deferred/future events (data-registry-added regeneration, admin revocation) | `workflow-temporal-decupling` (outbox model); `org-admin-feature` (umbrella) |
 | `registry-set-permissions.md` | ⬜ not started (design) | Scope the blanket `#fullAdminAccess` per structural registry: per-container ACRs, GrantRegistry owner-only (admins never write grants; per-grant ACRs serve reads), ActivityRegistry Read + create/append (append-only immutable log) instead of blanket Write; seed ACR hygiene for the ACR-less yoyo DataGrants | `org-admin-feature` R1 |
+| `org-context-sparql.md` | 🔶 partial (phase 1 landed: dormant mirror writer; verified (build, tests, /test)) | Four-phase org-context correctness + read-plane migration: dormant reciprocal-mirror writer → all registry-set reads via SPARQL (internal endpoint both contexts, gated `/sparql-admin`) → context/session fix (`Context.ts` stops minting org sessions; writes-only impact) → per-owner endpoints in internal storage + mirror activation + external discovery. Records the non-cascading-ACR constraint and the seeded-resource mutation gap as known debt | `org-admin-feature` Phase 2 (C2); supersedes its §2.8 registry-set-resolution open items |
 
 ## Dependency graph
 
@@ -105,13 +106,15 @@ refactor-grants-workflows  ✅
 ### D. Org-admin workstream companion docs
 
 `org-admin-feature.md` is the umbrella for the org-admin workstream (itself not
-tracked in this index). Three companions:
+tracked in this index). Four companions:
 
 - `federation.md` — design note; cross-checks with `org-admin-feature` §2.4 (C2)
   and the engine path in `registry-set-permissions`.
 - `events.md` — design note; builds on the `workflow-temporal-decupling` outbox
   model (the `activityWorkflows` map / `GRANTEE_ACTIVITY_TYPES` dispatch).
 - `registry-set-permissions.md` — ⬜ design; follow-up to `org-admin-feature` R1.
+- `org-context-sparql.md` — ⬜ design; four-phase plan fixing the org-context
+  session model and migrating the read plane to SPARQL.
 
 ## Custom Community Solid Server (CSS) components
 

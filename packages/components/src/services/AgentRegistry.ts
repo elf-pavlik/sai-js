@@ -18,9 +18,12 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
+import type { ResolvedContext } from './Context.js'
 import {
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
+  findSocialAgentRegistration as findRegistrationFromSparql,
+  listContained,
 } from './queries/org.js'
 
 /**
@@ -28,10 +31,10 @@ import {
  * registration of us / of the org). Personal context keeps the HTTP factory
  * path; org context reads it from the session's internal SPARQL endpoint —
  * the peer's graphs live in the shared store (federation.md shortcut 1) and
- * would 403 over HTTP with the org's credentials.
+ * their `.acr`s grant the org/registered agent, never the admin.
  */
 async function getReciprocalRegistration(
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   registration: SocialAgentRegistrationData,
   personal: boolean
 ): Promise<SocialAgentRegistrationData> {
@@ -39,8 +42,54 @@ async function getReciprocalRegistration(
     throw new Error(`no reciprocal registration on ${registration.id}`)
   }
   return personal
-    ? saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration)
-    : getRegistrationFromSparql(saiSession.sparqlEndpoint, registration.reciprocalRegistration)
+    ? ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
+    : getRegistrationFromSparql(ctx.session.sparqlEndpoint, registration.reciprocalRegistration)
+}
+
+/**
+ * The social-agent registrations of the *context* registry — the org's own in
+ * org context. Personal: SDK iteration (HTTP, the user's own ACRs match).
+ * Org context: SPARQL — seeded registration resources carry own `.acr`s that
+ * never grant the admin (registered-agent/org only, org-context-sparql.md
+ * §3.0/3b), so HTTP reads 403 once `ctx.session` is the user.
+ */
+async function listSocialAgentRegistrations(
+  ctx: ResolvedContext
+): Promise<SocialAgentRegistrationData[]> {
+  if (ctx.webId === ctx.userWebId) {
+    const registrations: SocialAgentRegistrationData[] = []
+    for await (const registration of ctx.session.socialAgentRegistrations) {
+      registrations.push(registration)
+    }
+    return registrations
+  }
+  const iris = await listContained(ctx.session.sparqlEndpoint, ctx.registrySet.hasAgentRegistry.id)
+  return Promise.all(iris.map((iri) => getRegistrationFromSparql(ctx.session.sparqlEndpoint, iri)))
+}
+
+export { listSocialAgentRegistrations }
+
+/**
+ * Find the context registry's registration of `webId` (match on
+ * `registeredAgent`). Personal: data-model module scan (HTTP). Org context:
+ * SPARQL (see `listSocialAgentRegistrations`).
+ */
+export const findSocialAgentRegistrationInContext = async (
+  ctx: ResolvedContext,
+  webId: string
+): Promise<SocialAgentRegistrationData | undefined> => {
+  if (ctx.webId === ctx.userWebId) {
+    return AgentRegistry.findSocialAgentRegistration(
+      ctx.registrySet.hasAgentRegistry,
+      ctx.session.factory,
+      webId
+    )
+  }
+  return findRegistrationFromSparql(
+    ctx.session.sparqlEndpoint,
+    ctx.registrySet.hasAgentRegistry.id,
+    webId
+  )
 }
 
 /**
@@ -56,11 +105,11 @@ async function getReciprocalRegistration(
  */
 export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   personal = true
 ) => {
   const reciprocal = registration.reciprocalRegistration
-    ? await getReciprocalRegistration(saiSession, registration, personal)
+    ? await getReciprocalRegistration(ctx, registration, personal)
     : undefined
   let admin = false
   if (personal && reciprocal) {
@@ -85,27 +134,27 @@ export const buildSocialAgentProfile = async (
   })
 }
 
-export const getSocialAgents = async (saiSession: AuthorizationAgent, personal = true) => {
+export const getSocialAgents = async (ctx: ResolvedContext) => {
+  const personal = ctx.webId === ctx.userWebId
+  const registrations = await listSocialAgentRegistrations(ctx)
+
   const profiles = []
-  for await (const registration of saiSession.socialAgentRegistrations) {
-    profiles.push(await buildSocialAgentProfile(registration, saiSession, personal))
+  for (const registration of registrations) {
+    profiles.push(await buildSocialAgentProfile(registration, ctx, personal))
   }
 
   const seenIds = new Set(profiles.map((p) => p.id))
-  for await (const registration of saiSession.socialAgentRegistrations) {
+  for (const registration of registrations) {
     if (!registration.reciprocalRegistration) continue
     const reciprocalReg = personal
-      ? await saiSession.factory.socialAgentRegistration(registration.reciprocalRegistration)
-      : await getRegistrationFromSparql(
-          saiSession.sparqlEndpoint,
-          registration.reciprocalRegistration
-        )
+      ? await ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
+      : await getRegistrationFromSparql(ctx.session.sparqlEndpoint, registration.reciprocalRegistration)
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
     const dataGrants = personal
-      ? await getDataGrants(reciprocalReg, saiSession.factory)
+      ? await getDataGrants(reciprocalReg, ctx.session.factory)
       : await Promise.all(
           reciprocalReg.hasDataGrant.map((grantIri) =>
-            getDataGrantFromSparql(saiSession.sparqlEndpoint, grantIri)
+            getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
           )
         )
     for (const dataGrant of dataGrants) {
@@ -114,7 +163,7 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent, personal =
       seenIds.add(ownerIri)
       let label = dataGrant.dataOwner
       try {
-        const profile = await saiSession.factory.webIdProfile(ownerIri)
+        const profile = await ctx.session.factory.webIdProfile(ownerIri)
         if (profile.label) label = profile.label
       } catch {
         /* fallback to IRI */
@@ -135,33 +184,33 @@ export const getSocialAgents = async (saiSession: AuthorizationAgent, personal =
 }
 
 export const addSocialAgent = async (
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   data: { webId: string; label: string; note?: string }
 ) => {
-  const existing = await saiSession.findSocialAgentRegistration(data.webId)
+  const existing = await findSocialAgentRegistrationInContext(ctx, data.webId)
   if (existing) {
     // logger.error('SocialAgentRegistration already exists', { webId: data.webId })
-    return buildSocialAgentProfile(existing, saiSession)
+    return buildSocialAgentProfile(existing, ctx)
   }
   const registration = await AgentRegistry.addSocialAgentRegistration(
-    saiSession.registrySet.hasAgentRegistry,
-    saiSession.factory,
-    { agent: saiSession.webId, client: saiSession.agentId },
+    ctx.registrySet.hasAgentRegistry,
+    ctx.session.factory,
+    { agent: ctx.webId, client: ctx.session.agentId },
     data.webId,
     data.label,
     data.note
   )
 
-  return buildSocialAgentProfile(registration, saiSession)
+  return buildSocialAgentProfile(registration, ctx)
 }
 
 const buildApplicationProfile = async (
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   registration: ApplicationRegistrationData
 ) => {
   // Design B: the registration resource is single-node — name/logo/accessNeedGroup/
   // callbackEndpoint come from the client ID document (the canonical source)
-  const clientIdDocument = await saiSession.factory.clientIdDocument(registration.registeredAgent)
+  const clientIdDocument = await ctx.session.factory.clientIdDocument(registration.registeredAgent)
   // TODO (angel) data validation and how to handle when the applications profile is missing some components?
   return Application.make({
     id: IRI.make(registration.registeredAgent),
@@ -174,13 +223,16 @@ const buildApplicationProfile = async (
   })
 }
 /**
- * Returns all the registered applications for the currently authenticated agent
- * @param saiSession
+ * Returns all the registered applications for the context registry
+ * @param ctx
  */
-export const getApplications = async (saiSession: AuthorizationAgent) => {
+export const getApplications = async (ctx: ResolvedContext) => {
   const profiles = []
-  for await (const registration of saiSession.applicationRegistrations) {
-    profiles.push(await buildApplicationProfile(saiSession, registration))
+  for await (const registration of AgentRegistry.applicationRegistrations(
+    ctx.registrySet.hasAgentRegistry,
+    ctx.session.factory
+  )) {
+    profiles.push(await buildApplicationProfile(ctx, registration))
   }
   return profiles
 }
@@ -207,9 +259,12 @@ function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitation
   })
 }
 
-export async function getSocialAgentInvitations(saiSession: AuthorizationAgent) {
+export async function getSocialAgentInvitations(ctx: ResolvedContext) {
   const invitations = []
-  for await (const invitation of saiSession.socialAgentInvitations) {
+  for await (const invitation of AgentRegistry.socialAgentInvitations(
+    ctx.registrySet.hasAgentRegistry,
+    ctx.session.factory
+  )) {
     if (!invitation.registeredAgent) {
       invitations.push(buildSocialAgentInvitation(invitation))
     }
@@ -218,13 +273,13 @@ export async function getSocialAgentInvitations(saiSession: AuthorizationAgent) 
 }
 
 export async function createInvitation(
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   base: { label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
-  const id = invitationUrl(saiSession.webId)
+  const id = invitationUrl(ctx.webId)
   const socialAgentInvitation = await AgentRegistry.addSocialAgentInvitation(
-    saiSession.registrySet.hasAgentRegistry,
-    saiSession.factory,
+    ctx.registrySet.hasAgentRegistry,
+    ctx.session.factory,
     id,
     base.label,
     base.note
@@ -233,11 +288,11 @@ export async function createInvitation(
 }
 
 export async function acceptInvitation(
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   invitation: { capabilityUrl: string; label: string; note?: string }
 ): Promise<S.Schema.Type<typeof SocialAgent>> {
   // discover who issued the invitation
-  const response = await saiSession.fetch(invitation.capabilityUrl, {
+  const response = await ctx.session.fetch(invitation.capabilityUrl, {
     method: 'POST',
   })
   if (!response.ok) throw new Error('fetching capability url failed')
@@ -245,13 +300,13 @@ export async function acceptInvitation(
   // TODO: validate with regex
   if (!webId) throw new Error('can not accept invitation without webid')
   // check if agent already has registration
-  let socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
+  let socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, webId)
   if (!socialAgentRegistration) {
     // create new social agent registration
     socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
-      saiSession.registrySet.hasAgentRegistry,
-      saiSession.factory,
-      { agent: saiSession.webId, client: saiSession.agentId },
+      ctx.registrySet.hasAgentRegistry,
+      ctx.session.factory,
+      { agent: ctx.webId, client: ctx.session.agentId },
       webId,
       invitation.label,
       invitation.note
@@ -259,10 +314,14 @@ export async function acceptInvitation(
   }
   // discover and add reciprocal
   if (!socialAgentRegistration.reciprocalRegistration) {
-    discoverAndUpdateReciprocal(socialAgentRegistration, saiSession.factory, saiSession.fetch)
+    discoverAndUpdateReciprocal(
+      socialAgentRegistration,
+      ctx.session.factory,
+      ctx.session.fetch
+    )
   }
 
   // currently api-handler creates job for reciprocal registration
 
-  return buildSocialAgentProfile(socialAgentRegistration, saiSession)
+  return buildSocialAgentProfile(socialAgentRegistration, ctx)
 }

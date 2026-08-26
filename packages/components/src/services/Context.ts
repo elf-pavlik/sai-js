@@ -1,23 +1,22 @@
 import { type AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { getAdminGrantIris } from '@janeirodigital/interop-data-model'
-import type { SessionManager } from '../SessionManager'
+import { getAdminGrantIris, type RegistrySetData } from '@janeirodigital/interop-data-model'
 
 /** The requested context is not allowed for the signed-in user. */
 export class ContextError extends Error {}
 
 /**
  * The resolved context a service operation runs in (§2.4 of
- * org-admin-feature.md). The admin context is gated on the admin marker, then
- * operates **as the org's own AuthorizationAgent** (its UAS authenticates —
- * the same identity the org's workflows and peer-facing reads use, so
- * reciprocal/peer registries that grant the org read access are reachable,
- * and writes carry the org's owner rights). The admin only *authenticates* to
- * select and authorize the context; the org is the data owner.
+ * org-admin-feature.md). `session` is **ALWAYS the signed-in user's own
+ * AuthorizationAgent** — no org session is minted (org-context-sparql.md
+ * phase 3). The org context is gated on the admin marker, then targets the
+ * org's registry set; owner identity for writes is `webId` (the context).
  */
 export type ResolvedContext = {
-  /** the session to operate with (user's own in the personal context) */
+  /** ALWAYS the signed-in user's own AuthorizationAgent */
   session: AuthorizationAgent
-  /** the context webId — the owner identity for writes; equals session.webId */
+  /** target registries: own (personal) or org's (admin context) */
+  registrySet: RegistrySetData
+  /** owner identity for writes: context webId */
   webId: string
   /** the signed-in user's webId */
   userWebId: string
@@ -39,28 +38,33 @@ async function isAdminOf(userSession: AuthorizationAgent, orgWebId: string): Pro
 }
 
 /**
- * Resolve a request's `context` webId into the session to operate with.
+ * Resolve a request's `context` webId into the struct services operate on.
  *
- * - the personal context (the user's own webId) is always allowed and resolves
- *   to the user's own session;
- * - an organization context is allowed only when the user is an admin of that
- *   org; the org's registry set is resolved through the org's agent-id
+ * - the personal context (the user's own webId) is always allowed and
+ *   resolves to the user's own registry set;
+ * - an organization context is allowed only when the user is an admin of
+ *   that org; the org's registry set is resolved through the org's agent-id
  *   document (`Link: rel="interop:hasRegistrySet"`, served only to admins —
- *   §2.3) and the org's own session is built on it (the org's UAS performs
- *   the actual operations — peer reads and owner writes alike).
+ *   §2.3) and **no second session is built**: the user's own AA performs
+ *   operations, targeting `ctx.registrySet` and owning writes as
+ *   `ctx.webId`. Org-context reads must already be SPARQL-backed (§3.0/
+ *   3b) — per-resource `.acr`s never grant the admin over HTTP.
  */
 export async function resolveContext(
   userSession: AuthorizationAgent,
-  context: string,
-  sessionManager: SessionManager
+  context: string
 ): Promise<ResolvedContext> {
   if (context === userSession.webId) {
-    return { session: userSession, webId: userSession.webId, userWebId: userSession.webId }
+    return {
+      session: userSession,
+      registrySet: userSession.registrySet,
+      webId: userSession.webId,
+      userWebId: userSession.webId,
+    }
   }
   if (!(await isAdminOf(userSession, context))) {
     throw new ContextError(`not an admin of ${context}`)
   }
   const registrySet = await userSession.getRegistrySet(context)
-  const session = await sessionManager.getSession(context, registrySet.id)
-  return { session, webId: context, userWebId: userSession.webId }
+  return { session: userSession, registrySet, webId: context, userWebId: userSession.webId }
 }

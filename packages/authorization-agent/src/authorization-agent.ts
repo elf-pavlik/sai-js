@@ -113,9 +113,9 @@ export class AuthorizationAgent {
     return AgentRegistry.applicationRegistrations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
-  public async findApplicationRegistration(iri: string) {
+  public async findApplicationRegistration(iri: string, registrySet?: RegistrySetData) {
     return AgentRegistry.findApplicationRegistration(
-      this.registrySet.hasAgentRegistry,
+      registrySet?.hasAgentRegistry ?? this.registrySet.hasAgentRegistry,
       this.factory,
       iri
     )
@@ -125,9 +125,9 @@ export class AuthorizationAgent {
     return AgentRegistry.socialAgentRegistrations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
-  public async findSocialAgentRegistration(iri: string) {
+  public async findSocialAgentRegistration(iri: string, registrySet?: RegistrySetData) {
     return AgentRegistry.findSocialAgentRegistration(
-      this.registrySet.hasAgentRegistry,
+      registrySet?.hasAgentRegistry ?? this.registrySet.hasAgentRegistry,
       this.factory,
       iri
     )
@@ -141,8 +141,11 @@ export class AuthorizationAgent {
     return RoleRegistry.roles(this.registrySet.hasRoleRegistry, this.factory)
   }
 
-  public async findRole(iri: string): Promise<RoleData | undefined> {
-    for await (const role of this.roles) {
+  public async findRole(iri: string, registrySet?: RegistrySetData): Promise<RoleData | undefined> {
+    for await (const role of RoleRegistry.roles(
+      registrySet?.hasRoleRegistry ?? this.registrySet.hasRoleRegistry,
+      this.factory
+    )) {
       if (role.id === iri) {
         return role
       }
@@ -159,9 +162,10 @@ export class AuthorizationAgent {
 
   public async findDataRegistration(
     dataRegistryIri: string,
-    shapeTree: string
+    shapeTree: string,
+    registrySet?: RegistrySetData
   ): Promise<DataRegistrationData> {
-    const dataRegistry = this.registrySet.hasDataRegistry.find(
+    const dataRegistry = (registrySet ?? this.registrySet).hasDataRegistry.find(
       (registry) => registry.id === dataRegistryIri
     )
     let dataRegistration: DataRegistrationData
@@ -174,13 +178,21 @@ export class AuthorizationAgent {
     return dataRegistration
   }
 
-  private async findResourceServerOwner(resourceServerId: string): Promise<string> {
+  private async findResourceServerOwner(
+    resourceServerId: string,
+    ownerWebId?: string
+  ): Promise<string> {
     const cached = this.ownersIndex[resourceServerId]
     if (cached) return cached
+    // the registry set owning `resourceServerId` — the context owner in an
+    // org context (class-C fix: was `this.webId`)
+    const owner = ownerWebId ?? this.webId
     let ownerId: string
+    // owned graphs come from this registry set; the resolved *owner identity*
+    // is the context owner when provided (class-C)
     for (const dataRegistry of this.registrySet.hasDataRegistry) {
       if ((await DataRegistry.storageIri(dataRegistry, this.factory)) === resourceServerId)
-        ownerId = this.webId
+        ownerId = owner
     }
     if (!ownerId) {
       for await (const socialAgentRegistration of this.socialAgentRegistrations) {
@@ -197,13 +209,13 @@ export class AuthorizationAgent {
     this.ownersIndex[resourceServerId] = ownerId
   }
 
-  public async findResourceOwner(resourceId: string): Promise<string> {
+  public async findResourceOwner(resourceId: string, ownerWebId?: string): Promise<string> {
     // find storage root
     const storageDescriptionIri = await discoverStorageDescription(resourceId, this.fetch)
     const doc = await fetchJsonLd(storageDescriptionIri, this.fetch)
     const storageRoot = await findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
 
-    return this.findResourceServerOwner(storageRoot)
+    return this.findResourceServerOwner(storageRoot, ownerWebId)
   }
 
   public async findGrantForResource(resourceId: string, ownerId: string): Promise<GrantData> {
@@ -224,10 +236,13 @@ export class AuthorizationAgent {
     return this.factory.dataRegistration(registrationId)
   }
 
-  public async findShapeTreeForResource(resourceId: string): Promise<ShapeTreeData> {
+  public async findShapeTreeForResource(
+    resourceId: string,
+    ownerWebId?: string
+  ): Promise<ShapeTreeData> {
     let shapeTreeId: string
-    const ownerId = await this.findResourceOwner(resourceId)
-    if (ownerId === this.webId) {
+    const ownerId = await this.findResourceOwner(resourceId, ownerWebId)
+    if (ownerId === (ownerWebId ?? this.webId)) {
       const dataRegistration = await this.findDataRegistrationForResource(resourceId)
       shapeTreeId = dataRegistration.registeredShapeTree
     } else {
@@ -447,11 +462,14 @@ export class AuthorizationAgent {
    * TODO: support delegated authorization
    */
   public async shareDataInstance(
-    details: ShareDataInstanceStructure
+    details: ShareDataInstanceStructure,
+    ownerWebId?: string
   ): Promise<FinalDataAuthorizationData[]> {
-    // ensure owner doesn't grant acces for oneself
+    // ensure owner doesn't grant acces for oneself (class-C fix: filter the
+    // *context owner*, not the session's webId)
     // TODO: reconsider for TrustedGrants grantees, compare with data instance owner instead
-    const requestedAgents = details.agents.filter((agent) => agent !== this.webId)
+    const owner = ownerWebId ?? this.webId
+    const requestedAgents = details.agents.filter((agent) => agent !== owner)
     // filter out agents who already have access
     // TODO: do we need to adjust once we handle access modes? or require separate operation for such change
     const agentsWithAccess = (await this.findSocialAgentsWithAccess(details.resource)).map(

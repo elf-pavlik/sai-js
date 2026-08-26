@@ -322,6 +322,83 @@ the peer-instance listing open item.
 
 ## Phase 3 — context/session fix (writes-only impact)
 
+### 3.0 Pre-implementation checklist (verified against current code)
+
+Ordered, each step ends green (build + package suites; `/test` user-run).
+`packages/components/src` unless noted. Site counts below are grep-verified.
+
+1. **Baseline probe (user-run, do FIRST).** Run the current org-context
+   suite green; manually exercise `CreateRole` + `AddAdmin` in the org
+   context as Dan. This is the §3.4 guard: it must confirm the
+   **container-create** path works under non-cascading member access
+   *before* services are mass-edited (mutating seeded resources is known
+   debt — out of scope, see below).
+
+2. ✅ **P3-1 — `ResolvedContext` (`services/Context.ts`)** (implemented):
+   - `resolveContext(userSession, context)` — no second session; org
+     branch keeps `isAdminOf` gate + `getRegistrySet(context)`;
+   - ApiHandler passes the resolved `ctx` struct to every service.
+
+3. ✅ **P3-2 — registry-set migration** (implemented; all `services/*` take
+   `ctx: ResolvedContext`, `ctx.registrySet.*` replaces `saiSession.registrySet.*`,
+   `ctx.session.factory` replaces `saiSession.factory`):
+   - AgentRegistry ×3 (addSocialAgent, createInvitation, acceptInvitation);
+     RoleRegistry (getRoles via `RoleRegistry.roles(ctx.registrySet…)`
+     module iterator, create/update/delete); Authorization (findUserDataRegistrations
+     inline `DataRegistry.registrations`, activity/ACR/registry sites);
+     Admin; DataRegistry; ShareResource.
+   - **AA overrides**: `registrySet?: RegistrySetData` optional param on
+     `findSocialAgentRegistration`, `findApplicationRegistration`,
+     `findRole`, `findDataRegistration`; services use the data-model module
+     iterators instead of the AA getters for the context registry.
+
+3b. ✅ **P3-2b — org-context reads of the org's registrations → SPARQL**
+   (implemented for the exercised surface): `queries/org.ts` gained
+   `listContained` (container graph + `meta:` graph, both `ldp:contains`
+   and `interop:hasSocialAgentRegistration` membership — seed stores
+   membership in the meta graph) and `findSocialAgentRegistration`;
+   registration frames now include `hasAdminGrant` (parity with the
+   bundled `fromJsonLd`); `getSocialAgents`/`getDescriptions`/DataRegistry
+   peer paths branch personal(HTTP) vs org(SPARQL);
+   `findSocialAgentRegistrationInContext` used by Admin/DataRegistry.
+   Roles/authorizations/grants remain HTTP in org context — verified
+   ACP: un-`.acr`-ed containers inherit `#fullAdminAccess`(Dan),
+   grant `.acr`s carry `#peerReadAccess`(Dan, Read).
+
+4. ✅ **P3-3 — owner identity + ACR creator pairs** (implemented):
+   `saiSession.webId` → `ctx.webId` (payload actors, grantedBy,       self-identity in descriptions, `invitationUrl`), ACR pairs
+   `{ agent: ctx.webId, client: ctx.session.agentId }` (AgentRegistry ×2,
+   Authorization). 
+
+5. ✅ **P3-4 — class-C fixes** (implemented): DataRegistry own-vs-peer
+   branches → `agentId === ctx.webId`; `AA.findResourceServerOwner`/
+   `findResourceOwner`/`findShapeTreeForResource` and
+   `AA.shareDataInstance` take optional `ownerWebId` (default `this.webId`);
+   `Revocation` grantedBy skip → `ctx.webId`.
+
+   *(Unexercised-org-context notes folded in: `authorizeApp`/
+   `shareResource` still record through the AA's own registry set —
+   commented as debt; `listDataInstances` instance content stays §2.4.)*
+
+6. **P3-5 — verification (user-run).** `/test/org-context.test.ts`
+   assertions unchanged; role creation now genuinely authenticates via
+   **Dan's UAS** (`#fullAdminAccess` on un-`.acr`-ed containers) instead of
+   the org's `fullOwnerAccess`; org-context reads resolve via the internal
+   endpoints (§2 + P3-2b). Known debt (§3.4): PATCH/DELETE of seeded
+   registration resources as Dan → 403 (own `.acr`, `fullOwnerAccess`
+   only) — **no test exercises it**; fresh resources created under
+   un-`.acr`-ed containers (roles, AdminAuthorizations, invitations)
+   inherit `#fullAdminAccess` and work — that is what the dagger probe in
+   step 1 must prove. Edge to watch: org-context `revokeGrants` deletes
+   grant closures (seeded grants have own `.acr`) — unverified in tests;
+   keep on the debt umbrella, don't extend scope.
+
+7. **Excluded from phase 3 (verify, don't change):** temporal
+   activities/webhooks keep building their own org sessions
+   (server-side, trusted, legitimate); `getApplications`/invitations/
+   access-request flows take `ctx` but stay personal-context-oriented in
+   behavior; data-instance content reads unchanged (§2.4 known issue).
+
 ### 3.1 `ResolvedContext`
 
 ```ts
@@ -348,8 +425,29 @@ struct) at the 4b per-owner cutover — authenticated as the **admin**,
 never as the org (the org uses its own internal endpoint for its own
 registry, §2.3).
 
+⚠️ **Prerequisite, load-bearing:** the session swap is only safe because
+**all org-context reads are already SPARQL-backed** (P3-2b, §3.0). With
+`ctx.session` = the user, HTTP reads of the org's own registries would
+403 — per-resource `.acr`s grant Read to the *registered agent* or the
+org, never to the admin (seed-verified: `z3k7wm/#peerReadAccess` matches
+Bob's UAS, `n4m8qx/#peerReadAccess` matches Yoyo's); only un-`.acr`-ed
+containers inherit `#fullAdminAccess`(Dan). `ResolvedContext` therefore
+always carries the endpoint(s) reads run against; personal-context HTTP
+reads stay untouched (the user's own ACRs match the user's session).
+
 ### 3.2 Service migration (§2.4 of org-admin-feature)
 
+- **P3-2b first — org-context reads of the org's own registries → SPARQL
+  (prerequisite of the session swap, full scope in §3.0/3b):**
+  registration/role/authorization/grant listings via container-graph
+  `ldp:contains` queries, per-resource reads and `hasDataRegistry`
+  listings via `GRAPH <iri>` (UNION `meta:<iri>`), all parametrized by
+  **`ctx.registrySet` graph IRIs** — never by `ctx.webId` — using
+  `services/queries/org.ts`. Also the mirror-covered peer branches that
+  are still HTTP: `getDataRegistries` peer branch, `findDataGrantIndex`,
+  `listDataInstances` peer branch (reciprocal bodies + grants);
+  `listDataInstances` **instance content** stays on the §2.4 debt
+  umbrella (mirrors cover registry metadata only).
 - `saiSession.registrySet.*` → `ctx.registrySet.*`
   (AgentRegistry ×3, RoleRegistry ×4, Authorization ×5, Admin ×6,
   DataRegistry ×1, ShareResource ×3);
@@ -386,10 +484,18 @@ generalization); tracked as follow-up, not in this plan's scope.
 
 - One early user-run dagger pass exercising CreateRole/AddAdmin as Dan —
   confirms container-create path under non-cascading member access before
-  mass-editing services.
+  mass-editing services (checklist step 1 / §3.4 guard).
 - `/test/org-context.test.ts` assertions unchanged; role creation now
-  genuinely authenticates via Dan's UAS vs `fullAdminAccess`.
-- Package vitest updated for new context-parameter shapes.
+  genuinely authenticates via Dan's UAS vs `fullAdminAccess`; org-context
+  reads (ListSocialAgents/ListRoles — the exercised surface) resolve via
+  the internal SPARQL endpoints (§2 + P3-2b), verified by the suite as-is.
+- Package vitest updated for new context-parameter shapes (components has
+  no test harness; authorization-agent suite is `describe.skip`-ed;
+  changes land in build + `/test`).
+- Sanity checklist for the session swap: no org-context HTTP read remains
+  after P3-2b (grep the service dirs for `factory.*(` calls on
+  org-context paths and `saiSession.socialAgentRegistrations`-style
+  iterations in org-context functions).
 
 ---
 

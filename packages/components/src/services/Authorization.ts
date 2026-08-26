@@ -10,6 +10,7 @@ import {
   AccessNeed as AccessNeedModule,
   AgentRegistry,
   ActivityRegistry,
+  DataRegistry,
   type DataAuthorizationData,
   type GrantData,
   ShapeTree,
@@ -30,6 +31,12 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
 import type * as S from 'effect/Schema'
+import { findSocialAgentRegistrationInContext, listSocialAgentRegistrations } from './AgentRegistry.js'
+import type { ResolvedContext } from './Context.js'
+import {
+  getDataGrant as getDataGrantFromSparql,
+  getSocialAgentRegistration as getRegistrationFromSparql,
+} from './queries/org.js'
 
 const formatAccessNeed = async (
   accessNeed: AccessNeedData,
@@ -60,17 +67,17 @@ const formatAccessNeed = async (
 }
 
 async function findUserDataRegistrations(
-  accessNeedGroup: AccessNeedGroupData,
-  saiSession: AuthorizationAgent
+  ctx: ResolvedContext,
+  accessNeedGroup: AccessNeedGroupData
 ) {
   const dataRegistrations = []
-  for (const dataRegistry of saiSession.registrySet.hasDataRegistry) {
+  for (const dataRegistry of ctx.registrySet.hasDataRegistry) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
-      const dataRegistration = await saiSession.findDataRegistration(
-        dataRegistry.id,
-        accessNeed.registeredShapeTree
-      )
-      if (dataRegistration)
+      for await (const dataRegistration of DataRegistry.registrations(
+        dataRegistry,
+        ctx.session.factory
+      )) {
+        if (dataRegistration.registeredShapeTree !== accessNeed.registeredShapeTree) continue
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),
           dataRegistry: IRI.make(dataRegistry.id),
@@ -78,19 +85,19 @@ async function findUserDataRegistrations(
           shapeTree: accessNeed.registeredShapeTree,
           count: dataRegistration.contains.length,
         })
+        break
+      }
     }
   }
   return dataRegistrations
 }
 
 async function findSocialAgentDataRegistrations(
-  socialAgentRegistration: SocialAgentRegistrationData,
+  dataGrants: GrantData[],
   accessNeedGroup: AccessNeedGroupData,
-  saiSession: AuthorizationAgent
+  ctx: ResolvedContext
 ) {
   const dataRegistrations = []
-  if ((await getDataGrantIris(socialAgentRegistration)).length === 0) return []
-  const dataGrants = await getDataGrants(socialAgentRegistration, saiSession.factory)
   for (const dataGrant of dataGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
@@ -105,8 +112,8 @@ async function findSocialAgentDataRegistrations(
           count: dataGrant.hasDataInstance
             ? // @ts-ignore
               dataGrant.hasDataInstance.length
-            : (await saiSession.factory.dataRegistration(dataGrant.hasDataRegistration)).contains
-                .length,
+            : (await ctx.session.factory.dataRegistration(dataGrant.hasDataRegistration))
+                .contains.length,
         })
       }
     }
@@ -122,26 +129,32 @@ async function findSocialAgentDataRegistrations(
  * @param saiSession Authoirization Agent from `@janeirodigital/interop-authorization-agent`
  */
 export const getDescriptions = async (
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   agentIri: string,
   agentType: AgentType,
   preferredLang: string,
   accessNeedGroupIri?: string & Brand<'IRI'>
 ): Promise<S.Schema.Type<typeof AuthorizationData>> => {
+  const personal = ctx.webId === ctx.userWebId
   let accessNeedGroupIriResolved: string
   if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
   } else if (agentType === AgentType.Application) {
-    const clientIdDocument = await saiSession.factory.clientIdDocument(agentIri)
+    const clientIdDocument = await ctx.session.factory.clientIdDocument(agentIri)
     if (!clientIdDocument.hasAccessNeedGroup) return null
     accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
   } else if (agentType === AgentType.SocialAgent) {
-    const socialAgentRegistration = await saiSession.findSocialAgentRegistration(agentIri)
+    const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
     const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
-      ? await saiSession.factory.socialAgentRegistration(
-          socialAgentRegistration.reciprocalRegistration
-        )
+      ? personal
+        ? await ctx.session.factory.socialAgentRegistration(
+            socialAgentRegistration.reciprocalRegistration
+          )
+        : await getRegistrationFromSparql(
+            ctx.session.sparqlEndpoint,
+            socialAgentRegistration.reciprocalRegistration
+          )
       : undefined
     accessNeedGroupIriResolved = reciprocalRegistration?.hasAccessNeedGroup
     if (!accessNeedGroupIriResolved) return null
@@ -149,7 +162,7 @@ export const getDescriptions = async (
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')
 
-  const accessNeedGroup = await saiSession.factory.accessNeedGroup(
+  const accessNeedGroup = await ctx.session.factory.accessNeedGroup(
     accessNeedGroupIriResolved,
     preferredLang
   )
@@ -166,21 +179,33 @@ export const getDescriptions = async (
     }[]
   }[] = [
     {
-      id: IRI.make(saiSession.webId),
-      label: saiSession.webId, // TODO get from user's webid document
-      dataRegistrations: await findUserDataRegistrations(accessNeedGroup, saiSession),
+      id: IRI.make(ctx.webId),
+      label: ctx.webId, // TODO get from user's webid document
+      dataRegistrations: await findUserDataRegistrations(ctx, accessNeedGroup),
     },
   ]
 
-  for await (const socialAgentRegistration of saiSession.socialAgentRegistrations) {
+  for (const socialAgentRegistration of await listSocialAgentRegistrations(ctx)) {
     if (socialAgentRegistration.reciprocalRegistration) {
-      const reciprocalRegistration = await saiSession.factory.socialAgentRegistration(
-        socialAgentRegistration.reciprocalRegistration
-      )
+      const reciprocalRegistration = personal
+        ? await ctx.session.factory.socialAgentRegistration(
+            socialAgentRegistration.reciprocalRegistration
+          )
+        : await getRegistrationFromSparql(
+            ctx.session.sparqlEndpoint,
+            socialAgentRegistration.reciprocalRegistration
+          )
+      const dataGrants = personal
+        ? await getDataGrants(reciprocalRegistration, ctx.session.factory)
+        : await Promise.all(
+            reciprocalRegistration.hasDataGrant.map((grantIri) =>
+              getDataGrantFromSparql(ctx.session.sparqlEndpoint, grantIri)
+            )
+          )
       const dataRegistrations = await findSocialAgentDataRegistrations(
-        reciprocalRegistration,
+        dataGrants,
         accessNeedGroup,
-        saiSession
+        ctx
       )
       if (dataRegistrations.length) {
         dataOwners.push({
@@ -192,14 +217,11 @@ export const getDescriptions = async (
     }
   }
   const descriptionLanguages = [
-    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(
-      accessNeedGroup,
-      saiSession.factory
-    )),
+    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(accessNeedGroup, ctx.session.factory)),
   ]
   const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
     accessNeedGroup,
-    saiSession.factory
+    ctx.session.factory
   )
   const descriptionsLang = reliableDescriptionLanguages.has(preferredLang)
     ? preferredLang
@@ -207,7 +229,7 @@ export const getDescriptions = async (
   const descriptions = await AccessNeedGroupModule.getDescription(
     accessNeedGroup,
     descriptionsLang,
-    saiSession.factory
+    ctx.session.factory
   )
 
   return {
@@ -221,7 +243,7 @@ export const getDescriptions = async (
       description: descriptions.definition,
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) =>
-          formatAccessNeed(need, descriptionsLang, saiSession.factory)
+          formatAccessNeed(need, descriptionsLang, ctx.session.factory)
         )
       ),
       descriptionLanguages,
@@ -297,16 +319,16 @@ function buildDataAuthorizations(
 }
 
 export const recordAuthorization = async (
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   authorization: S.Schema.Type<typeof Authorization>
 ): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
   let structure: AccessAuthorizationStructure
   if (authorization.granted) {
-    const accessNeedGroup = await saiSession.factory.accessNeedGroup(authorization.accessNeedGroup)
+    const accessNeedGroup = await ctx.session.factory.accessNeedGroup(authorization.accessNeedGroup)
     structure = {
       grantee: authorization.grantee,
       hasAccessNeedGroup: authorization.accessNeedGroup,
-      dataAuthorizations: buildDataAuthorizations(authorization, accessNeedGroup, saiSession.webId),
+      dataAuthorizations: buildDataAuthorizations(authorization, accessNeedGroup, ctx.webId),
       granted: true,
     }
   } else {
@@ -317,7 +339,11 @@ export const recordAuthorization = async (
     }
   }
 
-  const recorded = await saiSession.recordAccessAuthorization(structure)
+  // NOTE: `recordAccessAuthorization` writes into the session's own (user's)
+  // AuthorizationRegistry — in an org context (`authorizeApp` there is
+  // unexercised) it would target the user, not the context; out of the
+  // phase-3 exercised scope, tracked as debt.
+  const recorded = await ctx.session.recordAccessAuthorization(structure)
   const response: S.Schema.Type<typeof AccessAuthorization> = recorded.map((dataAuthorization) => ({
     id: IRI.make(dataAuthorization.id),
     grantee: IRI.make(dataAuthorization.grantee),
@@ -349,22 +375,28 @@ export const recordAuthorization = async (
   if (authorization.agentType === AgentType.Application) {
     // we need to ensure that Application Registration exists before generating Access Grant!
     // TODO: extract
-    if (!(await saiSession.findApplicationRegistration(authorization.grantee))) {
+    if (
+      !(await AgentRegistry.findApplicationRegistration(
+        ctx.registrySet.hasAgentRegistry,
+        ctx.session.factory,
+        authorization.grantee
+      ))
+    ) {
       await AgentRegistry.addApplicationRegistration(
-        saiSession.registrySet.hasAgentRegistry,
-        saiSession.factory,
-        { agent: saiSession.webId, client: saiSession.agentId },
+        ctx.registrySet.hasAgentRegistry,
+        ctx.session.factory,
+        { agent: ctx.webId, client: ctx.session.agentId },
         authorization.grantee
       )
     }
   }
-  const activityRegistry = saiSession.registrySet.hasActivityRegistry
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  await ActivityRegistry.createActivity(activityRegistry, saiSession.factory, {
+  await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
     activityType: 'authorizationRecorded',
-    target: saiSession.registrySet.hasAuthorizationRegistry.id,
+    target: ctx.registrySet.hasAuthorizationRegistry.id,
     payload: {
-      webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+      webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
       authorizationGrantee: {
         id: authorization.grantee,
         type: [authorization.agentType],

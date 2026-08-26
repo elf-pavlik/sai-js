@@ -11,12 +11,14 @@ import {
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
+import { findSocialAgentRegistrationInContext } from './AgentRegistry.js'
+import type { ResolvedContext } from './Context.js'
 
-export const getResource = async (saiSession: AuthorizationAgent, iri: string, lang: string) => {
-  const resource = await saiSession.factory.dataInstance(iri, undefined, lang)
+export const getResource = async (ctx: ResolvedContext, iri: string, lang: string) => {
+  const resource = await ctx.session.factory.dataInstance(iri, undefined, lang)
   if (!resource) throw new Error(`Resource not found: ${iri}`)
-  const shapeTree = await saiSession.factory.shapeTree(resource.shapeTreeIri)
-  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, saiSession.factory)
+  const shapeTree = await ctx.session.factory.shapeTree(resource.shapeTreeIri)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.factory)
   return Resource.make({
     id: IRI.make(resource.id),
     label: resource.label,
@@ -24,7 +26,7 @@ export const getResource = async (saiSession: AuthorizationAgent, iri: string, l
       id: IRI.make(resource.shapeTreeIri),
       label: shapeTreeDescription?.prefLabel,
     },
-    accessGrantedTo: (await saiSession.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
+    accessGrantedTo: (await ctx.session.findSocialAgentsWithAccess(resource.id)).map(({ agent }) =>
       IRI.make(agent)
     ),
     children: resource.children.map((child) => ({
@@ -38,15 +40,18 @@ export const getResource = async (saiSession: AuthorizationAgent, iri: string, l
 }
 
 export const shareResource = async (
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   shareAuthorization: S.Schema.Type<typeof ShareAuthorization>
 ): Promise<S.Schema.Type<typeof ShareAuthorizationConfirmation>> => {
   // TODO: finde cleaner way of dealing with types
-  const recorded = await saiSession.shareDataInstance(
+  // `shareDataInstance` writes on the session's own registry set — in an org
+  // context (unexercised) it would target the user's; out of the phase-3
+  // exercised scope, tracked as debt.
+  const recorded = await ctx.session.shareDataInstance(
     shareAuthorization as unknown as ShareDataInstanceStructure
   )
 
-  const clientIdDocument = await saiSession.factory.clientIdDocument(
+  const clientIdDocument = await ctx.session.factory.clientIdDocument(
     shareAuthorization.applicationId
   )
 
@@ -56,14 +61,14 @@ export const shareResource = async (
   // one authorizationRecorded activity per deduped grantee → one notification,
   // one workflow per grantee (sequential PUTs — CSS SPARQL backend races on
   // concurrent PUTs in the same container)
-  const activityRegistry = saiSession.registrySet.hasActivityRegistry
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   for (const grantee of grantees) {
-    await ActivityRegistry.createActivity(activityRegistry, saiSession.factory, {
+    await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
       activityType: 'authorizationRecorded',
-      target: saiSession.registrySet.hasAuthorizationRegistry.id,
+      target: ctx.registrySet.hasAuthorizationRegistry.id,
       payload: {
-        webId: { id: saiSession.webId, type: [INTEROP.SocialAgent] },
+        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
         authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
       },
       createdAt: new Date().toISOString(),
@@ -76,15 +81,15 @@ export const shareResource = async (
 }
 
 export async function requestAccessUsingApplicationNeeds(
-  saiSession: AuthorizationAgent,
+  ctx: ResolvedContext,
   applicationIri: string,
   webId: string
 ): Promise<void> {
-  const socialAgentRegistration = await saiSession.findSocialAgentRegistration(webId)
-  const clientIdDocument = await saiSession.factory.clientIdDocument(applicationIri)
+  const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, webId)
+  const clientIdDocument = await ctx.session.factory.clientIdDocument(applicationIri)
   await setAccessNeedGroup(
     socialAgentRegistration,
-    saiSession.factory,
+    ctx.session.factory,
     clientIdDocument.hasAccessNeedGroup
   )
 }

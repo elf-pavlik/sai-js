@@ -84,75 +84,75 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(() => this.accountService.bootstrapAccount(accountId, handle)),
         getDataRegistries: (agentId, lang, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getDataRegistries(ctx.session, agentId, lang)
+            const ctx = await resolveContext(session, context)
+            return getDataRegistries(ctx, agentId, lang)
           }),
         listDataInstances: (agentId, registrationId, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return listDataInstances(ctx.session, agentId, registrationId, 'en')
+            const ctx = await resolveContext(session, context)
+            return listDataInstances(ctx, agentId, registrationId, 'en')
           }),
         getApplications: (context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getApplications(ctx.session)
+            const ctx = await resolveContext(session, context)
+            return getApplications(ctx)
           }),
         getUnregisteredApplication: (id) =>
           Effect.promise(() => getUnregisteredApplication(session, id)),
         getSocialAgents: (context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getSocialAgents(ctx.session, ctx.webId === ctx.userWebId)
+            const ctx = await resolveContext(session, context)
+            return getSocialAgents(ctx)
           }),
         getRoles: (context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getRoles(ctx.session)
+            const ctx = await resolveContext(session, context)
+            return getRoles(ctx)
           }),
         createRole: (label, members, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return createRole(ctx.session, label, members)
+            const ctx = await resolveContext(session, context)
+            return createRole(ctx, label, members)
           }),
         updateRole: (id, label, members, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return updateRole(ctx.session, id, label, members)
+            const ctx = await resolveContext(session, context)
+            return updateRole(ctx, id, label, members)
           }),
         deleteRole: (id, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return deleteRole(ctx.session, id)
+            const ctx = await resolveContext(session, context)
+            return deleteRole(ctx, id)
           }),
         getSocialAgentInvitations: (context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getSocialAgentInvitations(ctx.session)
+            const ctx = await resolveContext(session, context)
+            return getSocialAgentInvitations(ctx)
           }),
         getAuthorizationData: (agentId, agentType, lang, accessNeedGroupIri, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getDescriptions(ctx.session, agentId, agentType, lang, accessNeedGroupIri)
+            const ctx = await resolveContext(session, context)
+            return getDescriptions(ctx, agentId, agentType, lang, accessNeedGroupIri)
           }),
         authorizeApp: (authorization, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return recordAuthorization(ctx.session, authorization)
+            const ctx = await resolveContext(session, context)
+            return recordAuthorization(ctx, authorization)
           }),
         revokeGrants: (grants, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return revokeGrants(ctx.session, this.sparqlEndpoint, grants)
+            const ctx = await resolveContext(session, context)
+            return revokeGrants(ctx, this.sparqlEndpoint, grants)
           }),
         addAdmin: (webId, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return addAdmin(ctx.session, webId)
+            const ctx = await resolveContext(session, context)
+            return addAdmin(ctx, webId)
           }),
         removeAdmin: (webId, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return removeAdmin(ctx.session, webId)
+            const ctx = await resolveContext(session, context)
+            return removeAdmin(ctx, webId)
           }),
         registerPushSubscription: (subscription: PushSubscription) =>
           Effect.promise(() =>
@@ -160,28 +160,28 @@ export class ApiHandler extends OperationHttpHandler {
           ),
         getResource: (id, lang, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return getResource(ctx.session, id, lang)
+            const ctx = await resolveContext(session, context)
+            return getResource(ctx, id, lang)
           }),
         shareResource: (authorization, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return shareResource(ctx.session, authorization)
+            const ctx = await resolveContext(session, context)
+            return shareResource(ctx, authorization)
           }),
         requestAccessUsingApplicationNeeds: (applicationId, agentId, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return requestAccessUsingApplicationNeeds(ctx.session, applicationId, agentId)
+            const ctx = await resolveContext(session, context)
+            return requestAccessUsingApplicationNeeds(ctx, applicationId, agentId)
           }),
         createInvitation: (label, note, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return createInvitation(ctx.session, { label, note })
+            const ctx = await resolveContext(session, context)
+            return createInvitation(ctx, { label, note })
           }),
         acceptInvitation: (capabilityUrl, label, note, context) =>
           Effect.promise(async () => {
-            const ctx = await resolveContext(session, context, this.sessionManager)
-            return acceptInvitation(ctx.session, { capabilityUrl, label, note })
+            const ctx = await resolveContext(session, context)
+            return acceptInvitation(ctx, { capabilityUrl, label, note })
           }),
       })
     )

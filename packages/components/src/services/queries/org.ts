@@ -6,9 +6,10 @@ import {
 } from '@janeirodigital/interop-data-model'
 import { frameDoc } from '@janeirodigital/interop-utils'
 import { arrayifyStream } from '@solid/community-server'
-import { SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
+import { SparqlEndpointFetcher, type IBindings } from 'fetch-sparql-endpoint'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
+import { INTEROP } from '@janeirodigital/interop-utils'
 
 // CJS/ESM interop: jsonld is a CJS package; in an ESM bundle the namespace
 // has the full exports only on .default, while in CJS the namespace is the
@@ -16,6 +17,15 @@ import { Store } from 'n3'
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 const fetcher = new SparqlEndpointFetcher()
+
+/**
+ * ldp:contains — containment triples live in the container's own graph
+ * (SparqlDataAccessor.sparqlInsert); seeded containers also carry the
+ * interop member link in their `meta:` graph (containers: "data and metadata
+ * overlap"). Both are read, across both graphs.
+ */
+const LDP_CONTAINS = 'http://www.w3.org/ns/ldp#contains'
+const INTEROP_HAS_SOCIAL_AGENT_REGISTRATION = INTEROP.hasSocialAgentRegistration
 
 /**
  * Fetch one named graph and return it as an expanded JSON-LD document.
@@ -62,10 +72,55 @@ export async function getSocialAgentRegistration(
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredAgent: node.registeredAgent as string,
     hasDataGrant: (node.hasDataGrant as string[]) ?? [],
+    hasAdminGrant: (node.hasAdminGrant as string[]) ?? [],
     prefLabel: (node.prefLabel as string) ?? '',
     note: (node.note as string | undefined) ?? undefined,
     hasAccessNeedGroup: (node.hasAccessNeedGroup as string | undefined) ?? undefined,
     reciprocalRegistration: (node.reciprocalRegistration as string | undefined) ?? undefined,
+  }
+}
+
+/**
+ * Children of a registry container — the registration listing. Reads both
+ * the container graph and its `meta:` graph, and both the generic
+ * `ldp:contains` and the interop member predicate (seeds/HTTP-served
+ * containers store membership in the meta graph, runtime-created ones in
+ * the plain graph via `SparqlDataAccessor`).
+ */
+export async function listContained(
+  sparqlEndpoint: string,
+  containerIri: string
+): Promise<string[]> {
+  const bindingsStream = await fetcher.fetchBindings(
+    sparqlEndpoint,
+    `SELECT DISTINCT ?child WHERE {
+  { GRAPH <${containerIri}> { <${containerIri}> <${LDP_CONTAINS}> ?child } }
+  UNION
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${LDP_CONTAINS}> ?child } }
+  UNION
+  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP_HAS_SOCIAL_AGENT_REGISTRATION}> ?child } }
+  UNION
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP_HAS_SOCIAL_AGENT_REGISTRATION}> ?child } }
+}`
+  )
+  const bindings = await arrayifyStream<IBindings>(bindingsStream)
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
+ * Find the registration of `webId` in the given agent registry container
+ * (match on `interop:registeredAgent`). Simple list-and-scan: the peer
+ * registration bodies may live in `meta:` graphs, which a `GRAPH ?r` join
+ * would miss, and the registries are small.
+ */
+export async function findSocialAgentRegistration(
+  sparqlEndpoint: string,
+  agentRegistryContainerIri: string,
+  webId: string
+): Promise<SocialAgentRegistrationData | undefined> {
+  for (const iri of await listContained(sparqlEndpoint, agentRegistryContainerIri)) {
+    const registration = await getSocialAgentRegistration(sparqlEndpoint, iri)
+    if (registration.registeredAgent === webId) return registration
   }
 }
 

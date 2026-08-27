@@ -19,9 +19,11 @@ import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
 import type { ResolvedContext } from './Context.js'
 import {
+  getApplicationRegistration as getApplicationRegistrationFromSparql,
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
+  listApplicationRegistrations,
   listContained,
   sparqlTransportFor,
 } from './queries/org.js'
@@ -210,15 +212,21 @@ const buildApplicationProfile = async (
   })
 }
 /**
- * Returns all the registered applications for the context registry
- * @param ctx
+ * Returns all the registered applications for the context registry — via
+ * SPARQL over the `interop:hasApplicationRegistration` listing
+ * (docs/sparql.md step 3): personal context reads the session's internal
+ * endpoint, org context the org's `/sparql-admin` (`sparqlTransportFor`).
+ * The per-app profile still dereferences the client-id document over HTTP
+ * (webid/client-id profiles stay data-plane).
  */
 export const getApplications = async (ctx: ResolvedContext) => {
+  const transport = sparqlTransportFor(ctx)
+  const iris = await listApplicationRegistrations(transport, ctx.registrySet.hasAgentRegistry.id)
+  const registrations = await Promise.all(
+    iris.map((iri) => getApplicationRegistrationFromSparql(transport, iri))
+  )
   const profiles = []
-  for await (const registration of AgentRegistry.applicationRegistrations(
-    ctx.registrySet.hasAgentRegistry,
-    ctx.session.factory
-  )) {
+  for (const registration of registrations) {
     profiles.push(await buildApplicationProfile(ctx, registration))
   }
   return profiles

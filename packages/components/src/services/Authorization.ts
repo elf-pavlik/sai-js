@@ -10,7 +10,6 @@ import {
   AccessNeed as AccessNeedModule,
   AgentRegistry,
   ActivityRegistry,
-  DataRegistry,
   type DataAuthorizationData,
   type GrantData,
   ShapeTree,
@@ -34,7 +33,9 @@ import { findSocialAgentRegistrationInContext, listSocialAgentRegistrations } fr
 import type { ResolvedContext } from './Context.js'
 import {
   getDataGrant as getDataGrantFromSparql,
+  getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
+  listDataRegistrations,
   sparqlTransportFor,
 } from './queries/org.js'
 import { dataRegistrationContains } from './peerProxy.js'
@@ -72,12 +73,14 @@ async function findUserDataRegistrations(
   accessNeedGroup: AccessNeedGroupData
 ) {
   const dataRegistrations = []
+  const transport = sparqlTransportFor(ctx)
   for (const dataRegistry of ctx.registrySet.hasDataRegistry) {
+    const iris = await listDataRegistrations(transport, dataRegistry.id)
+    const registrations = await Promise.all(
+      iris.map((iri) => getDataRegistrationFromSparql(transport, iri))
+    )
     for (const accessNeed of accessNeedGroup.accessNeeds) {
-      for await (const dataRegistration of DataRegistry.registrations(
-        dataRegistry,
-        ctx.session.factory
-      )) {
+      for (const dataRegistration of registrations) {
         if (dataRegistration.registeredShapeTree !== accessNeed.registeredShapeTree) continue
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),

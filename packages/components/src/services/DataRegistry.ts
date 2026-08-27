@@ -14,7 +14,9 @@ import {
 import type { ResolvedContext } from './Context.js'
 import {
   getDataGrant as getDataGrantFromSparql,
+  getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
+  listDataRegistrations,
   sparqlTransportFor,
 } from './queries/org.js'
 import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
@@ -24,8 +26,11 @@ const buildDataRegistry = async (
   descriptionsLang: string,
   ctx: ResolvedContext
 ) => {
+  const transport = sparqlTransportFor(ctx)
+  const iris = await listDataRegistrations(transport, registry.id)
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
-  for await (const registration of DataRegistryModule.registrations(registry, ctx.session.factory)) {
+  for (const iri of iris) {
+    const registration = await getDataRegistrationFromSparql(transport, iri)
     const shapeTree = await ctx.session.factory.shapeTree(registration.registeredShapeTree)
     const shapeTreeDescription = descriptionsLang
       ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.factory)

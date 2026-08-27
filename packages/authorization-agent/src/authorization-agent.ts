@@ -1,7 +1,6 @@
 import {
   AgentRegistry,
   AuthorizationAgentFactory,
-  AuthorizationRegistry,
   type DataAuthorizationData,
   type DataInstanceData,
   type DataRegistrationData,
@@ -11,7 +10,6 @@ import {
   type GrantData,
   type RegistrySetData,
   type RoleData,
-  RoleRegistry,
   type ShapeTreeData,
   type WebIdProfileData,
   generateGrantsForAuthorization,
@@ -35,11 +33,15 @@ import {
   generateAuthorization,
 } from './authorization'
 import {
+  findApplicationRegistration as findApplicationRegistrationFromSparql,
+  findRolesWithMember,
   findSocialAgentRegistration as findRegistrationFromSparql,
   getDataAuthorization as getDataAuthorizationFromSparql,
+  getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
   listContained,
+  listDataRegistrations,
   localSparqlTransport,
 } from './sparql'
 interface AuthorizationAgentDependencies {
@@ -121,10 +123,18 @@ export class AuthorizationAgent {
     return AgentRegistry.applicationRegistrations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
+  /**
+   * The context registry's registration of application `registeredAgent`,
+   * via the shared SPARQL query — the symmetric counterpart of
+   * `findSocialAgentRegistration` over the
+   * `interop:hasApplicationRegistration` predicate (docs/sparql.md step 3);
+   * served per client-id by `AgentIdHandler`. Same query the services'
+   * org-context counterpart runs against `/sparql-admin`.
+   */
   public async findApplicationRegistration(iri: string, registrySet?: RegistrySetData) {
-    return AgentRegistry.findApplicationRegistration(
-      registrySet?.hasAgentRegistry ?? this.registrySet.hasAgentRegistry,
-      this.factory,
+    return findApplicationRegistrationFromSparql(
+      localSparqlTransport(this.sparqlEndpoint),
+      (registrySet ?? this.registrySet).hasAgentRegistry.id,
       iri
     )
   }
@@ -152,20 +162,12 @@ export class AuthorizationAgent {
     return AgentRegistry.socialAgentInvitations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
-  get roles() {
-    return RoleRegistry.roles(this.registrySet.hasRoleRegistry, this.factory)
-  }
-
   /**
    * Role by IRI — a single graph read (the role's own graph, keyed by its
    * IRI) via the shared SPARQL query, replacing the previous container
-   * scan. The registry-set override is retained for signature compatibility
-   * but no longer consulted: the IRI targets the graph directly.
+   * scan. The IRI targets the graph directly.
    */
-  public async findRole(
-    iri: string,
-    _registrySet?: RegistrySetData
-  ): Promise<RoleData | undefined> {
+  public async findRole(iri: string): Promise<RoleData | undefined> {
     return getRoleFromSparql(localSparqlTransport(this.sparqlEndpoint), iri)
   }
 
@@ -177,16 +179,22 @@ export class AuthorizationAgent {
     )
   }
 
+  /**
+   * The context's data registration for `shapeTree` in `dataRegistryIri` —
+   * via the registry plane (docs/sparql.md step 4): `listDataRegistrations`
+   * + one `getDataRegistration` graph read per registration (the
+   * `hasDataRegistration` predicate in both graphs — the same listing the
+   * HTTP `DataRegistry.registrations` iterator read). The container IRI
+   * targets the graph directly.
+   */
   public async findDataRegistration(
     dataRegistryIri: string,
-    shapeTree: string,
-    registrySet?: RegistrySetData
+    shapeTree: string
   ): Promise<DataRegistrationData> {
-    const dataRegistry = (registrySet ?? this.registrySet).hasDataRegistry.find(
-      (registry) => registry.id === dataRegistryIri
-    )
+    const transport = localSparqlTransport(this.sparqlEndpoint)
     let dataRegistration: DataRegistrationData
-    for await (const registration of DataRegistry.registrations(dataRegistry, this.factory)) {
+    for (const iri of await listDataRegistrations(transport, dataRegistryIri)) {
+      const registration = await getDataRegistrationFromSparql(transport, iri)
       if (registration.registeredShapeTree === shapeTree) {
         dataRegistration = registration
         break
@@ -356,24 +364,27 @@ export class AuthorizationAgent {
   }
 
   public async findAuthorizationsForAgent(peerId: string): Promise<DataAuthorizationData[]> {
-    const authorizations: DataAuthorizationData[] = []
-    // TODO: optimize!
-    const iterator = AuthorizationRegistry.dataAuthorizations(
-      this.registrySet.hasAuthorizationRegistry,
-      this.factory
+    // Registry plane (docs/sparql.md step 2): the authorization listing
+    // reuses the same `listContained` + `getDataAuthorization` read
+    // `findAgentsWithAccess` performs; role membership is one SELECT
+    // (`findRolesWithMember`) — the former HTTP O(N×M) authorizations ×
+    // roles sweep is gone. Non-DataAuthorizations (e.g. AdminAuthorizations
+    // share the registry container) are type-filtered like the HTTP
+    // `dataAuthorizations` iterator did.
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const [iris, roleIris] = await Promise.all([
+      listContained(transport, this.registrySet.hasAuthorizationRegistry.id),
+      findRolesWithMember(transport, this.registrySet.hasRoleRegistry.id, peerId),
+    ])
+    const roleIriSet = new Set(roleIris)
+    const authorizations = await Promise.all(
+      iris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
-    for await (const dataAuthorization of iterator) {
-      if (dataAuthorization.grantee === peerId) {
-        authorizations.push(dataAuthorization)
-      } else {
-        for await (const role of this.roles) {
-          if (dataAuthorization.grantee === role.id && role.members.includes(peerId)) {
-            authorizations.push(dataAuthorization)
-          }
-        }
-      }
-    }
-    return authorizations
+    return authorizations.filter(
+      (dataAuthorization) =>
+        dataAuthorization.type.includes(INTEROP.DataAuthorization) &&
+        (dataAuthorization.grantee === peerId || roleIriSet.has(dataAuthorization.grantee))
+    )
   }
 
   public async findSocialAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {

@@ -1,11 +1,17 @@
 import {
   type SparqlBindingTerm,
   type SparqlTransport,
+  findApplicationRegistration,
   findSocialAgentRegistration,
+  getApplicationRegistration,
   getDataAuthorization,
   getDataGrant,
+  getDataRegistration,
+  getRole,
   getSocialAgentRegistration,
+  listApplicationRegistrations,
   listContained,
+  listDataRegistrations,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
@@ -16,11 +22,17 @@ import type { ResolvedContext } from '../Context.js'
 // authorization-agent package (it owns `sparqlEndpoint`); this module adds
 // the org-context `/sparql-admin` transport and the context dispatch.
 export {
+  findApplicationRegistration,
   findSocialAgentRegistration,
+  getApplicationRegistration,
   getDataAuthorization,
   getDataGrant,
+  getDataRegistration,
+  getRole,
   getSocialAgentRegistration,
+  listApplicationRegistrations,
   listContained,
+  listDataRegistrations,
 }
 export type { SparqlTransport }
 

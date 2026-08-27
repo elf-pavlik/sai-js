@@ -1,6 +1,10 @@
 import {
+  ApplicationRegistration,
+  type ApplicationRegistrationData,
   DataAuthorization,
   type DataAuthorizationData,
+  DataRegistration,
+  type DataRegistrationData,
   Grant,
   type GrantData,
   type RoleData,
@@ -35,6 +39,8 @@ const fetcher = new SparqlEndpointFetcher()
  */
 const LDP_CONTAINS = 'http://www.w3.org/ns/ldp#contains'
 const INTEROP_HAS_SOCIAL_AGENT_REGISTRATION = INTEROP.hasSocialAgentRegistration
+const INTEROP_HAS_APPLICATION_REGISTRATION = INTEROP.hasApplicationRegistration
+const INTEROP_HAS_DATA_REGISTRATION = INTEROP.hasDataRegistration
 
 /** The minimal RDF/JS term shape consumers need (`.value` on bindings). */
 export type SparqlBindingTerm = {
@@ -178,6 +184,102 @@ export async function findSocialAgentRegistration(
 }
 
 /**
+ * Children of an agent registry container linked as application
+ * registrations — `interop:hasApplicationRegistration` in both the
+ * container graph and its `meta:` graph (docs/sparql.md step 3). Seeded
+ * agent registries list membership via the interop predicates **only**,
+ * with no `ldp:contains` (`environments/data/registry.trig`), and the
+ * runtime write path (`addApplicationRegistration`) patches the same
+ * predicate into the container — so this listing reads it, and only it,
+ * matching the HTTP `linkedIrisJsonLd(..., 'hasApplicationRegistration')`
+ * read exactly. The social-agent counterpart reads `ldp:contains` +
+ * `hasSocialAgentRegistration`; deliberately not generalized — a merged
+ * listing would hand social-agent registrations to the application
+ * framing, whose callers then dereference their `registeredAgent` as a
+ * client-id document.
+ */
+export async function listApplicationRegistrations(
+  transport: SparqlTransport,
+  containerIri: string
+): Promise<string[]> {
+  const bindings = await transport.fetchBindings(
+    `SELECT DISTINCT ?child WHERE {
+  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP_HAS_APPLICATION_REGISTRATION}> ?child } }
+  UNION
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP_HAS_APPLICATION_REGISTRATION}> ?child } }
+}`
+  )
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
+ * Application registration body from its graph — framed via the
+ * data-model's own `ApplicationRegistration.fromJsonLd`, producing the same
+ * `ApplicationRegistrationData` POJO as `factory.applicationRegistration`.
+ */
+export async function getApplicationRegistration(
+  transport: SparqlTransport,
+  iri: string
+): Promise<ApplicationRegistrationData> {
+  const doc = await graphDoc(transport, iri)
+  return ApplicationRegistration.fromJsonLd(doc, iri)
+}
+
+/**
+ * Find the registration of application `webId` in the given agent registry
+ * container (match on `interop:registeredAgent`) — the symmetric query for
+ * application registrations mirroring `findSocialAgentRegistration`
+ * (docs/sparql.md step 3).
+ */
+export async function findApplicationRegistration(
+  transport: SparqlTransport,
+  agentRegistryContainerIri: string,
+  webId: string
+): Promise<ApplicationRegistrationData | undefined> {
+  for (const iri of await listApplicationRegistrations(transport, agentRegistryContainerIri)) {
+    const registration = await getApplicationRegistration(transport, iri)
+    if (registration.registeredAgent === webId) return registration
+  }
+}
+
+/**
+ * Children of a data registry container linked as data registrations —
+ * `interop:hasDataRegistration` in both the container graph and its `meta:`
+ * graph (docs/sparql.md step 4). Seeded data registries list membership via
+ * the interop predicate only, with no `ldp:contains`
+ * (`environments/data/registry.trig`), and the runtime write path
+ * (`DataRegistry.createRegistration`) patches the same predicate into the
+ * container — matching the HTTP `hasDataRegistration` read exactly.
+ */
+export async function listDataRegistrations(
+  transport: SparqlTransport,
+  dataRegistryContainerIri: string
+): Promise<string[]> {
+  const bindings = await transport.fetchBindings(
+    `SELECT DISTINCT ?child WHERE {
+  { GRAPH <${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP_HAS_DATA_REGISTRATION}> ?child } }
+  UNION
+  { GRAPH <meta:${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP_HAS_DATA_REGISTRATION}> ?child } }
+}`
+  )
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
+ * Data registration body from its graph — framed via the data-model's own
+ * `DataRegistration.fromJsonLd` (same POJO as `factory.dataRegistration`):
+ * `registeredShapeTree` plus `contains` (the contained data instances, the
+ * server-managed `ldp:contains` of the registration's graphs).
+ */
+export async function getDataRegistration(
+  transport: SparqlTransport,
+  iri: string
+): Promise<DataRegistrationData> {
+  const doc = await graphDoc(transport, iri)
+  return DataRegistration.fromJsonLd(doc, iri)
+}
+
+/**
  * Data grant body from its graph — framed via the data-model's own
  * `Grant.fromJsonLd`, producing the same `GrantData` POJO as
  * `factory.dataGrant`. Grants are immutable, so a present graph is current.
@@ -201,6 +303,31 @@ export async function getDataAuthorization(
 ): Promise<DataAuthorizationData> {
   const doc = await graphDoc(transport, iri)
   return DataAuthorization.fromJsonLd(doc, iri)
+}
+
+/**
+ * Role IRIs in the given role registry whose membership includes `member`
+ * (`interop:hasMember`). One SELECT (docs/sparql.md step 2): the container
+ * membership — `ldp:contains` in both `GRAPH <container>` and
+ * `GRAPH <meta:container>` — is joined with the `hasMember` triple living
+ * in each role's own graph, so the result is scoped to this registry set's
+ * roles (the store is shared across owners). The roles listing would be N
+ * graph reads, so this is deliberately a new query, not pure reuse.
+ */
+export async function findRolesWithMember(
+  transport: SparqlTransport,
+  roleRegistryContainerIri: string,
+  member: string
+): Promise<string[]> {
+  const bindings = await transport.fetchBindings(
+    `SELECT DISTINCT ?role WHERE {
+  { GRAPH <${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP_CONTAINS}> ?role } }
+  UNION
+  { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP_CONTAINS}> ?role } }
+  { GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> } }
+}`
+  )
+  return bindings.map((binding) => binding.role.value)
 }
 
 /**

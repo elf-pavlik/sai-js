@@ -1,24 +1,35 @@
-import { ActivityRegistry, RoleRegistry } from '@janeirodigital/interop-data-model'
+import {
+  ActivityRegistry,
+  RoleRegistry,
+  type RoleData,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
+import { getRole, listContained, sparqlTransportFor } from './queries/org.js'
 
+/**
+ * The context's roles via SPARQL — personal context reads the session's
+ * internal endpoint, org context the org's `/sparql-admin`
+ * (`sparqlTransportFor`): role bodies live in their own graphs (keyed by
+ * the role IRI), so the listing is `listContained` + one graph read per
+ * role (docs/sparql.md step 1). Write paths (create/update/delete) stay
+ * REST/LDP via the data-model RoleRegistry.
+ */
 export const getRoles = async (ctx: ResolvedContext) => {
-  const roles = []
-  for await (const registration of RoleRegistry.roles(
-    ctx.registrySet.hasRoleRegistry,
-    ctx.session.factory
-  )) {
-    roles.push(
-      Role.make({
-        id: IRI.make(registration.id),
-        label: registration.prefLabel,
-        members: registration.members.map((m) => IRI.make(m)),
-      })
-    )
-  }
-  return roles
+  const transport = sparqlTransportFor(ctx)
+  const iris = await listContained(transport, ctx.registrySet.hasRoleRegistry.id)
+  const registrations = (await Promise.all(iris.map((iri) => getRole(transport, iri)))).filter(
+    (role): role is RoleData => role !== undefined
+  )
+  return registrations.map((registration) =>
+    Role.make({
+      id: IRI.make(registration.id),
+      label: registration.prefLabel,
+      members: registration.members.map((m) => IRI.make(m)),
+    })
+  )
 }
 
 // no workflow since no authorizations can exist before role is created

@@ -624,3 +624,233 @@ describe.skip('authorization agent', () => {
     })
   })
 })
+
+// ──────────────────────────
+// findAuthorizationsForAgent — registry-plane reads (docs/sparql.md step 2)
+// ──────────────────────────
+
+// The session reads its own registry via the *internal* SPARQL endpoint
+// (localSparqlTransport). Mock the fetch-sparql-endpoint fetcher and route
+// by query text: the listing/membership SELECTs and one CONSTRUCT per
+// authorization graph.
+const sparqlMock = vi.hoisted(() => {
+  const handlers: {
+    bindings?: (query: string) => Array<Record<string, { termType: string; value: string }>>
+    triples?: (query: string) => unknown[]
+  } = {}
+  return { handlers }
+})
+
+vi.mock('fetch-sparql-endpoint', () => ({
+  SparqlEndpointFetcher: class {
+    async fetchBindings(_endpoint: string, query: string) {
+      if (!sparqlMock.handlers.bindings) throw new Error('mock: no bindings handler')
+      return sparqlMock.handlers.bindings(query)
+    }
+    async fetchTriples(_endpoint: string, query: string) {
+      if (!sparqlMock.handlers.triples) throw new Error('mock: no triples handler')
+      return sparqlMock.handlers.triples(query)
+    }
+  },
+}))
+
+describe('findAuthorizationsForAgent', () => {
+  const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+  const SHAPE_TREE = 'https://shapetrees.example/tree/Project'
+  const BOB = 'https://bob.example/#id'
+  const ROLE_REGISTRY = 'https://auth.alice.example/role/'
+  const ROLE_ADMIN = 'https://auth.alice.example/role/admin'
+  const AUTHZ_DIRECT = 'https://auth.alice.example/authz-direct'
+  const AUTHZ_VIA_ROLE = 'https://auth.alice.example/authz-via-role'
+  const AUTHZ_ADMIN = 'https://auth.alice.example/admin-authz'
+
+  const authzGraph = (iri: string, type: string, grantee: string) => [
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(RDF_TYPE),
+      DataFactory.namedNode(type)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.grantee),
+      DataFactory.namedNode(grantee)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.grantedBy),
+      DataFactory.namedNode(webId)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.registeredShapeTree),
+      DataFactory.namedNode(SHAPE_TREE)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.scopeOfAuthorization),
+      DataFactory.namedNode(INTEROP.All)
+    ),
+  ]
+
+  test('grants to the peer directly and via role membership; other contained types excluded', async () => {
+    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: createStatefulFetch(),
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+    // the fixture registry set has no role registry; the query only needs
+    // the container IRI (routed by the mock)
+    agent.registrySet.hasRoleRegistry = { id: ROLE_REGISTRY }
+
+    sparqlMock.handlers.bindings = (query) => {
+      if (query.includes('SELECT DISTINCT ?child')) {
+        // listContained over the authorization registry
+        return [AUTHZ_DIRECT, AUTHZ_VIA_ROLE, AUTHZ_ADMIN].map((iri) => ({
+          child: { termType: 'NamedNode', value: iri },
+        }))
+      }
+      // role-membership SELECT — BOB is a member of ROLE_ADMIN
+      expect(query).toContain('hasMember')
+      return [{ role: { termType: 'NamedNode', value: ROLE_ADMIN } }]
+    }
+    sparqlMock.handlers.triples = (query) => {
+      const graphs: Record<string, unknown[]> = {
+        [AUTHZ_DIRECT]: authzGraph(AUTHZ_DIRECT, INTEROP.DataAuthorization, BOB),
+        [AUTHZ_VIA_ROLE]: authzGraph(AUTHZ_VIA_ROLE, INTEROP.DataAuthorization, ROLE_ADMIN),
+        [AUTHZ_ADMIN]: authzGraph(AUTHZ_ADMIN, 'https://example/AdminAuthorization', BOB),
+      }
+      for (const [iri, quads] of Object.entries(graphs)) {
+        if (query.includes(`GRAPH <${iri}>`)) return quads
+      }
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    const authorizations = await agent.findAuthorizationsForAgent(BOB)
+
+    expect(authorizations.map((authorization) => authorization.id)).toEqual([
+      AUTHZ_DIRECT,
+      AUTHZ_VIA_ROLE,
+    ])
+    expect(authorizations.map((authorization) => authorization.grantee)).toEqual([BOB, ROLE_ADMIN])
+  })
+})
+
+describe('findApplicationRegistration', () => {
+  const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+  const APP_REG = 'https://auth.alice.example/app-reg'
+  const APP_WEBID = 'https://projectron.example/#app'
+
+  test('finds the registration of the application webId via the hasApplicationRegistration listing', async () => {
+    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: createStatefulFetch(),
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+    sparqlMock.handlers.bindings = (query) => {
+      expect(query).toContain('hasApplicationRegistration')
+      return [{ child: { termType: 'NamedNode', value: APP_REG } }]
+    }
+    sparqlMock.handlers.triples = (query) => {
+      expect(query).toContain(`GRAPH <${APP_REG}>`)
+      return [
+        DataFactory.quad(
+          DataFactory.namedNode(APP_REG),
+          DataFactory.namedNode(RDF_TYPE),
+          DataFactory.namedNode(INTEROP.ApplicationRegistration)
+        ),
+        DataFactory.quad(
+          DataFactory.namedNode(APP_REG),
+          DataFactory.namedNode(INTEROP.registeredAgent),
+          DataFactory.namedNode(APP_WEBID)
+        ),
+      ]
+    }
+
+    const registration = await agent.findApplicationRegistration(APP_WEBID)
+
+    expect(registration).toEqual({
+      id: APP_REG,
+      type: [INTEROP.ApplicationRegistration],
+      registeredAgent: APP_WEBID,
+      hasDataGrant: [],
+      granted: false,
+    })
+  })
+})
+
+describe('findDataRegistration', () => {
+  const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+  const DATA_REGISTRY = 'https://auth.alice.example/data-registry/'
+  const DATA_REG_PROJECT = 'https://auth.alice.example/projects/'
+  const DATA_REG_TASK = 'https://auth.alice.example/tasks/'
+  const PROJECT_TREE = 'https://shapetrees.example/tree/Project'
+  const TASK_TREE = 'https://shapetrees.example/tree/Task'
+
+  const registrationGraph = (iri: string, shapeTree: string) => [
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(RDF_TYPE),
+      DataFactory.namedNode(INTEROP.DataRegistration)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.registeredShapeTree),
+      DataFactory.namedNode(shapeTree)
+    ),
+  ]
+
+  test('lists the data registry via hasDataRegistration and matches the shape tree', async () => {
+    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: createStatefulFetch(),
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+    sparqlMock.handlers.bindings = (query) => {
+      expect(query).toContain('hasDataRegistration')
+      return [DATA_REG_PROJECT, DATA_REG_TASK].map((iri) => ({
+        child: { termType: 'NamedNode', value: iri },
+      }))
+    }
+    sparqlMock.handlers.triples = (query) => {
+      const graphs: Record<string, unknown[]> = {
+        [DATA_REG_PROJECT]: registrationGraph(DATA_REG_PROJECT, PROJECT_TREE),
+        [DATA_REG_TASK]: registrationGraph(DATA_REG_TASK, TASK_TREE),
+      }
+      for (const [iri, quads] of Object.entries(graphs)) {
+        if (query.includes(`GRAPH <${iri}>`)) return quads
+      }
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    const registration = await agent.findDataRegistration(DATA_REGISTRY, PROJECT_TREE)
+
+    expect(registration).toEqual({
+      id: DATA_REG_PROJECT,
+      type: [INTEROP.DataRegistration],
+      registeredShapeTree: PROJECT_TREE,
+      contains: [],
+    })
+  })
+
+  test('returns undefined when no registration matches the shape tree', async () => {
+    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: createStatefulFetch(),
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+    sparqlMock.handlers.bindings = () => [
+      { child: { termType: 'NamedNode', value: DATA_REG_PROJECT } },
+    ]
+    sparqlMock.handlers.triples = (query) => {
+      if (query.includes(`GRAPH <${DATA_REG_PROJECT}>`)) {
+        return registrationGraph(DATA_REG_PROJECT, TASK_TREE)
+      }
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    await expect(agent.findDataRegistration(DATA_REGISTRY, PROJECT_TREE)).resolves.toBeUndefined()
+  })
+})

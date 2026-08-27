@@ -34,7 +34,8 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
 
 - **Same query, only endpoint differs** — every registry read
   (`graphDoc`, `listContained`, `getSocialAgentRegistration`, `getDataGrant`,
-  `getDataAuthorization`, `findSocialAgentRegistration`) is one query fn +
+  `getDataAuthorization`, `getRole`, `findSocialAgentRegistration`) is one
+  query fn +
   either `localSparqlTransport`/`adminSparqlTransport` via
   `sparqlTransportFor(ctx)` (service call sites — AgentRegistry, DataRegistry,
   Authorization, ShareResource) or `localSparqlTransport(session.sparqlEndpoint)`
@@ -77,3 +78,104 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
 - `revokeGrants` is handed `sparqlEndpoint` directly — a **write** to the
   data owner's store (`GrantRevocationHandler`), correctly outside this
   read-plane abstraction.
+
+## What's left / not yet done
+
+Recommended order (each step keeps tests green: the package vitest in
+`/packages` plus the matching `/test` integration file via dagger; the
+`authorization-agent` vitest is all-`describe.skip` today, so its steps are
+verified by the `/test` integration files only).
+
+Each step ends with a **caller check**: `codegraph_callers` on every
+data-model HTTP function the step replaced — the verdict (still-used /
+orphaned) is recorded in the step's entry below. Orphaned functions stay as
+public API (the data-model package is published; removal is a deliberate
+breaking change) until a cleanup decision is made — we are free to modify
+data-model as needed, so cleanup may be scheduled explicitly.
+
+1. **Roles listing** — **done** (`RoleRegistry.getRoles` reads via `listContained` +
+   `getRole` through `sparqlTransportFor` — no new queries; unit test in
+   `components/test/role-registry.test.ts`; dagger `/test/roles.test.ts`,
+   `/test/org-context.test.ts` (ListRoles)).
+2. **`findAuthorizationsForAgent`** — **done** (authorizations half reuses
+   `listContained` + `getDataAuthorization`; role membership is the new
+   `findRolesWithMember` SELECT; the HTTP `roles` getter was removed — it
+   had no other consumers; unit test in `authorization-agent/test`; dagger
+   `/test/services.test.ts`, `/test/authorization.test.ts`).
+3. **`findApplicationRegistration`** — **done** (new `listApplicationRegistrations`
+   query — `interop:hasApplicationRegistration` in both graphs only, exact
+   parity with the HTTP `linkedIrisJsonLd` read, since runtime writes patch
+   that predicate into the container — plus `getApplicationRegistration`
+   framing via data-model `ApplicationRegistration.fromJsonLd`, mirroring
+   `findSocialAgentRegistration` / `getSocialAgentRegistration`; wired in
+   the AA method served by `AgentIdHandler` and in `getApplications`;
+   per-app profiles still dereference the client-id document over HTTP;
+   invitation reads later the same way; unit tests in `authorization-agent`
+   and `components/test/agent-registry.test.ts`; dagger `/test/agents.test.ts`,
+   `/test/authorization.test.ts`, `/test/delegation-endpoint.test.ts`).
+4. **`findDataRegistration` + own data-registry listings** (`buildDataRegistry`,
+   `findUserDataRegistrations`) — **done** (new `listDataRegistrations` query —
+   `interop:hasDataRegistration` in both graphs only, exact parity with the
+   HTTP `hasDataRegistration` read, since runtime writes
+   (`DataRegistry.createRegistration`) patch that predicate into the
+   container — plus `getDataRegistration` framing via data-model
+   `DataRegistration.fromJsonLd`; wired in the AA `findDataRegistration`
+   (share flow) and in `buildDataRegistry` / `findUserDataRegistrations`;
+   storage description for the registry label stays HTTP data-plane; unit
+   tests in `authorization-agent` and `components/test/data-registry.test.ts`;
+   dagger `/test/share.test.ts`, `/test/authorization.test.ts`, agents/data
+   registry RPC tests).
+
+Replaced data-model functions — remaining callers (steps 1–4):
+
+- `RoleRegistry.roles` (step 1) — **orphaned in src**: `test/org-context.test.ts`
+  (integration) is the only remaining caller; cleanup decision pending.
+- `AuthorizationRegistry.dataAuthorizations` (step 2) — **still used** by
+  `findRoleUsage` (role-deletion guard, `temporal/activities/grants.ts`): the
+  same authorizations listing `findAuthorizationsForAgent` now reads via
+  SPARQL — convert when the role-deletion path gets attention (follow-up
+  below).
+- `AgentRegistry.applicationRegistrations` (step 3) — **orphaned in src**: only
+  the unconsumed AA getter (`applicationRegistrations`) and data-model
+  internals/tests; cleanup decision pending.
+- `AgentRegistry.findApplicationRegistration` (step 3) — **still used**: the
+  `recordAuthorization` existence check (kept HTTP by design in step 3) and
+  data-model internals (`findRegistration`, `addApplicationRegistration`).
+- `DataRegistry.registrations` (step 4) — **still used**: grant generation
+  (`data-model/src/data-authorization.ts:329`, `generateGrantsForAuthorization`
+  — matches the authorization's registration/shape-tree against the registry
+  set's data registrations over HTTP; live via the AA `generateDataGrants`
+  path) and data-model internals (`registeredShapeTrees`,
+  `createRegistration`). A future SPARQL candidate for the grant-generation
+  path.
+
+Out of scope (documented, deliberately not scheduled):
+
+- **`findGrantForResource` / `findShapeTreeForResource` / `findResourceOwner` /
+  `findResourceServerOwner` (peer leg)** — the storage→shape-tree chain has
+  **zero callers today** (verified with `codegraph_callers` per symbol:
+  `findShapeTreeForResource` — the chain root — has no callers;
+  `findGrantForResource` / `findResourceOwner` are called only by
+  `findShapeTreeForResource`; `findResourceServerOwner` only by
+  `findResourceOwner`; `findDataRegistrationForResource`'s only caller is
+  `findShapeTreeForResource`). Opportunistic — convert if it re-enters use:
+  the peer-grant leg (match grants by `hasStorage`) is a graph SELECT;
+  `findResourceOwner`'s local leg (storage-description discovery) stays HTTP
+  data-plane.
+- **`ReciprocalMirror` (dormant)** — replace its hand-rolled fetcher reads with
+  `localSparqlTransport` + `graphDoc`/`listContained`; not wired, so no
+  behavior change — optional cleanup, do last if at all.
+- **`findRoleUsage`'s authorization sweep** — the role-deletion guard
+  (`temporal/activities/grants.ts`) still iterates
+  `AuthorizationRegistry.dataAuthorizations` over HTTP; same listing the
+  registry plane already serves (`listContained` + `getDataAuthorization` +
+  type filter) — convert when the role-deletion/reconciliation path is
+  touched.
+- **Iterator-level 404/410 tolerance** — stale-`ldp:contains` after
+  authorization replacement/deletion makes listing consumers 404 and kills
+  workflows; skip gone IRIs instead (deferred; see
+  `improve-fetch-json-ld.md`). `generateDataGrants` tolerance kept reverted
+  per decision.
+- **`/sparql-admin` consumers at 4b** — org-context reads switch to it
+  (authenticated as the admin) at the per-owner split
+  (`isolated-datasets-and-sparql.md`).

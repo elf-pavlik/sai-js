@@ -1,4 +1,8 @@
+import { buildSessionManager } from '@elfpavlik/sai-components'
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { type ActivityData, ActivityRegistry } from '@janeirodigital/interop-data-model'
 import {
+  AS,
   RDF,
   getNotificationChannel,
   getOneMatchingQuad,
@@ -103,6 +107,97 @@ export async function waitFor<T>(
   }
   if (lastError) throw lastError
   throw new Error(`waitFor timed out after ${timeout}ms`)
+}
+
+// ---------------------------------------------------------------------------
+// Workflow quiescence — no pending activities for the given webIds
+// ---------------------------------------------------------------------------
+
+/**
+ * The webId's un-completed activities: registry entries without a matching
+ * `activityCompleted` (same read as the worker's `getPendingActivities`).
+ * A pending activity means a webhook-triggered workflow is still mid-flight;
+ * workflows mark their activity done only on completion (`markActivitiesDone`).
+ */
+async function pendingActivitiesFor(session: AuthorizationAgent): Promise<ActivityData[]> {
+  const registry = session.registrySet.hasActivityRegistry
+  if (!registry) return []
+  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const completed = new Set<string>()
+  const workItems: ActivityData[] = []
+  for (const iri of iris) {
+    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    if (activity.activityType === 'activityCompleted') {
+      completed.add(activity.target)
+    } else {
+      workItems.push(activity)
+    }
+  }
+  return workItems.filter((activity) => !completed.has(activity.id))
+}
+
+/**
+ * Wait until none of `webIds` has pending activities for `settle` consecutive
+ * polls — i.e. no workflows from earlier tests are still running/mid-flight
+ * when the next test starts (webhook-triggered workflows, per-test timeline).
+ * Long-lived grantee-consumers stay alive between drains but carry no pending
+ * activities, so they don't block settlement.
+ */
+export async function waitForQuiescence(
+  webIds: string[],
+  {
+    timeout = 30_000,
+    interval = 250,
+    settle = 2,
+  }: { timeout?: number; interval?: number; settle?: number } = {}
+): Promise<void> {
+  const manager = buildSessionManager()
+  // sessions are reused across polls — each getSession performs an OIDC login
+  const sessions = await Promise.all(
+    webIds.map(async (webId) => [webId, await manager.getSession(webId)] as const)
+  )
+  const deadline = Date.now() + timeout
+  let settled = 0
+  while (Date.now() < deadline) {
+    const pending = await Promise.all(
+      sessions.map(async ([, session]) => (await pendingActivitiesFor(session)).length)
+    )
+    const total = pending.reduce((sum, count) => sum + count, 0)
+    if (total === 0) {
+      settled += 1
+      if (settled >= settle) return
+    } else {
+      settled = 0
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval))
+  }
+  throw new Error(`workflows did not settle within ${timeout}ms for: ${webIds.join(', ')}`)
+}
+
+/**
+ * Barrier for a grant-affecting change (wait-for-completion): open the
+ * notification stream on `registrationId`, run `trigger`, await the
+ * registration `Update`, then — critically — wait until the triggered
+ * workflow chain FULLY completed (`waitForQuiescence` over `webIds`). The
+ * `Update` arrives MID-CHAIN (from the registration PATCH in a child
+ * workflow), while the parent workflow's `activityCompleted` write — its
+ * tail — is still pending; proceeding right then races the test's next
+ * activity write against that tail in the same activity container (CSS
+ * SPARQL-backend concurrent-write corruption, docs/plans).
+ */
+export async function awaitGrantCompletion(
+  authFetch: typeof fetch,
+  registrationId: string,
+  webIds: string[],
+  trigger: () => Promise<unknown>
+): Promise<void> {
+  const stream = await openNotificationStream(authFetch, registrationId)
+  await trigger()
+  // CSS delivers the activity Add to the pre-seeded webhook channel (Phase 2) —
+  // the workflow runs and the registration Update arrives on this stream
+  const received = await awaitNotification(stream, AS.Update)
+  if (!received) throw new Error(`expected registration Update on ${registrationId}`)
+  await waitForQuiescence(webIds)
 }
 
 // ---------------------------------------------------------------------------

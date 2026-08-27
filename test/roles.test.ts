@@ -1,9 +1,8 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
-import { AS } from '@janeirodigital/interop-utils'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { describe, expect, test } from 'vitest'
-import { awaitNotification, openNotificationStream } from './util'
+import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
+import { beforeEach, describe, expect, test } from 'vitest'
+import { awaitGrantCompletion, waitForQuiescence } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -77,8 +76,10 @@ async function rpcCall(payload: unknown, cookie: string) {
 
 /**
  * Open the notification stream on the grantor's registration for `granteeId`
- * BEFORE triggering the change, then deliver the activity notification and
- * await the single registration `Update` (see plan §5 / §3.5).
+ * BEFORE triggering the change, then deliver the activity notification, await
+ * the single registration `Update` AND the triggered chain's completion
+ * (`activityCompleted` — shared `awaitGrantCompletion`), so the next write
+ * can't race this chain's tail in the activity container.
  */
 async function awaitGrantChange(
   grantor: AuthorizationAgent,
@@ -86,12 +87,7 @@ async function awaitGrantChange(
   trigger: () => Promise<unknown>
 ): Promise<void> {
   const registration = await grantor.findSocialAgentRegistration(granteeId)
-  const stream = await openNotificationStream(grantor.fetch, registration.id)
-  await trigger()
-  // CSS delivers the activity Add to the pre-seeded webhook channel (Phase 2) —
-  // the workflow runs and the registration Update arrives on this stream
-  const received = await awaitNotification(stream, AS.Update)
-  expect(received).toBeTruthy()
+  await awaitGrantCompletion(grantor.fetch, registration.id, [grantor.webId, granteeId], trigger)
 }
 
 describe('role-based access', () => {
@@ -107,6 +103,12 @@ describe('role-based access', () => {
   const whizRoleId = 'https://registry/bob/role/v7emok'
   const bizRoleId = 'https://registry/bob/role/t6nwde'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
+
+  // no workflows from earlier tests may be running when the next test starts
+  // (they mutate shared state and emit stale notifications) — drain first
+  beforeEach(async () => {
+    await waitForQuiescence([aliceId, kimId, bobId, danId, yoyoId])
+  })
 
   test('create role test role', async () => {
     const body = await rpcCall(
@@ -179,7 +181,7 @@ describe('role-based access', () => {
       rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
-        context: aliceId,
+          context: aliceId,
           id: roleId,
           label: 'Test',
           members: [kimId],
@@ -193,7 +195,7 @@ describe('role-based access', () => {
       rpcCall(
         rpcPayload({
           _tag: 'UpdateRole',
-        context: aliceId,
+          context: aliceId,
           id: roleId,
           label: 'Test',
           members: [],
@@ -244,7 +246,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
-        context: bobId,
+            context: bobId,
             id: whizRoleId,
             label: initialRole?.prefLabel ?? 'Whiz',
             members: [...initialMembers, danId],
@@ -258,7 +260,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
-        context: bobId,
+            context: bobId,
             id: bizRoleId,
             label: 'Biz',
             members: [],
@@ -273,33 +275,36 @@ describe('role-based access', () => {
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
 
-      // open the stream BEFORE the setup RPCs — with CSS delivery the workflows
-      // start immediately on each activity PUT, so the Update may already be
-      // emitted by the time the RPCs return
+      // each RPC in its own completion barrier: the UpdateRole chain and the
+      // AuthorizeApp chain both touch the seeded role authorization — running
+      // them inside one trigger races them against each other (the second's
+      // replacement deletes the seeded t1u13z while the first's workflow is
+      // still fetching it; the seed is reloaded per test, so it is always
+      // present and always the shared target).
       const regForDan = await bobSession.findSocialAgentRegistration(danId)
-      const stream = await openNotificationStream(bobSession.fetch, regForDan.id)
 
-      await rpcCall(
-        rpcPayload({
-          _tag: 'UpdateRole',
-        context: bobId,
-          id: whizRoleId,
-          label: 'Whiz',
-          members: [danId],
-        }),
-        bobCookie
-      )
+      await awaitGrantCompletion(bobSession.fetch, regForDan.id, [bobId, danId], async () => {
+        await rpcCall(
+          rpcPayload({
+            _tag: 'UpdateRole',
+            context: bobId,
+            id: whizRoleId,
+            label: 'Whiz',
+            members: [danId],
+          }),
+          bobCookie
+        )
+      })
 
-      const body = await rpcCall(payload, bobCookie)
-      expect(Array.isArray(body)).toBe(true)
-      expect(body.length).toBeGreaterThan(0)
-      expect(body[0].grantee).toBe(whizRoleId)
-      expect(body[0].grantedBy).toBe(bobId)
-      expect(body[0].id).toMatch('https://registry/bob/authorization/')
+      await awaitGrantCompletion(bobSession.fetch, regForDan.id, [bobId, danId], async () => {
+        const body = await rpcCall(payload, bobCookie)
+        expect(Array.isArray(body)).toBe(true)
+        expect(body.length).toBeGreaterThan(0)
+        expect(body[0].grantee).toBe(whizRoleId)
+        expect(body[0].grantedBy).toBe(bobId)
+        expect(body[0].id).toMatch('https://registry/bob/authorization/')
+      })
 
-      // the Update from either the setup UpdateRole or the AuthorizeApp
-      const received = await awaitNotification(stream, AS.Update)
-      expect(received).toBeTruthy()
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 
@@ -318,7 +323,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
-        context: bobId,
+            context: bobId,
             id: whizRoleId,
             label: 'Whiz',
             members: [danId],
@@ -332,7 +337,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'DeleteRole',
-        context: bobId,
+            context: bobId,
             id: whizRoleId,
           }),
           bobCookie
@@ -356,7 +361,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'UpdateRole',
-        context: bobId,
+            context: bobId,
             id: whizRoleId,
             label: 'Whiz',
             members: [danId],
@@ -370,7 +375,7 @@ describe('role-based access', () => {
         rpcCall(
           rpcPayload({
             _tag: 'DeleteRole',
-        context: bobId,
+            context: bobId,
             id: bizRoleId,
           }),
           bobCookie

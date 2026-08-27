@@ -1,8 +1,8 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { getDataGrants, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
 import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitNotification, openNotificationStream } from './util'
+import { awaitGrantCompletion } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -23,43 +23,42 @@ describe('share resource', () => {
     const regForKim = await aliceSession.findSocialAgentRegistration(kimId)
     expect(regForKim).toBeDefined()
 
-    const stream = await openNotificationStream(aliceSession.fetch, regForKim.id)
-
-    const response = await fetch(rpcEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: aliceCookie,
-      },
-      body: JSON.stringify([
-        {
-          request: {
-            _tag: 'ShareResource',
-            authorization: {
-              applicationId,
-              resource,
-              agents: [kimId],
-              accessMode: [readMode],
-              children: [],
-            },
-            context: aliceId,
-          },
-          headers: {},
-          traceId: '13c2035f72f45c1ebbf13b055b7dc526',
-          spanId: '685581075752b8a2',
-          sampled: true,
+    // trigger the share, await the registration Update AND the chain's
+    // completion (shared barrier — the Update fires mid-chain, this also
+    // waits for the workflow tail so the next write can't race it)
+    await awaitGrantCompletion(aliceSession.fetch, regForKim.id, [aliceId, kimId], async () => {
+      const response = await fetch(rpcEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: aliceCookie,
         },
-      ]),
+        body: JSON.stringify([
+          {
+            request: {
+              _tag: 'ShareResource',
+              authorization: {
+                applicationId,
+                resource,
+                agents: [kimId],
+                accessMode: [readMode],
+                children: [],
+              },
+              context: aliceId,
+            },
+            headers: {},
+            traceId: '13c2035f72f45c1ebbf13b055b7dc526',
+            spanId: '685581075752b8a2',
+            sampled: true,
+          },
+        ]),
+      })
+      expect(response.status).toBe(200)
+      const body = await response.json()
+      const { _tag, value } = body[0]
+      expect(_tag).toBe('Success')
+      expect(value).toEqual(expect.objectContaining({ callbackEndpoint: 'https://test-client' }))
     })
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    const { _tag, value } = body[0]
-    expect(_tag).toBe('Success')
-    expect(value).toEqual(expect.objectContaining({ callbackEndpoint: 'https://test-client' }))
-
-    // CSS delivers the authorizationRecorded Add to the pre-seeded channel (Phase 2)
-    const received = await awaitNotification(stream, AS.Update)
-    expect(received).toBeTruthy()
 
     // verify the grant for the shared instance on alice's reciprocal registration for kim
     const kimSession = await manager.getSession(kimId)

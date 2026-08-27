@@ -1,8 +1,7 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import { AuthorizationRegistry, getGranted } from '@janeirodigital/interop-data-model'
-import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitNotification, openNotificationStream } from './util'
+import { awaitGrantCompletion } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 // TODO: import
@@ -150,24 +149,22 @@ describe('denied', () => {
     const registration = await session.findApplicationRegistration(clientId)
     expect(registration).toBeDefined()
 
-    // grant first — authorizationRecorded activity → grants appear on the application registration
-    const grantStream = await openNotificationStream(session.fetch, registration.id)
-    const granted = await rpcCall(rpcPayload(grantedAuthorization), bobCookie)
-    expect(Array.isArray(granted)).toBe(true)
-    expect(granted.length).toBeGreaterThan(0)
-    // CSS delivers the authorizationRecorded Add (Phase 2)
-    const grantReceived = await awaitNotification(grantStream, AS.Update)
-    expect(grantReceived).toBeTruthy()
+    // grant first — authorizationRecorded activity → grants appear on the
+    // application registration; wait for the chain's completion (shared
+    // barrier: Update + quiescence, so the deny below can't race the tail)
+    await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
+      const granted = await rpcCall(rpcPayload(grantedAuthorization), bobCookie)
+      expect(Array.isArray(granted)).toBe(true)
+      expect(granted.length).toBeGreaterThan(0)
+    })
     expect(await getGranted(await session.findApplicationRegistration(clientId))).toBeTruthy()
 
     // deny — grants revoked (single registration Update)
-    const denyStream = await openNotificationStream(session.fetch, registration.id)
-    const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
-    expect(Array.isArray(denied)).toBe(true)
-    expect(denied.length).toBe(0)
-    // CSS delivers the authorizationRecorded Add (Phase 2)
-    const denyReceived = await awaitNotification(denyStream, AS.Update)
-    expect(denyReceived).toBeTruthy()
+    await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
+      const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
+      expect(Array.isArray(denied)).toBe(true)
+      expect(denied.length).toBe(0)
+    })
 
     const dataAuthorizations = await AuthorizationRegistry.findDataAuthorizations(
       session.registrySet.hasAuthorizationRegistry,

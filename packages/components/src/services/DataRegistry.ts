@@ -1,7 +1,6 @@
 import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
   DataRegistry as DataRegistryModule,
-  getDataGrants,
   Grant,
   labelFromNode,
   ShapeTree,
@@ -80,35 +79,27 @@ const buildDataRegistryForGrant = async (
 }
 
 /**
- * The data grants the context has for `agentId` (peer branch). Direct
- * routing: the reciprocal of the context's registration of `agentId`, then
- * its linked grants — via SPARQL in org context (peer `.acr`s never grant
- * the admin), via the factory in personal context. Fallback scan (preserved
- * from `findDataGrantIndex`): any registration's reciprocal grants that
- * name `agentId` as `dataOwner`.
+ * The data grants the context has for `agentId` (peer branch): the
+ * reciprocal of the context's registration of `agentId`, then its linked
+ * grants — via SPARQL in both contexts (`sparqlTransportFor`: personal →
+ * internal endpoint, org → `/sparql-admin`; peer `.acr`s never grant the
+ * admin). Fallback scan: any registration's reciprocal grants that name
+ * `agentId` as `dataOwner`.
  */
 async function dataGrantIndexForAgent(
   ctx: ResolvedContext,
   agentId: string
 ): Promise<Record<string, GrantData[]>> {
-  const personal = ctx.webId === ctx.userWebId
+  const transport = sparqlTransportFor(ctx)
   const directGrants = await (async () => {
     const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentId)
     if (!socialAgentRegistration?.reciprocalRegistration) return []
-    if (personal) {
-      const reciprocalReg = await ctx.session.factory.socialAgentRegistration(
-        socialAgentRegistration.reciprocalRegistration
-      )
-      return getDataGrants(reciprocalReg, ctx.session.factory)
-    }
     const reciprocalReg = await getRegistrationFromSparql(
-      sparqlTransportFor(ctx),
+      transport,
       socialAgentRegistration.reciprocalRegistration
     )
     return Promise.all(
-      reciprocalReg.hasDataGrant.map((grantIri) =>
-        getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
-      )
+      reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
     )
   })()
 
@@ -130,14 +121,7 @@ async function dataGrantIndexForAgent(
   const scanned: GrantData[] = []
   for (const registration of await listSocialAgentRegistrations(ctx)) {
     if (!registration.reciprocalRegistration) continue
-    const grants = personal
-      ? await (async () => {
-          const reciprocalReg = await ctx.session.factory.socialAgentRegistration(
-            registration.reciprocalRegistration
-          )
-          return getDataGrants(reciprocalReg, ctx.session.factory)
-        })()
-      : await getReciprocalGrantsSparql(ctx, registration.reciprocalRegistration)
+    const grants = await getReciprocalGrantsSparql(ctx, registration.reciprocalRegistration)
     scanned.push(...grants.filter((grant) => grant.dataOwner === agentId))
   }
   return indexFromGrants(scanned)
@@ -147,11 +131,10 @@ async function getReciprocalGrantsSparql(
   ctx: ResolvedContext,
   reciprocalIri: string
 ): Promise<GrantData[]> {
-  const reciprocalReg = await getRegistrationFromSparql(sparqlTransportFor(ctx), reciprocalIri)
+  const transport = sparqlTransportFor(ctx)
+  const reciprocalReg = await getRegistrationFromSparql(transport, reciprocalIri)
   return Promise.all(
-    reciprocalReg.hasDataGrant.map((grantIri) =>
-      getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
-    )
+    reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
   )
 }
 
@@ -199,29 +182,21 @@ export const listDataInstances = async (
     }
   } else {
     const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentId)
+    // §2.4 known issue: peer *instance content* stays HTTP and 403s for
+    // non-owners; the reciprocal/grant list here resolves via SPARQL
+    // (personal: internal endpoint, org: `/sparql-admin`).
+    const transport = sparqlTransportFor(ctx)
     const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
-      ? // §2.4 known issue: peer *instance content* stays HTTP and 403s for
-        // non-owners; the reciprocal/grant list here resolves via SPARQL
-        // in org context.
-        ctx.webId === ctx.userWebId
-          ? await ctx.session.factory.socialAgentRegistration(
-              socialAgentRegistration.reciprocalRegistration
-            )
-          : await getRegistrationFromSparql(
-              sparqlTransportFor(ctx),
-              socialAgentRegistration.reciprocalRegistration
-            )
+      ? await getRegistrationFromSparql(
+          transport,
+          socialAgentRegistration.reciprocalRegistration
+        )
       : undefined
     let dataGrants: GrantData[]
     if (reciprocalReg && reciprocalReg.hasDataGrant.length > 0) {
-      dataGrants =
-        ctx.webId === ctx.userWebId
-          ? await getDataGrants(reciprocalReg, ctx.session.factory)
-          : await Promise.all(
-              reciprocalReg.hasDataGrant.map((grantIri) =>
-                getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
-              )
-            )
+      dataGrants = await Promise.all(
+        reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
+      )
     } else {
       dataGrants = Object.values(await dataGrantIndexForAgent(ctx, agentId)).flat()
     }

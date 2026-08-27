@@ -16,7 +16,6 @@ import {
   ShapeTree,
   type SocialAgentRegistrationData,
   getDataGrantIris,
-  getDataGrants,
 } from '@janeirodigital/interop-data-model'
 import type { AuthorizationAgentFactory } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -138,8 +137,8 @@ export const getDescriptions = async (
   preferredLang: string,
   accessNeedGroupIri?: string & Brand<'IRI'>
 ): Promise<S.Schema.Type<typeof AuthorizationData>> => {
-  const personal = ctx.webId === ctx.userWebId
   let accessNeedGroupIriResolved: string
+  const transport = sparqlTransportFor(ctx)
   if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
   } else if (agentType === AgentType.Application) {
@@ -150,14 +149,10 @@ export const getDescriptions = async (
     const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
     const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
-      ? personal
-        ? await ctx.session.factory.socialAgentRegistration(
-            socialAgentRegistration.reciprocalRegistration
-          )
-        : await getRegistrationFromSparql(
-            sparqlTransportFor(ctx),
-            socialAgentRegistration.reciprocalRegistration
-          )
+      ? await getRegistrationFromSparql(
+          transport,
+          socialAgentRegistration.reciprocalRegistration
+        )
       : undefined
     accessNeedGroupIriResolved = reciprocalRegistration?.hasAccessNeedGroup
     if (!accessNeedGroupIriResolved) return null
@@ -190,21 +185,15 @@ export const getDescriptions = async (
 
   for (const socialAgentRegistration of await listSocialAgentRegistrations(ctx)) {
     if (socialAgentRegistration.reciprocalRegistration) {
-      const reciprocalRegistration = personal
-        ? await ctx.session.factory.socialAgentRegistration(
-            socialAgentRegistration.reciprocalRegistration
-          )
-        : await getRegistrationFromSparql(
-            sparqlTransportFor(ctx),
-            socialAgentRegistration.reciprocalRegistration
-          )
-      const dataGrants = personal
-        ? await getDataGrants(reciprocalRegistration, ctx.session.factory)
-        : await Promise.all(
-            reciprocalRegistration.hasDataGrant.map((grantIri) =>
-              getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
-            )
-          )
+      const reciprocalRegistration = await getRegistrationFromSparql(
+        transport,
+        socialAgentRegistration.reciprocalRegistration
+      )
+      const dataGrants = await Promise.all(
+        reciprocalRegistration.hasDataGrant.map((grantIri) =>
+          getDataGrantFromSparql(transport, grantIri)
+        )
+      )
       const dataRegistrations = await findSocialAgentDataRegistrations(
         dataGrants,
         accessNeedGroup,

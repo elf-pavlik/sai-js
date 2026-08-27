@@ -73,12 +73,12 @@ export function agentsWithAccessMatching(
 }
 
 /**
- * Org-context "who has access": data authorizations of the ORG's
- * authorization registry, matched like `AA.findAgentsWithAccess` (with
- * `ctx.webId` as the owner), filtered to agents registered with the org.
- * Reads via SPARQL (`queries/org.ts`) — the admin session HTTP-derefs no
- * peer document and holds no data grants; in real deployments the query
- * goes over `/sparql-admin` (plan's last step).
+ * "Who has access": data authorizations of the *context* authorization
+ * registry, matched like `AA.findAgentsWithAccess` (with `ctx.webId` as the
+ * owner), filtered to agents registered with the context. Reads via SPARQL
+ * (`queries/org.ts`) — personal context via the session's internal endpoint,
+ * org context over `/sparql-admin` (`sparqlTransportFor`); the admin session
+ * HTTP-derefs no peer document and holds no data grants.
  */
 async function orgAgentsWithAccess(
   ctx: ResolvedContext,
@@ -134,13 +134,10 @@ export const getResource = async (ctx: ResolvedContext, iri: string, lang: strin
   if (!resource) throw new Error(`Resource not found: ${iri}`)
   const shapeTree = await ctx.session.factory.shapeTree(resource.shapeTreeIri!)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.factory)
-  // Org context: "who has access" = the org's own data authorizations
-  // covering this resource, read via SPARQL (orgAgentsWithAccess);
-  // personal = the session's own registry via the AA.
-  const accessGrantedTo =
-    ctx.webId === ctx.userWebId
-      ? (await ctx.session.findSocialAgentsWithAccess(resource.id)).map(({ agent }) => agent)
-      : await orgAgentsWithAccess(ctx, resource)
+  // "who has access" is read via SPARQL in both contexts — personal via
+  // the session's internal endpoint, org via `/sparql-admin`
+  // (`sparqlTransportFor`).
+  const accessGrantedTo = await orgAgentsWithAccess(ctx, resource)
   return Resource.make({
     id: IRI.make(resource.id),
     label: resource.label,

@@ -7,7 +7,6 @@ import {
   discoverAndUpdateReciprocal,
   getAdminGrantIris,
   getDataGrantIris,
-  getDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   Application,
@@ -29,41 +28,33 @@ import {
 
 /**
  * Resolve the reciprocal registration of `registration` (the peer's
- * registration of us / of the org). Personal context keeps the HTTP factory
- * path; org context reads it from the session's internal SPARQL endpoint —
- * the peer's graphs live in the shared store (federation.md shortcut 1) and
- * their `.acr`s grant the org/registered agent, never the admin.
+ * registration of us / of the org) via SPARQL — personal context hits the
+ * session's internal endpoint, org context the org's `/sparql-admin`
+ * (`sparqlTransportFor`). The peer's graphs live in the shared store
+ * (federation.md shortcut 1); their `.acr`s grant the org/registered agent,
+ * never the admin.
  */
 async function getReciprocalRegistration(
   ctx: ResolvedContext,
-  registration: SocialAgentRegistrationData,
-  personal: boolean
+  registration: SocialAgentRegistrationData
 ): Promise<SocialAgentRegistrationData> {
   if (!registration.reciprocalRegistration) {
     throw new Error(`no reciprocal registration on ${registration.id}`)
   }
-  return personal
-    ? ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
-    : getRegistrationFromSparql(sparqlTransportFor(ctx), registration.reciprocalRegistration)
+  return getRegistrationFromSparql(sparqlTransportFor(ctx), registration.reciprocalRegistration)
 }
 
 /**
- * The social-agent registrations of the *context* registry — the org's own in
- * org context. Personal: SDK iteration (HTTP, the user's own ACRs match).
- * Org context: SPARQL — seeded registration resources carry own `.acr`s that
- * never grant the admin (registered-agent/org only, org-context-sparql.md
- * §3.0/3b), so HTTP reads 403 once `ctx.session` is the user.
+ * The social-agent registrations of the *context* registry, via SPARQL:
+ * personal context reads the session's internal endpoint, org context the
+ * org's `/sparql-admin` (`sparqlTransportFor`). Seeded registration
+ * resources carry own `.acr`s that never grant the admin
+ * (registered-agent/org only, org-context-sparql.md §3.0/3b), so HTTP reads
+ * 403 for them — SPARQL sidesteps dereferencing entirely.
  */
 async function listSocialAgentRegistrations(
   ctx: ResolvedContext
 ): Promise<SocialAgentRegistrationData[]> {
-  if (ctx.webId === ctx.userWebId) {
-    const registrations: SocialAgentRegistrationData[] = []
-    for await (const registration of ctx.session.socialAgentRegistrations) {
-      registrations.push(registration)
-    }
-    return registrations
-  }
   const transport = sparqlTransportFor(ctx)
   const iris = await listContained(transport, ctx.registrySet.hasAgentRegistry.id)
   return Promise.all(iris.map((iri) => getRegistrationFromSparql(transport, iri)))
@@ -73,20 +64,14 @@ export { listSocialAgentRegistrations }
 
 /**
  * Find the context registry's registration of `webId` (match on
- * `registeredAgent`). Personal: data-model module scan (HTTP). Org context:
- * SPARQL (see `listSocialAgentRegistrations`).
+ * `registeredAgent`) via SPARQL — personal context hits the session's
+ * internal endpoint, org context the org's `/sparql-admin` (see
+ * `listSocialAgentRegistrations`).
  */
 export const findSocialAgentRegistrationInContext = async (
   ctx: ResolvedContext,
   webId: string
 ): Promise<SocialAgentRegistrationData | undefined> => {
-  if (ctx.webId === ctx.userWebId) {
-    return AgentRegistry.findSocialAgentRegistration(
-      ctx.registrySet.hasAgentRegistry,
-      ctx.session.factory,
-      webId
-    )
-  }
   return findRegistrationFromSparql(
     sparqlTransportFor(ctx),
     ctx.registrySet.hasAgentRegistry.id,
@@ -111,7 +96,7 @@ export const buildSocialAgentProfile = async (
   personal = true
 ) => {
   const reciprocal = registration.reciprocalRegistration
-    ? await getReciprocalRegistration(ctx, registration, personal)
+    ? await getReciprocalRegistration(ctx, registration)
     : undefined
   let admin = false
   if (personal && reciprocal) {
@@ -138,6 +123,7 @@ export const buildSocialAgentProfile = async (
 
 export const getSocialAgents = async (ctx: ResolvedContext) => {
   const personal = ctx.webId === ctx.userWebId
+  const transport = sparqlTransportFor(ctx)
   const registrations = await listSocialAgentRegistrations(ctx)
 
   const profiles = []
@@ -148,20 +134,16 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
   const seenIds = new Set(profiles.map((p) => p.id))
   for (const registration of registrations) {
     if (!registration.reciprocalRegistration) continue
-    const reciprocalReg = personal
-      ? await ctx.session.factory.socialAgentRegistration(registration.reciprocalRegistration)
-      : await getRegistrationFromSparql(
-          sparqlTransportFor(ctx),
-          registration.reciprocalRegistration
-        )
+    const reciprocalReg = await getRegistrationFromSparql(
+      transport,
+      registration.reciprocalRegistration
+    )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
-    const dataGrants = personal
-      ? await getDataGrants(reciprocalReg, ctx.session.factory)
-      : await Promise.all(
-          reciprocalReg.hasDataGrant.map((grantIri) =>
-            getDataGrantFromSparql(sparqlTransportFor(ctx), grantIri)
-          )
-        )
+    const dataGrants = await Promise.all(
+      reciprocalReg.hasDataGrant.map((grantIri) =>
+        getDataGrantFromSparql(transport, grantIri)
+      )
+    )
     for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
       if (seenIds.has(ownerIri)) continue

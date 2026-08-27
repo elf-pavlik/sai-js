@@ -8,12 +8,12 @@ primary source.
 
 | Status | Count | Plans |
 |---|---|---|
-| ✅ done | 17 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
+| ✅ done | 18 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling` |
 | 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
-| ⬜ not started / design only | 10 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `org-context-proxy` |
+| ⬜ not started / design only | 9 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**29 plans total.** All remaining work lives in the 12 non-done plans below —
+**29 plans total.** All remaining work lives in the 11 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -46,9 +46,9 @@ nothing open is blocked by an unlanded plan.
 | `federation.md` | ⬜ design note (org-admin companion) | Single-deployment shortcuts the org-admin data-plane relies on: shared SPARQL endpoint, global-fetch UAS/storage discovery, local pod-storage ownership, `hasRegistrySet` link across servers, webhook delivery; future federated lookups | `org-admin-feature` (umbrella) |
 | `events.md` | ⬜ design note (org-admin companion) | Domain-event (activityType) catalogue incl. the new `adminAuthorizationRecorded` event → parallel `createAdminGrants` + `syncAdminAcr` workflows; deferred/future events (data-registry-added regeneration, admin revocation) | `workflow-temporal-decupling` (outbox model); `org-admin-feature` (umbrella) |
 | `registry-set-permissions.md` | ⬜ not started (design) | Scope the blanket `#fullAdminAccess` per structural registry: per-container ACRs, GrantRegistry owner-only (admins never write grants; per-grant ACRs serve reads), ActivityRegistry Read + create/append (append-only immutable log) instead of blanket Write; seed ACR hygiene for the ACR-less yoyo DataGrants | `org-admin-feature` R1 |
-| `org-context-sparql.md` | ✅ done (phases 1–3 landed, committed `50b44bf4`; /test green) | Org-context correctness + read-plane migration, phases 1–3 of this document: dormant reciprocal-mirror writer → all registry-set reads via SPARQL (internal endpoint both contexts, gated `/sparql-admin` HTTP `QUERY`) → context/session fix (`Context.ts` stops minting org sessions; owner identity from context; class-C fixes). Records the non-cascading-ACR constraint and the seeded-resource mutation + peer-instance-listing gaps as known debt. Phase 4 (per-owner datasets) extracted to `isolated-datasets-and-sparql` | `org-admin-feature` Phase 2 (C2); supersedes its §2.8 registry-set-resolution open items |
+| `org-context-sparql.md` | ✅ done (phases 1–3 landed, committed `50b44bf4`; /test green) | Org-context correctness + read-plane migration, phases 1–3 of this document: dormant reciprocal-mirror writer → all registry-set reads via SPARQL (internal endpoint both contexts, gated `/sparql-admin` — org-context reads now route over HTTP `POST`, the DPoP-verifiable transport; see `org-context-proxy` last step) → context/session fix (`Context.ts` stops minting org sessions; owner identity from context; class-C fixes). Records the non-cascading-ACR constraint and the seeded-resource mutation + peer-instance-listing gaps as known debt. Phase 4 (per-owner datasets) extracted to `isolated-datasets-and-sparql` | `org-admin-feature` Phase 2 (C2); supersedes its §2.8 registry-set-resolution open items |
 | `isolated-datasets-and-sparql.md` | ⬜ not started (design only) | Per-owner datasets + SPARQL: 4a endpoint registry in `AccountLoginStorage` (env-var fallback) → 4b per-owner store cutover (joint checkpoint): mirror activation + backfill, serialized syncs, `/sparql-admin` → the org's own store, external admin-endpoint discovery, environment work, cross-owner isolation + mirror-freshness tests. The IRI-parametrized reads of `org-context-sparql` phases 2–3 resolve to mirrors unchanged | `org-context-sparql` (phases 1–3); `federation.md` shortcuts 1/1a |
-| `org-context-proxy.md` | ⬜ not started (design only) | The org-context `listDataInstances` known issue (extracted from `org-context-sparql` §2.4): admins can see peers' data-registration *metadata* but cannot list the *instances* (HTTP dereference as the admin 403s; mirrors cover registry metadata only). Design space: org-as-grantee proxy, mirror-extension, peer ACR hygiene (grantee-first), and whether instance listing enters org-context scope | `org-context-sparql` (§2.4 + phases 2–3); `isolated-datasets-and-sparql` (4b data-plane analogue); `registry-set-permissions` (ACR hygiene) |
+| `org-context-proxy.md` | ✅ done (implemented + verified; `/test` org-context proxy parity suite green) | Org-context reads of peers' granted data (the `org-context-sparql` §2.4 known issue): `/.sai/proxy-admin` endpoint (YoYo side — org-credentialed fetch as grantee) + shared admin gate + admin-side clients (`fetchPeerDocument`, `dataRegistrationContains`, `peerInstanceIris`, `peerInstanceNode`); wired `getDescriptions` AllFromRegistry counts (were 0 — dead `[]`-truthiness fallback), `listDataInstances` peer branch (all scopes), `getResource` full-body + org-side access list; registry plane routed via `/sparql-admin` over HTTP `POST` (`QUERY` is not in the token-verifier's method whitelist — switch back once the upstream PR lands). Scope answers: instance listing enters org-context scope **yes** (labels + full bodies); direction 4 = grantee visibility (data grants, not ACRs — the engine resolved the seed grant fine) | `org-context-sparql` (§2.4 + phases 2–3); `isolated-datasets-and-sparql` (4b data-plane analogue) |
 
 ## Dependency graph
 
@@ -122,10 +122,10 @@ tracked in this index). Four companions:
   per-owner datasets + SPARQL endpoints, mirror activation + backfill,
   external admin-endpoint discovery — joint `/test` checkpoint at the
   store-split cutover.
-- `org-context-proxy.md` — ⬜ design; extracted §2.4 known issue:
-  org-context peer data-instance listing (authority model for the
-  admin's reads of granted instances; proxy / mirror / ACR-hygiene
-  directions).
+- `org-context-proxy.md` — ✅ done (implemented + verified); extracted
+  §2.4 known issue: the org-as-grantee proxy (`/.sai/proxy-admin`) +
+  admin-side clients for peers' granted data instances; also routes the
+  org-context registry plane via `/sparql-admin` (last step).
 
 ## Federation
 
@@ -147,7 +147,7 @@ below:
 Directly related plans: **`isolated-datasets-and-sparql.md`** (the
 per-owner cutover that ends shortcut 1 and makes 1a load-bearing),
 **`org-context-sparql.md`** (phases 2–3 consume shortcut 1; phase 1 writes
-shortcut 1a's mirrors), **`org-context-proxy.md`** (the data-plane
+shortcut 1a's mirrors), **`org-context-proxy.md`** ✅ (the data-plane
 analogue — org-context reads of peers' granted *data instances*, which
 neither the shared store's registry metadata nor the mirrors cover), and
 the two webhook-delivery plans above (shortcut
@@ -168,6 +168,15 @@ For now:
   (only server-side sync writes mirror graphs; admin code read-only), and
   the cross-owner isolation tests (Dan querying Alice's endpoint → 403 by
   gate; no cross-graph leakage even at his own endpoint).
+- **[`org-context-proxy.md`](org-context-proxy.md)** — the admin-gated
+  peer-data proxy's enforcement boundary: `requireOrgAdmin` (caller must be
+  an admin of the org; unknown org indistinguishable from non-admin) runs
+  before any upstream work; GET-only with an http(s)-only target (the org's
+  credentials never point at other schemes); JSON-LD-only contract (pinned
+  `Accept`, upstream content-type guard — no binary); upstream
+  authorization stays the **peer's permission engine** (safe-by-grant —
+  the org's credentials only succeed where the org holds a data grant);
+  the two sessions (admin's and org's) never coexist in one handler.
 
 (More plans will be listed here as their security aspects are spelled
 out — e.g. ACR/ACP scoping such as `registry-set-permissions.md`.)
@@ -204,6 +213,7 @@ independent. They are the **only** plans that rewrite CSS internals.
 | `workflow-temporal-decupling.md` ✅ | `ActivityWebhookHandler` + `ActivityWebhookStore` (auth server); delivery itself stays the **stock** CSS `WebhookChannel2023` emitter with pre-seeded kv channels |
 | `refactor-ui.md` ✅ | `ActivityEvents` bus + `EventsHandler` (`GET /.sai/events`) on the auth server |
 | `revoke-delegation-chain.md` 🔶 | `GrantRevocationHandler` + `AccessRevocation` dispatch on the delegation endpoint (`GrantIssuanceRouter`), and the `RevokeGrants` RPC (`services/Revocation.ts` via `ApiHandler`) |
+| `org-context-proxy.md` ✅ | `ProxyAdminHandler` (`/.sai/proxy-admin`, admin gate in `services/adminGate.ts` shared with `AdminSparqlHandler`) + `AdminSparqlHandler` accepting POST (the DPoP-verifiable transport for the org-context registry-plane reads) |
 | `webhook-subscription-bootstrap.md` ⬜ | Reuses the existing `ActivityWebhookStore` + the **stock** CSS notification API (`SubscriptionClient` → `WebhookChannel2023`, kv-backed `KeyValueChannelStorage`) — no new components |
 
 `immutable-activities.md` (✅) changes the *behavior* of the existing

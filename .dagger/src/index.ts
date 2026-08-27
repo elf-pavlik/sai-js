@@ -133,7 +133,7 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data-9874324')
+    const pgData = dag.cacheVolume('temporal-pg-data-655895654')
 
     const pg = dag
       .container()
@@ -395,6 +395,7 @@ export class SaiJs {
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withServiceBinding('auth', auth)
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())

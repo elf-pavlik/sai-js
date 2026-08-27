@@ -34,6 +34,14 @@ import {
   type NestedDataAuthorizationData,
   generateAuthorization,
 } from './authorization'
+import {
+  findSocialAgentRegistration as findRegistrationFromSparql,
+  getDataAuthorization as getDataAuthorizationFromSparql,
+  getSocialAgentRegistration as getRegistrationFromSparql,
+  getRole as getRoleFromSparql,
+  listContained,
+  localSparqlTransport,
+} from './sparql'
 interface AuthorizationAgentDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
@@ -125,11 +133,18 @@ export class AuthorizationAgent {
     return AgentRegistry.socialAgentRegistrations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
-  public async findSocialAgentRegistration(iri: string, registrySet?: RegistrySetData) {
-    return AgentRegistry.findSocialAgentRegistration(
-      registrySet?.hasAgentRegistry ?? this.registrySet.hasAgentRegistry,
-      this.factory,
-      iri
+  /**
+   * The context registry's registration of `registeredAgent`, via the shared
+   * SPARQL query — the session reads its own registry through the internal
+   * endpoint (docs/sparql.md). The services' org-context counterpart
+   * (`findSocialAgentRegistrationInContext` in components) runs the same
+   * query against `/sparql-admin`.
+   */
+  public async findSocialAgentRegistration(registeredAgent: string, registrySet?: RegistrySetData) {
+    return findRegistrationFromSparql(
+      localSparqlTransport(this.sparqlEndpoint),
+      (registrySet ?? this.registrySet).hasAgentRegistry.id,
+      registeredAgent
     )
   }
 
@@ -141,15 +156,17 @@ export class AuthorizationAgent {
     return RoleRegistry.roles(this.registrySet.hasRoleRegistry, this.factory)
   }
 
-  public async findRole(iri: string, registrySet?: RegistrySetData): Promise<RoleData | undefined> {
-    for await (const role of RoleRegistry.roles(
-      registrySet?.hasRoleRegistry ?? this.registrySet.hasRoleRegistry,
-      this.factory
-    )) {
-      if (role.id === iri) {
-        return role
-      }
-    }
+  /**
+   * Role by IRI — a single graph read (the role's own graph, keyed by its
+   * IRI) via the shared SPARQL query, replacing the previous container
+   * scan. The registry-set override is retained for signature compatibility
+   * but no longer consulted: the IRI targets the graph directly.
+   */
+  public async findRole(
+    iri: string,
+    _registrySet?: RegistrySetData
+  ): Promise<RoleData | undefined> {
+    return getRoleFromSparql(localSparqlTransport(this.sparqlEndpoint), iri)
   }
 
   public async findSocialAgentInvitation(iri: string) {
@@ -293,7 +310,6 @@ export class AuthorizationAgent {
     return registrySet
   }
 
-
   public static async build(
     webId: string,
     agentId: string,
@@ -324,7 +340,8 @@ export class AuthorizationAgent {
       this.webId,
       this.registrySet.hasAuthorizationRegistry,
       this.factory,
-      extendIfExists
+      extendIfExists,
+      this.sparqlEndpoint
     )
   }
 
@@ -362,7 +379,12 @@ export class AuthorizationAgent {
   public async findSocialAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
     const agentsWithAccess = await this.findAgentsWithAccess(dataInstanceIri)
     const socialAgentsWithAccess: AgentWithAccess[] = []
-    for await (const registration of this.socialAgentRegistrations) {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const iris = await listContained(transport, this.registrySet.hasAgentRegistry.id)
+    const registrations = await Promise.all(
+      iris.map((iri) => getRegistrationFromSparql(transport, iri))
+    )
+    for (const registration of registrations) {
       const socialAgentWithAccess = agentsWithAccess.find(
         ({ agent }) => agent === registration.registeredAgent
       )
@@ -377,11 +399,14 @@ export class AuthorizationAgent {
     const dataInstance = await this.factory.dataInstance(dataInstanceIri)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
-    const iterator = AuthorizationRegistry.dataAuthorizations(
-      this.registrySet.hasAuthorizationRegistry,
-      this.factory
+    // the shared SPARQL listing over the authorization registry (same query
+    // the org-context "who has access" uses) instead of the HTTP sweep
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const iris = await listContained(transport, this.registrySet.hasAuthorizationRegistry.id)
+    const authorizations = await Promise.all(
+      iris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
-    for await (const dataAuthorization of iterator) {
+    for (const dataAuthorization of authorizations) {
       if (dataAuthorization.registeredShapeTree !== shapeTree) continue
 
       switch (dataAuthorization.scopeOfAuthorization) {

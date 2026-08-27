@@ -1,5 +1,9 @@
-import { type AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { getAdminGrantIris, type RegistrySetData } from '@janeirodigital/interop-data-model'
+import {
+  type AuthorizationAgent,
+  getSocialAgentRegistration,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import { type RegistrySetData, getAdminGrantIris } from '@janeirodigital/interop-data-model'
 
 /** The requested context is not allowed for the signed-in user. */
 export class ContextError extends Error {}
@@ -31,7 +35,10 @@ export type ResolvedContext = {
 async function isAdminOf(userSession: AuthorizationAgent, orgWebId: string): Promise<boolean> {
   const registration = await userSession.findSocialAgentRegistration(orgWebId)
   if (!registration?.reciprocalRegistration) return false
-  const reciprocal = await userSession.factory.socialAgentRegistration(
+  // the reciprocal via the shared SPARQL query (same as the service layer's
+  // org-context reads) over the session's internal endpoint
+  const reciprocal = await getSocialAgentRegistration(
+    localSparqlTransport(userSession.sparqlEndpoint),
     registration.reciprocalRegistration
   )
   return (await getAdminGrantIris(reciprocal)).length > 0

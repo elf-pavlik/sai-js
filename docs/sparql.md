@@ -7,17 +7,19 @@ never the mapping.
 
 ## Transport abstraction
 
-`packages/components/src/services/queries/org.ts`:
+The transport + registry query core lives in
+`packages/authorization-agent/src/sparql.ts` (the AA owns `sparqlEndpoint`):
 
 - `SparqlTransport` — two ops: `fetchBindings` (SELECT) and `fetchTriples`
   (CONSTRUCT). Query functions are **endpoint-agnostic**: each takes a
   `transport` as its first arg and never mentions an endpoint.
-- Two implementations:
-  - `localSparqlTransport(endpoint)` — internal endpoint via
-    `SparqlEndpointFetcher` (used for **personal** context).
-  - `adminSparqlTransport(session, orgWebId)` — HTTP POST
-    `application/sparql-query` to `/.sai/sparql-admin/<base64url-org>`,
-    authenticated as the admin (used for **org** context).
+- `localSparqlTransport(endpoint)` — internal endpoint via
+  `SparqlEndpointFetcher` (used for **personal** context and the AA's own
+  session reads).
+- `adminSparqlTransport(session, orgWebId)` — HTTP POST
+  `application/sparql-query` to `/.sai/sparql-admin/<base64url-org>`,
+  authenticated as the admin (used for **org** context); lives in
+  `packages/components/src/services/queries/org.ts`.
 - One dispatch decides between them (`ctx.webId === ctx.userWebId`):
 
 ```ts
@@ -33,8 +35,11 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
 - **Same query, only endpoint differs** — every registry read
   (`graphDoc`, `listContained`, `getSocialAgentRegistration`, `getDataGrant`,
   `getDataAuthorization`, `findSocialAgentRegistration`) is one query fn +
-  `sparqlTransportFor(ctx)`. All service call sites (AgentRegistry,
-  DataRegistry, Authorization, ShareResource) already route through it.
+  either `localSparqlTransport`/`adminSparqlTransport` via
+  `sparqlTransportFor(ctx)` (service call sites — AgentRegistry, DataRegistry,
+  Authorization, ShareResource) or `localSparqlTransport(session.sparqlEndpoint)`
+  (the AA's own `findSocialAgentRegistration` — same query the services use,
+  running against the session's internal endpoint).
 - **IRI-parametrized** — queries are keyed by resource/graph IRI, never by
   `session.webId`, so they resolve unchanged to mirror graphs at the 4b
   per-owner split.
@@ -55,9 +60,11 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
   stays `Grant.getDataInstanceIterator` / `/proxy-admin`), webid/client-id
   profiles, shape-tree descriptions, storage descriptions, and all **writes**
   (REST/LDP, enforcement path).
-- Deliberate exception: the admin gate `Context.ts`/`isAdminOf` still reads
-  the admin's own reciprocal over HTTP — the user's own `.acr`s match, and
-  it is the gate itself, not a `/sparql-admin` consumer.
+- Session-level reads reusing the same queries over the internal endpoint:
+  `findRole` (single graph read by IRI), `findAgentsWithAccess` /
+  `findSocialAgentsWithAccess` (auth-registry + agent-registry listings),
+  `generateAuthorization`'s existing-authorization lookup, and the admin gate
+  `Context.ts`/`isAdminOf` (both hops now via `getSocialAgentRegistration`).
 
 ## Hygiene
 

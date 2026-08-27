@@ -7,6 +7,11 @@ import {
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, putJsonLd, withContext } from '@janeirodigital/interop-utils'
+import {
+  getDataAuthorization as getDataAuthorizationFromSparql,
+  listContained,
+  localSparqlTransport,
+} from './sparql'
 
 // Nesting is being used to capture inheritance before IRIs are available
 export type NestedDataAuthorizationData = DataAuthorizationData & {
@@ -127,19 +132,26 @@ export async function generateAuthorization(
   grantedBy: string,
   authorizationRegistry: AuthorizationRegistryData,
   factory: AuthorizationAgentFactory,
-  extendIfExists: boolean
+  extendIfExists: boolean,
+  /** Internal SPARQL endpoint of the session recording the authorization. */
+  sparqlEndpoint: string
 ): Promise<FinalDataAuthorizationData[]> {
   if (extendIfExists && !authorization.granted) {
     throw new Error('Previous denied authorizations can not be extended')
   }
 
-  const existingDataAuthorizations = (
-    await AuthorizationRegistry.findDataAuthorizations(
-      authorizationRegistry,
-      factory,
-      authorization.grantee
-    )
-  ).filter((da) => da.type.includes(INTEROP.DataAuthorization))
+  // the grantee's existing data authorizations via the shared SPARQL listing
+  // (same query as the org-context "who has access" read) instead of the
+  // HTTP sweep; AdminAuthorizations in the same container are framed
+  // tolerantly and filtered out by type
+  const transport = localSparqlTransport(sparqlEndpoint)
+  const containedIris = await listContained(transport, authorizationRegistry.id)
+  const contained = await Promise.all(
+    containedIris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
+  )
+  const existingDataAuthorizations = contained
+    .filter((da) => da.type.includes(INTEROP.DataAuthorization))
+    .filter((da) => da.grantee === authorization.grantee)
 
   // TODO: agent has and access authorization, with data authorization (SelectedFromRegistry) which does not include this data instance
   // do we need to check access modes? (if same extend data authorization, if different create a new one)

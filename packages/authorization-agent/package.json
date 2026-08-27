@@ -12,7 +12,7 @@
       "email": "maciej.samoraj@gmail.com"
     },
     {
-      "name": "Ángel Araya",
+      "name": "\u00c1ngel Araya",
       "email": "angel.araya@janeirodigital.com"
     }
   ],
@@ -31,7 +31,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/", "src/"],
+  "files": [
+    "dist/",
+    "src/"
+  ],
   "directories": {
     "lib": "src",
     "test": "test"
@@ -46,6 +49,8 @@
   "dependencies": {
     "@janeirodigital/interop-data-model": "^1.0.0-rc.26",
     "@janeirodigital/interop-utils": "^1.0.0-rc.26",
+    "fetch-sparql-endpoint": "^6.2.0",
+    "jsonld": "^9.0.0",
     "n3": "^1.23.1"
   },
   "devDependencies": {

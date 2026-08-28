@@ -1,7 +1,7 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
 import type { ResolvedContext } from '../src/services/Context.js'
-import { getApplications } from '../src/services/AgentRegistry.js'
+import { getApplications, getSocialAgentInvitations } from '../src/services/AgentRegistry.js'
 
 // ──────────────────────────
 // Fixtures
@@ -105,5 +105,74 @@ describe('getApplications — org context lists applications via /sparql-admin',
     // profile dereferences the client-id document over HTTP — one webid
     // profile + one listing + one body read
     expect(requests.filter((request) => request.url === sparqlAdminUrl)).toHaveLength(2)
+  })
+})
+
+// ──────────────────────────
+// getSocialAgentInvitations — invitations via SPARQL (docs/sparql.md, candidate)
+// ──────────────────────────
+
+describe('getSocialAgentInvitations — org context lists invitations via /sparql-admin', () => {
+  const INVITE_IRI = `${AGENT_REGISTRY}zi1nic`
+  const SETTLED_IRI = `${AGENT_REGISTRY}settled`
+  const CAPABILITY = 'https://yoyo.example/invitations/zi1nic'
+
+  const inviteTurtle = (iri: string, registeredAgent?: string) => `PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+<${iri}> a interop:SocialAgentInvitation ;
+  interop:hasCapabilityUrl <${CAPABILITY}> ;
+  skos:prefLabel "Invite" ;
+  skos:note "A note"${
+    registeredAgent ? ` ;
+  interop:registeredAgent <${registeredAgent}>` : ''
+  } .
+`
+
+  test('hasSocialAgentInvitation listing + per-invitation body; settled invitations excluded', async () => {
+    const session = {
+      fetch: async (url: string, init?: RequestInit) => {
+        if (url === ORG_WEBID) return mockResponse(orgProfileDoc)
+        if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
+        const query = String(init?.body ?? '')
+        if (query.includes('SELECT')) {
+          // the SPARQL listing must carry the hasSocialAgentInvitation predicate
+          expect(query).toContain('hasSocialAgentInvitation')
+          return mockResponse(
+            {
+              head: { vars: ['child'] },
+              results: {
+                bindings: [INVITE_IRI, SETTLED_IRI].map((iri) => ({
+                  child: { type: 'uri', value: iri },
+                })),
+              },
+            },
+            200,
+            'application/sparql-results+json'
+          )
+        }
+        if (query.includes('CONSTRUCT')) {
+          return mockResponse(
+            query.includes(`GRAPH <${INVITE_IRI}>`)
+              ? inviteTurtle(INVITE_IRI)
+              : inviteTurtle(SETTLED_IRI, 'https://dan.example/profile/card#me'),
+            200,
+            'text/turtle'
+          )
+        }
+        throw new Error(`unexpected sparql-admin query: ${query}`)
+      },
+    } as unknown as AuthorizationAgent
+
+    const invitations = await getSocialAgentInvitations(orgCtx(session))
+
+    // only the invitation without registeredAgent survives
+    expect(invitations).toEqual([
+      {
+        id: INVITE_IRI,
+        capabilityUrl: CAPABILITY,
+        label: 'Invite',
+        note: 'A note',
+      },
+    ])
   })
 })

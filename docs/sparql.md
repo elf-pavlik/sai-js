@@ -82,9 +82,13 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
 ## What's left / not yet done
 
 Recommended order (each step keeps tests green: the package vitest in
-`/packages` plus the matching `/test` integration file via dagger; the
-`authorization-agent` vitest is all-`describe.skip` today, so its steps are
-verified by the `/test` integration files only).
+`/packages` plus the matching `/test` integration file via dagger). All four
+steps are **done** and their dagger `/test` suites pass (maintainer-run); the
+`authorization-agent` vitest covers steps 2 and 4 (the step 1 and 3 unit
+tests live in `components/test`).
+
+Remaining candidates are worked one by one, same discipline: tests green per
+step, and a **caller check** on any data-model HTTP function replaced.
 
 Each step ends with a **caller check**: `codegraph_callers` on every
 data-model HTTP function the step replaced — the verdict (still-used /
@@ -110,7 +114,8 @@ data-model as needed, so cleanup may be scheduled explicitly.
    `findSocialAgentRegistration` / `getSocialAgentRegistration`; wired in
    the AA method served by `AgentIdHandler` and in `getApplications`;
    per-app profiles still dereference the client-id document over HTTP;
-   invitation reads later the same way; unit tests in `authorization-agent`
+   invitation reads were done later the same way (candidate 1 below); unit
+   tests in `authorization-agent`
    and `components/test/agent-registry.test.ts`; dagger `/test/agents.test.ts`,
    `/test/authorization.test.ts`, `/test/delegation-endpoint.test.ts`).
 4. **`findDataRegistration` + own data-registry listings** (`buildDataRegistry`,
@@ -149,6 +154,48 @@ Replaced data-model functions — remaining callers (steps 1–4):
   `createRegistration`). A future SPARQL candidate for the grant-generation
   path.
 
+Additional candidates (post-plan, one by one; same discipline):
+
+1. **Invitation reads** (`getSocialAgentInvitations`, AA
+   `findSocialAgentInvitation`) — **done** (new `listSocialAgentInvitations`
+   query — `interop:hasSocialAgentInvitation` in both graphs only, parity with
+   the HTTP `linkedIrisJsonLd` read — plus `getSocialAgentInvitation` framing
+   via data-model `SocialAgentInvitation.fromJsonLd`, whose namespace export
+   was added, and `findSocialAgentInvitation` list-and-match on
+   `capabilityUrl` served by `InvitationHandler`). Caller check:
+   `AgentRegistry.socialAgentInvitations` / `findSocialAgentInvitation` —
+   **still used** by data-model internals (`findSocialAgentInvitation`
+   iteration, `addSocialAgentInvitation` existence check) + the unconsumed
+   AA `socialAgentInvitations` getter (cleanup later) + data-model tests.
+   Unit tests in `authorization-agent` and
+   `components/test/agent-registry.test.ts`; dagger `/test/invitation.test.ts`.
+2. **`findRoleUsage`'s authorization sweep** — **done** (the role-deletion
+   guard in `temporal/activities/grants.ts` now uses the registry plane:
+   `listContained` + `getDataAuthorization` over the session's internal
+   endpoint, type-filtered for parity with the HTTP `dataAuthorizations`
+   iterator). Caller check: `AuthorizationRegistry.dataAuthorizations` —
+   **still used**, but only as the internal engine of
+   `findDataAuthorizations` / `findAuthorizationsDelegatingFromOwner`
+   (candidate 3 removes those consumers — see below). Unit test in
+   `components/test/grants.test.ts` (session manager + SPARQL fetcher
+   mocked); dagger `/test/roles.test.ts` (role deletion).
+3. **`findAffectedGrantees`' delegation sweep** — **done** (the
+   delegation/sharing activity in `temporal/activities/grants.ts` now reads
+   the registry-plane listing over the session's internal endpoint,
+   replicating `findAuthorizationsDelegatingFromOwner`'s match semantics:
+   exclude `grantee === peer`, match `dataOwner === peer`, and All-scope
+   authorizations only when no roleId — the updateDelegatedGrants path).
+   Caller check: with candidate 2 this removes **every src caller** of the
+   data-model authorization-listing cluster —
+   `findAuthorizationsDelegatingFromOwner` and `findDataAuthorizations` are
+   now **orphaned in src** (data-model tests only) and `dataAuthorizations`
+   survives only as their internal engine — cleanup at the end. Unit tests
+   in `components/test/grants.test.ts` (data-model registries stubbed for
+   `typeGrantee`); dagger `/test/services.test.ts` (delegation),
+   `/test/authorization.test.ts`.
+4. **`DataRegistry.registrations` in grant generation** — see inventory
+   above.
+
 Out of scope (documented, deliberately not scheduled):
 
 - **`findGrantForResource` / `findShapeTreeForResource` / `findResourceOwner` /
@@ -165,12 +212,6 @@ Out of scope (documented, deliberately not scheduled):
 - **`ReciprocalMirror` (dormant)** — replace its hand-rolled fetcher reads with
   `localSparqlTransport` + `graphDoc`/`listContained`; not wired, so no
   behavior change — optional cleanup, do last if at all.
-- **`findRoleUsage`'s authorization sweep** — the role-deletion guard
-  (`temporal/activities/grants.ts`) still iterates
-  `AuthorizationRegistry.dataAuthorizations` over HTTP; same listing the
-  registry plane already serves (`listContained` + `getDataAuthorization` +
-  type filter) — convert when the role-deletion/reconciliation path is
-  touched.
 - **Iterator-level 404/410 tolerance** — stale-`ldp:contains` after
   authorization replacement/deletion makes listing consumers 404 and kills
   workflows; skip gone IRIs instead (deferred; see

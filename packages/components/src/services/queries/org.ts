@@ -2,16 +2,19 @@ import {
   type SparqlBindingTerm,
   type SparqlTransport,
   findApplicationRegistration,
+  findSocialAgentInvitation,
   findSocialAgentRegistration,
   getApplicationRegistration,
   getDataAuthorization,
   getDataGrant,
   getDataRegistration,
   getRole,
+  getSocialAgentInvitation,
   getSocialAgentRegistration,
   listApplicationRegistrations,
   listContained,
   listDataRegistrations,
+  listSocialAgentInvitations,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
@@ -23,16 +26,19 @@ import type { ResolvedContext } from '../Context.js'
 // the org-context `/sparql-admin` transport and the context dispatch.
 export {
   findApplicationRegistration,
+  findSocialAgentInvitation,
   findSocialAgentRegistration,
   getApplicationRegistration,
   getDataAuthorization,
   getDataGrant,
   getDataRegistration,
   getRole,
+  getSocialAgentInvitation,
   getSocialAgentRegistration,
   listApplicationRegistrations,
   listContained,
   listDataRegistrations,
+  listSocialAgentInvitations,
 }
 export type { SparqlTransport }
 

@@ -854,3 +854,64 @@ describe('findDataRegistration', () => {
     await expect(agent.findDataRegistration(DATA_REGISTRY, PROJECT_TREE)).resolves.toBeUndefined()
   })
 })
+
+describe('findSocialAgentInvitation', () => {
+  const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+  const INVITE_1 = 'https://auth.alice.example/invite-1'
+  const INVITE_2 = 'https://auth.alice.example/invite-2'
+  const CAPABILITY_2 = 'https://auth.alice.example/capability/invite-2'
+
+  const invitationGraph = (iri: string, capabilityUrl: string) => [
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(RDF_TYPE),
+      DataFactory.namedNode(INTEROP.SocialAgentInvitation)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode(INTEROP.hasCapabilityUrl),
+      DataFactory.namedNode(capabilityUrl)
+    ),
+    DataFactory.quad(
+      DataFactory.namedNode(iri),
+      DataFactory.namedNode('http://www.w3.org/2004/02/skos/core#prefLabel'),
+      DataFactory.literal('Invite 2')
+    ),
+  ]
+
+  test('lists invitations via hasSocialAgentInvitation and matches the capability URL', async () => {
+    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: createStatefulFetch(),
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+    sparqlMock.handlers.bindings = (query) => {
+      expect(query).toContain('hasSocialAgentInvitation')
+      return [INVITE_1, INVITE_2].map((iri) => ({
+        child: { termType: 'NamedNode', value: iri },
+      }))
+    }
+    sparqlMock.handlers.triples = (query) => {
+      const graphs: Record<string, unknown[]> = {
+        [INVITE_1]: invitationGraph(INVITE_1, 'https://auth.alice.example/capability/invite-1'),
+        [INVITE_2]: invitationGraph(INVITE_2, CAPABILITY_2),
+      }
+      for (const [iri, quads] of Object.entries(graphs)) {
+        if (query.includes(`GRAPH <${iri}>`)) return quads
+      }
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    const invitation = await agent.findSocialAgentInvitation(CAPABILITY_2)
+
+    expect(invitation).toEqual({
+      id: INVITE_2,
+      type: [INTEROP.SocialAgentInvitation],
+      capabilityUrl: CAPABILITY_2,
+      prefLabel: 'Invite 2',
+      note: undefined,
+      registeredAgent: undefined,
+    })
+  })
+})

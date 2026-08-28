@@ -1,5 +1,10 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
+  getDataAuthorization,
+  listContained,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import {
   type AccessRequestMessage,
   type ActivityData,
   ActivityRegistry,
@@ -7,7 +12,6 @@ import {
   type AgentOrRoleId,
   AgentRegistry,
   type ApplicationRegistrationData,
-  AuthorizationRegistry,
   type DataAuthorizationId,
   type FinalGrantData,
   type GeneratedGrants,
@@ -128,23 +132,34 @@ async function typeGrantee(session: AuthorizationAgent, iri: string): Promise<Ag
 // ---------------------------------------------------------------------------
 
 /**
- * Ports the existing matching of `findAffectedAuthorizations`
- * (`findAuthorizationsDelegatingFromOwner` with optional roleId; when roleId
- * is undefined — `updateDelegatedGrants` — the existing logic also matches
- * All-scope authorizations) but returns the deduped grantees (typed, may
- * include roles) instead of grouping by grantee with iris.
+ * Ports the match semantics of `findAuthorizationsDelegatingFromOwner`
+ * (replicated over the registry-plane listing, docs/sparql.md candidate 3;
+ * with optional roleId — when roleId is undefined, `updateDelegatedGrants` —
+ * the logic also matches All-scope authorizations) and returns the deduped
+ * grantees (typed, may include roles).
  */
 export async function findAffectedGrantees(
   payload: FindAffectedAuthorizationsInput
 ): Promise<AgentOrRoleId[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  const dataAuthorizations = await AuthorizationRegistry.findAuthorizationsDelegatingFromOwner(
-    session.registrySet.hasAuthorizationRegistry,
-    session.factory,
-    payload.peerId.id,
-    payload.roleId?.id
-  )
+  // registry-plane listing over the session's internal endpoint —
+  // `findAuthorizationsDelegatingFromOwner`'s match semantics: exclude
+  // authorizations where the peer is also the grantee, match
+  // `dataOwner === peer`, and — with no roleId — also All-scope
+  // authorizations (the updateDelegatedGrants path).
+  const transport = localSparqlTransport(session.sparqlEndpoint)
+  const iris = await listContained(transport, session.registrySet.hasAuthorizationRegistry.id)
+  const dataAuthorizations = (await Promise.all(
+    iris.map((iri) => getDataAuthorization(transport, iri))
+  )).filter((dataAuthorization) => {
+    if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) return false
+    if (dataAuthorization.grantee === payload.peerId.id) return false
+    return (
+      dataAuthorization.dataOwner === payload.peerId.id ||
+      (!payload.roleId?.id && dataAuthorization.scopeOfAuthorization === INTEROP.All)
+    )
+  })
   const grantees: AgentOrRoleId[] = []
   const seen = new Set<string>()
   for (const dataAuthorization of dataAuthorizations) {
@@ -177,10 +192,18 @@ export async function findRoleUsage(payload: {
   const authorizations: DataAuthorizationId[] = []
   const seenAuthorizations = new Set<string>()
   const seenGrantees = new Set<string>()
-  for await (const dataAuthorization of AuthorizationRegistry.dataAuthorizations(
-    session.registrySet.hasAuthorizationRegistry,
-    session.factory
-  )) {
+  // registry-plane listing over the session's internal endpoint — the same
+  // `listContained` + `getDataAuthorization` read `findAuthorizationsForAgent`
+  // performs (docs/sparql.md, candidate 2). Non-DataAuthorizations
+  // (AdminAuthorizations share the authorization registry container) are
+  // type-filtered like the HTTP `dataAuthorizations` iterator did.
+  const transport = localSparqlTransport(session.sparqlEndpoint)
+  const iris = await listContained(transport, session.registrySet.hasAuthorizationRegistry.id)
+  const dataAuthorizations = await Promise.all(
+    iris.map((iri) => getDataAuthorization(transport, iri))
+  )
+  for (const dataAuthorization of dataAuthorizations) {
+    if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) continue
     const grantee = dataAuthorization.grantee
     const isGranteeMatch = grantee === roleId
     const isDataOwnerMatch = dataAuthorization.dataOwner === roleId && grantee !== roleId

@@ -21,10 +21,12 @@ import type { ResolvedContext } from './Context.js'
 import {
   getApplicationRegistration as getApplicationRegistrationFromSparql,
   getDataGrant as getDataGrantFromSparql,
+  getSocialAgentInvitation as getInvitationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
   listApplicationRegistrations,
   listContained,
+  listSocialAgentInvitations,
   sparqlTransportFor,
 } from './queries/org.js'
 
@@ -254,12 +256,20 @@ function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitation
   })
 }
 
+/**
+ * The context's social-agent invitations via SPARQL over the
+ * `hasSocialAgentInvitation` listing (docs/sparql.md, invitations
+ * candidate) — personal context reads the session's internal endpoint, org
+ * context the org's `/sparql-admin` (`sparqlTransportFor`).
+ */
 export async function getSocialAgentInvitations(ctx: ResolvedContext) {
+  const transport = sparqlTransportFor(ctx)
   const invitations = []
-  for await (const invitation of AgentRegistry.socialAgentInvitations(
-    ctx.registrySet.hasAgentRegistry,
-    ctx.session.factory
+  for (const iri of await listSocialAgentInvitations(
+    transport,
+    ctx.registrySet.hasAgentRegistry.id
   )) {
+    const invitation = await getInvitationFromSparql(transport, iri)
     if (!invitation.registeredAgent) {
       invitations.push(buildSocialAgentInvitation(invitation))
     }

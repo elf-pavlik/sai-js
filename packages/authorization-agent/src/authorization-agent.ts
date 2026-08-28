@@ -35,6 +35,7 @@ import {
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
   findRolesWithMember,
+  findSocialAgentInvitation as findInvitationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
   getDataAuthorization as getDataAuthorizationFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
@@ -171,11 +172,18 @@ export class AuthorizationAgent {
     return getRoleFromSparql(localSparqlTransport(this.sparqlEndpoint), iri)
   }
 
-  public async findSocialAgentInvitation(iri: string) {
-    return AgentRegistry.findSocialAgentInvitation(
-      this.registrySet.hasAgentRegistry,
-      this.factory,
-      iri
+  /**
+   * The invitation with `capabilityUrl` in the context's agent registry, via
+   * the shared SPARQL query — the `hasSocialAgentInvitation` listing + one
+   * graph read per invitation (docs/sparql.md, invitations candidate; served
+   * by `InvitationHandler`). Same query the services run against
+   * `/sparql-admin` in org context.
+   */
+  public async findSocialAgentInvitation(capabilityUrl: string) {
+    return findInvitationFromSparql(
+      localSparqlTransport(this.sparqlEndpoint),
+      this.registrySet.hasAgentRegistry.id,
+      capabilityUrl
     )
   }
 

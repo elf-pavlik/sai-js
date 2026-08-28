@@ -8,10 +8,12 @@ import {
   Grant,
   type GrantData,
   type RoleData,
+  SocialAgentInvitation,
+  type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, frameDoc } from '@janeirodigital/interop-utils'
+import { INTEROP, LDP, frameDoc } from '@janeirodigital/interop-utils'
 /**
  * Registry-plane SPARQL transport + queries, shared by the AuthorizationAgent
  * (session reads its own registry via the internal endpoint) and the
@@ -30,17 +32,6 @@ import { Store } from 'n3'
 const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 const fetcher = new SparqlEndpointFetcher()
-
-/**
- * ldp:contains — containment triples live in the container's own graph
- * (SparqlDataAccessor.sparqlInsert); seeded containers also carry the
- * interop member link in their `meta:` graph (containers: "data and metadata
- * overlap"). Both are read, across both graphs.
- */
-const LDP_CONTAINS = 'http://www.w3.org/ns/ldp#contains'
-const INTEROP_HAS_SOCIAL_AGENT_REGISTRATION = INTEROP.hasSocialAgentRegistration
-const INTEROP_HAS_APPLICATION_REGISTRATION = INTEROP.hasApplicationRegistration
-const INTEROP_HAS_DATA_REGISTRATION = INTEROP.hasDataRegistration
 
 /** The minimal RDF/JS term shape consumers need (`.value` on bindings). */
 export type SparqlBindingTerm = {
@@ -129,13 +120,13 @@ export async function listContained(
 ): Promise<string[]> {
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${containerIri}> { <${containerIri}> <${LDP_CONTAINS}> ?child } }
+  { GRAPH <${containerIri}> { <${containerIri}> <${LDP.contains}> ?child } }
   UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${LDP_CONTAINS}> ?child } }
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${LDP.contains}> ?child } }
   UNION
-  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP_HAS_SOCIAL_AGENT_REGISTRATION}> ?child } }
+  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentRegistration}> ?child } }
   UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP_HAS_SOCIAL_AGENT_REGISTRATION}> ?child } }
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentRegistration}> ?child } }
 }`
   )
   return bindings.map((binding) => binding.child.value)
@@ -204,9 +195,9 @@ export async function listApplicationRegistrations(
 ): Promise<string[]> {
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP_HAS_APPLICATION_REGISTRATION}> ?child } }
+  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasApplicationRegistration}> ?child } }
   UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP_HAS_APPLICATION_REGISTRATION}> ?child } }
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasApplicationRegistration}> ?child } }
 }`
   )
   return bindings.map((binding) => binding.child.value)
@@ -243,6 +234,60 @@ export async function findApplicationRegistration(
 }
 
 /**
+ * Children of an agent registry container linked as social-agent
+ * invitations — `interop:hasSocialAgentInvitation` in both the container
+ * graph and its `meta:` graph (docs/sparql.md, invitations candidate).
+ * Same storage shape as the other agent-registry memberships: seeded
+ * containers list invitations via the interop predicate only, and the
+ * runtime write path (`AgentRegistry.addSocialAgentInvitation`) patches
+ * the same predicate into the container — matching the HTTP
+ * `linkedIrisJsonLd(..., 'hasSocialAgentInvitation')` read exactly.
+ */
+export async function listSocialAgentInvitations(
+  transport: SparqlTransport,
+  containerIri: string
+): Promise<string[]> {
+  const bindings = await transport.fetchBindings(
+    `SELECT DISTINCT ?child WHERE {
+  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentInvitation}> ?child } }
+  UNION
+  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentInvitation}> ?child } }
+}`
+  )
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
+ * Social-agent invitation body from its graph — framed via the
+ * data-model's own `SocialAgentInvitation.fromJsonLd`, producing the same
+ * `SocialAgentInvitationData` POJO as `factory.socialAgentInvitation`.
+ */
+export async function getSocialAgentInvitation(
+  transport: SparqlTransport,
+  iri: string
+): Promise<SocialAgentInvitationData> {
+  const doc = await graphDoc(transport, iri)
+  return SocialAgentInvitation.fromJsonLd(doc, iri)
+}
+
+/**
+ * Find the invitation with `capabilityUrl` in the given agent registry
+ * container — list-and-scan over the `hasSocialAgentInvitation` listing,
+ * matching the HTTP `findSocialAgentInvitation` read (docs/sparql.md,
+ * invitations candidate; served by `InvitationHandler`).
+ */
+export async function findSocialAgentInvitation(
+  transport: SparqlTransport,
+  agentRegistryContainerIri: string,
+  capabilityUrl: string
+): Promise<SocialAgentInvitationData | undefined> {
+  for (const iri of await listSocialAgentInvitations(transport, agentRegistryContainerIri)) {
+    const invitation = await getSocialAgentInvitation(transport, iri)
+    if (invitation.capabilityUrl === capabilityUrl) return invitation
+  }
+}
+
+/**
  * Children of a data registry container linked as data registrations —
  * `interop:hasDataRegistration` in both the container graph and its `meta:`
  * graph (docs/sparql.md step 4). Seeded data registries list membership via
@@ -257,9 +302,9 @@ export async function listDataRegistrations(
 ): Promise<string[]> {
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP_HAS_DATA_REGISTRATION}> ?child } }
+  { GRAPH <${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP.hasDataRegistration}> ?child } }
   UNION
-  { GRAPH <meta:${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP_HAS_DATA_REGISTRATION}> ?child } }
+  { GRAPH <meta:${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP.hasDataRegistration}> ?child } }
 }`
   )
   return bindings.map((binding) => binding.child.value)
@@ -321,9 +366,9 @@ export async function findRolesWithMember(
 ): Promise<string[]> {
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?role WHERE {
-  { GRAPH <${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP_CONTAINS}> ?role } }
+  { GRAPH <${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
   UNION
-  { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP_CONTAINS}> ?role } }
+  { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
   { GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> } }
 }`
   )

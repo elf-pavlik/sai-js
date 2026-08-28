@@ -18,16 +18,6 @@ export type RoleRegistryData = {
 // Behavior functions (replacing class methods)
 // ──────────────────────────
 
-export async function* roles(
-  data: RoleRegistryData,
-  factory: AuthorizationAgentFactory
-): AsyncIterable<RoleData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'contains')
-  for (const iri of iris) {
-    yield factory.role(iri)
-  }
-}
-
 export async function containedIncludes(
   data: RoleRegistryData,
   factory: AuthorizationAgentFactory,

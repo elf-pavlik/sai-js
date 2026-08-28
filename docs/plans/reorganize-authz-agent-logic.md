@@ -1,103 +1,118 @@
-# Reorganize authz-agent logic — move grant generation out of data-model
+# Reorganize authz-agent logic — grant-generation read plane (relocation optional)
 
-> **Status:** design only — captures one option raised while working through
-> `docs/sparql.md` candidate 4, not started. Candidate 4's *minimal* path
-> (inject a SPARQL registrations loader into data-model) is tracked in
-> `docs/sparql.md`; this plan tracks the *architectural* alternative: relocate
-> the grant-generation orchestration into the `authorization-agent` package.
+> **Status:** design only, not started. Hosts the grant-generation read-plane
+> work: **step 1** is the minimal listing swap (tracked in `docs/sparql.md`
+> as candidate 4, moved here), **step 2** is the architectural alternative —
+> relocating the grant-generation logic into the `authorization-agent`
+> package. Nothing is blocked; step 1 is independent of step 2.
 
 ## 1. Problem
 
-The grant-generation path still performs one HTTP registry-metadata read: in
-`packages/data-model/src/data-authorization.ts`,
-`generateSourceDataGrants` lists each data registry via
-`DataRegistry.registrations(dataRegistry, registrySet.factory)` (HTTP
-`hasDataRegistration` links + per-registration bodies) to match the source and
-child registrations of a data authorization.
+The grant-generation path still performs two HTTP registry-metadata reads in
+`packages/data-model/src/data-authorization.ts` (both on the authz→grant path
+the AA's `generateDataGrants` runs):
 
-`docs/sparql.md` candidate 4 asks to move that listing onto the registry
-plane (`localSparqlTransport` + `listDataRegistrations` /
-`getDataRegistration`, which already exist in
+- `generateSourceDataGrants` lists each data registry via
+  `DataRegistry.registrations(dataRegistry, registrySet.factory)` (HTTP
+  `hasDataRegistration` links + per-registration bodies) to match the source
+  and child registrations of a data authorization;
+- `generateDelegatedDataGrants` sweeps
+  `AgentRegistry.socialAgentRegistrations(...)` over HTTP (`:197`) to locate
+  the data owner's reciprocal registration and grants for delegated-grant
+  matching.
+
+`docs/sparql.md` asks to move these listings onto the registry plane
+(`localSparqlTransport` + `listDataRegistrations` / `getDataRegistration` /
+`getSocialAgentRegistration`, which already exist in
 `packages/authorization-agent/src/sparql.ts`). The obstacle is package
 direction: data-model is the leaf — it cannot import the AA's transport, so
-the listing source has to come from outside or the logic has to move up.
-
-While considering the injection fix, the question was raised: instead of
-passing a loader into data-model, **move the grant-generation logic into the
-authorization-agent package outright** (the AA owns `sparqlEndpoint` and the
-read plane). This plan records that option, sized honestly.
+the listing source has to come from outside (injected) or the logic has to
+move up. This plan hosts both answers, as steps.
 
 ## 2. Current shape (as-is)
 
-All in `packages/data-model/src/data-authorization.ts`. The exported entry has
-**exactly one in-repo caller**: the AA's `generateDataGrants`
-(`packages/authorization-agent/src/authorization-agent.ts:371`, invoking
-`generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee)`).
+All in `packages/data-model/src/data-authorization.ts`. The exported entry
+`generateGrantsForAuthorization` has exactly one in-repo caller: the AA's
+`generateDataGrants` (`authorization-agent.ts:371`).
 
 - `generateGrantsForAuthorization(dataAuthorizations, registrySet, grantee)`
-  — exported convenience; skips `Inherited`-scope authorizations, aggregates
-  `{ sourceGrants, delegatedGrants }`.
+  — skips `Inherited` scope, aggregates `{ sourceGrants, delegatedGrants }`.
 - `generateDataGrants(dataAuthorization, registrySet, grantee)` (data-model
   internal) — the `AllFromRole` branch iterates
-  `registrySet.factory.role(data.dataOwner).members` (HTTP, would **stay**
-  HTTP); otherwise splits source vs delegated by the
-  `dataOwner`/`grantedBy` comparisons.
-- `generateSourceDataGrants` — **the only part with the HTTP
-  `DataRegistry.registrations` read**: per data registry, list + match by
-  `hasDataRegistration` / `registeredShapeTree`, throw if nothing matched
-  (`'no data grants were generated!'`), resolve `storageIri` (HTTP
-  data-plane, stays), mint grant IRIs via `GrantRegistry.iriForContained`.
-- `generateDelegatedDataGrants` — delegated-grant branch.
-- `generateChildSourceGrantData` — recursive child matching; already
-  listing-agnostic (receives `dataRegistrations` as a parameter).
+  `registrySet.factory.role(data.dataOwner).members` (HTTP, stays); otherwise
+  splits source vs delegated by the `dataOwner`/`grantedBy` comparisons.
+- `generateSourceDataGrants` — **HTTP listing target 1**: per data registry,
+  `DataRegistry.registrations` + match by `hasDataRegistration` /
+  `registeredShapeTree`, `!result.length` throw, `storageIri` (HTTP
+  data-plane, stays), `GrantRegistry.iriForContained`.
+- `generateDelegatedDataGrants` — **HTTP listing target 2**: the
+  `AgentRegistry.socialAgentRegistrations` sweep at `:197`.
+- `generateChildSourceGrantData` — already listing-agnostic (receives
+  `dataRegistrations` as a parameter).
 
-## 3. The relocation option
+## 3. Plan
 
-Move the orchestration chain (`generateGrantsForAuthorization` +
-`generateDataGrants` + `generateSourceDataGrants` +
-`generateDelegatedDataGrants`) into `packages/authorization-agent`:
+### Step 1 — minimal listing swap (moved from `docs/sparql.md` candidate 4)
 
-- The AA imports data-model **primitives** only: `FinalGrantData` /
-  `GrantData` types, `GrantRegistry.iriForContained`, `DataRegistry.storageIri`,
-  and the listing-agnostic `generateChildSourceGrantData`.
-- The per-registry listing uses the AA's own plane:
-  `listDataRegistrations(localSparqlTransport(this.sparqlEndpoint), id)` +
-  `getDataRegistration` per IRI.
-- data-model's `generateGrantsForAuthorization` / listing-based
-  `generateSourceDataGrants` become orphaned in src (final-pass cleanup).
+Leave the grant-generation assembly in data-model; inject the listing source:
 
-**Feasible**: yes — package direction is satisfied (AA → data-model), and the
-read-plane pieces are already in the AA.
+- `generateSourceDataGrants` gains an optional
+  `registrationsLoader?: (dataRegistry: DataRegistryData) =>
+  Promise<DataRegistrationData[]>` (HTTP `DataRegistry.registrations` fallback
+  when absent); the `generateDelegatedDataGrants` sweep gets the same
+  treatment (an optional loader for the agent-registry listing, HTTP fallback).
+- The AA's `generateDataGrants` passes loaders backed by the AA's own plane —
+  `listDataRegistrations` + `getDataRegistration` (and the
+  `hasSocialAgentRegistration` listing + `getSocialAgentRegistration`) over
+  `localSparqlTransport(this.sparqlEndpoint)`.
+- Expected caller-check outcome: the last HTTP registry-metadata reads on the
+  grant path are gone; `DataRegistry.registrations` loses its external
+  consumers → orphaned in src (data-model internals `registeredShapeTrees` /
+  `createRegistration` remain) → final-cleanup list.
+- Verify: `/test/authorization.test.ts`, `/test/services.test.ts`
+  (source + delegated grant generation, incl. role- and
+  delegation-scoped flows).
 
-## 4. Honest sizing — why it was deferred from candidate 4
+### Step 2 — relocate the grant-generation logic into the AA (architectural alternative)
 
-- ~250 lines of grant-generation semantics move (source/delegated split
-  rules, `AllFromRole` member iteration, child recursion, `!result.length`
-  throw, storage resolution), all exercised by the `/test` authorization and
-  delegation suites.
-- Moving the logic changes **where** it lives, not **what** is HTTP:
-  `factory.role` (AllFromRole), the delegated scans, and `storageIri` remain
-  HTTP data-plane reads either way. The single HTTP *registry-listing* read —
-  the actual subject of candidate 4 — is fixed by the minimal loader option at
-  ~15 lines with zero relocation risk.
-- The AA currently carries only the new unit tests from `docs/sparql.md`
-  steps 2–4 and candidates 1–3; transplanting the grant engine onto it is a
-  large regression surface for one listing swap.
+Only if the broader goal becomes "all registry-plane query and orchestration
+logic lives in the authorization-agent package" — not the vehicle for the
+listing swap:
+
+- Move the orchestration chain (`generateGrantsForAuthorization` +
+  `generateDataGrants` + `generateSourceDataGrants` +
+  `generateDelegatedDataGrants`) into the AA; data-model keeps the
+  primitives (types, `GrantRegistry.iriForContained`,
+  `DataRegistry.storageIri`, listing-agnostic `generateChildSourceGrantData`).
+- The per-registry / per-agent listings use the AA's plane
+  (`localSparqlTransport(this.sparqlEndpoint)` + the `list*` / `get*`
+  helpers).
+- data-model's `generateGrantsForAuthorization` / `generateSourceDataGrants`
+  become orphaned → final-cleanup list.
+
+**Feasible**: package direction satisfied (AA → data-model), read-plane
+pieces already in the AA. **Sizing**: ~250 lines of grant semantics move; the
+move changes *where* the logic lives, not *what* is HTTP (`factory.role` for
+AllFromRole, `storageIri`, delegated scans stay HTTP data-plane either way).
+
+## 4. Honest sizing
+
+Step 1 is ~15 lines of churn for the same behavioral result (both listings on
+the registry plane; HTTP fallback keeps the leaf and its tests intact). Step 2
+is the large regression surface — the whole `/test` authorization + delegation
+machinery exercises the relocated code — with no change in *which* reads are
+HTTP.
 
 ## 5. Decision
 
-Candidate 4 proceeds independently in `docs/sparql.md` (recommended: the
-optional `registrationsLoader` parameter on
-`generateGrantsForAuthorization`, threaded into `generateSourceDataGrants`,
-HTTP fallback when absent; the AA passes the SPARQL-backed loader). This plan
-stays as the tracked option if the broader goal is "all registry-plane query
-and orchestration logic lives in the authorization-agent package" — that is an
-architectural pass in its own right (own step, own `/test` verification),
-not the vehicle for candidate 4.
+Step 1 is the recommended path for the listing work (injection, not
+relocation). Step 2 stays as the tracked option if the architectural goal
+becomes explicit; it is its own workstream (own step, own `/test`
+verification), not the vehicle for the listing swap.
 
 ## 6. Out of scope
 
 - Any other logic relocation candidates in the AA or data-model (not searched;
-  this plan is scoped to the grant-generation chain only).
-- The orphaned data-model authorization/registry-listing cleanup (tracked in
-  `docs/sparql.md`, final pass).
+  this plan is scoped to the grant-generation path only).
+- The peer-leg chain and the unconsumed AA getters — already removed in the
+  `docs/sparql.md` final cleanup.

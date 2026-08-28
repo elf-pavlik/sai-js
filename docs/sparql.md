@@ -131,28 +131,41 @@ data-model as needed, so cleanup may be scheduled explicitly.
    dagger `/test/share.test.ts`, `/test/authorization.test.ts`, agents/data
    registry RPC tests).
 
-Replaced data-model functions — remaining callers (steps 1–4):
+Replaced data-model functions — remaining callers (steps 1–4, candidates, final cleanup):
 
-- `RoleRegistry.roles` (step 1) — **orphaned in src**: `test/org-context.test.ts`
-  (integration) is the only remaining caller; cleanup decision pending.
-- `AuthorizationRegistry.dataAuthorizations` (step 2) — **still used** by
-  `findRoleUsage` (role-deletion guard, `temporal/activities/grants.ts`): the
-  same authorizations listing `findAuthorizationsForAgent` now reads via
-  SPARQL — convert when the role-deletion path gets attention (follow-up
-  below).
-- `AgentRegistry.applicationRegistrations` (step 3) — **orphaned in src**: only
-  the unconsumed AA getter (`applicationRegistrations`) and data-model
-  internals/tests; cleanup decision pending.
+- `RoleRegistry.roles` (step 1) — **removed in the final cleanup** (its only
+  remaining caller was `test/org-context.test.ts`, reworked to an admin
+  `authFetch` of the role registry).
+- `AuthorizationRegistry.dataAuthorizations` / `findDataAuthorizations` /
+  `findAuthorizationsDelegatingFromOwner` / `getDataAuthorizations` /
+  `isDataAuthorization` (steps 2–3, candidates 2–3) — **removed in the
+  final cleanup**: candidates 2–3 removed the last src consumers, leaving
+  only data-model tests (also removed). The kept `getDataAuthorizationIris` /
+  `adminAuthorizations` / `getGranted` still serve the AdminAuthorization
+  paths.
+- `AgentRegistry.applicationRegistrations` (step 3) — the unconsumed AA
+  getter was **removed**; the data-model fn **stays** as the internal engine
+  of `findApplicationRegistration` (still load-bearing via
+  `recordAuthorization` + `findRegistration`).
 - `AgentRegistry.findApplicationRegistration` (step 3) — **still used**: the
-  `recordAuthorization` existence check (kept HTTP by design in step 3) and
-  data-model internals (`findRegistration`, `addApplicationRegistration`).
+  `recordAuthorization` existence check (kept HTTP) and data-model internals.
+- `AgentRegistry.socialAgentInvitations` / `findSocialAgentInvitation`
+  (candidate 1) — the unconsumed AA getter was **removed**; the data-model
+  fns **stay** as the internal engine of `addSocialAgentInvitation`'s
+  existence check.
+- `AgentRegistry.socialAgentRegistrations` (data-model) — **still used**: the
+  HTTP listing at `data-authorization.ts:197` (grant generation, AllFromRole
+  member resolution) and via `findRegistration` (typeGrantee), plus
+  data-model internals/tests.
 - `DataRegistry.registrations` (step 4) — **still used**: grant generation
   (`data-model/src/data-authorization.ts:329`, `generateGrantsForAuthorization`
   — matches the authorization's registration/shape-tree against the registry
   set's data registrations over HTTP; live via the AA `generateDataGrants`
   path) and data-model internals (`registeredShapeTrees`,
-  `createRegistration`). A future SPARQL candidate for the grant-generation
-  path.
+  `createRegistration`). The grant-generation listing work — this read plus
+  the `AgentRegistry.socialAgentRegistrations` sweep in
+  `generateDelegatedDataGrants` (`data-authorization.ts:197`) — moved to
+  `docs/plans/reorganize-authz-agent-logic.md` (step 1).
 
 Additional candidates (post-plan, one by one; same discipline):
 
@@ -165,8 +178,8 @@ Additional candidates (post-plan, one by one; same discipline):
    `capabilityUrl` served by `InvitationHandler`). Caller check:
    `AgentRegistry.socialAgentInvitations` / `findSocialAgentInvitation` —
    **still used** by data-model internals (`findSocialAgentInvitation`
-   iteration, `addSocialAgentInvitation` existence check) + the unconsumed
-   AA `socialAgentInvitations` getter (cleanup later) + data-model tests.
+   iteration, `addSocialAgentInvitation` existence check) + data-model
+   tests (the unconsumed AA getter was removed in the final cleanup).
    Unit tests in `authorization-agent` and
    `components/test/agent-registry.test.ts`; dagger `/test/invitation.test.ts`.
 2. **`findRoleUsage`'s authorization sweep** — **done** (the role-deletion
@@ -193,22 +206,22 @@ Additional candidates (post-plan, one by one; same discipline):
    in `components/test/grants.test.ts` (data-model registries stubbed for
    `typeGrantee`); dagger `/test/services.test.ts` (delegation),
    `/test/authorization.test.ts`.
-4. **`DataRegistry.registrations` in grant generation** — see inventory
-   above.
 
 Out of scope (documented, deliberately not scheduled):
 
 - **`findGrantForResource` / `findShapeTreeForResource` / `findResourceOwner` /
-  `findResourceServerOwner` (peer leg)** — the storage→shape-tree chain has
+  `findResourceServerOwner` (peer leg)** — the storage→shape-tree chain had
   **zero callers today** (verified with `codegraph_callers` per symbol:
   `findShapeTreeForResource` — the chain root — has no callers;
   `findGrantForResource` / `findResourceOwner` are called only by
   `findShapeTreeForResource`; `findResourceServerOwner` only by
   `findResourceOwner`; `findDataRegistrationForResource`'s only caller is
-  `findShapeTreeForResource`). Opportunistic — convert if it re-enters use:
-  the peer-grant leg (match grants by `hasStorage`) is a graph SELECT;
-  `findResourceOwner`'s local leg (storage-description discovery) stays HTTP
-  data-plane.
+  `findShapeTreeForResource`). **Removed in the final cleanup**, together with
+  the unconsumed `applicationRegistrations` / `socialAgentInvitations` /
+  `socialAgentRegistrations` AA getters. Opportunistic instead — if the
+  storage→shape-tree resolution ever re-enters use: the peer-grant leg
+  (match grants by `hasStorage`) is a graph SELECT; `findResourceOwner`'s
+  local leg (storage-description discovery) would stay HTTP data-plane.
 - **`ReciprocalMirror` (dormant)** — replace its hand-rolled fetcher reads with
   `localSparqlTransport` + `graphDoc`/`listContained`; not wired, so no
   behavior change — optional cleanup, do last if at all.

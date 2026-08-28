@@ -1,5 +1,4 @@
 import { agentId, buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
-import { RoleRegistry } from '@janeirodigital/interop-data-model'
 import { getRegistrySetIri } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { waitFor } from './util'
@@ -130,11 +129,8 @@ describe('org context — registry-set resolution (2.3)', () => {
     expect(registrySet.hasRoleRegistry.id).toBe('https://registry/yoyo/role/')
 
     // the resolved registry set must be readable with the admin's (authenticated) fetch
-    const roles = []
-    for await (const role of RoleRegistry.roles(registrySet.hasRoleRegistry, danSession.factory)) {
-      roles.push(role)
-    }
-    expect(Array.isArray(roles)).toBe(true)
+    const response = await danSession.fetch(registrySet.hasRoleRegistry.id)
+    expect(response.ok).toBe(true)
   })
 })
 

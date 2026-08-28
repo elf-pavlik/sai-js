@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
-  CRUDApplicationRegistration,
   type CRUDDataRegistry,
   CRUDRegistrySet,
-  CRUDSocialAgentRegistration,
   ReadableAccessAuthorization,
   type ReadableDataAuthorization,
   type ReadableDataInstance,
@@ -57,19 +55,6 @@ describe.skip('authorization agent', () => {
     expect(count).toBe(2)
   })
 
-  test('have access to all the application registrations', async () => {
-    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
-      fetch: statelessFetch,
-      randomUUID,
-    })
-    let count = 0
-    for await (const authorization of agent.applicationRegistrations) {
-      count += 1
-      expect(authorization).toBeInstanceOf(CRUDApplicationRegistration)
-    }
-    expect(count).toBe(2)
-  })
-
   test('should provide shortcut to find application registratons', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: statelessFetch,
@@ -78,31 +63,6 @@ describe.skip('authorization agent', () => {
     const spy = vi.spyOn(agent.registrySet.hasAgentRegistry, 'findApplicationRegistration')
     const iri = 'https://projectron.example/#app'
     await agent.findApplicationRegistration(iri)
-    expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith(iri)
-  })
-
-  test('have access to all the social agent registrations', async () => {
-    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
-      fetch: statelessFetch,
-      randomUUID,
-    })
-    let count = 0
-    for await (const authorization of agent.socialAgentRegistrations) {
-      count += 1
-      expect(authorization).toBeInstanceOf(CRUDSocialAgentRegistration)
-    }
-    expect(count).toBe(2)
-  })
-
-  test('should provide shortcut to find social agent registratons', async () => {
-    const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
-      fetch: statelessFetch,
-      randomUUID,
-    })
-    const spy = vi.spyOn(agent.registrySet.hasAgentRegistry, 'findSocialAgentRegistration')
-    const iri = 'https://alice.example/#id'
-    await agent.findSocialAgentRegistration(iri)
     expect(spy).toHaveBeenCalledTimes(1)
     expect(spy).toHaveBeenCalledWith(iri)
   })

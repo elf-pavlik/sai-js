@@ -1,29 +1,19 @@
 import {
-  AgentRegistry,
   AuthorizationAgentFactory,
   type DataAuthorizationData,
   type DataInstanceData,
   type DataRegistrationData,
-  DataRegistry,
   type FinalDataAuthorizationData,
   type GeneratedGrants,
-  type GrantData,
   type RegistrySetData,
   type RoleData,
-  type ShapeTreeData,
   type WebIdProfileData,
   generateGrantsForAuthorization,
-  getDataGrantIris,
-  getDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
-  SPACE,
   type WhatwgFetch,
   discoverAuthorizationAgent,
-  discoverStorageDescription,
-  fetchJsonLd,
-  findNodeIdByType,
   getRegistrySetIri,
 } from '@janeirodigital/interop-utils'
 import {
@@ -93,8 +83,6 @@ export class AuthorizationAgent {
 
   webIdProfile: WebIdProfileData
 
-  ownersIndex: { [key: string]: string } = {}
-
   registrySet: RegistrySetData
 
   /**
@@ -120,10 +108,6 @@ export class AuthorizationAgent {
     })
   }
 
-  get applicationRegistrations() {
-    return AgentRegistry.applicationRegistrations(this.registrySet.hasAgentRegistry, this.factory)
-  }
-
   /**
    * The context registry's registration of application `registeredAgent`,
    * via the shared SPARQL query — the symmetric counterpart of
@@ -140,10 +124,6 @@ export class AuthorizationAgent {
     )
   }
 
-  get socialAgentRegistrations() {
-    return AgentRegistry.socialAgentRegistrations(this.registrySet.hasAgentRegistry, this.factory)
-  }
-
   /**
    * The context registry's registration of `registeredAgent`, via the shared
    * SPARQL query — the session reads its own registry through the internal
@@ -157,10 +137,6 @@ export class AuthorizationAgent {
       (registrySet ?? this.registrySet).hasAgentRegistry.id,
       registeredAgent
     )
-  }
-
-  get socialAgentInvitations() {
-    return AgentRegistry.socialAgentInvitations(this.registrySet.hasAgentRegistry, this.factory)
   }
 
   /**
@@ -209,80 +185,6 @@ export class AuthorizationAgent {
       }
     }
     return dataRegistration
-  }
-
-  private async findResourceServerOwner(
-    resourceServerId: string,
-    ownerWebId?: string
-  ): Promise<string> {
-    const cached = this.ownersIndex[resourceServerId]
-    if (cached) return cached
-    // the registry set owning `resourceServerId` — the context owner in an
-    // org context (class-C fix: was `this.webId`)
-    const owner = ownerWebId ?? this.webId
-    let ownerId: string
-    // owned graphs come from this registry set; the resolved *owner identity*
-    // is the context owner when provided (class-C)
-    for (const dataRegistry of this.registrySet.hasDataRegistry) {
-      if ((await DataRegistry.storageIri(dataRegistry, this.factory)) === resourceServerId)
-        ownerId = owner
-    }
-    if (!ownerId) {
-      for await (const socialAgentRegistration of this.socialAgentRegistrations) {
-        if (!socialAgentRegistration?.reciprocalRegistration) continue
-        const reciprocalReg = await this.factory.socialAgentRegistration(
-          socialAgentRegistration.reciprocalRegistration
-        )
-        if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
-        const dataGrants = await getDataGrants(reciprocalReg, this.factory)
-        const grant = dataGrants.find((dataGrant) => dataGrant.hasStorage === resourceServerId)
-        if (grant) ownerId = socialAgentRegistration.registeredAgent
-      }
-    }
-    this.ownersIndex[resourceServerId] = ownerId
-  }
-
-  public async findResourceOwner(resourceId: string, ownerWebId?: string): Promise<string> {
-    // find storage root
-    const storageDescriptionIri = await discoverStorageDescription(resourceId, this.fetch)
-    const doc = await fetchJsonLd(storageDescriptionIri, this.fetch)
-    const storageRoot = await findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
-
-    return this.findResourceServerOwner(storageRoot, ownerWebId)
-  }
-
-  public async findGrantForResource(resourceId: string, ownerId: string): Promise<GrantData> {
-    const socialAgentRegistration = await this.findSocialAgentRegistration(ownerId)
-    const dataRegistrationIri = `${resourceId.split('/').slice(0, -1).join('/')}/`
-    if (!socialAgentRegistration?.reciprocalRegistration) {
-      throw new Error(`no reciprocal registration for ${ownerId}`)
-    }
-    const reciprocalReg = await this.factory.socialAgentRegistration(
-      socialAgentRegistration.reciprocalRegistration
-    )
-    const dataGrants = await getDataGrants(reciprocalReg, this.factory)
-    return dataGrants.find((dataGrant) => dataGrant.hasDataRegistration === dataRegistrationIri)
-  }
-
-  public async findDataRegistrationForResource(resourceId: string): Promise<DataRegistrationData> {
-    const registrationId = `${resourceId.split('/').slice(0, -1).join('/')}/`
-    return this.factory.dataRegistration(registrationId)
-  }
-
-  public async findShapeTreeForResource(
-    resourceId: string,
-    ownerWebId?: string
-  ): Promise<ShapeTreeData> {
-    let shapeTreeId: string
-    const ownerId = await this.findResourceOwner(resourceId, ownerWebId)
-    if (ownerId === (ownerWebId ?? this.webId)) {
-      const dataRegistration = await this.findDataRegistrationForResource(resourceId)
-      shapeTreeId = dataRegistration.registeredShapeTree
-    } else {
-      const dataGrant = await this.findGrantForResource(resourceId, ownerId)
-      shapeTreeId = dataGrant.registeredShapeTree
-    }
-    return this.factory.shapeTree(shapeTreeId)
   }
 
   private async bootstrap(): Promise<void> {

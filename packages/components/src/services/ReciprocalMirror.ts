@@ -26,8 +26,9 @@ import { DataFactory, Store } from 'n3'
  *
  * This covers everything org-context reads would otherwise dereference on
  * the peer's server (where the admin's credentials match no ACR policy):
- * `buildSocialAgentProfile`, `getSocialAgents` pass 2, `findDataGrantIndex`,
- * `findGrantForResource`.
+ * `buildSocialAgentProfile`, `getSocialAgents` pass 2,
+ * `findDataGrantIndex` (its reciprocal-leg reads now resolve via the
+ * registry plane, docs/sparql.md).
  *
  * **Single-writer invariant:** mirrors are written only by server-side sync
  * (webhook handler / invitation flow / unregister flow) using the ORG's

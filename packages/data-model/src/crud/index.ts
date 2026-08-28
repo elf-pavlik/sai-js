@@ -31,7 +31,6 @@ export { createDataRegistration } from '../data-registration'
 // explicit re-export to resolve getGranted ambiguity with ./agent-registration
 export {
   getDataAuthorizationIris,
-  getDataAuthorizations,
 } from './authorization-registry'
 // registries are exported as namespaces to avoid colliding names
 // (iriForContained is defined by every registry module)

@@ -1,5 +1,5 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { AuthorizationRegistry, getGranted } from '@janeirodigital/interop-data-model'
+import { getGranted } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 import { awaitGrantCompletion } from './util'
 
@@ -166,12 +166,10 @@ describe('denied', () => {
       expect(denied.length).toBe(0)
     })
 
-    const dataAuthorizations = await AuthorizationRegistry.findDataAuthorizations(
-      session.registrySet.hasAuthorizationRegistry,
-      session.factory,
-      clientId
-    )
-    expect(dataAuthorizations.length).toBe(0)
+    // the grantee's authorizations read via the registry plane (the data-model
+    // HTTP `findDataAuthorizations` was removed in the final cleanup)
+    const authorizations = await session.findAuthorizationsForAgent(clientId)
+    expect(authorizations.length).toBe(0)
     const regAfterDeny = await session.findApplicationRegistration(clientId)
     expect(await getGranted(regAfterDeny)).toBeFalsy()
   })

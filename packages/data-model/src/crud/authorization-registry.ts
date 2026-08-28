@@ -7,7 +7,7 @@ import {
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory, DataAuthorizationData } from '..'
+import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext, linkedIrisJsonLd } from '../context'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
@@ -127,77 +127,6 @@ export async function deleteAdminAuthorization(
   if (!response.ok) {
     throw new Error(`failed to delete admin authorization: ${response.status}`)
   }
-}
-
-/** True when the resource is a data authorization (skips AdminAuthorization and any other contained type). */
-function isDataAuthorization(data: DataAuthorizationData): boolean {
-  return data.type.includes(INTEROP.DataAuthorization)
-}
-
-export async function getDataAuthorizations(
-  data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
-): Promise<DataAuthorizationData[]> {
-  const iris = await getDataAuthorizationIris(data, factory)
-  return (await Promise.all(iris.map((iri) => factory.dataAuthorization(iri)))).filter(
-    isDataAuthorization
-  )
-}
-
-// ──────────────────────────
-// Behavior functions (replacing class methods)
-// ──────────────────────────
-
-export async function* dataAuthorizations(
-  data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
-): AsyncIterable<DataAuthorizationData> {
-  const iris = await getDataAuthorizationIris(data, factory)
-  for (const iri of iris) {
-    const dataAuthorization = await factory.dataAuthorization(iri)
-    if (isDataAuthorization(dataAuthorization)) {
-      yield dataAuthorization
-    }
-  }
-}
-
-export async function findDataAuthorizations(
-  data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
-  grantee: string
-): Promise<DataAuthorizationData[]> {
-  const matching: DataAuthorizationData[] = []
-  for await (const dataAuthorization of dataAuthorizations(data, factory)) {
-    if (dataAuthorization.grantee === grantee) {
-      matching.push(dataAuthorization)
-    }
-  }
-  return matching
-}
-
-export async function findAuthorizationsDelegatingFromOwner(
-  data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
-  dataOwner: string,
-  roleId: string
-): Promise<DataAuthorizationData[]> {
-  const matching: DataAuthorizationData[] = []
-  for await (const dataAuthorization of dataAuthorizations(data, factory)) {
-    let matches = false
-    // exclude authorizations where dataOwner is also the grantee (it would match when All scope)
-    if (dataAuthorization.grantee !== dataOwner) {
-      if (dataAuthorization.dataOwner === dataOwner) {
-        matches = true
-      }
-      if (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All) {
-        matches = true
-      }
-    }
-    if (matches) {
-      matching.push(dataAuthorization)
-    }
-  }
-  return matching
 }
 
 export async function createAuthorizationRegistry(

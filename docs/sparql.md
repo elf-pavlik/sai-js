@@ -16,7 +16,7 @@ The transport + registry query core lives in
 - `localSparqlTransport(endpoint)` — internal endpoint via
   `SparqlEndpointFetcher` (used for **personal** context and the AA's own
   session reads).
-- `adminSparqlTransport(session, orgWebId)` — HTTP POST
+- `adminSparqlTransport(session, orgWebId)` — HTTP `QUERY`
   `application/sparql-query` to `/.sai/sparql-admin/<base64url-org>`,
   authenticated as the admin (used for **org** context); lives in
   `packages/components/src/services/queries/org.ts`.

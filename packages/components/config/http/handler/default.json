@@ -88,12 +88,12 @@
       }
     },
     {
-      "comment": "Query-only SPARQL endpoint for org admins (QUERY method; POST is the DPoP-verifiable transport — the access-token verifier whitelists only standard methods).",
+      "comment": "Query-only SPARQL endpoint for org admins (HTTP QUERY method only — safe, read-only; DPoP-verifiable since access-token-verifier 2.1.2 added QUERY to its REQUEST_METHOD whitelist).",
       "@id": "urn:sai:default:AdminSparqlRouter",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "allowedPathNames": ["^/.sai/sparql-admin/.*"],
-      "allowedMethods": ["QUERY", "POST"],
+      "allowedMethods": ["QUERY"],
       "handler": {
         "@id": "urn:sai:default:AdminSparqlHandler",
         "comment": "Gate-kept SPARQL query endpoint: admin of the org (hasAdminGrant) may run SELECT/ASK/CONSTRUCT.",

@@ -52,14 +52,11 @@ function termToJson(term: IBindings[string]): Record<string, unknown> {
  * Query-only SPARQL endpoint for org admins (org-context-sparql.md §2.2).
  *
  * Route `/.sai/sparql-admin/<base64url-org-webid>`, speaking the HTTP
- * `QUERY` method (safe, read-only — draft-ietf-httpapi-safe-methods-wg)
- * and `POST` — the DPoP-verifiable transport: the access-token verifier
- * whitelists only standard methods (`QUERY` is not in its
- * `REQUEST_METHOD` set), so authenticated clients (the admin's AA) must
- * use `POST` with the same `application/sparql-query` body. In both cases
- * the SPARQL query travels in the request body; updates
- * (`application/sparql-update`, INSERT/DELETE/…) and other methods are
- * rejected.
+ * `QUERY` method only (safe, read-only — draft-ietf-httpapi-safe-methods-wg;
+ * DPoP-verifiable since `@solid/access-token-verifier` 2.1.2 added QUERY to
+ * its `REQUEST_METHOD` whitelist). The SPARQL query travels in the request
+ * body as `application/sparql-query`; updates (`application/sparql-update`,
+ * INSERT/DELETE/…) and other methods are rejected.
  *
  * Gate (shared with `/proxy-admin`: `services/adminGate.ts` — the caller
  * must be an admin of the target org: its social-agent registration held
@@ -90,9 +87,9 @@ export class AdminSparqlHandler extends OperationHttpHandler {
     request,
   }: OperationHttpHandlerInput): Promise<ResponseDescription> {
     // Belt-and-suspenders for the read-only contract (the router already
-    // restricts the route to QUERY/POST).
-    if (operation.method !== 'QUERY' && operation.method !== 'POST') {
-      throw new MethodNotAllowedHttpError(['QUERY', 'POST'])
+    // restricts the route to QUERY).
+    if (operation.method !== 'QUERY') {
+      throw new MethodNotAllowedHttpError(['QUERY'])
     }
 
     // Gate first — no server-side work is triggered for unauthenticated callers.

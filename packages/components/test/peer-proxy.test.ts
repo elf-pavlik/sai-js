@@ -440,7 +440,7 @@ function sparqlAdminSession(
 }
 
 describe('sparqlTransportFor — org context routes via /sparql-admin', () => {
-  test('SELECT bindings: HTTP POST + application/sparql-query body, W3C results parsed', async () => {
+  test('SELECT bindings: HTTP QUERY + application/sparql-query body, W3C results parsed', async () => {
     const { session, requests } = sparqlAdminSession(() =>
       jsonResponse(
         {
@@ -465,9 +465,9 @@ describe('sparqlTransportFor — org context routes via /sparql-admin', () => {
       'https://yoyo.example/registrations/2',
     ])
     const sparqlRequest = requests.find((request) => request.url === SPARQL_ADMIN_URL)
-    // POST, not QUERY: the access-token verifier whitelists only standard
-    // methods, so a DPoP-bound QUERY request fails verification (403).
-    expect(sparqlRequest?.init?.method).toBe('POST')
+    // QUERY: the safe, read-only method — DPoP-verifiable since the
+    // access-token verifier added it to its REQUEST_METHOD whitelist (2.1.2).
+    expect(sparqlRequest?.init?.method).toBe('QUERY')
     expect((sparqlRequest?.init?.headers as Record<string, string>)['Content-Type'] ?? '').toContain(
       'application/sparql-query'
     )

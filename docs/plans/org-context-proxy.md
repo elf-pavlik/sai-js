@@ -336,18 +336,16 @@ the proxy never issues writes upstream).
   org-context consumer (`DataRegistry`, `Authorization`, `AgentRegistry`,
   `ShareResource`) passes `sparqlTransportFor(ctx)`: personal → the
   session's internal endpoint (unchanged); org context → YoYo's
-  `/sparql-admin` over HTTP `POST` with the admin's session (AA
+  `/sparql-admin` over HTTP `QUERY` with the admin's session (AA
   discovery + base64url org webId, `application/sparql-query` body;
   `application/sparql-results+json` and `text/turtle` responses parsed
-  back into the local term/store shapes). `POST` rather than `QUERY`: the
-  access-token verifier whitelists only standard methods (`QUERY` is not
-  in its `REQUEST_METHOD` set), so a DPoP-bound `QUERY` request fails
-  verification and the gate 403s — the endpoint accepts both
-  (`allowedMethods: ["QUERY", "POST"]`, `QUERY` kept for tooling).
-  Follow-up: switch the client back to HTTP `QUERY` once
-  `@solid/access-token-verifier`'s `REQUEST_METHOD` whitelist includes it
-  (upstream PR) — the endpoint already accepts both, so it's the client
-  method + the transport unit-test assertion only. Same results in the
+  back into the local term/store shapes). `QUERY` is the safe, read-only
+  method (draft-ietf-httpapi-safe-methods-wg); it became DPoP-verifiable
+  once `@solid/access-token-verifier` 2.1.2 added it to its
+  `REQUEST_METHOD` whitelist (previously the client had to use `POST`,
+  since a DPoP-bound `QUERY` request failed verification and the gate
+  403'd). The endpoint now accepts `QUERY` only
+  (`allowedMethods: ["QUERY"]`). Same results in the
   single-server dev/test env (both resolve the shared store); cross-server
   in real deployments, and it resolves against the org's graphs/mirrors
   held by the org's server after the 4b cutover. Unit-verified

@@ -48,11 +48,11 @@ export type { SparqlTransport }
 
 /**
  * Send a SPARQL query to the org's `/sparql-admin` endpoint via HTTP
- * `POST`, authenticated as the admin (the caller's own session — the only
- * session the admin's server holds). `POST` rather than `QUERY`: the
- * access-token verifier whitelists only standard methods (`QUERY` is not
- * in its `REQUEST_METHOD` set), so a DPoP-bound `QUERY` request fails
- * verification and the gate 403s.
+ * `QUERY`, authenticated as the admin (the caller's own session — the only
+ * session the admin's server holds). `QUERY` is the safe, read-only method
+ * (draft-ietf-httpapi-safe-methods-wg); it is DPoP-verifiable since
+ * `@solid/access-token-verifier` 2.1.2 added it to its `REQUEST_METHOD`
+ * whitelist.
  */
 async function adminSparqlQuery(
   adminSession: AuthorizationAgent,
@@ -70,7 +70,7 @@ async function adminSparqlQuery(
   }
   const url = `${new URL(orgAA).origin}/.sai/sparql-admin/${Buffer.from(orgWebId).toString('base64url')}`
   const response = await adminSession.fetch(url, {
-    method: 'POST',
+    method: 'QUERY',
     headers: {
       'Content-Type': 'application/sparql-query',
       Accept: 'application/sparql-results+json, text/turtle',

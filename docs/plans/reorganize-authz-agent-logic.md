@@ -1,118 +1,289 @@
-# Reorganize authz-agent logic — grant-generation read plane (relocation optional)
+# Reorganize sai-js boundaries — data-model sheds logic to `application`, `authorization-agent`, and components adapters
 
-> **Status:** design only, not started. Hosts the grant-generation read-plane
-> work: **step 1** is the minimal listing swap (tracked in `docs/sparql.md`
-> as candidate 4, moved here), **step 2** is the architectural alternative —
-> relocating the grant-generation logic into the `authorization-agent`
-> package. Nothing is blocked; step 1 is independent of step 2.
+> **Status:** design only, not started. Four behavior-preserving phases, each
+> gated by **full build + all package tests + the `/test` integration suite**:
+> **Phase 1** removes the factories (and folds in the `iri` → `id` parameter
+> rename); **Phase 2** extracts application-specific logic from data-model;
+> **Phase 3** extracts authorization-specific logic from data-model into AA
+> session methods; **Phase 4** moves SAI domain/spec logic from components into
+> AA, leaving components with CSS handlers, internal storage, the RPC API,
+> webhooks, notifications, and workflow glue.
+>
+> Goal: data-model becomes **mostly POJOs + framing + generic CRUD primitives**;
+> application and authorization-agent each own their domain logic and depend on
+> data-model; components keeps server concerns and thin RPC adapters.
+>
+> Decisions (confirmed with the plan owner): one plan, 4 phases as above; the
+> AA exposes moved logic as **session methods**; `ResolvedContext` seam kept;
+> no `api-messages` dependency in the AA; `iri: string` parameters become
+> `id: string`, fold into Phase 1 and carry the convention into Phases 2–4.
 
 ## 1. Problem
 
-The grant-generation path still performs two HTTP registry-metadata reads in
-`packages/data-model/src/data-authorization.ts` (both on the authz→grant path
-the AA's `generateDataGrants` runs):
+- The factories (`ApplicationFactory`, `AuthorizationAgentFactory`) act as a
+  *deps bundle* threaded through ~100 data-model function signatures
+  (`factory: AuthorizationAgentFactory` — mostly for `.fetch`), plus hold
+  create-paths (`{ ...data, id: iri }`) and one inline-fetch loader with no
+  `loadX` twin (`shapeTree`).
+- SAI domain/spec logic is scattered: the grant-generation chain in
+  data-model (leaf, can't import the AA plane), services/domain rules in
+  components mixed with RPC mapping, match semantics in Temporal activities.
+- Parameter naming is inconsistent (`iri: string` vs `id: string`).
+- Components is today the largest direct consumer of data-model *behavior*
+  modules (ActivityRegistry outbox, AgentRegistry/RoleRegistry/
+  AuthorizationRegistry, reciprocal/social-agent ops, Grant + data-instance
+  helpers, description modules, AccessRequest/Revocation parsing, templates,
+  `GrantRegistry.iriForContained`) — none of which is its concern.
 
-- `generateSourceDataGrants` lists each data registry via
-  `DataRegistry.registrations(dataRegistry, registrySet.factory)` (HTTP
-  `hasDataRegistration` links + per-registration bodies) to match the source
-  and child registrations of a data authorization;
-- `generateDelegatedDataGrants` sweeps
-  `AgentRegistry.socialAgentRegistrations(...)` over HTTP (`:197`) to locate
-  the data owner's reciprocal registration and grants for delegated-grant
-  matching.
+## 2. Target architecture
 
-`docs/sparql.md` asks to move these listings onto the registry plane
-(`localSparqlTransport` + `listDataRegistrations` / `getDataRegistration` /
-`getSocialAgentRegistration`, which already exist in
-`packages/authorization-agent/src/sparql.ts`). The obstacle is package
-direction: data-model is the leaf — it cannot import the AA's transport, so
-the listing source has to come from outside (injected) or the logic has to
-move up. This plan hosts both answers, as steps.
+```
+api-messages (schemas + RPC router — unchanged)
+   ▲
+   │  components: ApiHandler (unchanged) → services/*.ts adapters
+   │    • resolveContext, transport selection (queries/org.ts)       — stays
+   │    • RPC schema ↔ AA structure / data-model POJO mapping         — thin
+   │    • CSS handlers, storage, RPC API, webhooks, notifications,
+   │      admin gate, proxy/mirror, Temporal workflows, policy engine — stays
+   ▼
+authorization-agent  ← ALL SAI domain/spec logic (session methods, POJO in/out)
+        │
+        ├── application  ← app-agent logic (grants reads, instance enumeration)
+        ▼
+data-model (POJO types + framing loaders + generic CRUD primitives)
+```
 
-## 2. Current shape (as-is)
+**Boundary rules**
 
-All in `packages/data-model/src/data-authorization.ts`. The exported entry
-`generateGrantsForAuthorization` has exactly one in-repo caller: the AA's
-`generateDataGrants` (`authorization-agent.ts:371`).
+- data-model keeps: POJO types, framing (`fromJsonLd`/`loadX`/`toX`),
+  `data-instance` framing (`loadDataInstance`, `computeChildren`, `childIris`,
+  …), `shape-tree` framing (`loadShapeTree` + description resolution),
+  access-need/group framing + descriptions, generic registry/container CRUD
+  primitives (over `{ fetch, randomUUID }`), `context`, templates, the
+  Activity-Registry outbox (event infra, not SAI rules).
+- application owns: app-side grant reads (`ApplicationRegistration.getDataGrants`),
+  `Grant.iriForNew`, instance enumeration — everything only the app agent needs.
+- authorization-agent owns: every SAI rule — grant generation, scope matching,
+  delegation matching, authorization structure rules, admin marker,
+  AdminAuthorization, reciprocal federation, registration-projection cleanup,
+  registry-plane reads (session methods, POJO in/out).
+- components owns: server concerns (listed above) + thin conversion between
+  `api-messages` and AA structures / data-model POJOs.
+- `ApiHandler`, the RPC router, every `api-messages` schema: untouched.
+- The AA imports no `api-messages`; data-model stays the leaf.
 
-- `generateGrantsForAuthorization(dataAuthorizations, registrySet, grantee)`
-  — skips `Inherited` scope, aggregates `{ sourceGrants, delegatedGrants }`.
-- `generateDataGrants(dataAuthorization, registrySet, grantee)` (data-model
-  internal) — the `AllFromRole` branch iterates
-  `registrySet.factory.role(data.dataOwner).members` (HTTP, stays); otherwise
-  splits source vs delegated by the `dataOwner`/`grantedBy` comparisons.
-- `generateSourceDataGrants` — **HTTP listing target 1**: per data registry,
-  `DataRegistry.registrations` + match by `hasDataRegistration` /
-  `registeredShapeTree`, `!result.length` throw, `storageIri` (HTTP
-  data-plane, stays), `GrantRegistry.iriForContained`.
-- `generateDelegatedDataGrants` — **HTTP listing target 2**: the
-  `AgentRegistry.socialAgentRegistrations` sweep at `:197`.
-- `generateChildSourceGrantData` — already listing-agnostic (receives
-  `dataRegistrations` as a parameter).
+## 3. Current shape (as-is)
 
-## 3. Plan
+All line numbers current at the time of writing.
 
-### Step 1 — minimal listing swap (moved from `docs/sparql.md` candidate 4)
+### 3.1 Factory surface (`application-factory.ts`, `authorization-agent-factory.ts`)
 
-Leave the grant-generation assembly in data-model; inject the listing source:
+| Bucket | Methods |
+|---|---|
+| Real logic | `ApplicationFactory.dataInstance` (registration→shapeTree→blob→frame→children), `shapeTree` (inline fetch+parse — no `loadX` twin), `AAFactory.applicationRegistration` data-path (`granted`/`type`), `accessNeed`/`accessNeedGroup` (recursion) |
+| Thin `loadFoo` delegates | `applicationRegistration`, `dataRegistration`, `shapeTreeDescription`, `webIdProfile`, `clientIdDocument`, `dataGrant`, `socialAgentRegistration`, `socialAgentInvitation`, `role`, `dataAuthorization`, `accessNeedDescription`, `accessNeedGroupDescription`, `registrySet` |
+| Pure identity `{ id: iri }` | `roleRegistry`, `dataRegistry`, `authorizationRegistry`, `grantRegistry`, `agentRegistry`, `accessDescriptionSet` — **zero callers** |
+| Trivial create-paths (`{ ...data, id: iri }`) | `socialAgentRegistration`, `socialAgentInvitation`, `role`, `dataRegistration`, `dataGrant` — only 4 live callers, all data-model crud writers (`agent-registry.ts:128,159,193`, `data-registry.ts:70`); `role`/`dataGrant` create-paths dead |
 
-- `generateSourceDataGrants` gains an optional
-  `registrationsLoader?: (dataRegistry: DataRegistryData) =>
-  Promise<DataRegistrationData[]>` (HTTP `DataRegistry.registrations` fallback
-  when absent); the `generateDelegatedDataGrants` sweep gets the same
-  treatment (an optional loader for the agent-registry listing, HTTP fallback).
-- The AA's `generateDataGrants` passes loaders backed by the AA's own plane —
-  `listDataRegistrations` + `getDataRegistration` (and the
-  `hasSocialAgentRegistration` listing + `getSocialAgentRegistration`) over
-  `localSparqlTransport(this.sparqlEndpoint)`.
-- Expected caller-check outcome: the last HTTP registry-metadata reads on the
-  grant path are gone; `DataRegistry.registrations` loses its external
-  consumers → orphaned in src (data-model internals `registeredShapeTrees` /
-  `createRegistration` remain) → final-cleanup list.
-- Verify: `/test/authorization.test.ts`, `/test/services.test.ts`
-  (source + delegated grant generation, incl. role- and
-  delegation-scoped flows).
+The `factory` parameter appears in ~100 data-model function signatures (incl.
+composed helpers `computeChildren`, `getDataInstanceIterator`, `ShapeTree.getDescription`,
+access-need/group modules, registry-set) — almost always just for `.fetch`.
 
-### Step 2 — relocate the grant-generation logic into the AA (architectural alternative)
+### 3.2 Deliberate consumers
 
-Only if the broader goal becomes "all registry-plane query and orchestration
-logic lives in the authorization-agent package" — not the vehicle for the
-listing swap:
+- `application`: `ApplicationFactory` (`applicationRegistration`, `dataRegistration`,
+  `dataGrant` via `ApplicationRegistration.getDataGrants`, `randomUUID`).
+- AA: `webIdProfile`, `registrySet`, `dataAuthorization`, `dataInstance`, `fetch`
+  (+ at runtime via data-model internals: `role`, `dataGrant`, `dataRegistration`,
+  `socialAgentRegistration`, `applicationRegistration`, `socialAgentInvitation`).
+- components: `ctx.session.factory.*` (shapeTree×6, clientIdDocument×4, role×3,
+  dataInstance×3, dataRegistration×2, dataGrant×2, accessNeedGroup×2, …) and its
+  own `new ApplicationFactory` in `SaiPermissionsEngine` (only `shapeTree.references`).
 
-- Move the orchestration chain (`generateGrantsForAuthorization` +
-  `generateDataGrants` + `generateSourceDataGrants` +
-  `generateDelegatedDataGrants`) into the AA; data-model keeps the
-  primitives (types, `GrantRegistry.iriForContained`,
-  `DataRegistry.storageIri`, listing-agnostic `generateChildSourceGrantData`).
-- The per-registry / per-agent listings use the AA's plane
-  (`localSparqlTransport(this.sparqlEndpoint)` + the `list*` / `get*`
-  helpers).
-- data-model's `generateGrantsForAuthorization` / `generateSourceDataGrants`
-  become orphaned → final-cleanup list.
+### 3.3 Grant-generation path (Phase 3 input)
 
-**Feasible**: package direction satisfied (AA → data-model), read-plane
-pieces already in the AA. **Sizing**: ~250 lines of grant semantics move; the
-move changes *where* the logic lives, not *what* is HTTP (`factory.role` for
-AllFromRole, `storageIri`, delegated scans stay HTTP data-plane either way).
+All in `packages/data-model/src/data-authorization.ts`; sole caller of the
+exported entry is AA's `generateDataGrants` (`authorization-agent.ts:266`).
+`generateGrantsForAuthorization` (:466), `generateDataGrants` (:399),
+`generateSourceDataGrants` (:314), `generateDelegatedDataGrants` (:186),
+`generateChildDelegatedGrantData` (:144), `generateChildSourceGrantData` (:276),
+`inheritingAuthorizations` (:136). HTTP listing targets:
+`DataRegistry.registrations`/`hasDataRegistration` (`crud/data-registry.ts:38,31`),
+`AgentRegistry.socialAgentRegistrations` (`crud/agent-registry.ts:50`),
+`agent-registration.getDataGrants` (:88); `registeredShapeTrees` (:48) has zero
+consumers. Shared primitives that stay: `storageIri` (components
+`services/DataRegistry.ts:50`), `GrantRegistry.iriForContained`
+(`GrantIssuanceHandler`, admin workflows), `getDataGrantIris` (components).
 
-## 4. Honest sizing
+Registry-plane reads already in AA (`authorization-agent/src/sparql.ts`):
+`localSparqlTransport`, `listContained` (reads `ldp:contains` +
+`hasSocialAgentRegistration`), `getSocialAgentRegistration`, `listDataRegistrations`,
+`getDataRegistration` (returns `contains`), `getDataGrant`, `getDataAuthorization`,
+`getRole`.
 
-Step 1 is ~15 lines of churn for the same behavioral result (both listings on
-the registry plane; HTTP fallback keeps the leaf and its tests intact). Step 2
-is the large regression surface — the whole `/test` authorization + delegation
-machinery exercises the relocated code — with no change in *which* reads are
-HTTP.
+### 3.4 Domain logic in components (Phase 4 input)
 
-## 5. Decision
+- services (`services/`): duplicate scope-match switch
+  (`ShareResource.agentsWithAccessMatching` vs `AA.findAgentsWithAccess`),
+  RPC→structure rules (`Authorization.buildDataAuthorizations`), admin-marker
+  rule (`buildSocialAgentProfile`), registry-plane reads
+  (`DataRegistry.dataGrantIndexForAgent`, `Authorization.findUserDataRegistrations`),
+  `ShareAuthorization` → `ShareDataInstanceStructure` `as unknown as` cast,
+  `removeGrantsFromRegistration` (`util/registrations.ts`).
+- temporal activities (`temporal/activities/grants.ts`): `findAffectedGrantees`
+  (:141, ports `findAuthorizationsDelegatingFromOwner`), `findRoleUsage` (:183),
+  `typeGrantee` (:44), `getGrantees` (:229).
+- handlers: delegation validation (`GrantIssuanceHandler.validateDelegable`),
+  revocation authority+closure (`GrantRevocationHandler.revokeGrants` +
+  `findGrants`/`findInheritingChildren`).
 
-Step 1 is the recommended path for the listing work (injection, not
-relocation). Step 2 stays as the tracked option if the architectural goal
-becomes explicit; it is its own workstream (own step, own `/test`
-verification), not the vehicle for the listing swap.
+## 4. Plan — 4 phases, each gated
 
-## 6. Out of scope
+**Gate (after every phase):** `npm run build` per package; `vitest run` per
+package; the `/test` integration suite (dagger, user-run) — all green. Each
+phase must be behavior-preserving; the integration suite is the regression gate.
 
-- Any other logic relocation candidates in the AA or data-model (not searched;
-  this plan is scoped to the grant-generation path only).
-- The peer-leg chain and the unconsumed AA getters — already removed in the
-  `docs/sparql.md` final cleanup.
+### Phase 1 — remove factories; normalize loaders; `iri` → `id`
+
+- Replace the `factory: …` parameter with `{ fetch: WhatwgFetch,
+  randomUUID(): string }` (usually just `fetch`) across data-model's ~100
+  signatures and **all** consumers (application, AA, components, repl, tests).
+- Add **`loadShapeTree(iri, fetch)`** to `shape-tree.ts` (moves
+  `ApplicationFactory.shapeTree`'s fetch+parse body; the missing `loadX` twin);
+  `ShapeTree.getDescription(tree, lang, factory)` → `(tree, lang, fetch)` via
+  `loadShapeTreeDescription`. `SaiPermissionsEngine.findParentResource`
+  switches from `new ApplicationFactory(...).shapeTree(...)` to
+  `loadShapeTree(parentShapeTreeId, fetch)`.
+- Move the instance assembly to **`loadDataInstance(iri, fetch, …)`** as a
+  function on the `data-instance.ts` module (wrinkle 1): `computeChildren`
+  becomes `(node, shapeTree, fetch, lang)`; `dataInstance`-style composition
+  stays in data-model as framing.
+- Inline the 4 live create-path call sites into plain POJO construction in
+  the crud writers; drop the dead `role`/`dataGrant` create-paths.
+- Delete `ApplicationFactory`/`AuthorizationAgentFactory` and their tests
+  (`application-factory.test.ts`, `authorization-agent-factory.test.ts` →
+  `loadX` tests); migrate the ~20 test files that construct factories.
+- Fold in the rename: `iri: string` → `id: string` on all data-model function
+  parameters (69 occurrences today); carry the convention into Phases 2–4.
+  Optional: Biome rule enforcing it.
+- Components' `ctx.session.factory.X` sites call `loadX(ctx.session.fetch, …)`
+  until Phases 3–4 replace them with session methods.
+
+### Phase 2 — extract application-specific logic from data-model
+
+- Move to `application`: `Grant.iriForNew`, `ApplicationRegistration.getDataGrants`
+  and `getGranted` (application-only consumers). Delete the dead
+  `Grant.canCreate`.
+- `Grant.getDataInstanceIterator` (**wrinkle 2**): duplicate into
+  `application`; keep the data-model copy (components still uses it) with a
+  TODO: Phase 4 may replace components' usage with an AA SPARQL-backed
+  enumeration (`getDataRegistration` returns `contains` for AllFromRegistry;
+  `grant.hasDataInstance` for SelectedFromRegistry; Inherited still needs
+  data-plane child walks via the data-instance framing helpers).
+- data-model loses no shared primitive (framing/storageIri/iriForContained stay).
+
+### Phase 3 — extract authorization-specific logic from data-model → AA session methods
+
+- **Grant-generation chain** → AA behind the existing `generateDataGrants`
+  session method (`authorization-agent.ts:266`): `generateGrantsForAuthorization`,
+  `generateDataGrants`, `generateSourceDataGrants`, `generateDelegatedDataGrants`,
+  `generateChildDelegatedGrantData`, `generateChildSourceGrantData`,
+  `inheritingAuthorizations`. Listings use the AA plane
+  (`listDataRegistrations`/`getDataRegistration`; `listContained`/
+  `getSocialAgentRegistration` — `reciprocal.hasDataGrant` replaces
+  `getDataGrantIris`, `getDataGrant` replaces `factory.dataGrant`; `getDataAuthorization`
+  replaces `factory.dataAuthorization`; `AllFromRole` may use `findRole`/`getRole`).
+  data-model keeps types, `GrantRegistry.iriForContained`, `DataRegistry.storageIri`,
+  framing.
+- **AdminAuthorization block** (`crud/authorization-registry.ts`:
+  `adminAuthorizations`, `findAdminAuthorization`, `recordAdminAuthorization`,
+  `deleteAdminAuthorization`, `AdminAuthorizationData`) → AA session methods
+  (consumers: components admin RPCs/workflows switch to them).
+- **Reciprocal-registration federation** (`crud/social-agent-registration.ts`:
+  `discoverReciprocal`, `discoverAndUpdateReciprocal`, `updateReciprocal`) → AA
+  session methods (consumers: ShareResource, AgentRegistry service, reciprocal
+  workflows switch to them).
+- **Orphan cleanup** in data-model: `DataRegistry.registrations`/
+  `hasDataRegistration`/`registeredShapeTrees`, `AgentRegistry.socialAgentRegistrations`,
+  `agent-registration.getDataGrants`. `DataAuthorization.fromJsonLd`/`load`/`toJsonLd`
+  **stay** in data-model (framing pattern consistency; AA's `sparql.ts` keeps using them).
+
+### Phase 4 — move SAI domain/spec logic from components → AA
+
+Components keeps: CSS handlers + their HTTP layers, internal storage
+(PostgresKV/S3/Hybrid accessors, stores), the RPC API (`ApiHandler`, router —
+schemas/names untouched), webhooks (Activity/Reciprocal webhook stores + handlers),
+notifications (push), admin gate (`adminGate`, `AdminSparqlHandler`,
+`ProxyAdminHandler`), org-context transport (`queries/org.ts`), peer proxy /
+reciprocal mirror, Temporal **workflow** orchestration, `SaiPermissionsEngine` as
+a policy-engine integration (grant-matching rules may share AA predicates, but
+the plugin stays a server concern).
+
+Moves into AA session methods (POJO in/out):
+
+- **services domain rules**: shared scope-match predicate (dedupes
+  `agentsWithAccessMatching` vs `findAgentsWithAccess`); `buildDataAuthorizations`
+  rules (scope→`INTEROP`, `dataOwner` assignment, one-level inheritance) +
+  the "ensure Application Registration exists" step; admin-marker read;
+  registry-plane reads (`dataGrantIndexForAgent`-style, registration/role
+  listings); `removeGrantsFromRegistration`.
+- **temporal match semantics**: `findAffectedGrantees`, `findRoleUsage`,
+  `typeGrantee`/`getGrantees` (activities become thin wrappers).
+- **delegation/revocation rules**: `validateDelegable` query and
+  `findGrants`/`findInheritingChildren` join AA's `sparql.ts`; `revokeGrants`
+  core (authority + inheriting-children closure) becomes a session method.
+- **instance enumeration**: SPARQL-backed iterator over
+  `getDataRegistration().contains` / `grant.hasDataInstance` resolves the
+  wrinkle-2 duplicate TODO; Inherited arm uses data-instance framing.
+- The two input-shape adaptations stay pure adapters: `api-messages
+  Authorization` → AA `AuthorizationStructure` (field copies), `ShareAuthorization`
+  → `ShareDataInstanceStructure` (field copies — kills the `as unknown as` cast
+  and the AA's duplication TODO).
+
+## 5. Decisions (confirmed)
+
+- One plan, four phases as in §4; a full build + package tests + `/test`
+  integration gate after **every** phase.
+- AA exposes moved logic as session methods; `ResolvedContext` seam kept;
+  adapters pass session/registrySet/webId.
+- No `api-messages` dependency in the AA; `ApiHandler`/router/schemas untouched.
+- `iri: string` → `id: string` folded into Phase 1; convention carried forward.
+- `loadShapeTree` added (Phase 1); instance assembly becomes `loadDataInstance`
+  in `data-instance.ts`; `getDataInstanceIterator` duplicated (app copy +
+  data-model copy) with a Phase-4 SPARQL TODO.
+- AdminAuthorization block + reciprocal federation: Phase 3; delegation/
+  revocation rules: Phase 4 (nothing stays parked).
+- data-model framing stays (pattern consistency); only rule orchestration moves.
+
+## 6. Honest sizing
+
+- **Phase 1:** widest mechanically (~100 signatures + consumer/test call sites),
+  zero behavior change; the `iri`→`id` rename rides along.
+- **Phase 2:** small (~3 functions + delete `Grant.canCreate`); thinnest gate.
+- **Phase 3:** ~300 lines moved (grant chain + admin + reciprocal) + orphan
+  cleanup; the whole `/test` authorization/delegation machinery exercises it.
+- **Phase 4:** largest regression surface — every `/test` service, org-context,
+  grant/role workflow, and delegation/revocation flow exercises the moved code.
+
+## 7. Verification (per phase)
+
+- Phase 1: all package suites + `/test` integration (no behavior change expected).
+- Phase 2: `packages/application` + data-model suites (application tests,
+  instance/registration reads).
+- Phase 3: `/test/authorization.test.ts`, `/test/services.test.ts` (source +
+  delegated grants, role/delegation scopes), admin + reciprocal flows
+  (`/test/org-context.test.ts`, admin workflows), data-model suites.
+- Phase 4: `/test` services suites, `packages/components/test`
+  (`grants.test.ts`, `peer-proxy.test.ts`), org-context RPC flows,
+  delegation-endpoint + revocation tests.
+
+## 8. Out of scope
+
+- `api-messages` schema changes; the RPC router; `packages/repl`.
+- Server plumbing that stays in components by definition (see Phase 4's keep
+  list): CSS handler HTTP layers, storage, RPC API, webhooks, notifications,
+  admin gate/transports, proxy/mirror, Temporal workflow orchestration,
+  policy-engine integration.
+- The Activity-Registry outbox stays in data-model (event infrastructure,
+  tracked by `docs/plans/events.md`).
+- Any data-model restructuring beyond the Phase 3 orphan cleanup.

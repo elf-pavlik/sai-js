@@ -1,5 +1,4 @@
 import {
-  ACL,
   INTEROP,
   type WhatwgFetch,
   fetchJsonLd,
@@ -126,6 +125,12 @@ export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
 /**
  * Iterate over the IRIs (ids) of the data instances described by this grant.
  * Dispatches based on scopeOfGrant.
+ *
+ * TODO (reorganize-authz-agent-logic Phase 4): the components consumer
+ * (services/DataRegistry) may switch to an AA SPARQL-backed enumeration
+ * (`getDataRegistration().contains` / `grant.hasDataInstance` — both already
+ * reachable via the AA's `sparql.ts`), after which the application copy in
+ * `packages/application/src/grant.ts` becomes the single home.
  */
 export async function* getDataInstanceIterator(
   grant: GrantData,
@@ -170,21 +175,6 @@ async function getChildInstanceIris(
   const parentShapeTree = await loadShapeTree(parentGrant.registeredShapeTree, fetch)
   const node = await frameDataInstance(parentIri, fetch, parentShapeTree)
   return childIris(node, parentShapeTree, childShapeTree)
-}
-
-/**
- * Generate a new IRI for a data instance within this grant's registration.
- */
-export function iriForNew(grant: GrantData, randomUUID: () => string): string {
-  return `${grant.hasDataRegistration}${randomUUID()}`
-}
-
-/**
- * Whether the grant allows creating new data instances.
- */
-export function canCreate(grant: GrantData): boolean {
-  if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) return false
-  return grant.accessMode.includes(ACL.Write)
 }
 
 /**

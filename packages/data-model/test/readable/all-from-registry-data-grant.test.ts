@@ -13,11 +13,6 @@ test('should set correct scopeOfGrant', async () => {
   expect(dataGrant.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
 })
 
-test('should set correct canCreate', async () => {
-  const dataGrant = await loadGrant(snippetIri, deps.fetch)
-  expect(Grant.canCreate(dataGrant)).toBeTruthy()
-})
-
 test('should set hasDataRegistration', async () => {
   const dataGrant = await loadGrant(snippetIri, deps.fetch)
   const dataRegistrationIri = 'https://home.alice.example/f6ccd3a4-45ea-4f98-8a36-98eac92a6720'

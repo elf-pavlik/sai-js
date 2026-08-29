@@ -18,11 +18,6 @@ test('should set correct scopeOfGrant', async () => {
   expect(dataGrant.scopeOfGrant).toBe(INTEROP.Inherited)
 })
 
-test('should set correct canCreate', async () => {
-  const dataGrant = await loadGrant(inheritsFromSelectedFromRegistryIri, deps.fetch)
-  expect(Grant.canCreate(dataGrant)).toBeTruthy()
-})
-
 test('should set inheritsFromGrant', async () => {
   const dataGrant = await loadGrant(inheritsFromSelectedFromRegistryIri, deps.fetch)
   expect(dataGrant.inheritsFromGrant).toBe(selectedFromRegistryDataGrantIri)

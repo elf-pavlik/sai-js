@@ -5,10 +5,8 @@ import {
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { GrantData } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
-import { loadGrant } from './grant'
 
 // ──────────────────────────
 // Types
@@ -82,21 +80,4 @@ export async function createApplicationRegistration(
   // DataFactory quads; only the container.create hand-off stays N3-based
   const dataset = await toStore(withContext(dataModelContext, data))
   await createContainer(data.id, fetch, dataset)
-}
-
-// ──────────────────────────
-// Behavior functions
-// ──────────────────────────
-
-/** Whether the registration has any data grants. */
-export function getGranted(data: ApplicationRegistrationData): boolean {
-  return data.hasDataGrant.length > 0
-}
-
-/** Fetch all data grants of this application registration. */
-export async function getDataGrants(
-  data: ApplicationRegistrationData,
-  fetch: WhatwgFetch
-): Promise<GrantData[]> {
-  return Promise.all(data.hasDataGrant.map((iri) => loadGrant(iri, fetch)))
 }

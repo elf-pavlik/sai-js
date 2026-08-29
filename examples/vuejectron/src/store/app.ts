@@ -2,6 +2,7 @@ import type { Agent, ResourceServer } from '@/models'
 import { getRuntimeConfig } from '@/runtime-config'
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser'
 import { Application, NotificationManager } from '@janeirodigital/interop-application'
+import { loadWebIdProfile } from '@janeirodigital/interop-data-model'
 import { AS, RequestError } from '@janeirodigital/interop-utils'
 import { commitData, changeData as ldoChangeData } from '@ldo/connected'
 //@ts-ignore
@@ -93,7 +94,7 @@ export const useAppStore = defineStore('app', () => {
     await ensureSaiSession()
     const owners = await session.resourceOwners()
     const profiles = await Promise.all(
-      [...owners].map((owner) => session.factory.webIdProfile(owner))
+      [...owners].map((owner) => loadWebIdProfile(owner, session.fetch))
     )
 
     agents.value = profiles.map((profile) => ({

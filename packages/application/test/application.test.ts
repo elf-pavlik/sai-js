@@ -36,10 +36,10 @@ describe('applicatrion registration exists', () => {
     const owners = await app.getDataOwnersAsync()
     expect(owners).toHaveLength(3)
     for (const owner of owners) {
-      expect(owner.iri).toBeTypeOf('string')
+      expect(owner.id).toBeTypeOf('string')
       expect(Array.isArray(owner.issuedGrants)).toBe(true)
       for (const grant of owner.issuedGrants) {
-        expect(grant.dataOwner).toBe(owner.iri)
+        expect(grant.dataOwner).toBe(owner.id)
       }
     }
   })
@@ -89,4 +89,3 @@ describe('discovery helpers', () => {
     )
   })
 })
-

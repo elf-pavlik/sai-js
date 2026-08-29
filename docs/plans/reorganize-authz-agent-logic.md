@@ -1,8 +1,9 @@
 # Reorganize sai-js boundaries — data-model sheds logic to `application`, `authorization-agent`, and components adapters
 
-> **Status:** 🔶 partial — **Phase 1 is done and verified** (full build +
-> package vitest + the `/test` integration suite all green); Phases 2–4 are
-> design only. Four behavior-preserving phases, each
+> **Status:** 🔶 partial — **Phases 1 and 2 are done and verified** (full
+> build + package vitest + the `/test` integration suite all green after Phase
+> 1; Phase 2 verified by package suites — `/test` re-run pending); Phases 3–4
+> are design only. Four behavior-preserving phases, each
 > gated by **full build + all package tests + the `/test` integration suite**:
 > **Phase 1** removes the factories (and folds in the `iri` → `id` parameter
 > rename); **Phase 2** extracts application-specific logic from data-model;
@@ -207,7 +208,36 @@ The deviations from the original bullet list are captured in the notes above; as
 - Components' `ctx.session.factory.X` sites call `loadX(ctx.session.fetch, …)`
   until Phases 3–4 replace them with session methods.
 
-### Phase 2 — extract application-specific logic from data-model
+### Phase 2 — extract application-specific logic from data-model — ✅ done
+
+> **Implementation notes (what actually landed):**
+>
+> - New `packages/application/src/grant.ts` hosts the application-side grant
+>   helpers: `iriForNew`, `ApplicationRegistration.getDataGrants` (as
+>   `getDataGrants(registration, fetch)`), `getGranted`, and the duplicated
+>   `getDataInstanceIterator` (with the Phase-4 SPARQL TODO). Exported from the
+>   application package's `index.ts`.
+> - `DataOwnerData.iri` → `DataOwnerData.id` completed the `id` convention —
+>   every data-model parameter *and* POJO field now uses `id`.
+> - `Grant.canCreate` deleted from data-model along with its three test
+>   assertions (all-from-registry, selected-from-registry, inherited) — the
+>   application's own `canCreate` method (access-mode check) is unrelated and
+>   stays.
+> - `Application.getDataOwnersAsync` uses `getGranted` as its early-return
+>   guard (behavior-identical); `resources()` delegates to the app's
+>   `getDataInstanceIterator` after the same `Inherited → throw` guard it had
+>   inline (behavior-identical) — the app copy is used, not dead.
+> - data-model's `Grant.getDataInstanceIterator` stays (components'
+>   `services/DataRegistry` still consumes it) with the Phase-4 TODO;
+>   `dataRegistryIri`/`toJsonLd`/`loadGrant`/framing stay.
+> - Verification: tsc clean (data-model, application); vitest green (data-model
+>   162, application 7, authorization-agent 5, components 30); application +
+>   data-model rollup builds green; biome clean on touched files.
+> - Gate note: `/test` integration re-run pending (user-side, per AGENTS.md) —
+>   the touched surface is application-only (no components/AA changes), so no
+>   integration impact is expected.
+
+As planned, with these deviations:
 
 - Move to `application`: `Grant.iriForNew`, `ApplicationRegistration.getDataGrants`
   and `getGranted` (application-only consumers). Delete the dead
@@ -290,8 +320,9 @@ Moves into AA session methods (POJO in/out):
 - AA exposes moved logic as session methods; `ResolvedContext` seam kept;
   adapters pass session/registrySet/webId.
 - No `api-messages` dependency in the AA; `ApiHandler`/router/schemas untouched.
-- `iri: string` → `id: string` folded into Phase 1; convention carried forward —
-  Phase 2 completes it with the `DataOwnerData.iri` → `id` field rename.
+- `iri: string` → `id: string` folded into Phase 1; Phase 2 completed the
+  convention with the `DataOwnerData.iri` → `id` field rename — every
+  data-model function parameter and POJO field now uses `id`.
 - Deps seam: **`DataModelDependencies { fetch, randomUUID }`** — pure reads take
   `fetch`; IRI-assigning writers take the full deps object; `iriForContained`
   takes `randomUUID`. `RegistrySetData` carries no deps/factory member.
@@ -309,7 +340,11 @@ Moves into AA session methods (POJO in/out):
   ~1479 deletions: ~100 data-model signatures + every consumer (application,
   AA, components src + tests, `/test` integration helpers); zero behavior
   change; the `iri`→`id` rename rode along. Verified green end-to-end.
-- **Phase 2:** small (~3 functions + delete `Grant.canCreate`); thinnest gate.
+- **Phase 2 (done):** small — 11 files (~ -60/+120 lines): a new
+  `application/src/grant.ts` (4 helpers incl. the duplicated iterator),
+  `DataOwnerData` field rename, `Grant.canCreate` deletion, `resources()`/
+  `getDataOwnersAsync` delegation + test updates. Thinnest gate: package suites
+  green; `/test` re-run pending (application-only surface).
 - **Phase 3:** ~300 lines moved (grant chain + admin + reciprocal) + orphan
   cleanup; the whole `/test` authorization/delegation machinery exercises it.
 - **Phase 4:** largest regression surface — every `/test` service, org-context,
@@ -318,8 +353,8 @@ Moves into AA session methods (POJO in/out):
 ## 7. Verification (per phase)
 
 - Phase 1: ✅ all package suites + `/test` integration (no behavior change — green).
-- Phase 2: `packages/application` + data-model suites (application tests,
-  instance/registration reads).
+- Phase 2: ✅ `packages/application` + data-model suites (application tests,
+  instance/registration reads); `/test` integration re-run pending.
 - Phase 3: `/test/authorization.test.ts`, `/test/services.test.ts` (source +
   delegated grants, role/delegation scopes), admin + reciprocal flows
   (`/test/org-context.test.ts`, admin workflows), data-model suites.

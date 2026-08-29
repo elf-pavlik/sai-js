@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import { ApplicationRegistration, loadApplicationRegistration } from '../../src'
+import { loadApplicationRegistration } from '../../src'
 import { expect } from '../expect'
 
 const deps = { fetch, randomUUID }
@@ -29,17 +29,5 @@ describe('getters', () => {
   test('granted', async () => {
     const applicationRegistration = await loadApplicationRegistration(snippetIri, deps.fetch)
     expect(applicationRegistration.granted).toBe(true)
-    expect(ApplicationRegistration.getGranted(applicationRegistration)).toBe(true)
-  })
-})
-
-describe('getDataGrants', () => {
-  test('should provide data grants', async () => {
-    const applicationRegistration = await loadApplicationRegistration(snippetIri, deps.fetch)
-    const dataGrants = await ApplicationRegistration.getDataGrants(
-      applicationRegistration,
-      deps.fetch
-    )
-    expect(dataGrants.length).toBeGreaterThan(0)
   })
 })

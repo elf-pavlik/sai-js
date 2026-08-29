@@ -6,6 +6,6 @@ import type { GrantData } from '.'
 
 /** Plain JSON representation of a data owner. */
 export type DataOwnerData = {
-  iri: string
+  id: string
   issuedGrants: GrantData[]
 }

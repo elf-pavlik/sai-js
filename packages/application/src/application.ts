@@ -1,10 +1,7 @@
 import {
-  ApplicationRegistration,
   type ApplicationRegistrationData,
   type DataOwnerData,
-  Grant,
   loadApplicationRegistration,
-  loadDataRegistration,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
@@ -15,6 +12,7 @@ import {
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
 } from '@janeirodigital/interop-utils'
+import { getDataGrants, getDataInstanceIterator, getGranted, iriForNew } from './grant'
 
 interface ApplicationDependencies {
   fetch: WhatwgFetch
@@ -114,15 +112,14 @@ export class Application {
   }
 
   public async getDataOwnersAsync(): Promise<DataOwnerData[]> {
-    if (!this.hasApplicationRegistration) return []
-    const dataGrants = await ApplicationRegistration.getDataGrants(
-      this.hasApplicationRegistration,
-      this.fetch
-    )
+    if (!this.hasApplicationRegistration || !getGranted(this.hasApplicationRegistration)) {
+      return []
+    }
+    const dataGrants = await getDataGrants(this.hasApplicationRegistration, this.fetch)
     return dataGrants.reduce((acc, grant) => {
-      let owner: DataOwnerData = acc.find((agent) => agent.iri === grant.dataOwner)
+      let owner: DataOwnerData = acc.find((agent) => agent.id === grant.dataOwner)
       if (!owner) {
-        owner = { iri: grant.dataOwner, issuedGrants: [] }
+        owner = { id: grant.dataOwner, issuedGrants: [] }
         acc.push(owner)
       }
       owner.issuedGrants.push(grant)
@@ -132,12 +129,12 @@ export class Application {
 
   public async resourceOwners(): Promise<Set<string>> {
     const owners = await this.getDataOwnersAsync()
-    return new Set(owners.map((dataOwner) => dataOwner.iri))
+    return new Set(owners.map((dataOwner) => dataOwner.id))
   }
 
   public async resourceServers(resourceOwner: string, scope: string): Promise<Set<string>> {
     const owners = await this.getDataOwnersAsync()
-    const dataOwner = owners.find((owner) => owner.iri === resourceOwner)
+    const dataOwner = owners.find((owner) => owner.id === resourceOwner)
     if (!dataOwner) return new Set()
     const grants = dataOwner.issuedGrants.filter((grant) => grant.registeredShapeTree === scope)
     return new Set(grants.map((grant) => grant.hasStorage))
@@ -155,21 +152,17 @@ export class Application {
   public async resources(resourceServer: string, scope: string): Promise<Set<string>> {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
-    let list: string[] = []
     if (grant.scopeOfGrant === INTEROP.Inherited) {
       throw new Error('Cannot list instances from Inherited grants')
     }
-    if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) {
-      list = grant.hasDataInstance ?? []
-    }
-    if (grant.scopeOfGrant === INTEROP.AllFromRegistry) {
-      const dataRegistration = await loadDataRegistration(grant.hasDataRegistration, this.fetch)
-      list = dataRegistration.contains
+    const list: string[] = []
+    for await (const resource of getDataInstanceIterator(grant, this.fetch)) {
+      list.push(resource)
     }
     for (const resource of list) {
       this.parentMap.set(resource, {
         id: resource,
-        scope: scope,
+        scope,
         resourceServer,
       })
     }
@@ -221,7 +214,7 @@ export class Application {
   public async iriForNew(resourceServer: string, scope: string): Promise<string> {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
-    return Grant.iriForNew(grant, this.randomUUID)
+    return iriForNew(grant, this.randomUUID)
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

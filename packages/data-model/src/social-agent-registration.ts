@@ -3,15 +3,18 @@ import {
   RDF,
   SKOS,
   type WhatwgFetch,
+  addStatement,
+  applyPatch,
+  createContainer,
   deletePatch,
   fetchJsonLd,
   frameDoc,
   insertPatch,
+  replaceStatement,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import { dataModelContext } from './context'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
-import { addStatement, applyPatch, createContainer, replaceStatement } from './container'
+import { dataModelContext } from './context'
 
 // ──────────────────────────
 // Types

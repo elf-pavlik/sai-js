@@ -13,6 +13,24 @@ const jsonld = (jsonldNs as any).default ?? jsonldNs
 export type JsonLdContext = Record<string, unknown>
 
 /**
+ * Collect the IRI values of a property (`propertyIri`) on the resource at
+ * `id` from a raw JSON-LD GET. Node references are coerced to IRI strings
+ * (`@type: '@id'` + `@container: '@set'` on the resolved term); an absent
+ * property yields `[]`.
+ */
+export async function linkedIrisJsonLd(
+  id: string,
+  fetch: WhatwgFetch,
+  propertyIri: string
+): Promise<string[]> {
+  const context: JsonLdContext = {
+    [propertyIri]: { '@id': propertyIri, '@type': '@id', '@container': '@set' },
+  }
+  const node = (await frameDoc(await fetchJsonLd(id, fetch), context, id)) as any
+  return node[propertyIri] ?? []
+}
+
+/**
  * Document loader that resolves known remote contexts (OIDC, notifications)
  * from bundled local copies instead of fetching them over the network.
  * SAI data never needs remote contexts beyond those two.

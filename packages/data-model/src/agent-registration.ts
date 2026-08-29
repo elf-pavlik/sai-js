@@ -1,10 +1,13 @@
 import {
   INTEROP,
   type WhatwgFetch,
+  addStatement,
+  applyPatch,
   deletePatch,
   discoverAccessResource,
   insertPatch,
   parseTurtle,
+  removeStatement,
   serializeTurtle,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
@@ -12,7 +15,6 @@ import type { GrantData } from '.'
 import { loadGrant } from './grant'
 import { agentRegistrationAcrTemplate } from './templates/AgentRegistration.acr'
 import type { AgentAndClient } from './templates/types'
-import { addStatement, applyPatch, removeStatement } from './container'
 
 // ──────────────────────────
 // Types

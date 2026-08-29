@@ -1,9 +1,11 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
+  type WhatwgFetch,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDelegationIssuanceEndpoint,
   discoverWebPushService,
+  storageIri,
 } from '../src'
 
 const aliceId = 'https://id/alice'
@@ -92,5 +94,36 @@ describe('discoverWebPushService', () => {
     const mock = jsonldFetch({ [aliceAgentId]: [{ '@id': aliceAgentId }] })
     const service = await discoverWebPushService(aliceAgentId, mock)
     expect(service).toBeUndefined()
+  })
+})
+
+describe('storageIri', () => {
+  const storageDescriptionIri = 'https://fake.example/storage-desription'
+  const spaceStorage = 'http://www.w3.org/ns/pim/space#Storage'
+
+  test('resolves the storage IRI from the container id', async () => {
+    const mock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      if (init?.method === 'HEAD') {
+        return {
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name === 'Link'
+                ? `<${storageDescriptionIri}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
+                : undefined,
+          },
+        } as unknown as Response
+      }
+      return {
+        ok: true,
+        json: async () => [{ '@id': storageDescriptionIri, '@type': [spaceStorage] }],
+      } as unknown as Response
+    })
+
+    const iri = await storageIri(
+      { id: 'https://home.alice.example/registry/' },
+      mock as unknown as WhatwgFetch
+    )
+    expect(iri).toBe(storageDescriptionIri)
   })
 })

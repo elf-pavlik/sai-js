@@ -2,7 +2,6 @@ import {
   type DataAuthorizationData,
   type DataModelDependencies,
   type DataRegistrationData,
-  DataRegistry,
   type FinalGrantData,
   type GeneratedGrants,
   type GrantData,
@@ -12,7 +11,12 @@ import {
   frameDataInstance,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  type WhatwgFetch,
+  iriForContained,
+  storageIri,
+} from '@janeirodigital/interop-utils'
 import {
   type SparqlTransport,
   getDataAuthorization,
@@ -200,10 +204,7 @@ async function generateDelegatedDataGrants(
     }
 
     for (const sourceGrant of matchingDataGrants) {
-      const regularGrantIri = GrantRegistry.iriForContained(
-        registrySet.hasGrantRegistry,
-        deps.randomUUID
-      )
+      const regularGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
         data,
@@ -262,10 +263,7 @@ async function generateChildSourceGrantData(
   const result: FinalGrantData[] = []
   const childAuthorizations = await inheritingAuthorizations(data, transport)
   for (const childAuthorization of childAuthorizations) {
-    const childGrantIri = GrantRegistry.iriForContained(
-      registrySet.hasGrantRegistry,
-      deps.randomUUID
-    )
+    const childGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
     const dataRegistration = dataRegistrations.find(
       (registration) => registration.registeredShapeTree === childAuthorization.registeredShapeTree
     )
@@ -329,10 +327,7 @@ async function generateSourceDataGrants(
     if (!matchingRegistration) continue
 
     // create source grant
-    const regularGrantIri = GrantRegistry.iriForContained(
-      registrySet.hasGrantRegistry,
-      deps.randomUUID
-    )
+    const regularGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
 
     // create children if needed
     const childGrantData: FinalGrantData[] = await generateChildSourceGrantData(
@@ -341,7 +336,7 @@ async function generateSourceDataGrants(
       dataRegistrations,
       registrySet,
       grantee,
-      await DataRegistry.storageIri(dataRegistry, deps.fetch),
+      await storageIri(dataRegistry, deps.fetch),
       deps,
       transport
     )
@@ -357,7 +352,7 @@ async function generateSourceDataGrants(
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
       hasDataRegistration: matchingRegistration.id,
-      hasStorage: await DataRegistry.storageIri(dataRegistry, deps.fetch),
+      hasStorage: await storageIri(dataRegistry, deps.fetch),
       scopeOfGrant,
       accessMode: data.accessMode,
     }

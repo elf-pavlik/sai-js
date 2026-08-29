@@ -1,7 +1,6 @@
 import { dataInstanceIrisForGrant } from '@janeirodigital/interop-authorization-agent'
 import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
-  DataRegistry as DataRegistryModule,
   Grant,
   ShapeTree,
   labelFromNode,
@@ -9,6 +8,7 @@ import {
   loadDataRegistration,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'
+import { storageIri } from '@janeirodigital/interop-utils'
 import {
   DataInstance,
   DataRegistration,
@@ -56,7 +56,7 @@ const buildDataRegistry = async (
   }
   return DataRegistrySchema.make({
     id: IRI.make(registry.id),
-    label: await DataRegistryModule.storageIri(registry, ctx.session.fetch),
+    label: await storageIri(registry, ctx.session.fetch),
     registrations,
   })
 }

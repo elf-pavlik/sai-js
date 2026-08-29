@@ -10,7 +10,8 @@ import {
   GrantRegistry,
   type IncomingGrantData,
 } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent, iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
   BadRequestHttpError,
@@ -30,7 +31,6 @@ import { GrantRevocationHandler } from './GrantRevocationHandler.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
-import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class GrantIssuanceHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -94,10 +94,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // build FinalGrantData for each parent and its inheriting children.
     const finalGrants: FinalGrantData[] = []
     for (const topGrant of grants) {
-      const grantId = GrantRegistry.iriForContained(
-        sai.registrySet.hasGrantRegistry,
-        sai.randomUUID
-      )
+      const grantId = iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID)
       const inheritingGrants = (topGrant.hasInheritingGrant ?? []).map((childData) =>
         this.buildInheritingGrant(sai, childData, grantId)
       )
@@ -162,7 +159,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       creatorAccessMode: childData.creatorAccessMode,
       hasDataInstance: childData.hasDataInstance,
       delegationOfGrant: childData.delegationOfGrant,
-      id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID),
+      id: iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID),
       inheritsFromGrant,
     }
   }

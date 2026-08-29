@@ -1,16 +1,19 @@
 import {
   INTEROP,
+  LDP,
   RDF,
   type WhatwgFetch,
+  createContainer,
   fetchJsonLd,
   frameDoc,
+  iriForContained,
+  linkedIrisJsonLd,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { DataModelDependencies } from '.'
-import { dataModelContext, linkedIrisJsonLd } from './context'
-import { iriForContained as containerIriForContained, createContainer } from './container'
+import { dataModelContext } from './context'
 
 // ──────────────────────────
 // Types
@@ -51,20 +54,12 @@ export async function createActivityRegistry(
   await createContainer(data.id, fetch, dataset)
 }
 
-export function iriForContained(
-  data: ActivityRegistryData,
-  randomUUID: () => string,
-  container = false
-): string {
-  return containerIriForContained(data.id, randomUUID, container)
-}
-
 /** The activity resources currently in the registry (ldp:contains). */
 export async function getActivityIris(
   data: ActivityRegistryData,
   fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, fetch, 'contains')
+  return linkedIrisJsonLd(data.id, fetch, LDP.contains)
 }
 
 /**

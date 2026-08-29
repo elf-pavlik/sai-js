@@ -1,6 +1,6 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { ActivityRegistry, linkedIrisJsonLd, loadGrant } from '@janeirodigital/interop-data-model'
-import { INTEROP, getAcl, parseTurtle } from '@janeirodigital/interop-utils'
+import { ActivityRegistry, loadGrant } from '@janeirodigital/interop-data-model'
+import { INTEROP, LDP, getAcl, linkedIrisJsonLd, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { awaitEvent, openEventsStream } from './util'
 
@@ -287,7 +287,7 @@ async function adminGrantIris(webId: string, grantee: string): Promise<string[]>
   const manager = buildSessionManager()
   const session = await manager.getSession(webId)
   const registry = session.registrySet.hasGrantRegistry
-  const iris = await linkedIrisJsonLd(registry.id, session.fetch, 'contains')
+  const iris = await linkedIrisJsonLd(registry.id, session.fetch, LDP.contains)
   const adminGrants: string[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)

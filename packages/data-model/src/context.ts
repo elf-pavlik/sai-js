@@ -7,10 +7,7 @@ import {
   SHAPETREES,
   SKOS,
   SOLID,
-  type WhatwgFetch,
   createVocabulary,
-  fetchJsonLd,
-  frameDoc,
 } from '@janeirodigital/interop-utils'
 
 const NFO = createVocabulary(
@@ -141,20 +138,4 @@ export const dataModelContext: JsonLdContext = {
 
   // nfo
   fileName: { '@id': NFO.fileName },
-}
-
-/**
- * Collect the IRI values of a term (an interop/ldp property from the shared
- * `dataModelContext`) on the resource at `iri` from a raw JSON-LD GET — the
- * JSON-LD replacement for `linkedIris` (no N3 / quad lookups). Node references
- * are coerced to IRI strings (`@container: '@set'` on the term); an absent
- * property yields `[]`.
- */
-export async function linkedIrisJsonLd(
-  id: string,
-  fetch: WhatwgFetch,
-  term: string
-): Promise<string[]> {
-  const node = (await frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id)) as any
-  return node[term] ?? []
 }

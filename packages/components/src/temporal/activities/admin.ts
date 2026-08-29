@@ -7,16 +7,18 @@ import {
   GrantRegistry,
   dataGrantTemplate,
   dataModelContext,
-  linkedIrisJsonLd,
   loadGrant,
   replaceAdminGrantLinks,
 } from '@janeirodigital/interop-data-model'
 import {
   ACL,
   INTEROP,
+  LDP,
   discoverAuthorizationAgent,
   expandedJsonLd,
   getAcl,
+  iriForContained,
+  linkedIrisJsonLd,
   parseTurtle,
   serializeTurtle,
   withContext,
@@ -74,7 +76,7 @@ export async function buildAdminGrants(payload: {
   const registry = session.registrySet.hasGrantRegistry
 
   const registrySetGrant: AdminGrantData = {
-    id: GrantRegistry.iriForContained(registry, session.randomUUID),
+    id: iriForContained(registry, session.randomUUID),
     type: [INTEROP.AdminGrant],
     grantee: payload.admin.id,
     grantedBy: payload.webId.id,
@@ -85,7 +87,7 @@ export async function buildAdminGrants(payload: {
   const dataRegistryGrants: AdminGrantData[] = []
   for (const dataRegistry of session.registrySet.hasDataRegistry) {
     dataRegistryGrants.push({
-      id: GrantRegistry.iriForContained(registry, session.randomUUID),
+      id: iriForContained(registry, session.randomUUID),
       type: [INTEROP.AdminGrant],
       grantee: payload.admin.id,
       grantedBy: payload.webId.id,
@@ -178,7 +180,7 @@ export async function findAdminGrants(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasGrantRegistry
-  const iris = await linkedIrisJsonLd(registry.id, session.fetch, 'contains')
+  const iris = await linkedIrisJsonLd(registry.id, session.fetch, LDP.contains)
   const adminGrants: { id: string; type: string[] }[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)

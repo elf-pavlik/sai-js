@@ -9,7 +9,12 @@ import {
   accessNeedGroup,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
-import { INTEROP, type WhatwgFetch, putJsonLd } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  type WhatwgFetch,
+  iriForContained,
+  putJsonLd,
+} from '@janeirodigital/interop-utils'
 import {
   getDataAuthorization as getDataAuthorizationFromSparql,
   listContained,
@@ -178,17 +183,11 @@ export async function generateDataAuthorizations(
 
   const result: FinalDataAuthorizationData[] = []
   for (const dataAuthorization of validDataAuthorizations) {
-    const dataAuthorizationIri = AuthorizationRegistry.iriForContained(
-      authorizationRegistry,
-      deps.randomUUID
-    )
+    const dataAuthorizationIri = iriForContained(authorizationRegistry, deps.randomUUID)
     const children: FinalDataAuthorizationData[] = []
     if (dataAuthorization.children) {
       for (const childDataAuthorization of dataAuthorization.children) {
-        const childDataAuthorizationIri = AuthorizationRegistry.iriForContained(
-          authorizationRegistry,
-          deps.randomUUID
-        )
+        const childDataAuthorizationIri = iriForContained(authorizationRegistry, deps.randomUUID)
         children.push({
           ...childDataAuthorization,
           id: childDataAuthorizationIri,

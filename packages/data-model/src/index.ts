@@ -12,14 +12,6 @@ export interface DataModelDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
 }
-export {
-  addStatement,
-  applyPatch,
-  createContainer,
-  iriForContained as containerIriForContained,
-  removeStatement,
-  replaceStatement,
-} from './container'
 export * from './agent-registration'
 export {
   type ApplicationRegistrationData,
@@ -49,7 +41,6 @@ export { createDataRegistration } from './data-registration'
 // explicit re-export to resolve getGranted ambiguity with ./agent-registration
 export { getDataAuthorizationIris } from './authorization-registry'
 // registries are exported as namespaces to avoid colliding names
-// (iriForContained is defined by every registry module)
 export * as AgentRegistry from './agent-registry'
 export * as RoleRegistry from './role-registry'
 export * as DataRegistry from './data-registry'
@@ -97,7 +88,7 @@ export {
   loadAccessNeedDescription,
   loadAccessNeedGroupDescription,
 } from './access-description'
-export { dataModelContext, iriTermDef, linkedIrisJsonLd } from './context'
+export { dataModelContext, iriTermDef } from './context'
 export type { GrantData, GrantId, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
 export { toJsonLd, loadGrant } from './grant'

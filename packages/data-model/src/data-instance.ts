@@ -2,10 +2,10 @@ import {
   type JsonLdContext,
   SHAPETREES,
   type WhatwgFetch,
+  discoverDescriptionResource,
   fetchJsonLd,
   frameDoc,
   framedValue,
-  getDescriptionResource,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
@@ -42,12 +42,6 @@ export type DataInstanceData = {
 /** Whether the shape tree expects non-RDF resources (blobs). */
 export function isBlob(shapeTree: ShapeTreeData): boolean {
   return shapeTree.expectsType === SHAPETREES.NonRDFResource
-}
-
-/** Resolve the description resource IRI of a blob from its Link header. */
-export async function discoverDescriptionResource(id: string, fetch: WhatwgFetch): Promise<string> {
-  const response = await fetch(id, { method: 'HEAD' })
-  return getDescriptionResource(response.headers.get('Link'))
 }
 
 /**

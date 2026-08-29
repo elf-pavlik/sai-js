@@ -19,22 +19,24 @@ import {
   type SocialAgentRegistrationData,
   type WebIdProfileData,
   accessNeedGroup,
-  addStatement,
   getDataGrantIris,
-  linkedIrisJsonLd,
   loadDataInstance,
   loadRegistrySet,
   loadWebIdProfile,
   replaceDataGrants,
-  replaceStatement,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
+  LDP,
   type WhatwgFetch,
+  addStatement,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   getRegistrySetIri,
+  iriForContained,
+  linkedIrisJsonLd,
   putJsonLd,
+  replaceStatement,
 } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import {
@@ -590,7 +592,7 @@ export class AuthorizationAgent {
     >,
     registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
   ): Promise<AdminAuthorizationData> {
-    const iri = AuthorizationRegistry.iriForContained(registry, this.randomUUID)
+    const iri = iriForContained(registry, this.randomUUID)
     const data: AdminAuthorizationData = {
       id: iri,
       type: [INTEROP.AdminAuthorization],
@@ -608,7 +610,7 @@ export class AuthorizationAgent {
   public async adminAuthorizations(
     registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
   ): Promise<AdminAuthorizationData[]> {
-    const iris = await linkedIrisJsonLd(registry.id, this.fetch, 'contains')
+    const iris = await linkedIrisJsonLd(registry.id, this.fetch, LDP.contains)
     const result: AdminAuthorizationData[] = []
     for (const iri of iris) {
       const adminAuthorization = await AdminAuthorization.loadAdminAuthorization(iri, this.fetch)

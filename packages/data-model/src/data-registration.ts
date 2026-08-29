@@ -1,12 +1,12 @@
 import {
   type WhatwgFetch,
+  createContainer,
   fetchJsonLd,
   frameDoc,
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { createContainer } from './container'
 
 // ──────────────────────────
 // Types

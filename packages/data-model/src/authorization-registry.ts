@@ -1,7 +1,13 @@
-import { INTEROP, RDF, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  LDP,
+  RDF,
+  type WhatwgFetch,
+  createContainer,
+  iriForContained,
+  linkedIrisJsonLd,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import { linkedIrisJsonLd } from './context'
-import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
 // Types
@@ -19,7 +25,7 @@ export async function getDataAuthorizationIris(
   data: AuthorizationRegistryData,
   fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, fetch, 'contains')
+  return linkedIrisJsonLd(data.id, fetch, LDP.contains)
 }
 
 export async function getGranted(
@@ -46,12 +52,4 @@ export async function createAuthorizationRegistry(
     )
   )
   await createContainer(data.id, fetch, dataset)
-}
-
-export function iriForContained(
-  data: AuthorizationRegistryData,
-  randomUUID: () => string,
-  container = false
-): string {
-  return containerIriForContained(data.id, randomUUID, container)
 }

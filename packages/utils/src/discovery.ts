@@ -1,11 +1,11 @@
-import { documentValues, fetchJsonLd } from './jsonld'
+import { documentValues, fetchJsonLd, findNodeIdByType } from './jsonld'
 import {
   getAcl,
   getAgentRegistrationIri,
   getDescriptionResource,
   getStorageDescription,
 } from './link-header'
-import { INTEROP, NOTIFY } from './namespaces'
+import { INTEROP, NOTIFY, SPACE } from './namespaces'
 import type { WhatwgFetch } from './whatwg-fetch'
 
 export class RequestError extends Error {
@@ -100,6 +100,17 @@ export async function discoverStorageDescription(
   const linkHeader = response.headers.get('Link')
   if (!linkHeader) return undefined
   return getStorageDescription(linkHeader)
+}
+
+/**
+ * Resolve the storage IRI behind a container or registry: discover its
+ * storage description resource (Link header) and find the `space:Storage`-
+ * typed node in it. `data` carries the container IRI in its `id` field.
+ */
+export async function storageIri(data: { id: string }, fetch: WhatwgFetch): Promise<string> {
+  const storageDescriptionIri = await discoverStorageDescription(data.id, fetch)
+  const doc = await fetchJsonLd(storageDescriptionIri, fetch)
+  return findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
 }
 
 export async function discoverAuthorizationRedirectEndpoint(

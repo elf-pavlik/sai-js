@@ -1,9 +1,15 @@
-import { INTEROP, RDF, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  LDP,
+  RDF,
+  type WhatwgFetch,
+  createContainer,
+  iriForContained,
+  linkedIrisJsonLd,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { DataModelDependencies } from '.'
-import { linkedIrisJsonLd } from './context'
-import { createContainer } from './container'
-import { iriForContained as containerIriForContained } from './container'
+
 import { type RoleData, putRole } from './role'
 
 // ──────────────────────────
@@ -23,7 +29,7 @@ export async function containedIncludes(
   fetch: WhatwgFetch,
   id: string
 ): Promise<boolean> {
-  const iris = await linkedIrisJsonLd(data.id, fetch, 'contains')
+  const iris = await linkedIrisJsonLd(data.id, fetch, LDP.contains)
   return iris.includes(id)
 }
 
@@ -71,12 +77,4 @@ export async function createRoleRegistry(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
   )
   await createContainer(data.id, fetch, dataset)
-}
-
-export function iriForContained(
-  data: RoleRegistryData,
-  randomUUID: () => string,
-  container = false
-): string {
-  return containerIriForContained(data.id, randomUUID, container)
 }

@@ -1,20 +1,22 @@
-import { INTEROP, RDF, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  LDP,
+  RDF,
+  addStatement,
+  createContainer,
+  discoverAuthorizationAgent,
+  iriForContained,
+  linkedIrisJsonLd,
+} from '@janeirodigital/interop-utils'
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import type { DataModelDependencies } from '.'
+import { type AgentRegistrationData, setAcr } from './agent-registration'
 import {
   type ApplicationRegistrationData,
   createApplicationRegistration,
   loadApplicationRegistration,
 } from './application-registration'
-import { linkedIrisJsonLd } from './context'
-import type { AgentAndClient } from './templates/types'
-import { type AgentRegistrationData, setAcr } from './agent-registration'
-import {
-  addStatement,
-  iriForContained as containerIriForContained,
-  createContainer,
-} from './container'
 import {
   type SocialAgentInvitationData,
   loadSocialAgentInvitation,
@@ -25,6 +27,7 @@ import {
   createSocialAgentRegistration,
   loadSocialAgentRegistration,
 } from './social-agent-registration'
+import type { AgentAndClient } from './templates/types'
 
 // ──────────────────────────
 // Types
@@ -42,7 +45,7 @@ export async function* applicationRegistrations(
   data: AgentRegistryData,
   fetch: WhatwgFetch
 ): AsyncIterable<ApplicationRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasApplicationRegistration')
+  const iris = await linkedIrisJsonLd(data.id, fetch, INTEROP.hasApplicationRegistration)
   for (const iri of iris) {
     yield loadApplicationRegistration(iri, fetch)
   }
@@ -52,7 +55,7 @@ export async function* socialAgentRegistrations(
   data: AgentRegistryData,
   fetch: WhatwgFetch
 ): AsyncIterable<SocialAgentRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasSocialAgentRegistration')
+  const iris = await linkedIrisJsonLd(data.id, fetch, INTEROP.hasSocialAgentRegistration)
   for (const iri of iris) {
     yield loadSocialAgentRegistration(iri, fetch)
   }
@@ -62,7 +65,7 @@ export async function* socialAgentInvitations(
   data: AgentRegistryData,
   fetch: WhatwgFetch
 ): AsyncIterable<SocialAgentInvitationData> {
-  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasSocialAgentInvitation')
+  const iris = await linkedIrisJsonLd(data.id, fetch, INTEROP.hasSocialAgentInvitation)
   for (const iri of iris) {
     yield loadSocialAgentInvitation(iri, fetch)
   }
@@ -225,12 +228,4 @@ export async function createAgentRegistry(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
   )
   await createContainer(data.id, fetch, dataset)
-}
-
-export function iriForContained(
-  data: AgentRegistryData,
-  randomUUID: () => string,
-  container = false
-): string {
-  return containerIriForContained(data.id, randomUUID, container)
 }

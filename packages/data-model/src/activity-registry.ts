@@ -8,8 +8,8 @@ import {
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { DataModelDependencies } from '..'
-import { dataModelContext, linkedIrisJsonLd } from '../context'
+import type { DataModelDependencies } from '.'
+import { dataModelContext, linkedIrisJsonLd } from './context'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────

@@ -1,6 +1,6 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { fromJsonLd as roleFromJsonLd } from '../../src/crud/role'
+import { fromJsonLd as roleFromJsonLd } from '../../src/role'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 

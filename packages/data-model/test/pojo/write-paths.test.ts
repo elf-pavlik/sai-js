@@ -11,11 +11,11 @@ import {
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
 import { dataModelContext } from '../../src'
-import { putRole, fromJsonLd as roleFromJsonLd } from '../../src/crud/role'
+import { putRole, fromJsonLd as roleFromJsonLd } from '../../src/role'
 import {
   fromJsonLd as invitationFromJsonLd,
   putSocialAgentInvitation,
-} from '../../src/crud/social-agent-invitation'
+} from '../../src/social-agent-invitation'
 import { expect } from '../expect'
 
 // ──────────────────────────

@@ -1,5 +1,5 @@
 import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
-import { dataModelContext } from '../context'
+import { dataModelContext } from './context'
 import type { ActivityRegistryData } from './activity-registry'
 import type { AgentRegistryData } from './agent-registry'
 import type { AuthorizationRegistryData } from './authorization-registry'

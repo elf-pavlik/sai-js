@@ -6,7 +6,7 @@ import {
   withContext,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { createContainer } from './crud/container'
+import { createContainer } from './container'
 
 // ──────────────────────────
 // Types

@@ -4,7 +4,7 @@ import { insertPatch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import { beforeEach, describe, test, vi } from 'vitest'
 import type { DataModelDependencies } from '../../src'
-import { applyPatch, replaceStatement } from '../../src/crud/container'
+import { applyPatch, replaceStatement } from '../../src/container'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'

@@ -1,7 +1,7 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { ApplicationId } from './application-registration'
-import type { RoleId } from './crud/role'
-import type { SocialAgentId } from './crud/social-agent-registration'
+import type { RoleId } from './role'
+import type { SocialAgentId } from './social-agent-registration'
 
 /**
  * Plain dependencies for data-model functions (replaces the factories):
@@ -12,7 +12,59 @@ export interface DataModelDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
 }
-export * from './crud'
+export {
+  addStatement,
+  applyPatch,
+  createContainer,
+  iriForContained as containerIriForContained,
+  removeStatement,
+  replaceStatement,
+} from './container'
+export * from './agent-registration'
+export {
+  type ApplicationRegistrationData,
+  type ApplicationRegistrationId,
+  type ApplicationId,
+  createApplicationRegistration,
+} from './application-registration'
+export {
+  type SocialAgentRegistrationData,
+  type SocialAgentRegistrationId,
+  type SocialAgentId,
+  getAdminGrantIris,
+  loadReciprocalRegistration,
+  replaceAdminGrantLinks,
+  setAccessNeedGroup,
+  createSocialAgentRegistration,
+} from './social-agent-registration'
+export {
+  type SocialAgentInvitationData,
+  type SocialAgentInvitationId,
+  setRegisteredAgent,
+  putSocialAgentInvitation,
+} from './social-agent-invitation'
+export * as SocialAgentInvitation from './social-agent-invitation'
+export type { RoleData, RoleId } from './role'
+export { createDataRegistration } from './data-registration'
+// explicit re-export to resolve getGranted ambiguity with ./agent-registration
+export { getDataAuthorizationIris } from './authorization-registry'
+// registries are exported as namespaces to avoid colliding names
+// (iriForContained is defined by every registry module)
+export * as AgentRegistry from './agent-registry'
+export * as RoleRegistry from './role-registry'
+export * as DataRegistry from './data-registry'
+export * as AuthorizationRegistry from './authorization-registry'
+export * as GrantRegistry from './grant-registry'
+export * as ActivityRegistry from './activity-registry'
+export * as RegistrySet from './registry-set'
+// registry POJO types stay top-level
+export type { AgentRegistryData } from './agent-registry'
+export type { RoleRegistryData } from './role-registry'
+export type { DataRegistryData } from './data-registry'
+export type { AuthorizationRegistryData } from './authorization-registry'
+export type { GrantRegistryData } from './grant-registry'
+export type { ActivityRegistryData, ActivityData } from './activity-registry'
+export type { RegistrySetData } from './registry-set'
 export * from './templates'
 export type { DataInstanceData, ChildInfo } from './data-instance'
 export {
@@ -28,10 +80,10 @@ export { loadDataAuthorization } from './data-authorization'
 export type { AdminAuthorizationData } from './admin-authorization'
 export * as AdminAuthorization from './admin-authorization'
 export { loadAdminAuthorization } from './admin-authorization'
-export { loadRole } from './crud/role'
-export { loadRegistrySet } from './crud/registry-set'
-export { loadSocialAgentRegistration } from './crud/social-agent-registration'
-export { loadSocialAgentInvitation } from './crud/social-agent-invitation'
+export { loadRole } from './role'
+export { loadRegistrySet } from './registry-set'
+export { loadSocialAgentRegistration } from './social-agent-registration'
+export { loadSocialAgentInvitation } from './social-agent-invitation'
 export type { ShapeTreeData, ShapeTreeId, ShapeTreeReference } from './shape-tree'
 export * as ShapeTree from './shape-tree'
 export { loadShapeTree } from './shape-tree'
@@ -85,11 +137,6 @@ export * as AccessDescriptionSet from './access-description-set'
 export type { DataRegistrationData, DataRegistrationId } from './data-registration'
 export * as DataRegistration from './data-registration'
 export { loadDataRegistration } from './data-registration'
-export {
-  type ApplicationRegistrationData,
-  type ApplicationRegistrationId,
-  ApplicationId,
-} from './application-registration'
 export * as ApplicationRegistration from './application-registration'
 export { loadApplicationRegistration } from './application-registration'
 export type { DataOwnerData } from './data-owner'

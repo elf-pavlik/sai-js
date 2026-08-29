@@ -5,7 +5,7 @@ import {
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
-import { dataModelContext } from '../context'
+import { dataModelContext } from './context'
 
 // ──────────────────────────
 // Types

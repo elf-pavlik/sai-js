@@ -1,14 +1,14 @@
 import { INTEROP, RDF, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { DataModelDependencies } from '..'
+import type { DataModelDependencies } from '.'
 import {
   type ApplicationRegistrationData,
   createApplicationRegistration,
   loadApplicationRegistration,
-} from '../application-registration'
-import { linkedIrisJsonLd } from '../context'
-import type { AgentAndClient } from '../templates/types'
+} from './application-registration'
+import { linkedIrisJsonLd } from './context'
+import type { AgentAndClient } from './templates/types'
 import { type AgentRegistrationData, setAcr } from './agent-registration'
 import {
   addStatement,

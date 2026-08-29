@@ -1,6 +1,6 @@
 import { INTEROP, RDF, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import { linkedIrisJsonLd } from '../context'
+import { linkedIrisJsonLd } from './context'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────

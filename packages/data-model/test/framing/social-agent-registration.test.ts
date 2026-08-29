@@ -1,6 +1,6 @@
 import { INTEROP, LDP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { fromJsonLd as registrationFromJsonLd } from '../../src/crud/social-agent-registration'
+import { fromJsonLd as registrationFromJsonLd } from '../../src/social-agent-registration'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 

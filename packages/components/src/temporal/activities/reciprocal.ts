@@ -1,4 +1,4 @@
-import { type SocialAgentId, discoverAndUpdateReciprocal } from '@janeirodigital/interop-data-model'
+import type { SocialAgentId } from '@janeirodigital/interop-data-model'
 import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
@@ -42,7 +42,7 @@ export async function reciprocalRegistration(
     )
   }
   if (!registration.reciprocalRegistration) {
-    await discoverAndUpdateReciprocal(registration, session.fetch)
+    await session.discoverAndUpdateReciprocal(registration)
   }
   if (!registration.reciprocalRegistration) {
     throw new Error(`reciprocal registration from ${payload.peerId} was not found`)

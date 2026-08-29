@@ -25,6 +25,9 @@ export {
   loadDataInstance,
 } from './data-instance'
 export { loadDataAuthorization } from './data-authorization'
+export type { AdminAuthorizationData } from './admin-authorization'
+export * as AdminAuthorization from './admin-authorization'
+export { loadAdminAuthorization } from './admin-authorization'
 export { loadRole } from './crud/role'
 export { loadRegistrySet } from './crud/registry-set'
 export { loadSocialAgentRegistration } from './crud/social-agent-registration'
@@ -56,7 +59,6 @@ export type {
   FinalDataAuthorizationData,
 } from './data-authorization'
 export * as DataAuthorization from './data-authorization'
-export { generateGrantsForAuthorization } from './data-authorization'
 export type { WebIdProfileData, WebIdProfileId } from './web-id-profile'
 export * as WebIdProfile from './web-id-profile'
 export { loadWebIdProfile } from './web-id-profile'

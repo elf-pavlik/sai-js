@@ -4,8 +4,6 @@ import {
   SKOS,
   type WhatwgFetch,
   deletePatch,
-  discoverAgentRegistration,
-  discoverAuthorizationAgent,
   fetchJsonLd,
   frameDoc,
   insertPatch,
@@ -132,49 +130,6 @@ export async function createSocialAgentRegistration(
 // ──────────────────────────
 // Behavior functions (replacing class methods)
 // ──────────────────────────
-
-export async function discoverReciprocal(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch
-): Promise<string | null> {
-  const authrizationAgentIri = await discoverAuthorizationAgent(data.registeredAgent, fetch)
-  if (!authrizationAgentIri) return null
-  return discoverAgentRegistration(authrizationAgentIri, fetch)
-}
-
-async function updateReciprocal(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch,
-  reciprocalRegistrationIri: string
-): Promise<void> {
-  const node = DataFactory.namedNode(data.id)
-  const quad = DataFactory.quad(
-    node,
-    INTEROP.terms.reciprocalRegistration,
-    DataFactory.namedNode(reciprocalRegistrationIri)
-  )
-  if (data.reciprocalRegistration) {
-    const priorQuad = DataFactory.quad(
-      node,
-      INTEROP.terms.reciprocalRegistration,
-      DataFactory.namedNode(data.reciprocalRegistration)
-    )
-    await replaceStatement(data.id, fetch, priorQuad, quad)
-  } else {
-    await addStatement(data.id, fetch, quad)
-  }
-  data.reciprocalRegistration = reciprocalRegistrationIri
-}
-
-export async function discoverAndUpdateReciprocal(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  const reciprocalRegistrationIri = await discoverReciprocal(data, fetch)
-  if (reciprocalRegistrationIri) {
-    await updateReciprocal(data, fetch, reciprocalRegistrationIri)
-  }
-}
 
 export async function setAccessNeedGroup(
   data: SocialAgentRegistrationData,

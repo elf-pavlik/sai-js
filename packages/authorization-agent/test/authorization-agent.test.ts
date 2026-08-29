@@ -9,9 +9,26 @@ import {
   ReadableWebIdProfile,
 } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch, statelessFetch } from '@janeirodigital/interop-test-utils'
-import { ACL, INTEROP, asyncIterableToArray } from '@janeirodigital/interop-utils'
+import {
+  ACL,
+  INTEROP,
+  asyncIterableToArray,
+  discoverAgentRegistration,
+  discoverAuthorizationAgent,
+} from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+
+// wrap discovery helpers so tests can control the outcome of the session's
+// reciprocal discovery without replacing the whole module
+vi.mock('@janeirodigital/interop-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@janeirodigital/interop-utils')>()
+  return {
+    ...actual,
+    discoverAuthorizationAgent: vi.fn(actual.discoverAuthorizationAgent),
+    discoverAgentRegistration: vi.fn(actual.discoverAgentRegistration),
+  }
+})
 import {
   type AccessAuthorizationStructure,
   AuthorizationAgent,
@@ -871,5 +888,145 @@ describe('findSocialAgentInvitation', () => {
       note: undefined,
       registeredAgent: undefined,
     })
+  })
+})
+
+// ──────────────────────────
+// AdminAuthorization session methods (relocated from data-model — Phase 3)
+// ──────────────────────────
+
+describe('AdminAuthorization session methods', () => {
+  const MIXED_REGISTRY = 'https://auth.alice.example/authorization-registry-mixed'
+
+  const buildAgent = async (fetchMock: typeof statelessFetch = createStatefulFetch()) =>
+    AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: fetchMock,
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+  test('recordAdminAuthorization writes the AdminAuthorization resource', async () => {
+    const statefulFetch = createStatefulFetch()
+    const agent = await buildAgent(statefulFetch)
+
+    const recorded = await agent.recordAdminAuthorization(
+      {
+        grantee: 'https://id/eve',
+        grantedBy: 'https://id/yoyo',
+        scopeOfAuthorization: INTEROP.All,
+      },
+      { id: MIXED_REGISTRY }
+    )
+
+    expect(recorded.id).toMatch(new RegExp(`^${MIXED_REGISTRY}`))
+    expect(recorded.type).toEqual([INTEROP.AdminAuthorization])
+    expect(recorded.grantee).toBe('https://id/eve')
+    expect(recorded.grantedBy).toBe('https://id/yoyo')
+    expect(recorded.scopeOfAuthorization).toBe(INTEROP.All)
+
+    const doc = JSON.parse(await (await statefulFetch(recorded.id)).text())
+    const node = Array.isArray(doc) ? doc.find((n) => n['@id'] === recorded.id) : doc
+    expect(node['@type']).toContain(INTEROP.AdminAuthorization)
+  })
+
+  test('findAdminAuthorization returns the admin authorization for the grantee / undefined otherwise', async () => {
+    const agent = await buildAgent()
+    const registry = { id: MIXED_REGISTRY }
+
+    const result = await agent.findAdminAuthorization('https://id/dan', registry)
+    expect(result).toBeDefined()
+    expect(result!.type).toContain(INTEROP.AdminAuthorization)
+    expect(result!.grantee).toBe('https://id/dan')
+    expect(result!.grantedBy).toBe('https://id/yoyo')
+    expect(result!.scopeOfAuthorization).toBe(INTEROP.All)
+
+    expect(await agent.findAdminAuthorization('https://id/nobody', registry)).toBeUndefined()
+  })
+
+  test('adminAuthorizations yields only AdminAuthorizations', async () => {
+    const agent = await buildAgent()
+
+    const result = await agent.adminAuthorizations({ id: MIXED_REGISTRY })
+    expect(result).toHaveLength(1)
+    for (const adminAuthorization of result) {
+      expect(adminAuthorization.type).toContain(INTEROP.AdminAuthorization)
+      expect(adminAuthorization.type).not.toContain(INTEROP.DataAuthorization)
+    }
+  })
+
+  test('deleteAdminAuthorization removes the resource', async () => {
+    const statefulFetch = createStatefulFetch()
+    const agent = await buildAgent(statefulFetch)
+
+    const recorded = await agent.recordAdminAuthorization(
+      {
+        grantee: 'https://id/eve',
+        grantedBy: 'https://id/yoyo',
+        scopeOfAuthorization: INTEROP.All,
+      },
+      { id: MIXED_REGISTRY }
+    )
+    await agent.deleteAdminAuthorization(recorded.id)
+    await expect(statefulFetch(recorded.id).then((response) => response.text())).rejects.toThrow(
+      'missing snippet'
+    )
+  })
+})
+
+// ──────────────────────────
+// Reciprocal discovery session methods (relocated from data-model — Phase 3)
+// ──────────────────────────
+
+describe('reciprocal discovery session methods', () => {
+  const agentRegistrationIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
+  const registration = {
+    id: 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c',
+    type: [INTEROP.SocialAgentRegistration],
+    registeredAgent: 'https://acme.example/#corp',
+    prefLabel: 'ACME',
+    hasDataGrant: [],
+    hasAdminGrant: [],
+  }
+  const buildAgent = async () =>
+    AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: statelessFetch,
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+  test('discoverReciprocal discovers the reciprocal registration IRI', async () => {
+    vi.mocked(discoverAuthorizationAgent).mockResolvedValue('https://auth.acme.example/')
+    vi.mocked(discoverAgentRegistration).mockResolvedValue(agentRegistrationIri)
+    const agent = await buildAgent()
+
+    expect(await agent.discoverReciprocal(registration)).toBe(agentRegistrationIri)
+  })
+
+  test('discoverReciprocal returns null when no authorization agent is found', async () => {
+    vi.mocked(discoverAuthorizationAgent).mockResolvedValue(null)
+    const agent = await buildAgent()
+
+    expect(await agent.discoverReciprocal(registration)).toBeNull()
+  })
+
+  test('discoverAndUpdateReciprocal patches the link onto the registration', async () => {
+    vi.mocked(discoverAuthorizationAgent).mockResolvedValue('https://auth.acme.example/')
+    vi.mocked(discoverAgentRegistration).mockResolvedValue(agentRegistrationIri)
+    const agent = await buildAgent()
+    const reg = { ...registration }
+
+    expect(reg.reciprocalRegistration).toBeUndefined()
+    await agent.discoverAndUpdateReciprocal(reg)
+    expect(reg.reciprocalRegistration).toBe(agentRegistrationIri)
+  })
+
+  test('discoverAndUpdateReciprocal is a no-op when nothing is discovered', async () => {
+    vi.mocked(discoverAuthorizationAgent).mockResolvedValue('https://auth.acme.example/')
+    vi.mocked(discoverAgentRegistration).mockResolvedValue(undefined)
+    const agent = await buildAgent()
+    const reg = { ...registration }
+
+    await agent.discoverAndUpdateReciprocal(reg)
+    expect(reg.reciprocalRegistration).toBeUndefined()
   })
 })

@@ -4,7 +4,6 @@ import type {
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
 import {
-  AuthorizationRegistry,
   GrantRegistry,
   dataGrantTemplate,
   dataModelContext,
@@ -225,13 +224,7 @@ export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<v
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
 
-  const admins: AdminAuthorizationData[] = []
-  for await (const adminAuthorization of AuthorizationRegistry.adminAuthorizations(
-    session.registrySet.hasAuthorizationRegistry,
-    session.fetch
-  )) {
-    admins.push(adminAuthorization)
-  }
+  const admins = await session.adminAuthorizations(session.registrySet.hasAuthorizationRegistry)
   if (admins.length === 0) {
     throw new Error('refusing to write an adminless #fullAdminAccess')
   }

@@ -1,4 +1,8 @@
 import {
+  AdminAuthorization,
+  type AdminAuthorizationData,
+  AuthorizationRegistry,
+  type AuthorizationRegistryData,
   type DataAuthorizationData,
   type DataInstanceData,
   type DataRegistrationData,
@@ -6,25 +10,31 @@ import {
   type GeneratedGrants,
   type RegistrySetData,
   type RoleData,
+  type SocialAgentRegistrationData,
   type WebIdProfileData,
-  generateGrantsForAuthorization,
-  loadDataAuthorization,
+  addStatement,
+  linkedIrisJsonLd,
   loadDataInstance,
   loadRegistrySet,
   loadWebIdProfile,
+  replaceStatement,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
   type WhatwgFetch,
+  discoverAgentRegistration,
   discoverAuthorizationAgent,
   getRegistrySetIri,
+  putJsonLd,
 } from '@janeirodigital/interop-utils'
+import { DataFactory } from 'n3'
 import {
   type AccessAuthorizationStructure,
   type GrantedAuthorization,
   type NestedDataAuthorizationData,
   generateAuthorization,
 } from './authorization'
+import { generateGrantsForAuthorization } from './grant-generation'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
   findSocialAgentInvitation as findInvitationFromSparql,
@@ -268,13 +278,116 @@ export class AuthorizationAgent {
     dataAuthorizationIris: string[],
     grantee: string
   ): Promise<GeneratedGrants> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
     const dataAuthorizations = await Promise.all(
-      dataAuthorizationIris.map((iri) => loadDataAuthorization(iri, this.fetch))
+      dataAuthorizationIris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
-    return generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee, {
-      fetch: this.fetch,
-      randomUUID: this.randomUUID,
-    })
+    return generateGrantsForAuthorization(
+      dataAuthorizations,
+      this.registrySet,
+      grantee,
+      { fetch: this.fetch, randomUUID: this.randomUUID },
+      transport
+    )
+  }
+
+  // ──────────────────────────
+  // AdminAuthorizations (org-admin markers, R1)
+  // ──────────────────────────
+
+  /**
+   * Record an AdminAuthorization in the given AuthorizationRegistry — PUT via
+   * iriForContained (containment is server-managed, matching data
+   * authorizations). Defaults to the session's own authorization registry.
+   */
+  public async recordAdminAuthorization(
+    adminAuthorization: Pick<
+      AdminAuthorizationData,
+      'grantee' | 'grantedBy' | 'scopeOfAuthorization'
+    >,
+    registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
+  ): Promise<AdminAuthorizationData> {
+    const iri = AuthorizationRegistry.iriForContained(registry, this.randomUUID)
+    const data: AdminAuthorizationData = {
+      id: iri,
+      type: [INTEROP.AdminAuthorization],
+      ...adminAuthorization,
+    }
+    await putJsonLd(iri, this.fetch, AdminAuthorization.toJsonLd(data), { 'If-None-Match': '*' })
+    return data
+  }
+
+  /**
+   * The AdminAuthorizations in the given AuthorizationRegistry (type-filtered
+   * over the `contains` listing; used by the admin RPCs and the syncAdminAcr
+   * workflow).
+   */
+  public async adminAuthorizations(
+    registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
+  ): Promise<AdminAuthorizationData[]> {
+    const iris = await linkedIrisJsonLd(registry.id, this.fetch, 'contains')
+    const result: AdminAuthorizationData[] = []
+    for (const iri of iris) {
+      const adminAuthorization = await AdminAuthorization.loadAdminAuthorization(iri, this.fetch)
+      if (adminAuthorization.type.includes(INTEROP.AdminAuthorization)) {
+        result.push(adminAuthorization)
+      }
+    }
+    return result
+  }
+
+  /** The AdminAuthorization for a grantee in the given registry, if any. */
+  public async findAdminAuthorization(
+    grantee: string,
+    registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
+  ): Promise<AdminAuthorizationData | undefined> {
+    const authorizations = await this.adminAuthorizations(registry)
+    return authorizations.find((authorization) => authorization.grantee === grantee)
+  }
+
+  /** Delete an AdminAuthorization resource from the org's AuthorizationRegistry. */
+  public async deleteAdminAuthorization(id: string): Promise<void> {
+    const response = await this.fetch(id, { method: 'DELETE' })
+    if (!response.ok) {
+      throw new Error(`failed to delete admin authorization: ${response.status}`)
+    }
+  }
+
+  // ──────────────────────────
+  // Reciprocal registration discovery (peer leg)
+  // ──────────────────────────
+
+  /**
+   * Discover the peer's reciprocal registration IRI: the registered agent's
+   * authorization agent, then its registration of this agent.
+   */
+  public async discoverReciprocal(data: SocialAgentRegistrationData): Promise<string | null> {
+    const authrizationAgentIri = await discoverAuthorizationAgent(data.registeredAgent, this.fetch)
+    if (!authrizationAgentIri) return null
+    return discoverAgentRegistration(authrizationAgentIri, this.fetch)
+  }
+
+  /** Discover the reciprocal registration and patch the link onto the registration. */
+  public async discoverAndUpdateReciprocal(data: SocialAgentRegistrationData): Promise<void> {
+    const reciprocalRegistrationIri = await this.discoverReciprocal(data)
+    if (!reciprocalRegistrationIri) return
+    const node = DataFactory.namedNode(data.id)
+    const quad = DataFactory.quad(
+      node,
+      INTEROP.terms.reciprocalRegistration,
+      DataFactory.namedNode(reciprocalRegistrationIri)
+    )
+    if (data.reciprocalRegistration) {
+      const priorQuad = DataFactory.quad(
+        node,
+        INTEROP.terms.reciprocalRegistration,
+        DataFactory.namedNode(data.reciprocalRegistration)
+      )
+      await replaceStatement(data.id, this.fetch, priorQuad, quad)
+    } else {
+      await addStatement(data.id, this.fetch, quad)
+    }
+    data.reciprocalRegistration = reciprocalRegistrationIri
   }
 
   public async findAuthorizationsForAgent(peerId: string): Promise<DataAuthorizationData[]> {

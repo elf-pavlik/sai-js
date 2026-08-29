@@ -4,9 +4,9 @@ import {
   type DataAuthorizationData,
   type DataModelDependencies,
   type FinalDataAuthorizationData,
-  dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, type WhatwgFetch, putJsonLd, withContext } from '@janeirodigital/interop-utils'
+import { DataAuthorization } from '@janeirodigital/interop-data-model'
+import { INTEROP, type WhatwgFetch, putJsonLd } from '@janeirodigital/interop-utils'
 import {
   getDataAuthorization as getDataAuthorizationFromSparql,
   listContained,
@@ -205,7 +205,7 @@ export async function generateAuthorization(
       await putJsonLd(
         dataAuthorization.id,
         deps.fetch,
-        withContext(dataModelContext, dataAuthorization),
+        DataAuthorization.toJsonLd(dataAuthorization),
         { 'If-None-Match': '*' }
       )
     }

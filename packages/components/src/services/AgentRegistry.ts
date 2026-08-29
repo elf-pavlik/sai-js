@@ -4,7 +4,6 @@ import {
   type ApplicationRegistrationData,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
-  discoverAndUpdateReciprocal,
   getAdminGrantIris,
   getDataGrantIris,
   loadClientIdDocument,
@@ -324,7 +323,7 @@ export async function acceptInvitation(
   }
   // discover and add reciprocal
   if (!socialAgentRegistration.reciprocalRegistration) {
-    discoverAndUpdateReciprocal(socialAgentRegistration, ctx.session.fetch)
+    ctx.session.discoverAndUpdateReciprocal(socialAgentRegistration)
   }
 
   // currently api-handler creates job for reciprocal registration

@@ -1,4 +1,4 @@
-import { ActivityRegistry, AuthorizationRegistry } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
@@ -20,21 +20,16 @@ export const addAdmin = async (
   if (!registration) throw new Error(`Social Agent Registration for ${webId} not found`)
 
   const authorizationRegistry = ctx.registrySet.hasAuthorizationRegistry
-  const existing = await AuthorizationRegistry.findAdminAuthorization(
-    authorizationRegistry,
-    ctx.session.fetch,
-    webId
-  )
+  const existing = await ctx.session.findAdminAuthorization(webId, authorizationRegistry)
   if (existing) throw new Error(`Admin Authorization for ${webId} already exists`)
 
-  await AuthorizationRegistry.recordAdminAuthorization(
-    authorizationRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+  await ctx.session.recordAdminAuthorization(
     {
       grantee: webId,
       grantedBy: ctx.webId,
       scopeOfAuthorization: INTEROP.All,
-    }
+    },
+    authorizationRegistry
   )
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
@@ -69,24 +64,17 @@ export const removeAdmin = async (
   if (!registration) throw new Error(`Social Agent Registration for ${webId} not found`)
 
   const authorizationRegistry = ctx.registrySet.hasAuthorizationRegistry
-  const existing = await AuthorizationRegistry.findAdminAuthorization(
-    authorizationRegistry,
-    ctx.session.fetch,
-    webId
-  )
+  const existing = await ctx.session.findAdminAuthorization(webId, authorizationRegistry)
   if (!existing) throw new Error(`Admin Authorization for ${webId} not found`)
 
   // last-admin guard — the org must never end up adminless (enforced again by syncAdminAcr)
   let count = 0
-  for await (const _adminAuthorization of AuthorizationRegistry.adminAuthorizations(
-    authorizationRegistry,
-    ctx.session.fetch
-  )) {
+  for (const _adminAuthorization of await ctx.session.adminAuthorizations(authorizationRegistry)) {
     count += 1
   }
   if (count === 1) throw new Error('can not remove the last admin')
 
-  await AuthorizationRegistry.deleteAdminAuthorization(existing.id, ctx.session.fetch)
+  await ctx.session.deleteAdminAuthorization(existing.id)
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')

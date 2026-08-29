@@ -1,4 +1,6 @@
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { randomUUID } from 'node:crypto'
+import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import type { AuthorizationAgent as AuthorizationAgentType } from '@janeirodigital/interop-authorization-agent'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, expect, test, vi } from 'vitest'
@@ -44,30 +46,6 @@ vi.mock('fetch-sparql-endpoint', () => ({
   },
 }))
 
-/**
- * `typeGrantee` resolves grantees via the data-model registries — stub them
- * so grantees type as social agents without HTTP (everything else,
- * including the `DataAuthorization.fromJsonLd` framing, stays real).
- */
-vi.mock('@janeirodigital/interop-data-model', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@janeirodigital/interop-data-model')>()
-  return {
-    ...mod,
-    AgentRegistry: {
-      ...mod.AgentRegistry,
-      findRegistration: vi.fn(async (_data: unknown, _factory: unknown, iri: string) => ({
-        id: iri,
-        type: ['http://www.w3.org/ns/solid/interop#SocialAgentRegistration'],
-        registeredAgent: iri,
-      })),
-    },
-    RoleRegistry: {
-      ...mod.RoleRegistry,
-      containedIncludes: vi.fn(async () => false),
-    },
-  }
-})
-
 import { findAffectedGrantees, findRoleUsage } from '../src/temporal/activities/grants.js'
 
 // ──────────────────────────
@@ -77,6 +55,7 @@ import { findAffectedGrantees, findRoleUsage } from '../src/temporal/activities/
 const ALICE = 'https://alice.example/#id'
 const ROLE_ID = 'https://auth.alice.example/role/admin'
 const AUTHZ_REGISTRY = 'https://auth.alice.example/authorization/'
+const AGENT_REGISTRY = 'https://auth.alice.example/agent/'
 const AUTHZ_GRANTEE = 'https://auth.alice.example/authz-grantee'
 const AUTHZ_ADMIN = 'https://auth.alice.example/admin-authz'
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
@@ -115,11 +94,41 @@ const authzGraph = (
   ),
 ]
 
-function fakeSession(): AuthorizationAgent {
-  return {
+/** A social-agent registration graph for a grantee (typed via the agent plane). */
+const registrationGraph = (iri: string) => [
+  DataFactory.quad(
+    DataFactory.namedNode(iri),
+    DataFactory.namedNode(RDF_TYPE),
+    DataFactory.namedNode(INTEROP.SocialAgentRegistration)
+  ),
+  DataFactory.quad(
+    DataFactory.namedNode(iri),
+    DataFactory.namedNode(INTEROP.registeredAgent),
+    DataFactory.namedNode(iri)
+  ),
+]
+
+/**
+ * A real AuthorizationAgent (no bootstrap — no fetch used): the match/typing
+ * sessions run purely over the registry plane, which the sparqlMock serves.
+ */
+function fakeSession(): AuthorizationAgentType {
+  const agent = new AuthorizationAgent(ALICE, 'https://auth.alice.example/#agent', {
+    fetch: async () => {
+      throw new Error('no fetch expected')
+    },
+    randomUUID,
     sparqlEndpoint: 'http://example.test/sparql',
-    registrySet: { hasAuthorizationRegistry: { id: AUTHZ_REGISTRY } },
-  } as unknown as AuthorizationAgent
+  })
+  agent.registrySet = {
+    type: [],
+    hasAuthorizationRegistry: { id: AUTHZ_REGISTRY },
+    hasGrantRegistry: { id: 'https://auth.alice.example/grant/' },
+    hasAgentRegistry: { id: AGENT_REGISTRY },
+    hasRoleRegistry: { id: 'https://auth.alice.example/role/' },
+    hasDataRegistry: [],
+  }
+  return agent
 }
 
 const rolePayload = () => ({
@@ -137,18 +146,14 @@ describe('findRoleUsage — authorizations sweep via SPARQL', () => {
 
     sparqlMock.handlers.bindings = (query) => {
       expect(query).toContain('SELECT DISTINCT ?child')
+      if (query.includes(AGENT_REGISTRY)) return []
       return [AUTHZ_GRANTEE, AUTHZ_ADMIN].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
     }
     sparqlMock.handlers.triples = (query) => {
       const graphs: Record<string, unknown[]> = {
-        [AUTHZ_GRANTEE]: authzGraph(
-          AUTHZ_GRANTEE,
-          INTEROP.DataAuthorization,
-          ROLE_ID,
-          ALICE
-        ),
+        [AUTHZ_GRANTEE]: authzGraph(AUTHZ_GRANTEE, INTEROP.DataAuthorization, ROLE_ID, ALICE),
         [AUTHZ_ADMIN]: authzGraph(
           AUTHZ_ADMIN,
           'https://example/AdminAuthorization',
@@ -174,12 +179,18 @@ describe('findRoleUsage — authorizations sweep via SPARQL', () => {
   test('no match → the role is unused', async () => {
     sessionMock.setSession(fakeSession())
 
-    sparqlMock.handlers.bindings = () => [
-      { child: { termType: 'NamedNode', value: AUTHZ_GRANTEE } },
-    ]
+    sparqlMock.handlers.bindings = (query) => {
+      if (query.includes(AGENT_REGISTRY)) return []
+      return [{ child: { termType: 'NamedNode', value: AUTHZ_GRANTEE } }]
+    }
     sparqlMock.handlers.triples = (query) => {
       if (query.includes(`GRAPH <${AUTHZ_GRANTEE}>`)) {
-        return authzGraph(AUTHZ_GRANTEE, INTEROP.DataAuthorization, 'https://bob.example/#id', ALICE)
+        return authzGraph(
+          AUTHZ_GRANTEE,
+          INTEROP.DataAuthorization,
+          'https://bob.example/#id',
+          ALICE
+        )
       }
       throw new Error(`unexpected CONSTRUCT: ${query}`)
     }
@@ -229,16 +240,28 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
     for (const [iri, quads] of Object.entries(graphs)) {
       if (query.includes(`GRAPH <${iri}>`)) return quads
     }
+    // the grantee registrations (session's plane-based typing)
+    for (const iri of [GRANTEE_A, GRANTEE_B]) {
+      if (query.includes(`GRAPH <${iri}>`)) return registrationGraph(iri)
+    }
     throw new Error(`unexpected CONSTRUCT: ${query}`)
   }
 
   test('dataOwner and All-scope matches typed and deduped; self-grants and non-DataAuthorizations excluded', async () => {
     sessionMock.setSession(fakeSession())
 
-    sparqlMock.handlers.bindings = () =>
-      [AUTHZ_DELEG, AUTHZ_ALL, AUTHZ_SELF, AUTHZ_ADMIN].map((iri) => ({
+    sparqlMock.handlers.bindings = (query) => {
+      // the agent registry listing serves the grantee registrations so the
+      // session types them as social agents
+      if (query.includes(AGENT_REGISTRY)) {
+        return [GRANTEE_A, GRANTEE_B].map((iri) => ({
+          child: { termType: 'NamedNode', value: iri },
+        }))
+      }
+      return [AUTHZ_DELEG, AUTHZ_ALL, AUTHZ_SELF, AUTHZ_ADMIN].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
+    }
     sparqlMock.handlers.triples = routeTriples
 
     const grantees = await findAffectedGrantees(affectedPayload())
@@ -252,10 +275,14 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
   test('with a roleId, All-scope authorizations are no longer matched', async () => {
     sessionMock.setSession(fakeSession())
 
-    sparqlMock.handlers.bindings = () =>
-      [AUTHZ_DELEG, AUTHZ_ALL].map((iri) => ({
+    sparqlMock.handlers.bindings = (query) => {
+      if (query.includes(AGENT_REGISTRY)) {
+        return [GRANTEE_A].map((iri) => ({ child: { termType: 'NamedNode', value: iri } }))
+      }
+      return [AUTHZ_DELEG, AUTHZ_ALL].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
+    }
     sparqlMock.handlers.triples = routeTriples
 
     const grantees = await findAffectedGrantees(affectedPayload(ROLE_ID))

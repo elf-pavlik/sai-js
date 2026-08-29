@@ -124,12 +124,12 @@ export async function peerInstanceNode(
 
 /**
  * Data-instance IRIs covered by a peer data grant in **org context** — the
- * counterpart of `Grant.getDataInstanceIterator` (which derefs peer docs
+ * counterpart of the AA's `dataInstanceIrisForGrant` (which derefs peer docs
  * with the session's factory — the admin holds no data grants → 403):
  * `contains` via `dataRegistrationContains`, `SelectedFromRegistry` from
  * grant metadata, and `Inherited` walks the parent grant and the parent
  * instance content, all through `/proxy-admin`. Personal context keeps
- * `Grant.getDataInstanceIterator`.
+ * the AA's `dataInstanceIrisForGrant`.
  */
 export async function* peerInstanceIris(
   ctx: ResolvedContext,

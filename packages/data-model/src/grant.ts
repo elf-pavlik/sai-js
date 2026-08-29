@@ -6,9 +6,6 @@ import {
   withContext,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-import { childIris, frameDataInstance } from './data-instance'
-import { loadDataRegistration } from './data-registration'
-import { loadShapeTree } from './shape-tree'
 
 // ──────────────────────────
 // Types
@@ -116,65 +113,6 @@ export async function loadGrant(id: string, fetch: WhatwgFetch): Promise<GrantDa
  */
 export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
   return withContext(dataModelContext, grant)
-}
-
-// ──────────────────────────
-// Behavior functions (replacing class methods)
-// ──────────────────────────
-
-/**
- * Iterate over the IRIs (ids) of the data instances described by this grant.
- * Dispatches based on scopeOfGrant.
- *
- * TODO (reorganize-authz-agent-logic Phase 4): the components consumer
- * (services/DataRegistry) may switch to an AA SPARQL-backed enumeration
- * (`getDataRegistration().contains` / `grant.hasDataInstance` — both already
- * reachable via the AA's `sparql.ts`), after which the application copy in
- * `packages/application/src/grant.ts` becomes the single home.
- */
-export async function* getDataInstanceIterator(
-  grant: GrantData,
-  fetch: WhatwgFetch
-): AsyncIterable<string> {
-  switch (grant.scopeOfGrant) {
-    case INTEROP.AllFromRegistry: {
-      const registration = await loadDataRegistration(grant.hasDataRegistration, fetch)
-      for (const iri of registration.contains) {
-        yield iri
-      }
-      break
-    }
-    case INTEROP.SelectedFromRegistry: {
-      for (const iri of grant.hasDataInstance ?? []) {
-        yield iri
-      }
-      break
-    }
-    case INTEROP.Inherited: {
-      const parentGrant = await loadGrant(grant.inheritsFromGrant!, fetch)
-      for await (const parentIri of getDataInstanceIterator(parentGrant, fetch)) {
-        yield* await getChildInstanceIris(parentGrant, parentIri, grant.registeredShapeTree, fetch)
-      }
-      break
-    }
-    default:
-      throw new Error(`Unknown scope: ${grant.scopeOfGrant}`)
-  }
-}
-
-/**
- * Child instance IRIs referenced by a parent instance for a shape tree, via
- * the parent shape tree's reference predicate.
- */
-async function getChildInstanceIris(
-  parentGrant: GrantData,
-  parentIri: string,
-  childShapeTree: string,
-  fetch: WhatwgFetch
-): Promise<string[]> {
-  const parentShapeTree = await loadShapeTree(parentGrant.registeredShapeTree, fetch)
-  const node = await frameDataInstance(parentIri, fetch, parentShapeTree)
-  return childIris(node, parentShapeTree, childShapeTree)
 }
 
 /**

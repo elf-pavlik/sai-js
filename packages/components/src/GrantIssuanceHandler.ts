@@ -1,4 +1,8 @@
 import {
+  findDelegableGrant,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import {
   AccessRequest,
   type AccessRequestMessage,
   AccessRevocation,
@@ -14,7 +18,6 @@ import {
   ForbiddenHttpError,
   OkResponseDescription,
   OperationHttpHandler,
-  arrayifyStream,
   readableToString,
 } from '@solid/community-server'
 import type {
@@ -22,7 +25,6 @@ import type {
   OperationHttpHandlerInput,
   ResponseDescription,
 } from '@solid/community-server'
-import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 import { GrantRevocationHandler } from './GrantRevocationHandler.js'
 import type { SessionManager } from './SessionManager'
@@ -57,7 +59,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
     if (AccessRevocation.isAccessRevocationMessage(message)) {
-      return new GrantRevocationHandler(this.sparqlEndpoint).revoke(message, credentials, operation)
+      return new GrantRevocationHandler(this.sparqlEndpoint, this.sessionManager).revoke(
+        message,
+        credentials,
+        operation
+      )
     }
     if (!AccessRequest.isAccessRequestMessage(message)) {
       throw new BadRequestHttpError('invalid delegation message')
@@ -107,9 +113,8 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     }
 
     // all-or-nothing: validate every grant in the request before any is stored
-    const fetcher = new SparqlEndpointFetcher()
     for (const grant of finalGrants) {
-      await this.validateDelegable(grant, credentials.agent.webId, fetcher)
+      await this.validateDelegable(grant, credentials.agent.webId)
     }
 
     const temporal = new Temporal()
@@ -165,72 +170,14 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
   /**
    * Validate that one grant can be delegated: the requester is its
    * `grantedBy`, and an upstream grant covering it exists in the data owner's
-   * registry.
+   * registry (the query lives in the AA's `sparql.ts`).
    */
-  private async validateDelegable(
-    grant: FinalGrantData,
-    requesterWebId: string,
-    fetcher: SparqlEndpointFetcher
-  ): Promise<void> {
+  private async validateDelegable(grant: FinalGrantData, requesterWebId: string): Promise<void> {
     if (requesterWebId !== grant.grantedBy) {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('invalid grantedBy')
     }
-    // find grant that can be delegated
-    // TODO: handle multiple grants for the same registration, especially with inheritance
-    const accessModes = grant.accessMode.map((m) => `<${m}>`).join(' ')
-
-    const requiredInstances = grant.hasDataInstance?.length
-      ? grant.hasDataInstance.map((i) => `<${i}>`).join(' ')
-      : ''
-
-    const selectedScopeConstraint = requiredInstances
-      ? `
-          FILTER NOT EXISTS {
-            VALUES ?required { ${requiredInstances} }
-            FILTER NOT EXISTS {
-              ?s <${INTEROP.hasDataInstance}> ?required .
-            }
-          }
-      `
-      : ''
-
-    const scopeBlock =
-      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
-        ? `
-        {
-          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.AllFromRegistry}> .
-        }
-        UNION
-        {
-          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.SelectedFromRegistry}> .
-          ${selectedScopeConstraint}
-        }
-      `
-        : `
-        ?s <${INTEROP.scopeOfGrant}> <${grant.scopeOfGrant}> .
-      `
-
-    const query = `
-  SELECT * WHERE {
-    GRAPH ?g {
-      ?s
-        <${INTEROP.dataOwner}> <${grant.dataOwner}>;
-        <${INTEROP.grantee}> <${grant.grantedBy}>;
-        <${INTEROP.registeredShapeTree}> <${grant.registeredShapeTree}>;
-        <${INTEROP.hasStorage}> <${grant.hasStorage}>;
-        <${INTEROP.hasDataRegistration}> <${grant.hasDataRegistration}>;
-        <${INTEROP.accessMode}> ?mode .
-
-      VALUES ?mode { ${accessModes} }
-
-      ${scopeBlock}
-    }
-  }
-  `
-    const bindingsStream = await fetcher.fetchBindings(this.sparqlEndpoint, query)
-    const queryResults = await arrayifyStream<IBindings>(bindingsStream)
-    if (!queryResults.length) {
+    if (!(await findDelegableGrant(localSparqlTransport(this.sparqlEndpoint), grant))) {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('no grant available for delegation')
     }

@@ -24,13 +24,3 @@ test('should provide dataRegistryIri', async () => {
   const dataGrant = await loadGrant(snippetIri, deps.fetch)
   expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
 })
-
-test('should provide data instance iterator', async () => {
-  const dataGrant = await loadGrant(snippetIri, deps.fetch)
-  let count = 0
-  for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, deps.fetch)) {
-    expect(typeof instanceIri).toBe('string')
-    count += 1
-  }
-  expect(count).toBe(1)
-})

@@ -1,6 +1,7 @@
-import type {
-  AuthorizationAgent,
-  ShareDataInstanceStructure,
+import {
+  type AuthorizationAgent,
+  type ShareDataInstanceStructure,
+  matchesScope,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
@@ -34,9 +35,10 @@ import { getDataAuthorization, listContained, sparqlTransportFor } from './queri
 
 /**
  * Grantees whose org-side data authorizations cover the resource — the
- * org-context counterpart of `AA.findAgentsWithAccess`'s scope switch,
- * evaluated over the ORG's authorization registry (via SPARQL) instead of
- * the session's own. Pure — exported for unit tests.
+ * org-context counterpart of `AA.findAgentsWithAccess`, evaluated over the
+ * ORG's authorization registry (via SPARQL) instead of the session's own.
+ * Pure — exported for unit tests; the scope rule itself is the AA's
+ * `matchesScope`.
  */
 export function agentsWithAccessMatching(
   authorizations: DataAuthorizationData[],
@@ -46,31 +48,7 @@ export function agentsWithAccessMatching(
   const agents = new Set<string>()
   for (const authorization of authorizations) {
     if (authorization.registeredShapeTree !== resource.shapeTreeIri) continue
-    switch (authorization.scopeOfAuthorization) {
-      case INTEROP.All:
-        agents.add(authorization.grantee)
-        break
-      case INTEROP.AllFromAgent:
-        if (authorization.dataOwner === ownerWebId) agents.add(authorization.grantee)
-        break
-      case INTEROP.AllFromRegistry:
-        if (authorization.hasDataRegistration === resource.dataRegistration?.id) {
-          agents.add(authorization.grantee)
-        }
-        break
-      case INTEROP.SelectedFromRegistry:
-        if (
-          authorization.hasDataRegistration === resource.dataRegistration?.id &&
-          (authorization.hasDataInstance ?? []).includes(resource.id)
-        ) {
-          agents.add(authorization.grantee)
-        }
-        break
-      default:
-        throw new Error(
-          `encountered incorrect Data Authorization with scope:${authorization.scopeOfAuthorization}`
-        )
-    }
+    if (matchesScope(authorization, resource, ownerWebId)) agents.add(authorization.grantee)
   }
   return [...agents]
 }
@@ -166,13 +144,22 @@ export const shareResource = async (
   ctx: ResolvedContext,
   shareAuthorization: S.Schema.Type<typeof ShareAuthorization>
 ): Promise<S.Schema.Type<typeof ShareAuthorizationConfirmation>> => {
-  // TODO: finde cleaner way of dealing with types
+  // the RPC shape is structurally identical to the AA's domain structure —
+  // explicit field copies (kills the previous `as unknown as` cast)
+  const structure: ShareDataInstanceStructure = {
+    applicationId: shareAuthorization.applicationId,
+    resource: shareAuthorization.resource,
+    agents: [...shareAuthorization.agents],
+    accessMode: [...shareAuthorization.accessMode],
+    children: shareAuthorization.children.map((child) => ({
+      shapeTree: child.shapeTree,
+      accessMode: [...child.accessMode],
+    })),
+  }
   // `shareDataInstance` writes on the session's own registry set — in an org
   // context (unexercised) it would target the user's; out of the phase-3
   // exercised scope, tracked as debt.
-  const recorded = await ctx.session.shareDataInstance(
-    shareAuthorization as unknown as ShareDataInstanceStructure
-  )
+  const recorded = await ctx.session.shareDataInstance(structure)
 
   const clientIdDocument = await loadClientIdDocument(
     shareAuthorization.applicationId,

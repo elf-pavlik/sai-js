@@ -1,17 +1,18 @@
 import {
-  INTEROP,
-} from '@janeirodigital/interop-utils'
-import {
-  DataRegistry,
-  GrantRegistry,
   type DataAuthorizationData,
   type DataModelDependencies,
   type DataRegistrationData,
+  DataRegistry,
   type FinalGrantData,
   type GeneratedGrants,
   type GrantData,
+  GrantRegistry,
   type RegistrySetData,
+  childIris,
+  frameDataInstance,
+  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
+import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {
   type SparqlTransport,
   getDataAuthorization,
@@ -22,6 +23,64 @@ import {
   listContained,
   listDataRegistrations,
 } from './sparql'
+
+// ──────────────────────────
+// Instance enumeration over the registry plane (resolves the Phase-2
+// wrinkle: components' `Grant.getDataInstanceIterator` usage)
+// ──────────────────────────
+
+/**
+ * Iterate the data instance ids described by a grant, over the registry
+ * plane — AllFromRegistry via the data registration's `contains`,
+ * SelectedFromRegistry via `hasDataInstance`, Inherited via the parent chain
+ * plus data-plane child walks. The Inherited arm still derefs instance
+ * documents (data-instance framing) with the session's `fetch`.
+ */
+export async function* dataInstanceIrisForGrant(
+  grant: GrantData,
+  transport: SparqlTransport,
+  fetch: WhatwgFetch
+): AsyncIterable<string> {
+  switch (grant.scopeOfGrant) {
+    case INTEROP.AllFromRegistry: {
+      const registration = await getDataRegistration(transport, grant.hasDataRegistration)
+      for (const id of registration.contains) {
+        yield id
+      }
+      break
+    }
+    case INTEROP.SelectedFromRegistry: {
+      for (const id of grant.hasDataInstance ?? []) {
+        yield id
+      }
+      break
+    }
+    case INTEROP.Inherited: {
+      const parentGrant = await getDataGrant(transport, grant.inheritsFromGrant!)
+      for await (const parentId of dataInstanceIrisForGrant(parentGrant, transport, fetch)) {
+        yield* await getChildInstanceIris(parentGrant, parentId, grant.registeredShapeTree, fetch)
+      }
+      break
+    }
+    default:
+      throw new Error(`Unknown scope: ${grant.scopeOfGrant}`)
+  }
+}
+
+/**
+ * Child instance ids referenced by a parent instance for a shape tree, via
+ * the parent shape tree's reference predicate (data-plane read).
+ */
+async function getChildInstanceIris(
+  parentGrant: GrantData,
+  parentId: string,
+  childShapeTree: string,
+  fetch: WhatwgFetch
+): Promise<string[]> {
+  const parentShapeTree = await loadShapeTree(parentGrant.registeredShapeTree, fetch)
+  const node = await frameDataInstance(parentId, fetch, parentShapeTree)
+  return childIris(node, parentShapeTree, childShapeTree)
+}
 
 // ──────────────────────────
 // Grant-generation chain (relocated from data-model; listings on the AA's
@@ -339,7 +398,13 @@ export async function generateDataGrants(
     if (!role) throw new Error(`role not found: ${data.dataOwner}`)
     for (const member of role.members) {
       if (member === data.grantedBy) {
-        const sourceGrants = await generateSourceDataGrants(data, registrySet, grantee, deps, transport)
+        const sourceGrants = await generateSourceDataGrants(
+          data,
+          registrySet,
+          grantee,
+          deps,
+          transport
+        )
         dataGrantData.source.push(...sourceGrants)
       } else {
         const delegatedGrants = await generateDelegatedDataGrants(
@@ -364,7 +429,13 @@ export async function generateDataGrants(
    * Otherwise only delegated data grants are created
    */
   if (!data.dataOwner || data.dataOwner === data.grantedBy) {
-    dataGrantData.source = await generateSourceDataGrants(data, registrySet, grantee, deps, transport)
+    dataGrantData.source = await generateSourceDataGrants(
+      data,
+      registrySet,
+      grantee,
+      deps,
+      transport
+    )
   }
 
   // do not create delegated data grants if granted by data owner, source grants will be created instead

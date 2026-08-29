@@ -33,6 +33,8 @@ import {
   type AccessAuthorizationStructure,
   AuthorizationAgent,
   type ShareDataInstanceStructure,
+  dataInstanceIrisForGrant,
+  localSparqlTransport,
 } from '../src'
 
 const webId = 'https://alice.example/#id'
@@ -1028,5 +1030,115 @@ describe('reciprocal discovery session methods', () => {
 
     await agent.discoverAndUpdateReciprocal(reg)
     expect(reg.reciprocalRegistration).toBeUndefined()
+  })
+})
+
+// ──────────────────────────
+
+describe('revokeGrants core (Phase 4)', () => {
+  const ALICE = 'https://alice.example/#id'
+  const GRANT_1 = 'https://auth.alice.example/grant/1'
+  const CHILD_1 = 'https://auth.alice.example/grant/1/child'
+
+  const authorityBindings = (iris: string[]) =>
+    iris.map((grant) => ({
+      grant: { termType: 'NamedNode', value: grant },
+      dataOwner: { termType: 'NamedNode', value: ALICE },
+      grantedBy: { termType: 'NamedNode', value: ALICE },
+      grantee: { termType: 'NamedNode', value: 'https://bob.example/#id' },
+    }))
+
+  const buildAgent = async () =>
+    AuthorizationAgent.build(webId, agentId, registryId, {
+      fetch: statelessFetch,
+      randomUUID,
+      sparqlEndpoint: 'http://example.test/sparql',
+    })
+
+  test('computes the inheriting-children closure', async () => {
+    const agent = await buildAgent()
+
+    let first = true
+    sparqlMock.handlers.bindings = (query) => {
+      if (query.includes('inheritsFromGrant')) {
+        return [{ child: { termType: 'NamedNode', value: CHILD_1 } }]
+      }
+      const iris = first ? [GRANT_1] : [GRANT_1, CHILD_1]
+      first = false
+      return authorityBindings(iris)
+    }
+
+    const revoked = await agent.revokeGrants([GRANT_1], ALICE)
+
+    expect(revoked.map((grant) => grant.iri).sort()).toEqual([CHILD_1, GRANT_1].sort())
+    for (const grant of revoked) {
+      expect(grant.dataOwner).toBe(ALICE)
+    }
+  })
+
+  test('rejects a requester that is neither grantor nor the data owner', async () => {
+    const agent = await buildAgent()
+
+    sparqlMock.handlers.bindings = (query) => {
+      if (query.includes('inheritsFromGrant')) return []
+      return authorityBindings([GRANT_1])
+    }
+
+    await expect(agent.revokeGrants([GRANT_1], 'https://stranger.example/#id')).rejects.toThrow(
+      'neither grantor nor the data owner'
+    )
+  })
+})
+
+describe('dataInstanceIrisForGrant (Phase 4)', () => {
+  const REGISTRATION = 'https://data.alice.example/reg/'
+  const INSTANCE_1 = 'https://data.alice.example/reg/1'
+  const INSTANCE_2 = 'https://data.alice.example/reg/2'
+
+  test('AllFromRegistry via the data registration contains (registry plane)', async () => {
+    sparqlMock.handlers.triples = (query) => {
+      if (query.includes(`GRAPH <${REGISTRATION}>`)) {
+        return [
+          DataFactory.quad(
+            DataFactory.namedNode(REGISTRATION),
+            DataFactory.namedNode(INTEROP.registeredShapeTree),
+            DataFactory.namedNode('https://shapetrees.example/Project')
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(REGISTRATION),
+            DataFactory.namedNode('http://www.w3.org/ns/ldp#contains'),
+            DataFactory.namedNode(INSTANCE_1)
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(REGISTRATION),
+            DataFactory.namedNode('http://www.w3.org/ns/ldp#contains'),
+            DataFactory.namedNode(INSTANCE_2)
+          ),
+        ]
+      }
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    const collected: string[] = []
+    for await (const id of dataInstanceIrisForGrant(
+      {
+        id: 'https://auth.alice.example/grant/1',
+        type: [INTEROP.DataGrant],
+        grantee: 'https://bob.example/#id',
+        grantedBy: webId,
+        dataOwner: webId,
+        registeredShapeTree: 'https://shapetrees.example/Project',
+        hasDataRegistration: REGISTRATION,
+        hasStorage: 'https://storage/',
+        scopeOfGrant: INTEROP.AllFromRegistry,
+        accessMode: [ACL.Read],
+      },
+      localSparqlTransport('http://example.test/sparql'),
+      statelessFetch
+    )) {
+      collected.push(id)
+    }
+
+    expect(collected).toEqual([INSTANCE_1, INSTANCE_2])
   })
 })

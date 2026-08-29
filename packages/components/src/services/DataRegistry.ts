@@ -1,3 +1,4 @@
+import { dataInstanceIrisForGrant } from '@janeirodigital/interop-authorization-agent'
 import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
   DataRegistry as DataRegistryModule,
@@ -218,8 +219,9 @@ export const listDataInstances = async (
     for (const dataGrant of dataGrants) {
       if (dataGrant.hasDataRegistration !== registrationId) continue
       if (ctx.webId === ctx.userWebId) {
-        for await (const instanceIri of Grant.getDataInstanceIterator(
+        for await (const instanceIri of dataInstanceIrisForGrant(
           dataGrant,
+          transport,
           ctx.session.fetch
         )) {
           if (seenInstances.has(instanceIri)) continue

@@ -28,23 +28,3 @@ test('should provide dataRegistryIri', async () => {
   const dataGrant = await loadGrant(inheritsFromSelectedFromRegistryIri, deps.fetch)
   expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
 })
-
-test('should provide data instance iterator for Inherited of AllFromRegistry', async () => {
-  const inheritingGrant = await loadGrant(inheritsFromAllFromRegistryIri, deps.fetch)
-  let count = 0
-  for await (const instanceIri of Grant.getDataInstanceIterator(inheritingGrant, deps.fetch)) {
-    expect(typeof instanceIri).toBe('string')
-    count += 1
-  }
-  expect(count).toBe(2)
-})
-
-test('should provide data instance iterator for Inherited of SelectedFromRegistry', async () => {
-  const inheritingGrant = await loadGrant(inheritsFromSelectedFromRegistryIri, deps.fetch)
-  let count = 0
-  for await (const instanceIri of Grant.getDataInstanceIterator(inheritingGrant, deps.fetch)) {
-    expect(typeof instanceIri).toBe('string')
-    count += 1
-  }
-  expect(count).toBe(1)
-})

@@ -1,9 +1,5 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import {
-  getDataAuthorization,
-  listContained,
-  localSparqlTransport,
-} from '@janeirodigital/interop-authorization-agent'
+import type { RoleUsage } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessRequestMessage,
   type ActivityData,
@@ -11,7 +7,6 @@ import {
   type AgentId,
   type AgentOrRoleId,
   AgentRegistry,
-  type ApplicationRegistrationData,
   type DataAuthorizationId,
   type FinalGrantData,
   type GeneratedGrants,
@@ -19,13 +14,10 @@ import {
   type GrantId,
   type IncomingGrantData,
   type RoleId,
-  RoleRegistry,
   type SocialAgentId,
-  type SocialAgentRegistrationData,
   dataGrantTemplate,
   getDataGrantIris,
   loadGrant,
-  loadRole,
   replaceDataGrants,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
@@ -37,7 +29,6 @@ import {
   getAcl,
 } from '@janeirodigital/interop-utils'
 import { buildSessionManager } from '../../builders/sessionManager.js'
-import { removeGrantsFromRegistration } from '../../util/registrations.js'
 
 export interface FindAffectedAuthorizationsInput {
   webId: SocialAgentId
@@ -76,12 +67,6 @@ export interface ProcessRoleMembershipChangeInput {
   activityIri?: string
 }
 
-export interface RoleUsage {
-  usedAsGrantee: boolean
-  affectedGrantees: AgentOrRoleId[]
-  authorizations: DataAuthorizationId[]
-}
-
 export interface CheckEquivalenceInput {
   webId: SocialAgentId
   grantee: AgentId
@@ -91,42 +76,6 @@ export interface CheckEquivalenceInput {
 
 export interface EquivalenceResult {
   reused: { existing: GrantId; generated: GrantData }[]
-}
-
-// ---------------------------------------------------------------------------
-// Typing helpers — producers determine `type`, consumers branch on it
-// ---------------------------------------------------------------------------
-
-/** Type an agent id from its agent registration (SocialAgent vs Application). */
-function agentIdFromRegistration(
-  registration: ApplicationRegistrationData | SocialAgentRegistrationData
-): AgentId {
-  return {
-    id: registration.registeredAgent,
-    type: registration.type.includes(INTEROP.ApplicationRegistration)
-      ? [INTEROP.Application]
-      : [INTEROP.SocialAgent],
-  }
-}
-
-/**
- * Type a grantee IRI as `AgentOrRoleId` (Role → role id, else agent id) using
- * the same lookups the removed `ensurePeers` performed.
- */
-async function typeGrantee(session: AuthorizationAgent, iri: string): Promise<AgentOrRoleId> {
-  const agentRegistration = await AgentRegistry.findRegistration(
-    session.registrySet.hasAgentRegistry,
-    session.fetch,
-    iri
-  )
-  if (agentRegistration) return agentIdFromRegistration(agentRegistration)
-
-  if (
-    await RoleRegistry.containedIncludes(session.registrySet.hasRoleRegistry, session.fetch, iri)
-  ) {
-    return { id: iri, type: [INTEROP.Role] }
-  }
-  throw new Error('agent or role registration for the grantee does not exist')
 }
 
 // ---------------------------------------------------------------------------
@@ -145,82 +94,18 @@ export async function findAffectedGrantees(
 ): Promise<AgentOrRoleId[]> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  // registry-plane listing over the session's internal endpoint —
-  // `findAuthorizationsDelegatingFromOwner`'s match semantics: exclude
-  // authorizations where the peer is also the grantee, match
-  // `dataOwner === peer`, and — with no roleId — also All-scope
-  // authorizations (the updateDelegatedGrants path).
-  const transport = localSparqlTransport(session.sparqlEndpoint)
-  const iris = await listContained(transport, session.registrySet.hasAuthorizationRegistry.id)
-  const dataAuthorizations = (
-    await Promise.all(iris.map((iri) => getDataAuthorization(transport, iri)))
-  ).filter((dataAuthorization) => {
-    if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) return false
-    if (dataAuthorization.grantee === payload.peerId.id) return false
-    return (
-      dataAuthorization.dataOwner === payload.peerId.id ||
-      (!payload.roleId?.id && dataAuthorization.scopeOfAuthorization === INTEROP.All)
-    )
-  })
-  const grantees: AgentOrRoleId[] = []
-  const seen = new Set<string>()
-  for (const dataAuthorization of dataAuthorizations) {
-    const grantee = dataAuthorization.grantee
-    if (seen.has(grantee)) continue
-    seen.add(grantee)
-    grantees.push(await typeGrantee(session, grantee))
-  }
-  return grantees
+  // the match semantics live in the AA session method (relocated Phase 4)
+  return session.findAffectedGrantees(payload.peerId.id, payload.roleId?.id)
 }
 
-/**
- * How a role is used across authorizations (single scan).
- *
- * dataOwner matching mirrors `findAuthorizationsDelegatingFromOwner`:
- * dataOwner === roleId && grantee !== roleId (an authorization granted TO the
- * role itself is not also a dataOwner-authorization of that same role).
- * `usedAsDataOwner` is derived: `affectedGrantees.length > 0`.
- * The producer types each grantee (SocialAgentId | ApplicationId | RoleId).
- */
 export async function findRoleUsage(payload: {
   webId: SocialAgentId
   roleId: RoleId
 }): Promise<RoleUsage> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  const roleId = payload.roleId.id
-  let usedAsGrantee = false
-  const affectedGrantees: AgentOrRoleId[] = []
-  const authorizations: DataAuthorizationId[] = []
-  const seenAuthorizations = new Set<string>()
-  const seenGrantees = new Set<string>()
-  // registry-plane listing over the session's internal endpoint — the same
-  // `listContained` + `getDataAuthorization` read `findAuthorizationsForAgent`
-  // performs (docs/sparql.md, candidate 2). Non-DataAuthorizations
-  // (AdminAuthorizations share the authorization registry container) are
-  // type-filtered like the HTTP `dataAuthorizations` iterator did.
-  const transport = localSparqlTransport(session.sparqlEndpoint)
-  const iris = await listContained(transport, session.registrySet.hasAuthorizationRegistry.id)
-  const dataAuthorizations = await Promise.all(
-    iris.map((iri) => getDataAuthorization(transport, iri))
-  )
-  for (const dataAuthorization of dataAuthorizations) {
-    if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) continue
-    const grantee = dataAuthorization.grantee
-    const isGranteeMatch = grantee === roleId
-    const isDataOwnerMatch = dataAuthorization.dataOwner === roleId && grantee !== roleId
-    if (!isGranteeMatch && !isDataOwnerMatch) continue
-    if (!seenAuthorizations.has(dataAuthorization.id!)) {
-      seenAuthorizations.add(dataAuthorization.id!)
-      authorizations.push({ id: dataAuthorization.id, type: dataAuthorization.type })
-    }
-    if (isGranteeMatch) usedAsGrantee = true
-    if (isDataOwnerMatch && !seenGrantees.has(grantee)) {
-      seenGrantees.add(grantee)
-      affectedGrantees.push(await typeGrantee(session, grantee))
-    }
-  }
-  return { usedAsGrantee, affectedGrantees, authorizations }
+  // role usage scanning lives in the AA session method (relocated Phase 4)
+  return session.findRoleUsage(payload.roleId.id)
 }
 
 // ---------------------------------------------------------------------------
@@ -232,13 +117,10 @@ export async function getGrantees(payload: {
   webId: SocialAgentId
   grantee: AgentOrRoleId
 }): Promise<AgentId[]> {
-  if (payload.grantee.type.includes(INTEROP.Role)) {
-    const manager = buildSessionManager()
-    const session = await manager.getSession(payload.webId.id)
-    const role = await loadRole(payload.grantee.id, session.fetch)
-    return role.members.map((member) => ({ id: member, type: [INTEROP.SocialAgent] }))
-  }
-  return [payload.grantee as AgentId]
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  // role → members routing lives in the AA session method (relocated Phase 4)
+  return session.getGrantees(payload.grantee)
 }
 
 // ---------------------------------------------------------------------------
@@ -590,8 +472,7 @@ export async function removeDataGrantsFromRegistration(
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  await removeGrantsFromRegistration(
-    session,
+  await session.removeGrantsFromRegistration(
     payload.grantee.id,
     payload.grants.map((grant) => grant.id!)
   )

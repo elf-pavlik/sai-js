@@ -1,9 +1,15 @@
 import {
   AdminAuthorization,
   type AdminAuthorizationData,
+  type AgentId,
+  type AgentOrRoleId,
+  AgentRegistry,
+  type AgentRegistryData,
+  type ApplicationRegistrationData,
   AuthorizationRegistry,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
+  type DataAuthorizationId,
   type DataInstanceData,
   type DataRegistrationData,
   type FinalDataAuthorizationData,
@@ -12,11 +18,14 @@ import {
   type RoleData,
   type SocialAgentRegistrationData,
   type WebIdProfileData,
+  accessNeedGroup,
   addStatement,
+  getDataGrantIris,
   linkedIrisJsonLd,
   loadDataInstance,
   loadRegistrySet,
   loadWebIdProfile,
+  replaceDataGrants,
   replaceStatement,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -30,20 +39,27 @@ import {
 import { DataFactory } from 'n3'
 import {
   type AccessAuthorizationStructure,
+  type AuthorizationStructure,
   type GrantedAuthorization,
   type NestedDataAuthorizationData,
+  buildNestedDataAuthorizations,
   generateAuthorization,
+  matchesScope,
 } from './authorization'
 import { generateGrantsForAuthorization } from './grant-generation'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
+  findInheritingChildren,
   findSocialAgentInvitation as findInvitationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
   findRolesWithMember,
+  getApplicationRegistration,
   getDataAuthorization as getDataAuthorizationFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
+  getGrantsAuthority,
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
+  listApplicationRegistrations,
   listContained,
   listDataRegistrations,
   localSparqlTransport,
@@ -59,6 +75,21 @@ export interface AgentWithAccess {
   agent: string
   dataAuthorization: string
   accessMode: string[]
+}
+
+/** How a role is used across authorizations (findRoleUsage). */
+export interface RoleUsage {
+  usedAsGrantee: boolean
+  affectedGrantees: AgentOrRoleId[]
+  authorizations: DataAuthorizationId[]
+}
+
+/** Authority-relevant fields of a grant removed by a revocation. */
+export interface RevokedGrant {
+  iri: string
+  dataOwner: string
+  grantedBy: string
+  grantee: string
 }
 
 // TODO: duplicates ShareAuthorization from api-messages (sai-impl-service)
@@ -274,6 +305,258 @@ export class AuthorizationAgent {
     )
   }
 
+  // ──────────────────────────
+  // RPC-shaped authorization recording (Phase 4 — rules moved from components)
+  // ──────────────────────────
+
+  /**
+   * Record an authorization expressed in the RPC shape: builds the nested
+   * data authorizations (`buildNestedDataAuthorizations`), ensures an
+   * Application Registration exists for Application grantees, then records via
+   * `generateAuthorization`. `grantedBy` is the context owner (`ctx.webId` in
+   * org context); `registrySet` targets the context's registries (defaults to
+   * the session's own).
+   */
+  public async recordAuthorizationFromStructure(
+    structure: AuthorizationStructure,
+    grantedBy: string,
+    registrySet: RegistrySetData = this.registrySet,
+    extendIfExists = false
+  ): Promise<FinalDataAuthorizationData[]> {
+    const accessStructure: AccessAuthorizationStructure = structure.granted
+      ? {
+          grantee: structure.grantee,
+          hasAccessNeedGroup: structure.hasAccessNeedGroup,
+          granted: true,
+          dataAuthorizations: buildNestedDataAuthorizations(
+            structure,
+            await accessNeedGroup(structure.hasAccessNeedGroup!, this.fetch),
+            grantedBy
+          ),
+        }
+      : {
+          grantee: structure.grantee,
+          hasAccessNeedGroup: structure.hasAccessNeedGroup,
+          granted: false,
+        }
+
+    if (structure.granted && structure.agentType === INTEROP.Application) {
+      await this.ensureApplicationRegistration(
+        registrySet.hasAgentRegistry,
+        grantedBy,
+        structure.grantee
+      )
+    }
+
+    return generateAuthorization(
+      accessStructure,
+      grantedBy,
+      registrySet.hasAuthorizationRegistry,
+      { fetch: this.fetch, randomUUID: this.randomUUID },
+      extendIfExists,
+      this.sparqlEndpoint
+    )
+  }
+
+  private async ensureApplicationRegistration(
+    agentRegistry: AgentRegistryData,
+    creatorAgent: string,
+    grantee: string
+  ): Promise<void> {
+    const existing = await AgentRegistry.findApplicationRegistration(
+      agentRegistry,
+      this.fetch,
+      grantee
+    )
+    if (existing) return
+    await AgentRegistry.addApplicationRegistration(
+      agentRegistry,
+      { fetch: this.fetch, randomUUID: this.randomUUID },
+      { agent: creatorAgent, client: this.agentId },
+      grantee
+    )
+  }
+
+  // ──────────────────────────
+  // Grant/role match semantics (Phase 4 — moved from temporal activities)
+  // ──────────────────────────
+
+  /**
+   * The grantees whose authorizations cover `peerId`: authorizations where the
+   * peer is the data owner (delegation) and — without `roleId` — All-scope
+   * authorizations; grantees equal to the peer are excluded. Deduped and typed
+   * (may include roles).
+   */
+  public async findAffectedGrantees(peerId: string, roleId?: string): Promise<AgentOrRoleId[]> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const iris = await listContained(transport, this.registrySet.hasAuthorizationRegistry.id)
+    const dataAuthorizations = (
+      await Promise.all(iris.map((iri) => getDataAuthorizationFromSparql(transport, iri)))
+    ).filter((dataAuthorization) => {
+      if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) return false
+      if (dataAuthorization.grantee === peerId) return false
+      return (
+        dataAuthorization.dataOwner === peerId ||
+        (!roleId && dataAuthorization.scopeOfAuthorization === INTEROP.All)
+      )
+    })
+    const grantees: AgentOrRoleId[] = []
+    const seen = new Set<string>()
+    for (const dataAuthorization of dataAuthorizations) {
+      const grantee = dataAuthorization.grantee
+      if (seen.has(grantee)) continue
+      seen.add(grantee)
+      grantees.push(await this.typeGrantee(grantee))
+    }
+    return grantees
+  }
+
+  /** How a role is used across authorizations (single scan). */
+  public async findRoleUsage(roleId: string): Promise<RoleUsage> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    let usedAsGrantee = false
+    const affectedGrantees: AgentOrRoleId[] = []
+    const authorizations: DataAuthorizationId[] = []
+    const seenAuthorizations = new Set<string>()
+    const seenGrantees = new Set<string>()
+    const iris = await listContained(transport, this.registrySet.hasAuthorizationRegistry.id)
+    const dataAuthorizations = await Promise.all(
+      iris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
+    )
+    for (const dataAuthorization of dataAuthorizations) {
+      if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) continue
+      const grantee = dataAuthorization.grantee
+      const isGranteeMatch = grantee === roleId
+      const isDataOwnerMatch = dataAuthorization.dataOwner === roleId && grantee !== roleId
+      if (!isGranteeMatch && !isDataOwnerMatch) continue
+      if (!seenAuthorizations.has(dataAuthorization.id!)) {
+        seenAuthorizations.add(dataAuthorization.id!)
+        authorizations.push({ id: dataAuthorization.id, type: dataAuthorization.type })
+      }
+      if (isGranteeMatch) usedAsGrantee = true
+      if (isDataOwnerMatch && !seenGrantees.has(grantee)) {
+        seenGrantees.add(grantee)
+        affectedGrantees.push(await this.typeGrantee(grantee))
+      }
+    }
+    return { usedAsGrantee, affectedGrantees, authorizations }
+  }
+
+  /** Route a grantee by type: Role → its members, agent types → as-is. */
+  public async getGrantees(grantee: AgentOrRoleId): Promise<AgentId[]> {
+    if (grantee.type.includes(INTEROP.Role)) {
+      const role = await this.findRole(grantee.id)
+      if (!role) throw new Error(`role not found: ${grantee.id}`)
+      return role.members.map((member) => ({ id: member, type: [INTEROP.SocialAgent] }))
+    }
+    return [grantee as AgentId]
+  }
+
+  /**
+   * Type an agent registration as an AgentId (Application vs SocialAgent).
+   */
+  private agentIdFromRegistration(
+    registration: ApplicationRegistrationData | SocialAgentRegistrationData
+  ): AgentId {
+    return {
+      id: registration.registeredAgent,
+      type: registration.type.includes(INTEROP.ApplicationRegistration)
+        ? [INTEROP.Application]
+        : [INTEROP.SocialAgent],
+    }
+  }
+
+  /**
+   * Type a grantee IRI as `AgentOrRoleId` (agent via the agent registry —
+   * social and application registrations — over the registry plane, else role
+   * via `getRole`).
+   */
+  private async typeGrantee(iri: string): Promise<AgentOrRoleId> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const socialIris = await listContained(transport, this.registrySet.hasAgentRegistry.id)
+    for (const registrationIri of socialIris) {
+      const registration = await getRegistrationFromSparql(transport, registrationIri)
+      if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)
+    }
+    const applicationIris = await listApplicationRegistrations(
+      transport,
+      this.registrySet.hasAgentRegistry.id
+    )
+    for (const registrationIri of applicationIris) {
+      const registration = await getApplicationRegistration(transport, registrationIri)
+      if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)
+    }
+    const role = await this.findRole(iri)
+    if (role) return { id: iri, type: [INTEROP.Role] }
+    throw new Error('agent or role registration for the grantee does not exist')
+  }
+
+  // ──────────────────────────
+  // Revocation core (Phase 4 — moved from GrantRevocationHandler)
+  // ──────────────────────────
+
+  /**
+   * Validate and compute the revocation closure for the given grants: all must
+   * share one data owner, the requester must be each grant's grantor
+   * (`grantedBy`) or the data owner, and the listed grants plus their
+   * inheriting children (fixpoint over `inheritsFromGrant`) are returned.
+   * Already-removed grants are absent (idempotent tolerance).
+   */
+  public async revokeGrants(grants: string[], requesterWebId?: string): Promise<RevokedGrant[]> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const loaded = await getGrantsAuthority(transport, grants)
+
+    const dataOwners = new Set([...loaded.values()].map((grant) => grant.dataOwner))
+    if (dataOwners.size > 1) {
+      throw new Error('all grants must have the same dataOwner')
+    }
+
+    // authority per grant, before any deletion: grantor (grantedBy) or owner
+    for (const grant of loaded.values()) {
+      const isGrantor = requesterWebId === grant.grantedBy
+      const isDataOwner = requesterWebId === grant.dataOwner
+      if (!isGrantor && !isDataOwner) {
+        throw new Error('requester is neither grantor nor the data owner')
+      }
+    }
+
+    // dependent closure: the listed grants plus their inheriting children
+    // (fixpoint over inheritsFromGrant — one level today, recursive-ready)
+    const closure = new Map<string, RevokedGrant>()
+    for (const [iri, grant] of loaded) closure.set(iri, { iri, ...grant })
+    while (true) {
+      const children = await findInheritingChildren(transport, [...closure.keys()])
+      const fresh = children.filter((child) => !closure.has(child))
+      if (fresh.length === 0) break
+      for (const [iri, grant] of await getGrantsAuthority(transport, fresh)) {
+        closure.set(iri, { iri, ...grant })
+      }
+    }
+    return [...closure.values()]
+  }
+
+  /**
+   * Clear the given grant IRIs from the grantee's registration `hasDataGrant`
+   * links — the requester-hop projection cleanup (formerly
+   * `util/registrations.ts removeGrantsFromRegistration`). No-op when the
+   * grantee has no registration.
+   */
+  public async removeGrantsFromRegistration(grantee: string, grants: string[]): Promise<void> {
+    const registration = await AgentRegistry.findRegistration(
+      this.registrySet.hasAgentRegistry,
+      this.fetch,
+      grantee
+    )
+    if (!registration) return // nothing to clear — the projection is already empty
+    const revoked = new Set(grants)
+    const current = await getDataGrantIris(registration)
+    await replaceDataGrants(
+      registration,
+      this.fetch,
+      current.filter((iri) => !revoked.has(iri))
+    )
+  }
+
   public async generateDataGrants(
     dataAuthorizationIris: string[],
     grantee: string
@@ -446,34 +729,8 @@ export class AuthorizationAgent {
     )
     for (const dataAuthorization of authorizations) {
       if (dataAuthorization.registeredShapeTree !== shapeTree) continue
-
-      switch (dataAuthorization.scopeOfAuthorization) {
-        case INTEROP.All:
-          agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
-          break
-        case INTEROP.AllFromAgent:
-          // TODO: rethink for delegated sharing, e.g. Alice shares project owned by ACME
-          if (dataAuthorization.dataOwner === this.webId) {
-            agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
-          }
-          break
-        case INTEROP.AllFromRegistry:
-          if (dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id) {
-            agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
-          }
-          break
-        case INTEROP.SelectedFromRegistry:
-          if (
-            dataAuthorization.hasDataRegistration === dataInstance.dataRegistration!.id &&
-            (dataAuthorization.hasDataInstance ?? []).includes(dataInstanceIri)
-          ) {
-            agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
-          }
-          break
-        default:
-          throw new Error(
-            `encountered incorect Data Authorization with scope:${dataAuthorization.scopeOfAuthorization}`
-          )
+      if (matchesScope(dataAuthorization, dataInstance, this.webId)) {
+        agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
       }
     }
     return agentsWithAccess

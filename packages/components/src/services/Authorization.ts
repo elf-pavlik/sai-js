@@ -1,7 +1,7 @@
 import type {
-  AccessAuthorizationStructure,
   AuthorizationAgent,
-  NestedDataAuthorizationData,
+  AuthorizationStructure,
+  DataAuthorizationStructure,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessNeedData,
@@ -9,8 +9,6 @@ import {
   AccessNeedGroup as AccessNeedGroupModule,
   AccessNeed as AccessNeedModule,
   ActivityRegistry,
-  AgentRegistry,
-  type DataAuthorizationData,
   type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
@@ -26,7 +24,6 @@ import {
   AgentType,
   type Authorization,
   type AuthorizationData,
-  type GrantedAuthorization,
   IRI,
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
@@ -254,100 +251,37 @@ export const getDescriptions = async (
   }
 }
 
-// currently the spec only anticipates one level of inheritance
-// since we still don't have IRIs at this point, we need to use nesting to represent inheritance
-// TODO validate all scopes
-function buildDataAuthorizations(
-  authorization: S.Schema.Type<typeof GrantedAuthorization>,
-  accessNeedGroup: AccessNeedGroupData,
-  grantedBy: string
-): NestedDataAuthorizationData[] {
-  const structuredDataAuthorizations = authorization.dataAuthorizations.map((dataAuthorization) => {
-    const accessNeed = accessNeedGroup.accessNeeds
-      .flatMap((need) => [need, ...(need.children ?? [])])
-      .find((need) => need.id === dataAuthorization.accessNeed)
-    if (!accessNeed) {
-      throw new Error(`missing access need: ${dataAuthorization.accessNeed}`)
-    }
-    const saiReady: DataAuthorizationData = {
-      type: [INTEROP.DataAuthorization],
-      satisfiesAccessNeed: accessNeed.id,
-      grantee: authorization.grantee,
-      grantedBy,
-      registeredShapeTree: accessNeed.registeredShapeTree,
-      scopeOfAuthorization: INTEROP[dataAuthorization.scope],
-      accessMode: accessNeed!.accessMode,
-    }
-    if (
-      saiReady.scopeOfAuthorization !== INTEROP.All &&
-      saiReady.scopeOfAuthorization !== INTEROP.Inherited
-    ) {
-      saiReady.dataOwner = dataAuthorization.dataOwner
-    }
-    if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry) {
-      saiReady.hasDataRegistration = dataAuthorization.dataRegistration
-    } else if (saiReady.scopeOfAuthorization === INTEROP.SelectedFromRegistry) {
-      saiReady.hasDataRegistration = dataAuthorization.dataRegistration
-      saiReady.hasDataInstance = dataAuthorization.dataInstances as unknown as string[]
-    }
-    return saiReady
-  })
-  const parents: NestedDataAuthorizationData[] = []
-  const children: DataAuthorizationData[] = []
-  for (const structuredDataAuthorization of structuredDataAuthorizations) {
-    if (structuredDataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
-      children.push(structuredDataAuthorization)
-    } else {
-      parents.push(structuredDataAuthorization)
-    }
-  }
-  return parents.map((parentDataAuthorization) => {
-    // add children for each parent
-    const inheritingDataAuthorizations = children
-      .filter((childDataAuthorization) => {
-        const accessNeed = accessNeedGroup.accessNeeds
-          .flatMap((need) => [need, ...(need.children ?? [])])
-          .find((need) => need.id === childDataAuthorization.satisfiesAccessNeed)!
-
-        return accessNeed.inheritsFromNeed === parentDataAuthorization.satisfiesAccessNeed
-      })
-      .map((child) => ({ ...child, dataOwner: parentDataAuthorization.dataOwner }))
-    if (inheritingDataAuthorizations.length) {
-      return { ...parentDataAuthorization, children: inheritingDataAuthorizations }
-    }
-    return parentDataAuthorization
-  })
-}
-
 export const recordAuthorization = async (
   ctx: ResolvedContext,
   authorization: S.Schema.Type<typeof Authorization>
 ): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
-  let structure: AccessAuthorizationStructure
-  if (authorization.granted) {
-    const accessNeedGroup = await resolveAccessNeedGroup(
-      authorization.accessNeedGroup,
-      ctx.session.fetch
-    )
-    structure = {
-      grantee: authorization.grantee,
-      hasAccessNeedGroup: authorization.accessNeedGroup,
-      dataAuthorizations: buildDataAuthorizations(authorization, accessNeedGroup, ctx.webId),
-      granted: true,
-    }
-  } else {
-    structure = {
-      grantee: IRI.make(authorization.grantee),
-      hasAccessNeedGroup: authorization.accessNeedGroup,
-      granted: false,
-    }
+  // thin adapter: the RPC shape → the AA's AuthorizationStructure (field
+  // copies); the SAI rules (scope mapping, dataOwner assignment, inheritance
+  // wiring, ensure-Application-Registration) live in the AA session method
+  // recordAuthorizationFromStructure
+  const structure: AuthorizationStructure = {
+    grantee: authorization.grantee,
+    agentType: authorization.agentType,
+    hasAccessNeedGroup: authorization.accessNeedGroup,
+    granted: authorization.granted,
+    dataAuthorizations: authorization.granted
+      ? (authorization.dataAuthorizations.map((dataAuthorization) => ({
+          accessNeed: dataAuthorization.accessNeed,
+          // adapter maps the RPC short scope name to the interop IRI
+          scopeOfAuthorization: INTEROP[dataAuthorization.scope],
+          dataOwner: dataAuthorization.dataOwner,
+          hasDataRegistration: dataAuthorization.dataRegistration,
+          hasDataInstance: dataAuthorization.dataInstances
+            ? [...dataAuthorization.dataInstances]
+            : undefined,
+        })) satisfies DataAuthorizationStructure[])
+      : undefined,
   }
-
-  // NOTE: `recordAccessAuthorization` writes into the session's own (user's)
-  // AuthorizationRegistry — in an org context (`authorizeApp` there is
-  // unexercised) it would target the user, not the context; out of the
-  // phase-3 exercised scope, tracked as debt.
-  const recorded = await ctx.session.recordAccessAuthorization(structure)
+  const recorded = await ctx.session.recordAuthorizationFromStructure(
+    structure,
+    ctx.webId,
+    ctx.registrySet
+  )
   const response: S.Schema.Type<typeof AccessAuthorization> = recorded.map((dataAuthorization) => ({
     id: IRI.make(dataAuthorization.id),
     grantee: IRI.make(dataAuthorization.grantee),
@@ -376,24 +310,6 @@ export const recordAuthorization = async (
       : undefined,
   }))
 
-  if (authorization.agentType === AgentType.Application) {
-    // we need to ensure that Application Registration exists before generating Access Grant!
-    // TODO: extract
-    if (
-      !(await AgentRegistry.findApplicationRegistration(
-        ctx.registrySet.hasAgentRegistry,
-        ctx.session.fetch,
-        authorization.grantee
-      ))
-    ) {
-      await AgentRegistry.addApplicationRegistration(
-        ctx.registrySet.hasAgentRegistry,
-        { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-        { agent: ctx.webId, client: ctx.session.agentId },
-        authorization.grantee
-      )
-    }
-  }
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   await ActivityRegistry.createActivity(

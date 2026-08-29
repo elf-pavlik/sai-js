@@ -1,10 +1,10 @@
 # Reorganize sai-js boundaries — data-model sheds logic to `application`, `authorization-agent`, and components adapters
 
-> **Status:** 🔶 partial — **Phases 1–3 are done and verified** (full build +
-> package vitest green after every phase; the `/test` integration suite is
-> green on a fresh run — the only failures seen mid-Phase-3 were Temporal
-> retries from earlier runs against stale dists, cleared once the workspace
-> dists were rebuilt consistently); Phase 4 is design only. Four behavior-preserving phases, each
+> **Status:** ✅ done — **all four phases implemented and verified**: full build +
+> package vitest green after every phase, and the `/test` integration suite
+> green on fresh runs (the only mid-Phase-3 failure noise was Temporal retries
+> from earlier runs against stale dists, not code). Remaining itemized work is
+> tracked in §9 (deferred/deviated items), not in this plan's phases. Four behavior-preserving phases, each
 > gated by **full build + all package tests + the `/test` integration suite**:
 > **Phase 1** removes the factories (and folds in the `iri` → `id` parameter
 > rename); **Phase 2** extracts application-specific logic from data-model;
@@ -352,7 +352,68 @@ As planned, with these deviations:
   `agent-registration.getDataGrants`. `DataAuthorization.fromJsonLd`/`load`/`toJsonLd`
   **stay** in data-model (framing pattern consistency; AA's `sparql.ts` keeps using them).
 
-### Phase 4 — move SAI domain/spec logic from components → AA
+### Phase 4 — move SAI domain/spec logic from components → AA — ✅ done (package suites)
+
+> **Implementation notes (what actually landed):**
+>
+> - **Scope-match rule** → `matchesScope(authorization, resource, ownerWebId)` in
+>   `authorization.ts`; `AA.findAgentsWithAccess` and components'
+>   `agentsWithAccessMatching`/`orgAgentsWithAccess` (thin wrapper) use it — the
+>   duplicate switch is gone.
+> - **Authorization recording** → `AuthorizationStructure`/
+>   `DataAuthorizationStructure` + `buildNestedDataAuthorizations` (`dataOwner`
+>   assignment, one-level inheritance) + session method
+>   `recordAuthorizationFromStructure(structure, grantedBy, registrySet?)` which
+>   also does the ensure-Application-Registration step. components'
+>   `recordAuthorization` is now a **mapping** adapter — it converts the RPC
+>   short scope name to the interop IRI and renames
+>   `dataRegistration`/`dataInstances` → `hasDataRegistration`/`hasDataInstance`
+>   (boundary correction after review: `DataAuthorizationStructure` is
+>   domain-shaped — scope is the interop IRI — so no RPC conventions leak into
+>   the AA; the old `INTEROP[scope]` mapping + RPC field naming lived in the AA
+>   structure and were moved to the adapter). `buildDataAuthorizations` deleted.
+>   The `grantedBy`/`registrySet` params also fix the org-context debt
+>   noted in the old component code (the session now targets the context
+>   registry set).
+> - **ShareAuthorization cast** → explicit `ShareDataInstanceStructure` mapper
+>   (field copies) in `shareResource` — the `as unknown as` cast is gone.
+> - **Temporal match semantics** → session methods `findAffectedGrantees`,
+>   `findRoleUsage`, `getGrantees` (+ private plane-based `typeGrantee`);
+>   activities are thin wrappers; `typeGrantee` now types grantees over the
+>   registry plane (listContained + registrations + `findRole`) instead of the
+>   HTTP `AgentRegistry.findRegistration`/`RoleRegistry.containedIncludes`.
+> - **Delegation/revocation rules** → AA `sparql.ts` gained
+>   `getGrantsAuthority`, `findInheritingChildren`, `findDelegableGrant`
+>   (the `validateDelegable` query); revocation validation + closure became the
+>   session method `revokeGrants(grants, requesterWebId)`. `GrantRevocationHandler`
+>   keeps the HTTP envelope, HTTP-error mapping, and Temporal deletion glue
+>   (with a minimal `SessionAcquirer` interface for the owner session);
+>   `GrantIssuanceHandler.validateDelegable` uses `findDelegableGrant`.
+> - **Instance enumeration** → `dataInstanceIrisForGrant(grant, transport, fetch)`
+>   in `grant-generation.ts` (AllFromRegistry via `getDataRegistration().contains`,
+>   Selected via `hasDataInstance`, Inherited via the parent + data-plane child
+>   walks) — components' DataRegistry uses it; **`Grant.getDataInstanceIterator`
+>   was removed from data-model** (the wrinkle-2 TODO resolves; the application
+>   package keeps its own copy — it has no AA dependency).
+> - **`removeGrantsFromRegistration`** → session method; components'
+>   `util/registrations.ts` deleted.
+> - Tests: components `grants.test.ts` rewritten to exercise the session
+>   methods through the activity wrappers with a real `AuthorizationAgent` over
+>   the sparql mock (+3 AA tests for `revokeGrants`/`dataInstanceIrisForGrant`).
+> - **Deviations (stayed in components, per the keep-list):** the org-context
+>   registry reads + UI shaping in `services/DataRegistry.ts` (grant indexing,
+>   registry/instance listings), role/registration listings, `getDescriptions`
+>   shaping, `formatAccessNeed` — they run over the context transport
+>   (`queries/org.ts`) and produce display shapes; the activity-outbox writes
+>   (notification/workflow triggers); the admin-marker reciprocal read in
+>   `buildSocialAgentProfile` (org-context transport); `getExistingGrants`/
+>   `replaceDataGrantsOnRegistration` still use data-model HTTP
+>   `AgentRegistry.findRegistration`.
+> - Verification: tsc clean (all 4 packages); vitest green (data-model 142, AA
+>   16, application 7, components 30); rollup builds for data-model + AA; biome
+>   clean on touched files.
+> - Gate note: `/test` integration green (user-side) — the revocation endpoint,
+>   grant flows, and RPC record/share paths all pass on the moved code.
 
 Components keeps: CSS handlers + their HTTP layers, internal storage
 (PostgresKV/S3/Hybrid accessors, stores), the RPC API (`ApiHandler`, router —
@@ -420,8 +481,12 @@ Moves into AA session methods (POJO in/out):
   (chain ~380 lines + admin block + reciprocal + dead listings) and ~330 added
   to the AA (`grant-generation.ts` + session methods + 9 new session tests).
   The whole `/test` authorization/delegation machinery exercises it.
-- **Phase 4:** largest regression surface — every `/test` service, org-context,
-  grant/role workflow, and delegation/revocation flow exercises the moved code.
+- **Phase 4 (done):** 20 files, ~934 insertions / ~667 deletions — the largest
+  semantic move: ~350 lines of rules/read logic into AA (authorization
+  structure builder, scope predicate, match semantics, revocation core,
+  delegation query, plane iterator, session methods) with components trimmed
+  to adapters/wrappers. `/test` green — every service, org-context, grant/role
+  workflow, and delegation/revocation flow exercises the moved code.
 
 ## 7. Verification (per phase)
 
@@ -433,9 +498,10 @@ Moves into AA session methods (POJO in/out):
   `services.test.ts` (source + delegated grants, role/delegation scopes),
   admin + reciprocal flows (`org-context.test.ts`, admin workflows) — green
   on a fresh run.
-- Phase 4: `/test` services suites, `packages/components/test`
-  (`grants.test.ts`, `peer-proxy.test.ts`), org-context RPC flows,
-  delegation-endpoint + revocation tests.
+- Phase 4: ✅ package suites (`packages/components/test` rewritten for the
+  session-method wrappers, AA 16 incl. revoke/iterator tests) + `/test`
+  services suites, org-context RPC flows, delegation-endpoint + revocation
+  tests — green.
 
 ## 8. Out of scope
 
@@ -447,3 +513,30 @@ Moves into AA session methods (POJO in/out):
 - The Activity-Registry outbox stays in data-model (event infrastructure,
   tracked by `docs/plans/events.md`).
 - Any data-model restructuring beyond the Phase 3 orphan cleanup.
+
+## 9. Complete — deferred/deviated items (future work, not this plan's phases)
+
+The four phases are implemented and verified; the following were deliberately
+left in place during execution and remain potential follow-ups:
+
+- **Org-context registry reads + UI shaping stay in components**:
+  `services/DataRegistry.ts` (grant indexing, registry/instance listings),
+  role/registration listings, `getDescriptions` shaping, `formatAccessNeed` —
+  they run over the components context transport (`queries/org.ts`) and
+  produce display shapes. If the aim becomes "all registry-plane queries in
+  the AA", these migrate with a transport parameter.
+- **Admin-marker reciprocal read** stays in `buildSocialAgentProfile`
+  (org-context transport); the marker *rule* is data-model `getAdminGrantIris`.
+- **`AgentRegistry.findRegistration` (HTTP) still used** by
+  `getExistingGrants`/`replaceDataGrantsOnRegistration` and
+  `services`'s `findRegistration`-style lookups — a session
+  `findRegistration` over the plane would replace it.
+- **Admin reads stayed HTTP** (`linkedIrisJsonLd` + framing) — switching
+  `adminAuthorizations`/`findAdminAuthorization` to the SPARQL plane is a
+  possible clean-up.
+- **`ShareDataInstanceStructure`** remains the AA's domain mirror of
+  `api-messages` `ShareAuthorization` (documented duplicate).
+- **Biome baseline**: the repo has ~208 pre-existing diagnostics; the gate is
+  build + tests, changed files are biome-clean.
+- **Application package** keeps its own `getDataInstanceIterator` copy
+  (no AA dependency); data-model's copy was removed in Phase 4.

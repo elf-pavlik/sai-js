@@ -1,9 +1,12 @@
 import {
+  type AccessNeedGroupData,
   AuthorizationRegistry,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
+  type DataInstanceData,
   type DataModelDependencies,
   type FinalDataAuthorizationData,
+  accessNeedGroup,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
 import { INTEROP, type WhatwgFetch, putJsonLd } from '@janeirodigital/interop-utils'
@@ -34,6 +37,129 @@ export interface DeniedAuthorization extends BaseAuthorization {
 }
 
 export type AccessAuthorizationStructure = GrantedAuthorization | DeniedAuthorization
+
+/**
+ * Whether a data authorization grants access to the given data instance — the
+ * shared scope-match rule (formerly duplicated between the session's
+ * `findAgentsWithAccess` and components' `agentsWithAccessMatching`).
+ */
+export function matchesScope(
+  authorization: DataAuthorizationData,
+  resource: DataInstanceData,
+  ownerWebId: string
+): boolean {
+  switch (authorization.scopeOfAuthorization) {
+    case INTEROP.All:
+      return true
+    case INTEROP.AllFromAgent:
+      return authorization.dataOwner === ownerWebId
+    case INTEROP.AllFromRegistry:
+      return authorization.hasDataRegistration === resource.dataRegistration?.id
+    case INTEROP.SelectedFromRegistry:
+      return (
+        authorization.hasDataRegistration === resource.dataRegistration?.id &&
+        (authorization.hasDataInstance ?? []).includes(resource.id)
+      )
+    default:
+      throw new Error(
+        `encountered incorrect Data Authorization with scope:${authorization.scopeOfAuthorization}`
+      )
+  }
+}
+
+// ──────────────────────────
+// Authorization structure (domain-shaped: the components adapter maps the
+// api-messages `Authorization` — scope short-names and RPC field naming — to
+// this; the rules below build the NestedDataAuthorizationData)
+// ──────────────────────────
+
+/** One data authorization of an authorization (scope is the interop IRI). */
+export type DataAuthorizationStructure = {
+  accessNeed: string
+  scopeOfAuthorization: string
+  dataOwner?: string
+  hasDataRegistration?: string
+  hasDataInstance?: string[]
+}
+
+/** RPC-shaped authorization consumed by `recordAuthorizationFromStructure`. */
+export type AuthorizationStructure = {
+  grantee: string
+  agentType: string
+  hasAccessNeedGroup?: string
+  granted: boolean
+  dataAuthorizations?: DataAuthorizationStructure[]
+}
+
+/**
+ * Build the nested data authorizations for a granted authorization structure:
+ * the SAI rules — scope → INTEROP mapping, `dataOwner` assignment (only for
+ * scopes below All/Inherited), one-level inheritance wiring via
+ * `inheritsFromNeed` — formerly components `buildDataAuthorizations`.
+ */
+export function buildNestedDataAuthorizations(
+  structure: AuthorizationStructure,
+  accessNeedGroup: AccessNeedGroupData,
+  grantedBy: string
+): NestedDataAuthorizationData[] {
+  const structuredDataAuthorizations = (structure.dataAuthorizations ?? []).map(
+    (dataAuthorization) => {
+      const accessNeed = accessNeedGroup.accessNeeds
+        .flatMap((need) => [need, ...(need.children ?? [])])
+        .find((need) => need.id === dataAuthorization.accessNeed)
+      if (!accessNeed) {
+        throw new Error(`missing access need: ${dataAuthorization.accessNeed}`)
+      }
+      const saiReady: DataAuthorizationData = {
+        type: [INTEROP.DataAuthorization],
+        satisfiesAccessNeed: accessNeed.id,
+        grantee: structure.grantee,
+        grantedBy,
+        registeredShapeTree: accessNeed.registeredShapeTree,
+        scopeOfAuthorization: dataAuthorization.scopeOfAuthorization,
+        accessMode: accessNeed.accessMode,
+      }
+      if (
+        saiReady.scopeOfAuthorization !== INTEROP.All &&
+        saiReady.scopeOfAuthorization !== INTEROP.Inherited
+      ) {
+        saiReady.dataOwner = dataAuthorization.dataOwner
+      }
+      if (saiReady.scopeOfAuthorization === INTEROP.AllFromRegistry) {
+        saiReady.hasDataRegistration = dataAuthorization.hasDataRegistration
+      } else if (saiReady.scopeOfAuthorization === INTEROP.SelectedFromRegistry) {
+        saiReady.hasDataRegistration = dataAuthorization.hasDataRegistration
+        saiReady.hasDataInstance = dataAuthorization.hasDataInstance
+      }
+      return saiReady
+    }
+  )
+  const parents: NestedDataAuthorizationData[] = []
+  const children: DataAuthorizationData[] = []
+  for (const structuredDataAuthorization of structuredDataAuthorizations) {
+    if (structuredDataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
+      children.push(structuredDataAuthorization)
+    } else {
+      parents.push(structuredDataAuthorization)
+    }
+  }
+  return parents.map((parentDataAuthorization) => {
+    // add children for each parent
+    const inheritingDataAuthorizations = children
+      .filter((childDataAuthorization) => {
+        const accessNeed = accessNeedGroup.accessNeeds
+          .flatMap((need) => [need, ...(need.children ?? [])])
+          .find((need) => need.id === childDataAuthorization.satisfiesAccessNeed)!
+
+        return accessNeed.inheritsFromNeed === parentDataAuthorization.satisfiesAccessNeed
+      })
+      .map((child) => ({ ...child, dataOwner: parentDataAuthorization.dataOwner }))
+    if (inheritingDataAuthorizations.length) {
+      return { ...parentDataAuthorization, children: inheritingDataAuthorizations }
+    }
+    return parentDataAuthorization
+  })
+}
 
 /**
  * Build FinalDataAuthorizationData POJOs, assigning IRIs from the authorization

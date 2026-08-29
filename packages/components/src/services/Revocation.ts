@@ -1,6 +1,5 @@
 import type { IRI } from '@janeirodigital/sai-api-messages'
 import { GrantRevocationHandler } from '../GrantRevocationHandler.js'
-import { removeGrantsFromRegistration } from '../util/registrations.js'
 import type { ResolvedContext } from './Context.js'
 
 /**
@@ -24,7 +23,10 @@ export const revokeGrants = async (
   sparqlEndpoint: string,
   grants: readonly IRI[]
 ): Promise<readonly IRI[]> => {
-  const handler = new GrantRevocationHandler(sparqlEndpoint)
+  // the owner is the context — the session manager shim answers with it
+  const handler = new GrantRevocationHandler(sparqlEndpoint, {
+    getSession: async () => ctx.session,
+  })
   const revoked = await handler.revokeGrants(grants.map(String), ctx.webId)
 
   // clear the requester's registration projection for the removed grants it
@@ -37,7 +39,7 @@ export const revokeGrants = async (
     byGrantee.set(grant.grantee, list)
   }
   for (const [grantee, iris] of byGrantee) {
-    await removeGrantsFromRegistration(ctx.session, grantee, iris)
+    await ctx.session.removeGrantsFromRegistration(grantee, iris)
   }
 
   return grants

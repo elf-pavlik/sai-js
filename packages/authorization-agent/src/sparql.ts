@@ -397,3 +397,131 @@ export async function getRole(
     members: node.members ?? [],
   }
 }
+
+// ──────────────────────────
+// Grant reads for delegation/revocation (Phase 4 — moved from handlers)
+// ──────────────────────────
+
+/** Authority-relevant fields of grants loaded from the registry. */
+export type GrantAuthority = {
+  dataOwner: string
+  grantedBy: string
+  grantee: string
+}
+
+/**
+ * Load the authority-relevant fields of the given grants (iri → binding).
+ * Grants that do not exist (already removed) are absent from the result.
+ */
+export async function getGrantsAuthority(
+  transport: SparqlTransport,
+  iris: string[]
+): Promise<Map<string, GrantAuthority>> {
+  if (iris.length === 0) return new Map()
+  const values = iris.map((iri) => `<${iri}>`).join(' ')
+  const bindings = await transport.fetchBindings(
+    `SELECT ?grant ?dataOwner ?grantedBy ?grantee WHERE {
+    GRAPH ?g {
+      ?grant
+        <${INTEROP.dataOwner}> ?dataOwner;
+        <${INTEROP.grantedBy}> ?grantedBy;
+        <${INTEROP.grantee}> ?grantee .
+    }
+    VALUES ?grant { ${values} }
+  }`
+  )
+  const result = new Map<string, GrantAuthority>()
+  for (const binding of bindings) {
+    result.set(binding.grant.value, {
+      dataOwner: binding.dataOwner.value,
+      grantedBy: binding.grantedBy.value,
+      grantee: binding.grantee.value,
+    })
+  }
+  return result
+}
+
+/**
+ * All grants in the registry whose `inheritsFromGrant` points at any of the
+ * given parents.
+ */
+export async function findInheritingChildren(
+  transport: SparqlTransport,
+  parents: string[]
+): Promise<string[]> {
+  if (parents.length === 0) return []
+  const values = parents.map((iri) => `<${iri}>`).join(' ')
+  const bindings = await transport.fetchBindings(
+    `SELECT ?child WHERE {
+    GRAPH ?g {
+      ?child <${INTEROP.inheritsFromGrant}> ?parent .
+    }
+    VALUES ?parent { ${values} }
+  }`
+  )
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
+ * Whether an upstream grant covering the given (delegated) grant exists in the
+ * data owner's registry — `requester === grantedBy` and the grant's
+ * registration/modes/scope/instances are covered by a source grant
+ * (moved from GrantIssuanceHandler.validateDelegable).
+ */
+export async function findDelegableGrant(
+  transport: SparqlTransport,
+  grant: GrantData
+): Promise<boolean> {
+  const accessModes = grant.accessMode.map((m) => `<${m}>`).join(' ')
+
+  const requiredInstances = grant.hasDataInstance?.length
+    ? grant.hasDataInstance.map((i) => `<${i}>`).join(' ')
+    : ''
+
+  const selectedScopeConstraint = requiredInstances
+    ? `
+          FILTER NOT EXISTS {
+            VALUES ?required { ${requiredInstances} }
+            FILTER NOT EXISTS {
+              ?s <${INTEROP.hasDataInstance}> ?required .
+            }
+          }
+      `
+    : ''
+
+  const scopeBlock =
+    grant.scopeOfGrant === INTEROP.SelectedFromRegistry
+      ? `
+        {
+          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.AllFromRegistry}> .
+        }
+        UNION
+        {
+          ?s <${INTEROP.scopeOfGrant}> <${INTEROP.SelectedFromRegistry}> .
+          ${selectedScopeConstraint}
+        }
+      `
+      : `
+        ?s <${INTEROP.scopeOfGrant}> <${grant.scopeOfGrant}> .
+      `
+
+  const query = `
+  SELECT * WHERE {
+    GRAPH ?g {
+      ?s
+        <${INTEROP.dataOwner}> <${grant.dataOwner}>;
+        <${INTEROP.grantee}> <${grant.grantedBy}>;
+        <${INTEROP.registeredShapeTree}> <${grant.registeredShapeTree}>;
+        <${INTEROP.hasStorage}> <${grant.hasStorage}>;
+        <${INTEROP.hasDataRegistration}> <${grant.hasDataRegistration}>;
+        <${INTEROP.accessMode}> ?mode .
+
+      VALUES ?mode { ${accessModes} }
+
+      ${scopeBlock}
+    }
+  }
+  `
+  const bindings = await transport.fetchBindings(query)
+  return bindings.length > 0
+}

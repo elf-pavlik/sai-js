@@ -1,10 +1,10 @@
 import { dataInstanceIrisForGrant } from '@janeirodigital/interop-authorization-agent'
+import { loadDataInstance } from '@janeirodigital/interop-authorization-agent'
 import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
   Grant,
   ShapeTree,
   labelFromNode,
-  loadDataInstance,
   loadDataRegistration,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'

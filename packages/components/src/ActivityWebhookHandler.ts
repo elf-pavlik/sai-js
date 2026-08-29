@@ -1,5 +1,5 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { ActivityRegistry } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type { ActivityData } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {

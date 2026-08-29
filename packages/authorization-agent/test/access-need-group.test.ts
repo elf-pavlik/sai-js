@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { AccessNeedGroup, accessNeedGroup } from '@janeirodigital/interop-authorization-agent'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import { AccessNeedGroup, accessNeedGroup } from '../../src'
-import { expect } from '../expect'
+import { expect } from './expect'
 
 const deps = { fetch, randomUUID }
 const snippetIri = 'https://projectron.example/access-needs#need-group-pm'

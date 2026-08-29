@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
+import { loadDataInstance } from '@janeirodigital/interop-authorization-agent'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, expect, test } from 'vitest'
-import { loadDataInstance } from '../../src'
 
 const deps = { fetch, randomUUID }
 const projectIri = 'https://pro.alice.example/7a130c38-668a-4775-821a-08b38f2306fb#project'

@@ -1,5 +1,5 @@
 import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
-import { ActivityRegistry } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
 import { waitFor } from './util'
 

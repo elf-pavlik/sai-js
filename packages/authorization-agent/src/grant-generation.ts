@@ -5,7 +5,6 @@ import {
   type FinalGrantData,
   type GeneratedGrants,
   type GrantData,
-  GrantRegistry,
   type RegistrySetData,
   childIris,
   frameDataInstance,

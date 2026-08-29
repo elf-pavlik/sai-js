@@ -1,3 +1,5 @@
+import { putRole, putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
+import { Role, SocialAgentInvitation, dataModelContext } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
 import {
   INTEROP,
@@ -10,13 +12,7 @@ import {
 } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
-import { dataModelContext } from '../../src'
-import { putRole, fromJsonLd as roleFromJsonLd } from '../../src/role'
-import {
-  fromJsonLd as invitationFromJsonLd,
-  putSocialAgentInvitation,
-} from '../../src/social-agent-invitation'
-import { expect } from '../expect'
+import { expect } from './expect'
 
 // ──────────────────────────
 // Write-path round-trips for the models whose serialization was previously
@@ -61,7 +57,7 @@ describe('role write path', () => {
     expect(Array.isArray(raw)).toBe(true)
     expect(JSON.stringify(raw)).not.toContain('@context')
     expect(JSON.stringify(raw)).toContain('http://www.w3.org/ns/solid/interop#hasMember')
-    expect(await roleFromJsonLd(raw, iri)).toEqual(roleData)
+    expect(await Role.fromJsonLd(raw, iri)).toEqual(roleData)
   })
 })
 
@@ -104,7 +100,9 @@ describe('social-agent-invitation write path', () => {
   test('putSocialAgentInvitation round-trips through a stateful fetch', async () => {
     const fetch = createStatefulFetch()
     await putSocialAgentInvitation(invitationData, fetch)
-    expect(await invitationFromJsonLd(await fetchJsonLd(iri, fetch), iri)).toEqual(invitationData)
+    expect(await SocialAgentInvitation.fromJsonLd(await fetchJsonLd(iri, fetch), iri)).toEqual(
+      invitationData
+    )
   })
 })
 

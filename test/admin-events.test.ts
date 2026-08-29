@@ -1,5 +1,6 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { ActivityRegistry, loadGrant } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import { loadGrant } from '@janeirodigital/interop-data-model'
 import { INTEROP, LDP, getAcl, linkedIrisJsonLd, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { awaitEvent, openEventsStream } from './util'

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import { AgentRegistry } from '../../src'
-import { expect } from '../expect'
+import { expect } from './expect'
 
 const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'

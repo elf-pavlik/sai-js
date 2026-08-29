@@ -1,15 +1,10 @@
+import { replaceAdminGrantLinks } from '@janeirodigital/interop-authorization-agent'
 import type {
   AdminAuthorizationData,
   AgentId,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
-import {
-  GrantRegistry,
-  dataGrantTemplate,
-  dataModelContext,
-  loadGrant,
-  replaceAdminGrantLinks,
-} from '@janeirodigital/interop-data-model'
+import { dataGrantTemplate, dataModelContext, loadGrant } from '@janeirodigital/interop-data-model'
 import {
   ACL,
   INTEROP,

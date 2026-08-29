@@ -1,14 +1,10 @@
 import { randomUUID } from 'node:crypto'
+import { addDataGrant, replaceDataGrants } from '@janeirodigital/interop-authorization-agent'
+import { getDataGrantIris, loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import {
-  addDataGrant,
-  getDataGrantIris,
-  loadSocialAgentRegistration,
-  replaceDataGrants,
-} from '../../src'
-import { expect } from '../expect'
+import { expect } from './expect'
 
 const deps = { fetch, randomUUID }
 const snippetIri = 'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'

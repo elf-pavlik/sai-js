@@ -1,6 +1,6 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
-  AgentRegistry,
   type ApplicationRegistrationData,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,

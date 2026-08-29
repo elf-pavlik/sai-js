@@ -27,6 +27,7 @@
   "dependencies": {
     "@comunica/query-sparql-rdfjs": "^4.5.0",
     "@effect/rpc": "^0.44.13",
+    "@janeirodigital/interop-authorization-agent": "1.0.0-rc.26",
     "@janeirodigital/interop-data-model": "^1.0.0-rc.26",
     "@janeirodigital/interop-utils": "^1.0.0-rc.26",
     "@janeirodigital/sai-api-messages": "1.0.0-rc.26",

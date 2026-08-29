@@ -1,14 +1,14 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import {
+  ActivityRegistry,
   type AuthorizationAgent,
   getDataGrant,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import {
-  type ActivityData,
-  ActivityRegistry,
-  type GrantData,
-  type SocialAgentRegistrationData,
+import type {
+  ActivityData,
+  GrantData,
+  SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
 import {
   AS,

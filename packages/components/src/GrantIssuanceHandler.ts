@@ -7,7 +7,6 @@ import {
   type AccessRequestMessage,
   AccessRevocation,
   type FinalGrantData,
-  GrantRegistry,
   type IncomingGrantData,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, iriForContained } from '@janeirodigital/interop-utils'

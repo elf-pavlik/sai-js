@@ -13,57 +13,42 @@ export interface DataModelDependencies {
   randomUUID(): string
 }
 export * from './agent-registration'
-export {
-  type ApplicationRegistrationData,
-  type ApplicationRegistrationId,
-  type ApplicationId,
-  createApplicationRegistration,
+export type {
+  ApplicationRegistrationData,
+  ApplicationRegistrationId,
+  ApplicationId,
 } from './application-registration'
 export {
   type SocialAgentRegistrationData,
   type SocialAgentRegistrationId,
   type SocialAgentId,
   getAdminGrantIris,
-  loadReciprocalRegistration,
-  replaceAdminGrantLinks,
-  setAccessNeedGroup,
-  createSocialAgentRegistration,
+  toDataset,
 } from './social-agent-registration'
-export {
-  type SocialAgentInvitationData,
-  type SocialAgentInvitationId,
-  setRegisteredAgent,
-  putSocialAgentInvitation,
+export type {
+  SocialAgentInvitationData,
+  SocialAgentInvitationId,
 } from './social-agent-invitation'
 export * as SocialAgentInvitation from './social-agent-invitation'
 export type { RoleData, RoleId } from './role'
-export { createDataRegistration } from './data-registration'
-// registries are exported as namespaces to avoid colliding names
-export * as AgentRegistry from './agent-registry'
-export * as RoleRegistry from './role-registry'
-export * as DataRegistry from './data-registry'
-export * as AuthorizationRegistry from './authorization-registry'
-export * as GrantRegistry from './grant-registry'
-export * as ActivityRegistry from './activity-registry'
-export * as RegistrySet from './registry-set'
-// registry POJO types stay top-level
+export * as Role from './role'
+// registries exported as namespaces to avoid colliding names
 export type { AgentRegistryData } from './agent-registry'
 export type { RoleRegistryData } from './role-registry'
 export type { DataRegistryData } from './data-registry'
 export type { AuthorizationRegistryData } from './authorization-registry'
 export type { GrantRegistryData } from './grant-registry'
 export type { ActivityRegistryData, ActivityData } from './activity-registry'
+export * as RegistrySet from './registry-set'
 export type { RegistrySetData } from './registry-set'
 export * from './templates'
 export type { DataInstanceData, ChildInfo } from './data-instance'
 export {
   childIris,
-  computeChildren,
   frameDataInstance,
   frameDataInstanceFromDoc,
   isBlob,
   labelFromNode,
-  loadDataInstance,
 } from './data-instance'
 export { loadDataAuthorization } from './data-authorization'
 export type { AdminAuthorizationData } from './admin-authorization'
@@ -78,10 +63,10 @@ export * as ShapeTree from './shape-tree'
 export { loadShapeTree } from './shape-tree'
 export type { AccessNeedData, AccessNeedId } from './access-need'
 export * as AccessNeed from './access-need'
-export { loadAccessNeed, accessNeed } from './access-need'
+export { loadAccessNeed } from './access-need'
 export type { AccessNeedGroupData, AccessNeedGroupId } from './access-need-group'
 export * as AccessNeedGroup from './access-need-group'
-export { loadAccessNeedGroup, accessNeedGroup } from './access-need-group'
+export { loadAccessNeedGroup } from './access-need-group'
 export {
   loadAccessNeedDescription,
   loadAccessNeedGroupDescription,
@@ -122,7 +107,6 @@ export type {
 } from './access-description'
 export * as AccessDescription from './access-description'
 export type { AccessDescriptionSetData } from './access-description-set'
-export * as AccessDescriptionSet from './access-description-set'
 export type { DataRegistrationData, DataRegistrationId } from './data-registration'
 export * as DataRegistration from './data-registration'
 export { loadDataRegistration } from './data-registration'

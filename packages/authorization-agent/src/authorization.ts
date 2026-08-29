@@ -1,12 +1,10 @@
-import {
-  type AccessNeedGroupData,
-  AuthorizationRegistry,
-  type AuthorizationRegistryData,
-  type DataAuthorizationData,
-  type DataInstanceData,
-  type DataModelDependencies,
-  type FinalDataAuthorizationData,
-  accessNeedGroup,
+import type {
+  AccessNeedGroupData,
+  AuthorizationRegistryData,
+  DataAuthorizationData,
+  DataInstanceData,
+  DataModelDependencies,
+  FinalDataAuthorizationData,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
 import {

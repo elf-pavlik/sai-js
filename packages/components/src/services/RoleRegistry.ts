@@ -1,9 +1,5 @@
-import {
-  ActivityRegistry,
-  type RoleData,
-  RoleRegistry,
-  loadRole,
-} from '@janeirodigital/interop-data-model'
+import { ActivityRegistry, RoleRegistry } from '@janeirodigital/interop-authorization-agent'
+import { type RoleData, loadRole } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'

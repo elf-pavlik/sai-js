@@ -3,10 +3,8 @@ import {
   type AdminAuthorizationData,
   type AgentId,
   type AgentOrRoleId,
-  AgentRegistry,
   type AgentRegistryData,
   type ApplicationRegistrationData,
-  AuthorizationRegistry,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
   type DataAuthorizationId,
@@ -18,12 +16,9 @@ import {
   type RoleData,
   type SocialAgentRegistrationData,
   type WebIdProfileData,
-  accessNeedGroup,
   getDataGrantIris,
-  loadDataInstance,
   loadRegistrySet,
   loadWebIdProfile,
-  replaceDataGrants,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -39,6 +34,13 @@ import {
   replaceStatement,
 } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
+import { accessNeedGroup } from './access-need-group'
+import { replaceDataGrants } from './agent-registration'
+import {
+  addApplicationRegistration,
+  findApplicationRegistration as findApplicationRegistrationInAgentRegistry,
+  findRegistration as findRegistrationInAgentRegistry,
+} from './agent-registry'
 import {
   type AccessAuthorizationStructure,
   type AuthorizationStructure,
@@ -48,6 +50,7 @@ import {
   generateAuthorization,
   matchesScope,
 } from './authorization'
+import { loadDataInstance } from './data-instance'
 import { generateGrantsForAuthorization } from './grant-generation'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
@@ -365,13 +368,13 @@ export class AuthorizationAgent {
     creatorAgent: string,
     grantee: string
   ): Promise<void> {
-    const existing = await AgentRegistry.findApplicationRegistration(
+    const existing = await findApplicationRegistrationInAgentRegistry(
       agentRegistry,
       this.fetch,
       grantee
     )
     if (existing) return
-    await AgentRegistry.addApplicationRegistration(
+    await addApplicationRegistration(
       agentRegistry,
       { fetch: this.fetch, randomUUID: this.randomUUID },
       { agent: creatorAgent, client: this.agentId },
@@ -544,7 +547,7 @@ export class AuthorizationAgent {
    * grantee has no registration.
    */
   public async removeGrantsFromRegistration(grantee: string, grants: string[]): Promise<void> {
-    const registration = await AgentRegistry.findRegistration(
+    const registration = await findRegistrationInAgentRegistry(
       this.registrySet.hasAgentRegistry,
       this.fetch,
       grantee

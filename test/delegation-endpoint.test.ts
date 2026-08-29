@@ -1,9 +1,6 @@
-import {
-  buildOidcSession,
-  buildSessionManager,
-  issuanceUrl,
-} from '@elfpavlik/sai-components'
-import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import { getDataGrantIris } from '@janeirodigital/interop-data-model'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
 import { ACL, INTEROP, LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'

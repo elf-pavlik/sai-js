@@ -1,4 +1,4 @@
-import { ActivityRegistry } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'

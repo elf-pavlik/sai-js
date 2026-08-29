@@ -1,18 +1,11 @@
 import {
   INTEROP,
-  RDF,
   SKOS,
   type WhatwgFetch,
-  addStatement,
-  applyPatch,
-  createContainer,
-  deletePatch,
   fetchJsonLd,
   frameDoc,
-  insertPatch,
-  replaceStatement,
 } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
+import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
 
@@ -30,7 +23,7 @@ export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   prefLabel: string
   note?: string
   hasAccessNeedGroup?: string
-  /** IRI of the peer's reciprocal registration — loaded lazily, see `loadReciprocalRegistration` */
+  /** IRI of the peer's reciprocal registration — loaded lazily, see the AA `loadReciprocalRegistration` */
   reciprocalRegistration?: string
 }
 
@@ -79,19 +72,6 @@ export async function loadSocialAgentRegistration(
   return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
-/**
- * Lazily load the peer's reciprocal registration — only consumers that need its
- * data (`hasAccessNeedGroup`, data grants) call this. The leaf read
- * (`loadSocialAgentRegistration`) no longer recurses into the reciprocal.
- */
-export async function loadReciprocalRegistration(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch
-): Promise<SocialAgentRegistrationData | undefined> {
-  if (!data.reciprocalRegistration) return undefined
-  return loadSocialAgentRegistration(data.reciprocalRegistration, fetch)
-}
-
 // ──────────────────────────
 // Write path: SocialAgentRegistrationData → Dataset
 // ──────────────────────────
@@ -115,87 +95,11 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
   return store
 }
 
-export async function createSocialAgentRegistration(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  const dataset = await toDataset(data)
-  dataset.add(
-    DataFactory.quad(
-      DataFactory.namedNode(data.id),
-      RDF.terms.type,
-      INTEROP.terms.SocialAgentRegistration
-    )
-  )
-  await createContainer(data.id, fetch, dataset)
-}
-
 // ──────────────────────────
-// Behavior functions (replacing class methods)
-// ──────────────────────────
-
-export async function setAccessNeedGroup(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch,
-  accessNeedGroupIri: string
-): Promise<void> {
-  const node = DataFactory.namedNode(data.id)
-  const quad = DataFactory.quad(
-    node,
-    INTEROP.terms.hasAccessNeedGroup,
-    DataFactory.namedNode(accessNeedGroupIri)
-  )
-  if (data.hasAccessNeedGroup) {
-    const priorQuad = DataFactory.quad(
-      node,
-      INTEROP.terms.hasAccessNeedGroup,
-      DataFactory.namedNode(data.hasAccessNeedGroup)
-    )
-    await replaceStatement(data.id, fetch, priorQuad, quad)
-  } else {
-    await addStatement(data.id, fetch, quad)
-  }
-  data.hasAccessNeedGroup = accessNeedGroupIri
-}
-
-// ──────────────────────────
-// Admin grant links (R1 admin marker on the registration)
+// Accessors
 // ──────────────────────────
 
 /** The registration's AdminGrant IRIs (interop:hasAdminGrant). */
 export async function getAdminGrantIris(data: SocialAgentRegistrationData): Promise<string[]> {
   return data.hasAdminGrant ?? []
-}
-
-/**
- * Replace the registration's `hasAdminGrant` links to exactly `grantIris` in a
- * single PATCH (remove old + insert new) — exactly one Update notification on
- * the registration. `grantIris: []` unlinks (admin revoked). No-op when the
- * links already match (idempotent against re-delivery).
- */
-export async function replaceAdminGrantLinks(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch,
-  grantIris: string[]
-): Promise<void> {
-  const current = await getAdminGrantIris(data)
-  const currentSet = new Set(current)
-  const targetSet = new Set(grantIris)
-  const removed = currentSet.difference(targetSet)
-  const added = targetSet.difference(currentSet)
-  if (removed.size === 0 && added.size === 0) return
-
-  const node = DataFactory.namedNode(data.id)
-  const removeQuads = [...removed].map((iri) =>
-    DataFactory.quad(node, INTEROP.terms.hasAdminGrant, DataFactory.namedNode(iri))
-  )
-  const insertQuads = [...added].map((iri) =>
-    DataFactory.quad(node, INTEROP.terms.hasAdminGrant, DataFactory.namedNode(iri))
-  )
-  const sparqlUpdate = [
-    ...(removed.size ? [await deletePatch(new Store(removeQuads))] : []),
-    ...(added.size ? [await insertPatch(new Store(insertQuads))] : []),
-  ].join(';')
-  await applyPatch(data.id, fetch, sparqlUpdate)
-  data.hasAdminGrant = [...grantIris]
 }

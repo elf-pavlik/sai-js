@@ -2,7 +2,7 @@ import {
   ActivityRegistry,
   AgentRegistry,
   setRegisteredAgent,
-} from '@janeirodigital/interop-data-model'
+} from '@janeirodigital/interop-authorization-agent'
 import {
   BasicRepresentation,
   ForbiddenHttpError,

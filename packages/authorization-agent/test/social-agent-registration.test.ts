@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto'
-import { fetch, statelessFetch } from '@janeirodigital/interop-test-utils'
-import { describe, test, vi } from 'vitest'
+import {
+  replaceAdminGrantLinks,
+  setAccessNeedGroup,
+} from '@janeirodigital/interop-authorization-agent'
 import {
   getAdminGrantIris,
   getDataGrantIris,
   loadSocialAgentRegistration,
-  replaceAdminGrantLinks,
-  setAccessNeedGroup,
-} from '../../src'
-import { expect } from '../expect'
+} from '@janeirodigital/interop-data-model'
+import { fetch, statelessFetch } from '@janeirodigital/interop-test-utils'
+import { describe, test, vi } from 'vitest'
+import { expect } from './expect'
 
 describe('build', () => {
   const deps = { fetch, randomUUID }

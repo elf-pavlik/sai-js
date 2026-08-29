@@ -1,10 +1,4 @@
-import {
-  type WhatwgFetch,
-  fetchJsonLd,
-  frameDoc,
-  putJsonLd,
-  withContext,
-} from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -57,28 +51,4 @@ export async function loadSocialAgentInvitation(
   fetch: WhatwgFetch
 ): Promise<SocialAgentInvitationData> {
   return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
-
-// ──────────────────────────
-// Write path: SocialAgentInvitationData → JSON-LD (PUT)
-// ──────────────────────────
-
-export async function putSocialAgentInvitation(
-  data: SocialAgentInvitationData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
-}
-
-// ──────────────────────────
-// Behavior functions (replacing class methods)
-// ──────────────────────────
-
-export async function setRegisteredAgent(
-  data: SocialAgentInvitationData,
-  fetch: WhatwgFetch,
-  webId: string
-): Promise<void> {
-  data.registeredAgent = webId
-  await putSocialAgentInvitation(data, fetch)
 }

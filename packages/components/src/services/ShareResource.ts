@@ -5,17 +5,19 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
+  computeChildren,
+  loadDataInstance,
+  setAccessNeedGroup,
+} from '@janeirodigital/interop-authorization-agent'
+import {
   type DataAuthorizationData,
   type DataInstanceData,
   DataRegistration,
   ShapeTree,
-  computeChildren,
   isBlob,
   labelFromNode,
   loadClientIdDocument,
-  loadDataInstance,
   loadShapeTree,
-  setAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {

@@ -4,18 +4,20 @@ import type {
   DataAuthorizationStructure,
 } from '@janeirodigital/interop-authorization-agent'
 import {
-  type AccessNeedData,
-  type AccessNeedGroupData,
   AccessNeedGroup as AccessNeedGroupModule,
   AccessNeed as AccessNeedModule,
   ActivityRegistry,
+  accessNeedGroup as resolveAccessNeedGroup,
+} from '@janeirodigital/interop-authorization-agent'
+import {
+  type AccessNeedData,
+  type AccessNeedGroupData,
   type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
   getDataGrantIris,
   loadClientIdDocument,
   loadShapeTree,
-  accessNeedGroup as resolveAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {

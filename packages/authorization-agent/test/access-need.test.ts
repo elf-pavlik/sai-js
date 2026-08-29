@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { AccessNeed, accessNeed } from '@janeirodigital/interop-authorization-agent'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { ACL } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AccessNeed, accessNeed } from '../../src'
-import { expect } from '../expect'
+import { expect } from './expect'
 
 const deps = { fetch, randomUUID }
 const snippetIri = 'https://projectron.example/access-needs#need-project'

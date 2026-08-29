@@ -1,12 +1,15 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import type { RoleUsage } from '@janeirodigital/interop-authorization-agent'
 import {
+  ActivityRegistry,
+  AgentRegistry,
+  replaceDataGrants,
+} from '@janeirodigital/interop-authorization-agent'
+import {
   type AccessRequestMessage,
   type ActivityData,
-  ActivityRegistry,
   type AgentId,
   type AgentOrRoleId,
-  AgentRegistry,
   type DataAuthorizationId,
   type FinalGrantData,
   type GeneratedGrants,
@@ -18,7 +21,6 @@ import {
   dataGrantTemplate,
   getDataGrantIris,
   loadGrant,
-  replaceDataGrants,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {

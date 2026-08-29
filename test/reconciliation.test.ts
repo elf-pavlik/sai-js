@@ -3,7 +3,8 @@ import {
   getSocialAgentRegistration,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import { getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'

@@ -1,11 +1,4 @@
-import {
-  type WhatwgFetch,
-  createContainer,
-  fetchJsonLd,
-  frameDoc,
-  toStore,
-  withContext,
-} from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -65,19 +58,4 @@ export async function loadApplicationRegistration(
   fetch: WhatwgFetch
 ): Promise<ApplicationRegistrationData> {
   return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
-
-// ──────────────────────────
-// Write path: ApplicationRegistrationData → container (container.create)
-// ──────────────────────────
-
-export async function createApplicationRegistration(
-  data: ApplicationRegistrationData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
-  // quad comes from `data.type` (captured from framing on read), no hand-built
-  // DataFactory quads; only the container.create hand-off stays N3-based
-  const dataset = await toStore(withContext(dataModelContext, data))
-  await createContainer(data.id, fetch, dataset)
 }

@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { fetchJsonLd, toStore } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AccessDescriptionSet } from '../../src'
-import { expect } from '../expect'
+import { findInLanguage, loadDescriptions } from '@janeirodigital/interop-authorization-agent'
+import { expect } from './expect'
 
 const deps = { fetch, randomUUID }
 const snippetIri = 'https://projectron.example/descriptions-en'
@@ -15,8 +15,10 @@ test('factory should build an access description set', async () => {
 
 test('should build the descriptions', async () => {
   const descriptionSet = { id: snippetIri }
-  const { accessNeedDescriptions, accessNeedGroupDescriptions } =
-    await AccessDescriptionSet.loadDescriptions(descriptionSet, deps.fetch)
+  const { accessNeedDescriptions, accessNeedGroupDescriptions } = await loadDescriptions(
+    descriptionSet,
+    deps.fetch
+  )
   expect(accessNeedDescriptions).toHaveLength(2)
   for (const description of accessNeedDescriptions) {
     expect(description.hasAccessNeed).toBeDefined()
@@ -33,7 +35,7 @@ describe('findInLanguage', () => {
     const accessNeedIri = 'https://projectron.example/access-needs#need-project'
     const doc = (await fetchJsonLd(accessNeedIri, deps.fetch)) as Record<string, unknown>
     const dataset = await toStore(doc, accessNeedIri)
-    const descriptionSetIri = AccessDescriptionSet.findInLanguage(dataset, lang)
+    const descriptionSetIri = findInLanguage(dataset, lang)
     expect(descriptionSetIri).toBe('https://projectron.example/descriptions-en')
   })
 })

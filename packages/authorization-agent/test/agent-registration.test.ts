@@ -39,7 +39,7 @@ describe('build', () => {
 describe('getDataGrantIris', () => {
   test('should return data grant IRIs from dataset', async () => {
     const agentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
-    const iris = await getDataGrantIris(agentRegistration)
+    const iris = getDataGrantIris(agentRegistration)
     expect(iris).toContain(dataGrantIri)
   })
 })
@@ -55,7 +55,7 @@ describe('addDataGrant', () => {
   test('adds new data grant IRI to dataset', async () => {
     const agentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
     const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    const beforeIris = await getDataGrantIris(agentRegistration)
+    const beforeIris = getDataGrantIris(agentRegistration)
     expect(beforeIris).not.toContain(newGrantIri)
     await addDataGrant(agentRegistration, deps.fetch, newGrantIri)
     expect(agentRegistration.hasDataGrant).toContain(newGrantIri)
@@ -66,7 +66,7 @@ describe('replaceDataGrants', () => {
   test('replaces the whole data grant set', async () => {
     const agentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
     const newGrantIri = 'https://auth.alice.example/812a837d-6774-448e-b4c0-f05763deda3d'
-    const beforeIris = await getDataGrantIris(agentRegistration)
+    const beforeIris = getDataGrantIris(agentRegistration)
     expect(beforeIris.length).toBeGreaterThan(0)
     await replaceDataGrants(agentRegistration, deps.fetch, [newGrantIri])
     expect(agentRegistration.hasDataGrant).toEqual([newGrantIri])
@@ -80,7 +80,7 @@ describe('replaceDataGrants', () => {
 
   test('no-op when the set is unchanged', async () => {
     const agentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
-    const beforeIris = await getDataGrantIris(agentRegistration)
+    const beforeIris = getDataGrantIris(agentRegistration)
     await replaceDataGrants(agentRegistration, deps.fetch, beforeIris)
     expect(agentRegistration.hasDataGrant).toEqual(beforeIris)
   })

@@ -15,7 +15,6 @@ import {
   type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
-  getDataGrantIris,
   loadClientIdDocument,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'

@@ -1,7 +1,6 @@
 import { ACL, INTEROP } from '@janeirodigital/interop-utils'
-import { describe, test } from 'vitest'
-import { AccessRequest, AccessRevocation } from '../../src'
-import { expect } from '../expect'
+import { describe, expect, test } from 'vitest'
+import { isAccessRequestMessage, isAccessRevocationMessage } from '../src/messages.js'
 
 const grant = {
   type: [INTEROP.DataGrant],
@@ -32,21 +31,17 @@ describe('AccessRequest message', () => {
         },
       ],
     }
-    expect(AccessRequest.isAccessRequestMessage(message)).toBe(true)
+    expect(isAccessRequestMessage(message)).toBe(true)
   })
 
   test('accepts a single-string type', () => {
-    expect(
-      AccessRequest.isAccessRequestMessage({ type: INTEROP.AccessRequest, grants: [grant] })
-    ).toBe(true)
+    expect(isAccessRequestMessage({ type: INTEROP.AccessRequest, grants: [grant] })).toBe(true)
   })
 
   test('rejects wrong type and missing grants', () => {
-    expect(
-      AccessRequest.isAccessRequestMessage({ type: [INTEROP.AccessRevocation], grants: [] })
-    ).toBe(false)
-    expect(AccessRequest.isAccessRequestMessage({ type: [INTEROP.AccessRequest] })).toBe(false)
-    expect(AccessRequest.isAccessRequestMessage(null)).toBe(false)
+    expect(isAccessRequestMessage({ type: [INTEROP.AccessRevocation], grants: [] })).toBe(false)
+    expect(isAccessRequestMessage({ type: [INTEROP.AccessRequest] })).toBe(false)
+    expect(isAccessRequestMessage(null)).toBe(false)
   })
 })
 
@@ -56,19 +51,17 @@ describe('AccessRevocation message', () => {
       type: [INTEROP.AccessRevocation],
       grants: ['https://registry/acme/grant/g1', 'https://registry/acme/grant/g2'],
     }
-    expect(AccessRevocation.isAccessRevocationMessage(message)).toBe(true)
+    expect(isAccessRevocationMessage(message)).toBe(true)
   })
 
   test('rejects non-string grants and wrong type', () => {
     expect(
       // @ts-expect-error — deliberately malformed payload
-      AccessRevocation.isAccessRevocationMessage({
+      isAccessRevocationMessage({
         type: [INTEROP.AccessRevocation],
         grants: ['g1', 42],
       })
     ).toBe(false)
-    expect(
-      AccessRevocation.isAccessRevocationMessage({ type: [INTEROP.AccessRequest], grants: [] })
-    ).toBe(false)
+    expect(isAccessRevocationMessage({ type: [INTEROP.AccessRequest], grants: [] })).toBe(false)
   })
 })

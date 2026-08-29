@@ -1,16 +1,16 @@
 import {
-  RDF,
   SHAPETREES,
   type WhatwgFetch,
   XSD,
-  getAllMatchingQuads,
-  getOneMatchingQuad,
-  parseJsonld,
-  toStore,
+  documentLoader,
+  documentValues,
+  fetchJsonLd,
+  frameDoc,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { DatasetCore, NamedNode } from '@rdfjs/types'
-import { DataFactory, type Store } from 'n3'
+import * as jsonldNs from 'jsonld'
+import type { NamedNode } from '@rdfjs/types'
+import { DataFactory } from 'n3'
 import type { ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'
 import { loadShapeTreeDescription } from './shape-tree-description'
@@ -27,7 +27,7 @@ export interface ShapeTreeReference {
 /** Identity of a shape tree. */
 export type ShapeTreeId = {
   id: string
-  /** rdf:type IRIs — captured from the dataset on read (e.g. `[SHAPETREES.ShapeTree]`) */
+  /** rdf:type IRIs — captured from the document on read (e.g. `[SHAPETREES.ShapeTree]`) */
   type: string[]
 }
 
@@ -41,66 +41,82 @@ export type ShapeTreeData = ShapeTreeId & {
   references: ShapeTreeReference[]
 }
 
+// CJS/ESM interop: jsonld is a CJS package; in the ESM bundle the namespace
+// has the full exports only on .default (same pattern as interop-utils).
+const jsonld = (jsonldNs as any).default ?? jsonldNs
+
 // ──────────────────────────
-// Read path: Dataset / JSON-LD → ShapeTreeData
+// Document helpers (expanded form, no N3)
 // ──────────────────────────
 
 /**
- * Convert a parsed RDF dataset into a ShapeTreeData POJO.
- *
- * The `references` (blank nodes with `hasShapeTree` / `viaPredicate`) and the
- * `descriptionLanguages` (typed literals on all description sets in the
- * document) are extracted directly from the quads, since framing can't
- * capture either shape.
+ * Expand a JSON-LD document (fetched as application/ld+json — expanded,
+ * compacted, or flattened form) to the expanded node array. Loads contexts via
+ * the shared local document loader (no remote fetching).
  */
-export async function fromDataset(dataset: DatasetCore, id: string): Promise<ShapeTreeData> {
-  const node = DataFactory.namedNode(id)
-  const referenceNodes = getAllMatchingQuads(dataset, node, SHAPETREES.terms.references).map(
-    (quad) => quad.object
-  )
-  const references: ShapeTreeReference[] = referenceNodes.map((referenceNode) => {
-    const hasShapeTree = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.hasShapeTree)
-    const viaPredicate = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.viaPredicate)
+async function expandedNodes(doc: unknown, base: string): Promise<any[]> {
+  return jsonld.expand(doc, { base, documentLoader }) as Promise<any[]>
+}
+
+/**
+ * The tree's `references` as content pairs. Reference nodes carry
+ * `hasShapeTree`/`viaPredicate` and are not capturable by node-centric framing
+ * (`buildFrame` forces `@embed: '@never'`, yielding id-only references), so
+ * they are paired from the expanded document by node id.
+ */
+function referencePairs(expanded: any[], treeId: string): ShapeTreeReference[] {
+  const treeNode = expanded.find((node) => node['@id'] === treeId)
+  if (!treeNode) return []
+  const byId = new Map(expanded.map((node) => [node['@id'], node]))
+  return (treeNode[SHAPETREES.references] ?? []).map((reference: any) => {
+    // Two shapes: server documents reference named/blank nodes by id
+    // (`urn:uuid` IRIs, real docs) while expanded toJsonLd output embeds the
+    // reference object inline (no @id). Resolve either.
+    const referenceNode =
+      reference[SHAPETREES.hasShapeTree] !== undefined ? reference : byId.get(reference['@id'])
+    const hasShapeTree = referenceNode?.[SHAPETREES.hasShapeTree]?.[0]?.['@id']
+    const viaPredicate = referenceNode?.[SHAPETREES.viaPredicate]?.[0]?.['@id']
     if (!hasShapeTree || !viaPredicate) {
-      throw new Error(`shape tree ${id} has a reference missing hasShapeTree/viaPredicate`)
+      throw new Error(`shape tree ${treeId} has a reference missing hasShapeTree/viaPredicate`)
     }
     return {
-      shapeTree: hasShapeTree.object.value,
-      viaPredicate: viaPredicate.object as NamedNode,
+      shapeTree: hasShapeTree,
+      viaPredicate: DataFactory.namedNode(viaPredicate),
     }
   })
-  return {
-    id: id,
-    type: getAllMatchingQuads(dataset, node, RDF.terms.type).map((quad) => quad.object.value),
-    shape: getOneMatchingQuad(dataset, node, SHAPETREES.terms.shape)?.object.value,
-    describesInstance: getOneMatchingQuad(dataset, node, SHAPETREES.terms.describesInstance)?.object
-      .value,
-    expectsType: getOneMatchingQuad(dataset, node, SHAPETREES.terms.expectsType)?.object.value,
-    descriptionLanguages: getAllMatchingQuads(dataset, null, SHAPETREES.terms.usesLanguage).map(
-      (quad) => quad.object.value
-    ),
-    references,
-  }
 }
+
+// ──────────────────────────
+// Read path: JSON-LD → ShapeTreeData
+// ──────────────────────────
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * ShapeTreeData POJO. The document can be in expanded, compacted, or flattened
  * form.
+ *
+ * Node-level properties come from framing (like every other model). The
+ * `references` (blank/named node objects with `hasShapeTree`/`viaPredicate`)
+ * and the `descriptionLanguages` (typed literals on the description sets —
+ * foreign nodes) are extracted from the expanded document instead, since a
+ * node-centric frame can't capture either shape.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeData> {
-  const dataset = await parseJsonld(JSON.stringify(doc), id)
-  return fromDataset(dataset, id)
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  return {
+    id: node.id ?? node['@id'],
+    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    shape: node.shape ?? undefined,
+    describesInstance: node.describesInstance ?? undefined,
+    expectsType: node.expectsType ?? undefined,
+    descriptionLanguages: await documentValues(doc, id, SHAPETREES.usesLanguage),
+    references: referencePairs(await expandedNodes(doc, id), id),
+  }
 }
 
 // ──────────────────────────
-// Write path: ShapeTreeData → Dataset / JSON-LD
+// Write path: ShapeTreeData → JSON-LD (test-only round-trip support)
 // ──────────────────────────
-
-/** Convert a ShapeTreeData to an N3 Store (DatasetCore). */
-export async function toDataset(data: ShapeTreeData): Promise<Store> {
-  return toStore(toJsonLd(data), data.id)
-}
 
 /** Build a JSON-LD document (with embedded context) ready for PUT as application/ld+json. */
 export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
@@ -118,11 +134,7 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
  * (fetched as application/ld+json).
  */
 export async function loadShapeTree(id: string, fetch: WhatwgFetch): Promise<ShapeTreeData> {
-  const response = await fetch(id, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await response.json()
-  return fromJsonLd(doc, id)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -132,37 +144,30 @@ export async function loadShapeTree(id: string, fetch: WhatwgFetch): Promise<Sha
 /**
  * Fetch the shape tree description for the given language, or null when the
  * tree has no description set for that language.
+ *
+ * The description set node (with `usesLanguage`) is located in the expanded
+ * document; the description node is the one that `describes` the tree and
+ * points `inDescriptionSet` at it.
  */
 export async function getDescription(
   tree: ShapeTreeData,
   lang: string,
   fetch: WhatwgFetch
 ): Promise<ShapeTreeDescriptionData | null> {
-  const response = await fetch(tree.id, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await response.json()
-  const dataset = await parseJsonld(JSON.stringify(doc), tree.id)
-  const descriptionSetNode = getOneMatchingQuad(
-    dataset,
-    null,
-    SHAPETREES.terms.usesLanguage,
-    DataFactory.literal(lang, XSD.terms.language)
-  )?.subject
-  if (!descriptionSetNode) return null
-  const descriptionNodes = getAllMatchingQuads(dataset, null, SHAPETREES.terms.describes).map(
-    (quad) => quad.subject
+  const doc = await fetchJsonLd(tree.id, fetch)
+  const expanded = await expandedNodes(doc, tree.id)
+  const isLanguage = (value: any) =>
+    value['@value'] === lang && value['@type'] === XSD.terms.language.value
+  const descriptionSetNode = expanded.find((node) =>
+    (node[SHAPETREES.usesLanguage] ?? []).some(isLanguage)
   )
-  const descriptionIri = descriptionNodes.find((node) =>
-    getOneMatchingQuad(dataset, node, SHAPETREES.terms.inDescriptionSet, descriptionSetNode)
-  )?.value
+  if (!descriptionSetNode) return null
+  const descriptionIri = expanded.find(
+    (node) =>
+      (node[SHAPETREES.describes] ?? []).some((value: any) => value['@id'] === tree.id) &&
+      (node[SHAPETREES.inDescriptionSet] ?? []).some(
+        (value: any) => value['@id'] === descriptionSetNode['@id']
+      )
+  )?.['@id']
   return descriptionIri ? loadShapeTreeDescription(descriptionIri, fetch) : null
-}
-
-/** The type of resources the shape tree expects (as a NamedNode). */
-export function expectsType(tree: ShapeTreeData): NamedNode {
-  if (!tree.expectsType) {
-    throw new Error(`shape tree ${tree.id} is missing expectsType`)
-  }
-  return DataFactory.namedNode(tree.expectsType)
 }

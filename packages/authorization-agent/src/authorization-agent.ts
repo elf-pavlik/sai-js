@@ -554,7 +554,7 @@ export class AuthorizationAgent {
     )
     if (!registration) return // nothing to clear — the projection is already empty
     const revoked = new Set(grants)
-    const current = await getDataGrantIris(registration)
+    const current = getDataGrantIris(registration)
     await replaceDataGrants(
       registration,
       this.fetch,

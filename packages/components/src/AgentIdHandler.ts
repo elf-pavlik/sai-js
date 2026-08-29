@@ -72,7 +72,7 @@ export class AgentIdHandler extends OperationHttpHandler {
         // evaluated against request credentials, so the admin-only link stays
         // private while the body remains public.
         if (!isOwner) {
-          const adminGrantIris = await getAdminGrantIris(
+          const adminGrantIris = getAdminGrantIris(
             registration as SocialAgentRegistrationData
           )
           if (adminGrantIris.length > 0) {

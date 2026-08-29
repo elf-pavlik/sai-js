@@ -50,7 +50,7 @@ export async function requireOrgAdmin(
     // An unknown org must be indistinguishable from "not an admin" of it.
     throw new ForbiddenHttpError(`not an admin of ${orgWebId}`)
   }
-  if (!registration || (await getAdminGrantIris(registration)).length === 0) {
+  if (!registration || getAdminGrantIris(registration).length === 0) {
     throw new ForbiddenHttpError(`not an admin of ${orgWebId}`)
   }
   return orgSession

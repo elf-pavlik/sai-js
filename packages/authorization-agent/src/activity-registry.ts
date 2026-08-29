@@ -1,9 +1,9 @@
 import {
   type ActivityData,
   type ActivityRegistryData,
-  type DataModelDependencies,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
+import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   LDP,

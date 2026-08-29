@@ -1,9 +1,5 @@
-import {
-  type DataModelDependencies,
-  type RoleData,
-  type RoleRegistryData,
-  dataModelContext,
-} from '@janeirodigital/interop-data-model'
+import { type RoleData, type RoleRegistryData, dataModelContext } from '@janeirodigital/interop-data-model'
+import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   LDP,

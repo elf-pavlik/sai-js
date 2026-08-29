@@ -24,7 +24,7 @@ const NFO = createVocabulary(
  * `@reverse` terms and literal terms (no coercion) stay explicit object
  * literals, e.g. `label: { '@id': RDFS.label }`.
  */
-export const iriTermDef = (
+const iriTermDef = (
   ns: any,
   name: string,
   { set = false }: { set?: boolean } = {}

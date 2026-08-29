@@ -28,8 +28,12 @@ export type RegistrySetData = {
 // Read path (creation happens at bootstrap in components/Account.ts)
 // ──────────────────────────
 
-export async function loadRegistrySet(id: string, fetch: WhatwgFetch): Promise<RegistrySetData> {
-  const doc = await fetchJsonLd(id, fetch)
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * RegistrySetData POJO. The document can be in expanded, compacted, or
+ * flattened form.
+ */
+export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetData> {
   const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: id,
@@ -42,4 +46,8 @@ export async function loadRegistrySet(id: string, fetch: WhatwgFetch): Promise<R
     hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
     hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,
   }
+}
+
+export async function loadRegistrySet(id: string, fetch: WhatwgFetch): Promise<RegistrySetData> {
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }

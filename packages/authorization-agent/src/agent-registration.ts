@@ -76,7 +76,7 @@ export async function removeAllDataGrants(
   data: AgentRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  const iris = await getDataGrantIris(data)
+  const iris = getDataGrantIris(data)
   await Promise.all(iris.map((iri) => removeDataGrant(data, fetch, iri)))
 }
 
@@ -91,7 +91,7 @@ export async function replaceDataGrants(
   fetch: WhatwgFetch,
   grantIris: string[]
 ): Promise<void> {
-  const current = await getDataGrantIris(data)
+  const current = getDataGrantIris(data)
   const currentSet = new Set(current)
   const targetSet = new Set(grantIris)
   const removed = currentSet.difference(targetSet)

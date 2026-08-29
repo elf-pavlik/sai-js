@@ -178,7 +178,7 @@ export async function getExistingGrants(payload: {
     throw new Error('agent registration for the peer does not exist')
   }
   const grants: GrantData[] = []
-  for (const grantIri of await getDataGrantIris(agentRegistration)) {
+  for (const grantIri of getDataGrantIris(agentRegistration)) {
     try {
       grants.push(await loadGrant(grantIri, session.fetch))
     } catch {

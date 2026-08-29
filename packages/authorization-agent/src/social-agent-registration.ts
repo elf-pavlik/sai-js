@@ -34,7 +34,7 @@ export async function createSocialAgentRegistration(
   data: SocialAgentRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  const dataset = await toDataset(data)
+  const dataset = toDataset(data)
   dataset.add(
     DataFactory.quad(
       DataFactory.namedNode(data.id),
@@ -80,7 +80,7 @@ export async function replaceAdminGrantLinks(
   fetch: WhatwgFetch,
   grantIris: string[]
 ): Promise<void> {
-  const current = await getAdminGrantIris(data)
+  const current = getAdminGrantIris(data)
   const currentSet = new Set(current)
   const targetSet = new Set(grantIris)
   const removed = currentSet.difference(targetSet)

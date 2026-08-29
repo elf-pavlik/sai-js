@@ -1,6 +1,6 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AccessDescription } from '../../src'
+import { AccessNeedDescription, AccessNeedGroupDescription } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
@@ -10,10 +10,10 @@ const GROUP_DESC_IRI = 'https://data/test-client/public/descriptions-en#en-need-
 
 // Graph <https://data/test-client/public/descriptions-en> in registry.trig:
 // the English AccessDescriptionSet with need and need-group descriptions.
-describe('AccessDescription framing', () => {
+describe('Access description framing', () => {
   test('frames an access need description into AccessNeedDescriptionData', async () => {
     const doc = await docFromGraphs([DESCRIPTIONS_GRAPH])
-    const description = await AccessDescription.accessNeedDescriptionFromJsonLd(doc, NEED_DESC_IRI)
+    const description = await AccessNeedDescription.fromJsonLd(doc, NEED_DESC_IRI)
     expect(description).toEqual({
       id: NEED_DESC_IRI,
       type: [INTEROP.AccessNeedDescription],
@@ -26,7 +26,7 @@ describe('AccessDescription framing', () => {
 
   test('frames an access need group description into AccessNeedGroupDescriptionData', async () => {
     const doc = await docFromGraphs([DESCRIPTIONS_GRAPH])
-    const description = await AccessDescription.accessNeedGroupDescriptionFromJsonLd(
+    const description = await AccessNeedGroupDescription.fromJsonLd(
       doc,
       GROUP_DESC_IRI
     )

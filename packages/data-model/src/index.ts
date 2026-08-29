@@ -1,17 +1,7 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { ApplicationId } from './application-registration'
 import type { RoleId } from './role'
 import type { SocialAgentId } from './social-agent-registration'
 
-/**
- * Plain dependencies for data-model functions (replaces the factories):
- * functions that read/write pass `fetch`; writers that assign new resource
- * IRIs (via `iriForContained`) pass the full `DataModelDependencies`.
- */
-export interface DataModelDependencies {
-  fetch: WhatwgFetch
-  randomUUID(): string
-}
 export * from './agent-registration'
 export type {
   ApplicationRegistrationData,
@@ -67,11 +57,9 @@ export { loadAccessNeed } from './access-need'
 export type { AccessNeedGroupData, AccessNeedGroupId } from './access-need-group'
 export * as AccessNeedGroup from './access-need-group'
 export { loadAccessNeedGroup } from './access-need-group'
-export {
-  loadAccessNeedDescription,
-  loadAccessNeedGroupDescription,
-} from './access-description'
-export { dataModelContext, iriTermDef } from './context'
+export { loadAccessNeedDescription } from './access-need-description'
+export { loadAccessNeedGroupDescription } from './access-need-group-description'
+export { dataModelContext } from './context'
 export type { GrantData, GrantId, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
 export { toJsonLd, loadGrant } from './grant'
@@ -97,16 +85,14 @@ export type {
 } from './shape-tree-description'
 export * as ShapeTreeDescription from './shape-tree-description'
 export { loadShapeTreeDescription } from './shape-tree-description'
+export type { AccessDescriptionData, AccessDescriptionId } from './access-description'
+export type { AccessNeedDescriptionData, AccessNeedDescriptionId } from './access-need-description'
+export * as AccessNeedDescription from './access-need-description'
 export type {
-  AccessDescriptionData,
-  AccessDescriptionId,
-  AccessNeedDescriptionData,
-  AccessNeedDescriptionId,
   AccessNeedGroupDescriptionData,
   AccessNeedGroupDescriptionId,
-} from './access-description'
-export * as AccessDescription from './access-description'
-export type { AccessDescriptionSetData } from './access-description-set'
+} from './access-need-group-description'
+export * as AccessNeedGroupDescription from './access-need-group-description'
 export type { DataRegistrationData, DataRegistrationId } from './data-registration'
 export * as DataRegistration from './data-registration'
 export { loadDataRegistration } from './data-registration'

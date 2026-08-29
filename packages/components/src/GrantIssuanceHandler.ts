@@ -3,9 +3,7 @@ import {
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import {
-  AccessRequest,
   type AccessRequestMessage,
-  AccessRevocation,
   type FinalGrantData,
   type IncomingGrantData,
 } from '@janeirodigital/interop-data-model'
@@ -27,6 +25,7 @@ import type {
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 import { GrantRevocationHandler } from './GrantRevocationHandler.js'
+import { isAccessRequestMessage, isAccessRevocationMessage } from './messages.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
@@ -57,14 +56,14 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
 
     // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
-    if (AccessRevocation.isAccessRevocationMessage(message)) {
+    if (isAccessRevocationMessage(message)) {
       return new GrantRevocationHandler(this.sparqlEndpoint, this.sessionManager).revoke(
         message,
         credentials,
         operation
       )
     }
-    if (!AccessRequest.isAccessRequestMessage(message)) {
+    if (!isAccessRequestMessage(message)) {
       throw new BadRequestHttpError('invalid delegation message')
     }
     return this.issue(message, credentials, operation)

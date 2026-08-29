@@ -1,6 +1,5 @@
 import {
   type DataAuthorizationData,
-  type DataModelDependencies,
   type DataRegistrationData,
   type FinalGrantData,
   type GeneratedGrants,
@@ -10,6 +9,7 @@ import {
   frameDataInstance,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'
+import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   type WhatwgFetch,

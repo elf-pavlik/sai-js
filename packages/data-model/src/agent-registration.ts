@@ -20,7 +20,7 @@ export type AgentRegistrationData = AgentRegistrationId & {
 // Write path: AgentRegistrationData → Dataset
 // ──────────────────────────
 
-export async function toDataset(data: AgentRegistrationData): Promise<Store> {
+export function toDataset(data: AgentRegistrationData): Store {
   const store = new Store()
   const node = DataFactory.namedNode(data.id)
   if (data.registeredAgent) {
@@ -44,6 +44,6 @@ export async function toDataset(data: AgentRegistrationData): Promise<Store> {
 // Accessors
 // ──────────────────────────
 
-export async function getDataGrantIris(data: AgentRegistrationData): Promise<string[]> {
+export function getDataGrantIris(data: AgentRegistrationData): string[] {
   return data.hasDataGrant ?? []
 }

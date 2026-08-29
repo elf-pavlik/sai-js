@@ -3,10 +3,10 @@ import type {
   AuthorizationRegistryData,
   DataAuthorizationData,
   DataInstanceData,
-  DataModelDependencies,
   FinalDataAuthorizationData,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
+import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   type WhatwgFetch,

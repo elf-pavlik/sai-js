@@ -53,7 +53,7 @@ describe('build', () => {
       acme2bobRegistrationIri,
       deps.fetch
     )
-    const iris = await getDataGrantIris(socialAgentRegistration)
+    const iris = getDataGrantIris(socialAgentRegistration)
     expect(iris.length).toBeGreaterThan(0)
   })
 })
@@ -83,7 +83,7 @@ describe('admin grant links (R1)', () => {
 
   test('frames hasAdminGrant from the registration resource', async () => {
     const socialAgentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
-    expect(await getAdminGrantIris(socialAgentRegistration)).toEqual([grantOne, grantTwo])
+    expect(getAdminGrantIris(socialAgentRegistration)).toEqual([grantOne, grantTwo])
   })
 
   test('replaceAdminGrantLinks patches remove+insert in a single request', async () => {

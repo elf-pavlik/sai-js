@@ -76,8 +76,8 @@ export async function loadSocialAgentRegistration(
 // Write path: SocialAgentRegistrationData → Dataset
 // ──────────────────────────
 
-export async function toDataset(data: SocialAgentRegistrationData): Promise<Store> {
-  const store = await registrationToDataset(data)
+export function toDataset(data: SocialAgentRegistrationData): Store {
+  const store = registrationToDataset(data)
   const node = DataFactory.namedNode(data.id)
   store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.prefLabel)))
   if (data.note) {
@@ -100,6 +100,6 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
 // ──────────────────────────
 
 /** The registration's AdminGrant IRIs (interop:hasAdminGrant). */
-export async function getAdminGrantIris(data: SocialAgentRegistrationData): Promise<string[]> {
+export function getAdminGrantIris(data: SocialAgentRegistrationData): string[] {
   return data.hasAdminGrant ?? []
 }

@@ -105,9 +105,9 @@ export const buildSocialAgentProfile = async (
     : undefined
   let admin = false
   if (personal && reciprocal) {
-    admin = (await getAdminGrantIris(reciprocal)).length > 0
+    admin = getAdminGrantIris(reciprocal).length > 0
   } else if (!personal) {
-    admin = (await getAdminGrantIris(registration)).length > 0
+    admin = getAdminGrantIris(registration).length > 0
   }
 
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
@@ -121,7 +121,7 @@ export const buildSocialAgentProfile = async (
     admin,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
-    accessGrant: (await getDataGrantIris(registration))[0],
+    accessGrant: getDataGrantIris(registration)[0],
     accessNeedGroup: reciprocal?.hasAccessNeedGroup,
   })
 }
@@ -143,7 +143,7 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
       transport,
       registration.reciprocalRegistration
     )
-    if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
+    if (getDataGrantIris(reciprocalReg).length === 0) continue
     const dataGrants = await Promise.all(
       reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
     )

@@ -1,4 +1,4 @@
-import { SHAPETREES, toStore } from '@janeirodigital/interop-utils'
+import { SHAPETREES } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { ShapeTree } from '../../src'
 import { expect } from '../expect'
@@ -9,9 +9,10 @@ const TREE_GRAPH = 'https://data/shapetrees/trees/Project'
 
 // Graph <https://data/shapetrees/trees/Project> in registry.trig:
 // ShapeTree with expectsType, shape, describesInstance (rdfs:label), three
-// references (hasShapeTree/viaPredicate blank nodes) and the description sets
-// carrying usesLanguage. The read path is quad-based (fromDataset), not
-// framing; the toJsonLd round-trip below exercises the shape tree context.
+// references (hasShapeTree/viaPredicate nodes) and the description sets
+// carrying usesLanguage. The read path frames the node-level properties and
+// extracts references + descriptionLanguages from the expanded document; the
+// toJsonLd round-trip below exercises the shape tree context.
 describe('ShapeTree framing', () => {
   test('converts the shape tree graph into ShapeTreeData', async () => {
     const doc = await docFromGraphs([TREE_GRAPH])
@@ -47,11 +48,10 @@ describe('ShapeTree framing', () => {
     })
   })
 
-  test('toJsonLd round-trips through the dataset', async () => {
+  test('toJsonLd round-trips through fromJsonLd', async () => {
     const doc = await docFromGraphs([TREE_GRAPH])
     const tree = await ShapeTree.fromJsonLd(doc, TREE_IRI)
-    const store = await toStore(ShapeTree.toJsonLd(tree), TREE_IRI)
-    const roundTripped = await ShapeTree.fromDataset(store, TREE_IRI)
+    const roundTripped = await ShapeTree.fromJsonLd(ShapeTree.toJsonLd(tree), TREE_IRI)
     expect(roundTripped.shape).toBe(tree.shape)
     expect(roundTripped.type).toEqual(tree.type)
     expect(roundTripped.describesInstance).toBe(tree.describesInstance)

@@ -1,7 +1,6 @@
 import {
   type AgentRegistryData,
   type ApplicationRegistrationData,
-  type DataModelDependencies,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   loadApplicationRegistration,
@@ -9,6 +8,7 @@ import {
   loadSocialAgentRegistration,
 } from '@janeirodigital/interop-data-model'
 import type { AgentAndClient } from '@janeirodigital/interop-data-model'
+import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   type WhatwgFetch,

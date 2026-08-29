@@ -41,7 +41,7 @@ async function isAdminOf(userSession: AuthorizationAgent, orgWebId: string): Pro
     localSparqlTransport(userSession.sparqlEndpoint),
     registration.reciprocalRegistration
   )
-  return (await getAdminGrantIris(reciprocal)).length > 0
+  return getAdminGrantIris(reciprocal).length > 0
 }
 
 /**

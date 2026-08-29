@@ -1,9 +1,10 @@
 import {
-  ApplicationFactory,
   ApplicationRegistration,
   type ApplicationRegistrationData,
   type DataOwnerData,
   Grant,
+  loadApplicationRegistration,
+  loadDataRegistration,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
@@ -34,9 +35,9 @@ type ChildInfo = {
 }
 
 export class Application {
-  factory: ApplicationFactory
-
   fetch: WhatwgFetch
+
+  randomUUID: () => string
 
   authorizationAgentIri: string
 
@@ -57,10 +58,7 @@ export class Application {
     dependencies: ApplicationDependencies
   ) {
     this.fetch = dependencies.fetch
-    this.factory = new ApplicationFactory({
-      fetch: this.fetch,
-      randomUUID: dependencies.randomUUID,
-    })
+    this.randomUUID = dependencies.randomUUID
   }
 
   private async bootstrap(): Promise<void> {
@@ -76,8 +74,9 @@ export class Application {
 
   public async buildRegistration(): Promise<void> {
     if (this.registrationIri) {
-      this.hasApplicationRegistration = await this.factory.applicationRegistration(
-        this.registrationIri
+      this.hasApplicationRegistration = await loadApplicationRegistration(
+        this.registrationIri,
+        this.fetch
       )
     }
   }
@@ -118,7 +117,7 @@ export class Application {
     if (!this.hasApplicationRegistration) return []
     const dataGrants = await ApplicationRegistration.getDataGrants(
       this.hasApplicationRegistration,
-      this.factory
+      this.fetch
     )
     return dataGrants.reduce((acc, grant) => {
       let owner: DataOwnerData = acc.find((agent) => agent.iri === grant.dataOwner)
@@ -164,9 +163,7 @@ export class Application {
       list = grant.hasDataInstance ?? []
     }
     if (grant.scopeOfGrant === INTEROP.AllFromRegistry) {
-      const dataRegistration = await this.factory.dataRegistration(
-        grant.hasDataRegistration
-      )
+      const dataRegistration = await loadDataRegistration(grant.hasDataRegistration, this.fetch)
       list = dataRegistration.contains
     }
     for (const resource of list) {
@@ -224,7 +221,7 @@ export class Application {
   public async iriForNew(resourceServer: string, scope: string): Promise<string> {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
-    return Grant.iriForNew(grant, this.factory.randomUUID)
+    return Grant.iriForNew(grant, this.randomUUID)
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

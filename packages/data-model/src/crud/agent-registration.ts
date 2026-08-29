@@ -1,5 +1,6 @@
 import {
   INTEROP,
+  type WhatwgFetch,
   deletePatch,
   discoverAccessResource,
   insertPatch,
@@ -7,7 +8,8 @@ import {
   serializeTurtle,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory, GrantData } from '..'
+import type { GrantData } from '..'
+import { loadGrant } from '../grant'
 import { agentRegistrationAcrTemplate } from '../templates/AgentRegistration.acr'
 import type { AgentAndClient } from '../templates/types'
 import { addStatement, applyPatch, removeStatement } from './container'
@@ -57,11 +59,11 @@ export async function toDataset(data: AgentRegistrationData): Promise<Store> {
 
 export async function setAcr(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   creator: AgentAndClient,
   peer: AgentAndClient
 ): Promise<void> {
-  const acrLocation = await discoverAccessResource(data.id, factory.fetch)
+  const acrLocation = await discoverAccessResource(data.id, fetch)
   const dataset = await parseTurtle(
     agentRegistrationAcrTemplate({
       id: data.id,
@@ -69,7 +71,7 @@ export async function setAcr(
       peer,
     })
   )
-  const response = await factory.fetch(acrLocation, {
+  const response = await fetch(acrLocation, {
     method: 'PUT',
     body: await serializeTurtle(dataset),
     headers: { 'Content-Type': 'text/turtle' },
@@ -87,15 +89,15 @@ export async function getGranted(data: AgentRegistrationData): Promise<boolean> 
 
 export async function getDataGrants(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<GrantData[]> {
   const iris = await getDataGrantIris(data)
-  return Promise.all(iris.map((iri) => factory.dataGrant(iri)))
+  return Promise.all(iris.map((iri) => loadGrant(iri, fetch)))
 }
 
 export async function addDataGrant(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   grantIri: string
 ): Promise<void> {
   const quad = DataFactory.quad(
@@ -103,13 +105,13 @@ export async function addDataGrant(
     INTEROP.terms.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
-  await addStatement(data.id, factory, quad)
+  await addStatement(data.id, fetch, quad)
   data.hasDataGrant = [...(data.hasDataGrant ?? []), grantIri]
 }
 
 export async function removeDataGrant(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   grantIri: string
 ): Promise<void> {
   const quad = DataFactory.quad(
@@ -117,16 +119,16 @@ export async function removeDataGrant(
     INTEROP.terms.hasDataGrant,
     DataFactory.namedNode(grantIri)
   )
-  await removeStatement(data.id, factory, quad)
+  await removeStatement(data.id, fetch, quad)
   data.hasDataGrant = (data.hasDataGrant ?? []).filter((iri) => iri !== grantIri)
 }
 
 export async function removeAllDataGrants(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const iris = await getDataGrantIris(data)
-  await Promise.all(iris.map((iri) => removeDataGrant(data, factory, iri)))
+  await Promise.all(iris.map((iri) => removeDataGrant(data, fetch, iri)))
 }
 
 /**
@@ -137,7 +139,7 @@ export async function removeAllDataGrants(
  */
 export async function replaceDataGrants(
   data: AgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   grantIris: string[]
 ): Promise<void> {
   const current = await getDataGrantIris(data)
@@ -158,6 +160,6 @@ export async function replaceDataGrants(
     ...(removed.size ? [await deletePatch(new Store(removeQuads))] : []),
     ...(added.size ? [await insertPatch(new Store(insertQuads))] : []),
   ].join(';')
-  await applyPatch(data.id, factory, sparqlUpdate)
+  await applyPatch(data.id, fetch, sparqlUpdate)
   data.hasDataGrant = [...grantIris]
 }

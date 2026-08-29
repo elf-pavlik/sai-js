@@ -48,17 +48,21 @@ export class ReciprocalWebhookHandler extends OperationHttpHandler {
       const session = await this.sessionManager.getSession(channel.webId)
       const activityRegistry = session.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
-      await ActivityRegistry.createActivity(activityRegistry, session.factory, {
-        activityType: 'delegatedGrantsUpdated',
-        // the peer — the side whose reciprocal-registration Update triggered
-        // this webhook; informational only, not consumed by any workflow
-        target: channel.peerId,
-        payload: {
-          webId: { id: channel.webId, type: [INTEROP.SocialAgent] },
-          peerId: { id: channel.peerId, type: [INTEROP.SocialAgent] },
-        },
-        createdAt: new Date().toISOString(),
-      })
+      await ActivityRegistry.createActivity(
+        activityRegistry,
+        { fetch: session.fetch, randomUUID: session.randomUUID },
+        {
+          activityType: 'delegatedGrantsUpdated',
+          // the peer — the side whose reciprocal-registration Update triggered
+          // this webhook; informational only, not consumed by any workflow
+          target: channel.peerId,
+          payload: {
+            webId: { id: channel.webId, type: [INTEROP.SocialAgent] },
+            peerId: { id: channel.peerId, type: [INTEROP.SocialAgent] },
+          },
+          createdAt: new Date().toISOString(),
+        }
+      )
     }
     return new ResponseDescription(200)
   }

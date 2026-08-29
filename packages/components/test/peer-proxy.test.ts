@@ -1,13 +1,22 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type { DataAuthorizationData, DataInstanceData, GrantData } from '@janeirodigital/interop-data-model'
+import type {
+  DataAuthorizationData,
+  DataInstanceData,
+  GrantData,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import type { ResolvedContext } from '../src/services/Context.js'
-import { fetchPeerResource, isJsonLdContentType, PeerFetchError } from '../src/services/peerFetch.js'
+import { agentsWithAccessMatching } from '../src/services/ShareResource.js'
 import {
+  PeerFetchError,
+  fetchPeerResource,
+  isJsonLdContentType,
+} from '../src/services/peerFetch.js'
+import {
+  PeerProxyError,
   dataRegistrationContains,
   fetchPeerDocument,
-  PeerProxyError,
   peerInstanceIris,
 } from '../src/services/peerProxy.js'
 import {
@@ -15,7 +24,6 @@ import {
   listContained,
   sparqlTransportFor,
 } from '../src/services/queries/org.js'
-import { agentsWithAccessMatching } from '../src/services/ShareResource.js'
 
 // ──────────────────────────
 // Fixtures
@@ -115,7 +123,9 @@ describe('fetchPeerResource', () => {
 
   test('isJsonLdContentType — JSON-LD-only contract', () => {
     expect(isJsonLdContentType('application/ld+json')).toBe(true)
-    expect(isJsonLdContentType('application/ld+json; profile="http://example.org/profile"')).toBe(true)
+    expect(isJsonLdContentType('application/ld+json; profile="http://example.org/profile"')).toBe(
+      true
+    )
     expect(isJsonLdContentType('text/turtle')).toBe(false)
     expect(isJsonLdContentType('application/octet-stream')).toBe(false)
     expect(isJsonLdContentType('')).toBe(false)
@@ -136,7 +146,9 @@ describe('fetchPeerDocument', () => {
     const [profileRequest, proxyRequest] = requests
     expect(profileRequest.url).toBe(YOYO_WEBID)
     expect(proxyRequest.url).toBe(proxyAdminUrl(YOYO_WEBID, PEER_REGISTRATION))
-    expect((proxyRequest.init?.headers as Record<string, string>).Accept).toBe('application/ld+json')
+    expect((proxyRequest.init?.headers as Record<string, string>).Accept).toBe(
+      'application/ld+json'
+    )
   })
 
   test('URL-encodes the target IRI (ampersands, existing queries)', async () => {
@@ -157,9 +169,9 @@ describe('fetchPeerDocument', () => {
       message: expect.stringContaining(`upstream 403 for ${PEER_REGISTRATION}`),
       status: 403,
     })
-    await expect(
-      fetchPeerDocument(session, YOYO_WEBID, PEER_REGISTRATION)
-    ).rejects.toBeInstanceOf(PeerProxyError)
+    await expect(fetchPeerDocument(session, YOYO_WEBID, PEER_REGISTRATION)).rejects.toBeInstanceOf(
+      PeerProxyError
+    )
   })
 
   test('indistinguishable failure when the org AA cannot be discovered', async () => {
@@ -169,9 +181,9 @@ describe('fetchPeerDocument', () => {
     await expect(fetchPeerDocument(session, YOYO_WEBID, PEER_REGISTRATION)).rejects.toThrow(
       `cannot discover authorization agent for ${YOYO_WEBID}`
     )
-    await expect(
-      fetchPeerDocument(session, YOYO_WEBID, PEER_REGISTRATION)
-    ).rejects.toBeInstanceOf(PeerProxyError)
+    await expect(fetchPeerDocument(session, YOYO_WEBID, PEER_REGISTRATION)).rejects.toBeInstanceOf(
+      PeerProxyError
+    )
   })
 })
 
@@ -189,13 +201,11 @@ describe('dataRegistrationContains', () => {
     expect(requests[1].url).toBe(proxyAdminUrl(YOYO_WEBID, PEER_REGISTRATION))
   })
 
-  test('personal context — derefs directly with the session factory, no proxy call', async () => {
-    // no `fetch` on the session: if the personal branch tried to proxy,
-    // this would throw a TypeError and fail the test
+  test('personal context — derefs directly with the session fetch, no proxy call', async () => {
+    // only a `fetch` on the session (no proxy dispatch): if the personal
+    // branch tried to proxy, this would fail on the unexpected URL
     const session = {
-      factory: {
-        dataRegistration: async () => ({ contains: [PEER_INSTANCE] }),
-      },
+      fetch: async () => jsonResponse(peerRegistrationDoc),
     } as unknown as AuthorizationAgent
     const ctx = fakeCtx(session, DAN_WEBID, DAN_WEBID)
 
@@ -234,7 +244,10 @@ const grantData = (scopeOfGrant: string, extra: Partial<GrantData> = {}): GrantD
 })
 
 /** Fetch dispatcher keyed on the *decoded proxy target* (plus the profile). */
-function proxyDispatcher(byIri: Record<string, unknown>, sessionFetch = happySession().session.fetch) {
+function proxyDispatcher(
+  byIri: Record<string, unknown>,
+  sessionFetch = happySession().session.fetch
+) {
   return fakeSession(async (url) => {
     if (url === YOYO_WEBID) return jsonResponse(yoyoProfileDoc)
     const target = new URL(url).searchParams.get('iri')
@@ -254,9 +267,7 @@ describe('peerInstanceIris', () => {
   test('AllFromRegistry — `contains` of the peer registration via /proxy-admin', async () => {
     const session = proxyDispatcher({ [PEER_REGISTRATION]: peerRegistrationDoc })
     const ctx = fakeCtx(session, YOYO_WEBID, DAN_WEBID)
-    const iris = await collect(
-      peerInstanceIris(ctx, grantData(INTEROP.AllFromRegistry))
-    )
+    const iris = await collect(peerInstanceIris(ctx, grantData(INTEROP.AllFromRegistry)))
     expect(iris).toEqual([PEER_INSTANCE])
   })
 
@@ -266,7 +277,12 @@ describe('peerInstanceIris', () => {
     })
     const ctx = fakeCtx(session, YOYO_WEBID, DAN_WEBID)
     const iris = await collect(
-      peerInstanceIris(ctx, grantData(INTEROP.SelectedFromRegistry, { hasDataInstance: ['https://peer.example/data/a', 'https://peer.example/data/b'] }))
+      peerInstanceIris(
+        ctx,
+        grantData(INTEROP.SelectedFromRegistry, {
+          hasDataInstance: ['https://peer.example/data/a', 'https://peer.example/data/b'],
+        })
+      )
     )
     expect(iris).toHaveLength(2)
     expect(iris).toEqual(
@@ -296,21 +312,40 @@ describe('peerInstanceIris', () => {
       '@id': parentInstanceIri,
       [viaPredicate]: [{ '@id': childInstanceIri }],
     }
-    const fetch = proxyDispatcher({
+    // public shape tree — resolved with the (admin) session over the proxy
+    const parentShapeTreeDoc = {
+      '@id': parentShapeTreeIri,
+      'http://www.w3.org/ns/shapetrees#expectsType': {
+        '@id': 'http://www.w3.org/ns/shapetrees#RDFResource',
+      },
+      'http://www.w3.org/ns/shapetrees#describesInstance': {
+        '@id': 'https://example/ldt/describesInstance',
+      },
+      'http://www.w3.org/ns/shapetrees#references': [
+        {
+          'http://www.w3.org/ns/shapetrees#hasShapeTree': {
+            '@id': 'https://shapetrees.example/Child',
+          },
+          'http://www.w3.org/ns/shapetrees#viaPredicate': { '@id': viaPredicate },
+        },
+      ],
+    }
+    const byIri: Record<string, unknown> = {
       [parentGrantIri]: parentGrantDoc,
       [parentRegistrationIri]: parentRegistrationDoc,
       [parentInstanceIri]: parentInstanceDoc,
-    }).fetch
+      [parentShapeTreeIri]: parentShapeTreeDoc,
+    }
+    const { fetch: proxyFetch } = proxyDispatcher(byIri)
     const session = {
-      fetch,
-      factory: {
-        // public shape tree — resolved with the (admin) session
-        shapeTree: async () => ({
-          id: parentShapeTreeIri,
-          expectsType: 'http://www.w3.org/ns/shapetrees#RDFResource',
-          describesInstance: 'https://example/ldt/describesInstance',
-          references: [{ shapeTree: 'https://shapetrees.example/Child', viaPredicate: { value: viaPredicate } }],
-        }),
+      // shape trees are public and fetched directly (no proxy); everything
+      // else (peer grants/registrations/instances) goes via /proxy-admin
+      fetch: async (url: string, init?: RequestInit) => {
+        if (url === YOYO_WEBID) return jsonResponse(yoyoProfileDoc)
+        const target = new URL(url).searchParams.get('iri')
+        if (target) return proxyFetch(url, init)
+        if (byIri[url]) return jsonResponse(byIri[url])
+        throw new Error(`unexpected direct request: ${url}`)
       },
     } as unknown as AuthorizationAgent
     const ctx = fakeCtx(session, YOYO_WEBID, DAN_WEBID)
@@ -339,7 +374,10 @@ const resource: DataInstanceData = {
   },
 }
 
-const authorization = (scope: string, extra: Partial<DataAuthorizationData> = {}): DataAuthorizationData => ({
+const authorization = (
+  scope: string,
+  extra: Partial<DataAuthorizationData> = {}
+): DataAuthorizationData => ({
   id: 'https://yoyo.example/authorizations/1',
   type: [INTEROP.DataAuthorization],
   grantee: 'https://peer2.example/profile/card#me',
@@ -353,7 +391,10 @@ const authorization = (scope: string, extra: Partial<DataAuthorizationData> = {}
 describe('agentsWithAccessMatching', () => {
   test('scope All — every matching-shape-tree grantee', () => {
     const agents = agentsWithAccessMatching(
-      [authorization(INTEROP.All), authorization(INTEROP.All, { grantee: 'https://app.example/1' })],
+      [
+        authorization(INTEROP.All),
+        authorization(INTEROP.All, { grantee: 'https://app.example/1' }),
+      ],
       resource,
       YOYO_WEBID
     )
@@ -365,11 +406,19 @@ describe('agentsWithAccessMatching', () => {
 
   test('AllFromAgent — only when the org is the data owner', () => {
     expect(
-      agentsWithAccessMatching([authorization(INTEROP.AllFromAgent, { dataOwner: YOYO_WEBID })], resource, YOYO_WEBID)
+      agentsWithAccessMatching(
+        [authorization(INTEROP.AllFromAgent, { dataOwner: YOYO_WEBID })],
+        resource,
+        YOYO_WEBID
+      )
     ).toEqual(['https://peer2.example/profile/card#me'])
     expect(
       agentsWithAccessMatching(
-        [authorization(INTEROP.AllFromAgent, { dataOwner: 'https://peer.example/profile/card#me' })],
+        [
+          authorization(INTEROP.AllFromAgent, {
+            dataOwner: 'https://peer.example/profile/card#me',
+          }),
+        ],
         resource,
         YOYO_WEBID
       )
@@ -386,21 +435,35 @@ describe('agentsWithAccessMatching', () => {
     ).toEqual(['https://peer2.example/profile/card#me'])
     expect(
       agentsWithAccessMatching(
-        [authorization(INTEROP.AllFromRegistry, { hasDataRegistration: 'https://other.example/reg/' })],
+        [
+          authorization(INTEROP.AllFromRegistry, {
+            hasDataRegistration: 'https://other.example/reg/',
+          }),
+        ],
         resource,
         YOYO_WEBID
       )
     ).toEqual([])
     expect(
       agentsWithAccessMatching(
-        [authorization(INTEROP.SelectedFromRegistry, { hasDataRegistration: PEER_REGISTRATION, hasDataInstance: [PEER_INSTANCE] })],
+        [
+          authorization(INTEROP.SelectedFromRegistry, {
+            hasDataRegistration: PEER_REGISTRATION,
+            hasDataInstance: [PEER_INSTANCE],
+          }),
+        ],
         resource,
         YOYO_WEBID
       )
     ).toEqual(['https://peer2.example/profile/card#me'])
     expect(
       agentsWithAccessMatching(
-        [authorization(INTEROP.SelectedFromRegistry, { hasDataRegistration: PEER_REGISTRATION, hasDataInstance: ['https://other.example/instance'] })],
+        [
+          authorization(INTEROP.SelectedFromRegistry, {
+            hasDataRegistration: PEER_REGISTRATION,
+            hasDataInstance: ['https://other.example/instance'],
+          }),
+        ],
         resource,
         YOYO_WEBID
       )
@@ -416,7 +479,11 @@ describe('agentsWithAccessMatching', () => {
       )
     ).toEqual([])
     expect(() =>
-      agentsWithAccessMatching([authorization('http://www.w3.org/ns/solid/interop#Nope')], resource, YOYO_WEBID)
+      agentsWithAccessMatching(
+        [authorization('http://www.w3.org/ns/solid/interop#Nope')],
+        resource,
+        YOYO_WEBID
+      )
     ).toThrow()
   })
 })
@@ -427,9 +494,10 @@ describe('agentsWithAccessMatching', () => {
 const SPARQL_ADMIN_URL = `${new URL(YOYO_AA).origin}/.sai/sparql-admin/${Buffer.from(YOYO_WEBID).toString('base64url')}`
 
 /** Mock org server answering the admin-session fetch: profile + sparql-admin QUERY. */
-function sparqlAdminSession(
-  respond: (req: { url: string; init?: RequestInit }) => Response
-): { session: AuthorizationAgent; requests: { url: string; init?: RequestInit }[] } {
+function sparqlAdminSession(respond: (req: { url: string; init?: RequestInit }) => Response): {
+  session: AuthorizationAgent
+  requests: { url: string; init?: RequestInit }[]
+} {
   const requests: { url: string; init?: RequestInit }[] = []
   const session = fakeSession(async (url, init) => {
     requests.push({ url, init })
@@ -458,7 +526,10 @@ describe('sparqlTransportFor — org context routes via /sparql-admin', () => {
     )
     const ctx = fakeCtx(session, YOYO_WEBID, DAN_WEBID)
 
-    const children = await listContained(sparqlTransportFor(ctx), 'https://yoyo.example/agent-registry/')
+    const children = await listContained(
+      sparqlTransportFor(ctx),
+      'https://yoyo.example/agent-registry/'
+    )
 
     expect(children).toEqual([
       'https://yoyo.example/registrations/1',
@@ -468,9 +539,9 @@ describe('sparqlTransportFor — org context routes via /sparql-admin', () => {
     // QUERY: the safe, read-only method — DPoP-verifiable since the
     // access-token verifier added it to its REQUEST_METHOD whitelist (2.1.2).
     expect(sparqlRequest?.init?.method).toBe('QUERY')
-    expect((sparqlRequest?.init?.headers as Record<string, string>)['Content-Type'] ?? '').toContain(
-      'application/sparql-query'
-    )
+    expect(
+      (sparqlRequest?.init?.headers as Record<string, string>)['Content-Type'] ?? ''
+    ).toContain('application/sparql-query')
     expect(typeof sparqlRequest?.init?.body).toBe('string')
   })
 

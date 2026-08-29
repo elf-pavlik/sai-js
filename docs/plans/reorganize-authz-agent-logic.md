@@ -1,6 +1,8 @@
 # Reorganize sai-js boundaries — data-model sheds logic to `application`, `authorization-agent`, and components adapters
 
-> **Status:** design only, not started. Four behavior-preserving phases, each
+> **Status:** 🔶 partial — **Phase 1 is done and verified** (full build +
+> package vitest + the `/test` integration suite all green); Phases 2–4 are
+> design only. Four behavior-preserving phases, each
 > gated by **full build + all package tests + the `/test` integration suite**:
 > **Phase 1** removes the factories (and folds in the `iri` → `id` parameter
 > rename); **Phase 2** extracts application-specific logic from data-model;
@@ -143,7 +145,43 @@ Registry-plane reads already in AA (`authorization-agent/src/sparql.ts`):
 package; the `/test` integration suite (dagger, user-run) — all green. Each
 phase must be behavior-preserving; the integration suite is the regression gate.
 
-### Phase 1 — remove factories; normalize loaders; `iri` → `id`
+### Phase 1 — remove factories; normalize loaders; `iri` → `id` — ✅ done
+
+> **Implementation notes (what actually landed):**
+>
+> - The deps seam is **`DataModelDependencies { fetch, randomUUID }`** (renamed
+>   from `FactoryDependencies`): pure-read functions take `fetch: WhatwgFetch`;
+>   writers that assign new resource IRIs (`iriForContained`) take the full
+>   deps object. Consumers pass `{ fetch, randomUUID }` (AA session now exposes
+>   both members; components use `ctx.session.fetch`/`session.randomUUID`).
+> - `RegistrySetData` **lost its `factory` member** — `loadRegistrySet(id, fetch)`
+>   builds registry POJOs with no deps attached; all `registrySet.factory.X`
+>   call sites were converted.
+> - The factory *logic* found new module-function homes (all framing, stays in
+>   data-model): **`loadDataInstance`** on `data-instance.ts`, **`accessNeed` /
+>   `accessNeedGroup`** (recursive children/needs resolution), and a new
+>   **`loadShapeTree`** loader (`SaiPermissionsEngine` de-factored via it).
+>   `ShapeTree.getDescription`/`computeChildren`/`frameDataInstance` take `fetch`.
+> - The 4 live create-paths were inlined into the crud writers; the dead
+>   `role`/`dataGrant` create-paths dropped; `iriForContained` now takes
+>   `randomUUID`.
+> - `iri: string` → `id: string` folded in on **all data-model function
+>   parameters** (69 sites) — and, for consistency, the `ChildInfo.shapeTree`
+>   field (`iri` → `id`, touching components + tests). Deliberately left:
+>   `DataOwnerData.iri` (a POJO field, not a parameter) — decide alignment in
+>   Phase 2.
+> - **`/test` helpers were in scope**: `test/util.ts` + 8 integration test
+>   files used `session.factory.X`; migrated to `session.fetch` /
+>   `loadSocialAgentRegistration` / `loadGrant` (the integration suite is the
+>   real gate for this phase — an earlier run surfaced all 17 failures at once).
+> - Verification: `tsc --noEmit` clean (data-model, application, AA,
+>   components); vitest green (data-model 166, AA 5, application 7, components
+>   30); rollup builds green; `/test` integration green.
+> - Gate note: `biome check` is **not** part of the gate — the repo baseline
+>   has ~208 pre-existing diagnostics; only the files changed by a phase are
+>   expected to be biome-clean.
+
+The deviations from the original bullet list are captured in the notes above; as planned, all of the following landed:
 
 - Replace the `factory: …` parameter with `{ fetch: WhatwgFetch,
   randomUUID(): string }` (usually just `fetch`) across data-model's ~100
@@ -174,6 +212,11 @@ phase must be behavior-preserving; the integration suite is the regression gate.
 - Move to `application`: `Grant.iriForNew`, `ApplicationRegistration.getDataGrants`
   and `getGranted` (application-only consumers). Delete the dead
   `Grant.canCreate`.
+- **`iri` → `id` alignment of the last POJO field**: rename `DataOwnerData.iri`
+  → `DataOwnerData.id` (the only non-`id` field left after Phase 1; consumers
+  are `application.ts` `getDataOwnersAsync`/`resourceOwners()`/`resourceServers()`
+  + the application test). With this, the `id` convention covers every
+  data-model function parameter and POJO field.
 - `Grant.getDataInstanceIterator` (**wrinkle 2**): duplicate into
   `application`; keep the data-model copy (components still uses it) with a
   TODO: Phase 4 may replace components' usage with an AA SPARQL-backed
@@ -247,9 +290,14 @@ Moves into AA session methods (POJO in/out):
 - AA exposes moved logic as session methods; `ResolvedContext` seam kept;
   adapters pass session/registrySet/webId.
 - No `api-messages` dependency in the AA; `ApiHandler`/router/schemas untouched.
-- `iri: string` → `id: string` folded into Phase 1; convention carried forward.
+- `iri: string` → `id: string` folded into Phase 1; convention carried forward —
+  Phase 2 completes it with the `DataOwnerData.iri` → `id` field rename.
+- Deps seam: **`DataModelDependencies { fetch, randomUUID }`** — pure reads take
+  `fetch`; IRI-assigning writers take the full deps object; `iriForContained`
+  takes `randomUUID`. `RegistrySetData` carries no deps/factory member.
 - `loadShapeTree` added (Phase 1); instance assembly becomes `loadDataInstance`
-  in `data-instance.ts`; `getDataInstanceIterator` duplicated (app copy +
+  in `data-instance.ts`; `accessNeed`/`accessNeedGroup` compose functions added
+  (the factory recursion); `getDataInstanceIterator` duplicated (app copy +
   data-model copy) with a Phase-4 SPARQL TODO.
 - AdminAuthorization block + reciprocal federation: Phase 3; delegation/
   revocation rules: Phase 4 (nothing stays parked).
@@ -257,8 +305,10 @@ Moves into AA session methods (POJO in/out):
 
 ## 6. Honest sizing
 
-- **Phase 1:** widest mechanically (~100 signatures + consumer/test call sites),
-  zero behavior change; the `iri`→`id` rename rides along.
+- **Phase 1 (done):** widest mechanically — 81 files, ~1280 insertions /
+  ~1479 deletions: ~100 data-model signatures + every consumer (application,
+  AA, components src + tests, `/test` integration helpers); zero behavior
+  change; the `iri`→`id` rename rode along. Verified green end-to-end.
 - **Phase 2:** small (~3 functions + delete `Grant.canCreate`); thinnest gate.
 - **Phase 3:** ~300 lines moved (grant chain + admin + reciprocal) + orphan
   cleanup; the whole `/test` authorization/delegation machinery exercises it.
@@ -267,7 +317,7 @@ Moves into AA session methods (POJO in/out):
 
 ## 7. Verification (per phase)
 
-- Phase 1: all package suites + `/test` integration (no behavior change expected).
+- Phase 1: ✅ all package suites + `/test` integration (no behavior change — green).
 - Phase 2: `packages/application` + data-model suites (application tests,
   instance/registration reads).
 - Phase 3: `/test/authorization.test.ts`, `/test/services.test.ts` (source +

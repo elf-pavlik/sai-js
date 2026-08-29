@@ -1,6 +1,6 @@
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { INTEROP, LDP, SPACE } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import type { AuthorizationAgentFactory } from '../../src'
 import { RegistrySet } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
@@ -12,10 +12,8 @@ const REGISTRY_SET_IRI = 'https://registry/alice/'
 describe('RegistrySet framing', () => {
   test('frames the registry set graph into RegistrySetData', async () => {
     const doc = await docFromGraphs([`meta:${REGISTRY_SET_IRI}`])
-    const factory = {
-      fetch: async () => ({ ok: true, json: async () => doc }),
-    } as unknown as AuthorizationAgentFactory
-    const registrySet = await RegistrySet.loadRegistrySet(REGISTRY_SET_IRI, factory)
+    const fetch = (async () => ({ ok: true, json: async () => doc })) as unknown as WhatwgFetch
+    const registrySet = await RegistrySet.loadRegistrySet(REGISTRY_SET_IRI, fetch)
     expect(registrySet).toEqual({
       id: REGISTRY_SET_IRI,
       type: [INTEROP.RegistrySet, LDP.Resource, SPACE.Storage],
@@ -25,7 +23,6 @@ describe('RegistrySet framing', () => {
       hasRoleRegistry: { id: 'https://registry/alice/role/' },
       hasActivityRegistry: { id: 'https://registry/alice/activity/' },
       hasDataRegistry: [{ id: 'https://data/alice-home/' }, { id: 'https://data/alice-work/' }],
-      factory,
     })
   })
 })

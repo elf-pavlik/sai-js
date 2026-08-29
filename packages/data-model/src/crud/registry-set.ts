@@ -1,5 +1,4 @@
-import { fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgentFactory } from '..'
+import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import { dataModelContext } from '../context'
 import type { ActivityRegistryData } from './activity-registry'
 import type { AgentRegistryData } from './agent-registry'
@@ -23,21 +22,17 @@ export type RegistrySetData = {
   hasDataRegistry: DataRegistryData[]
   /** present once the Activity Registry is seeded; producers throw without it */
   hasActivityRegistry?: ActivityRegistryData
-  factory: AuthorizationAgentFactory
 }
 
 // ──────────────────────────
 // Read path (creation happens at bootstrap in components/Account.ts)
 // ──────────────────────────
 
-export async function loadRegistrySet(
-  iri: string,
-  factory: AuthorizationAgentFactory
-): Promise<RegistrySetData> {
-  const doc = await fetchJsonLd(iri, factory.fetch)
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function loadRegistrySet(id: string, fetch: WhatwgFetch): Promise<RegistrySetData> {
+  const doc = await fetchJsonLd(id, fetch)
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     // @type: '@id' coerced — plain IRI strings
     hasAuthorizationRegistry: { id: node.hasAuthorizationRegistry },
@@ -46,6 +41,5 @@ export async function loadRegistrySet(
     hasRoleRegistry: { id: node.hasRoleRegistry },
     hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
     hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,
-    factory,
   }
 }

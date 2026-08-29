@@ -3,7 +3,7 @@ import { fetch } from '@janeirodigital/interop-test-utils'
 import { insertPatch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 import { beforeEach, describe, test, vi } from 'vitest'
-import { AuthorizationAgentFactory } from '../../src'
+import type { DataModelDependencies } from '../../src'
 import { applyPatch, replaceStatement } from '../../src/crud/container'
 import { expect } from '../expect'
 
@@ -11,7 +11,7 @@ const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'
 const mockedFetch = vi.fn(fetch)
 // @ts-ignore
-const factory = new AuthorizationAgentFactory({ fetch: mockedFetch, randomUUID })
+const deps: DataModelDependencies = { fetch: mockedFetch, randomUUID }
 
 beforeEach(() => {
   mockedFetch.mockClear()
@@ -34,7 +34,7 @@ describe('replaceStatement', () => {
       DataFactory.namedNode(`${iri}boop`)
     )
 
-    await replaceStatement(iri, factory, priorQuad, quad)
+    await replaceStatement(iri, deps.fetch, priorQuad, quad)
     expect(mockedFetch).toBeCalledWith(
       expect.any(String),
       expect.objectContaining({ body: expect.stringContaining('DELETE DATA') })
@@ -56,7 +56,7 @@ describe('applyPatch', () => {
     const sparqlUpdate = await insertPatch(new Store([quad]))
     mockedFetch.mockResolvedValueOnce({ ok: false } as unknown as Response)
 
-    await expect(applyPatch(iri, factory, sparqlUpdate, `${iri}.meta`)).rejects.toThrow(
+    await expect(applyPatch(iri, deps.fetch, sparqlUpdate, `${iri}.meta`)).rejects.toThrow(
       'failed to patch'
     )
   })

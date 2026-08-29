@@ -1,12 +1,12 @@
 import {
-  type AuthorizationAgentFactory,
   AuthorizationRegistry,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
+  type DataModelDependencies,
   type FinalDataAuthorizationData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, putJsonLd, withContext } from '@janeirodigital/interop-utils'
+import { INTEROP, type WhatwgFetch, putJsonLd, withContext } from '@janeirodigital/interop-utils'
 import {
   getDataAuthorization as getDataAuthorizationFromSparql,
   listContained,
@@ -43,7 +43,7 @@ export async function generateDataAuthorizations(
   dataAuthorizations: NestedDataAuthorizationData[],
   grantedBy: string,
   authorizationRegistry: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  deps: DataModelDependencies
 ): Promise<FinalDataAuthorizationData[]> {
   // don't create data authorization where grantee == dataowner
   const validDataAuthorizations = dataAuthorizations.filter(
@@ -54,14 +54,14 @@ export async function generateDataAuthorizations(
   for (const dataAuthorization of validDataAuthorizations) {
     const dataAuthorizationIri = AuthorizationRegistry.iriForContained(
       authorizationRegistry,
-      factory
+      deps.randomUUID
     )
     const children: FinalDataAuthorizationData[] = []
     if (dataAuthorization.children) {
       for (const childDataAuthorization of dataAuthorization.children) {
         const childDataAuthorizationIri = AuthorizationRegistry.iriForContained(
           authorizationRegistry,
-          factory
+          deps.randomUUID
         )
         children.push({
           ...childDataAuthorization,
@@ -94,7 +94,7 @@ export async function replaceDataAuthorizationsForGrantee(
   registry: AuthorizationRegistryData,
   existingDataAuthorizations: DataAuthorizationData[],
   irisToKeep: string[],
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const keep = new Set(irisToKeep)
   // children of kept parents must stay too (the kept parent still references them)
@@ -108,7 +108,7 @@ export async function replaceDataAuthorizationsForGrantee(
   ).difference(keep)
   // Change back to Promise.all after the CSS bug is fixed.
   for (const iri of irisToDelete) {
-    const response = await factory.fetch(iri, { method: 'DELETE' })
+    const response = await fetch(iri, { method: 'DELETE' })
     if (!response.ok) {
       throw new Error(`failed to delete data authorization: ${response.status}`)
     }
@@ -131,7 +131,7 @@ export async function generateAuthorization(
   authorization: AccessAuthorizationStructure,
   grantedBy: string,
   authorizationRegistry: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   extendIfExists: boolean,
   /** Internal SPARQL endpoint of the session recording the authorization. */
   sparqlEndpoint: string
@@ -197,14 +197,14 @@ export async function generateAuthorization(
       authorization.dataAuthorizations,
       grantedBy,
       authorizationRegistry,
-      factory
+      deps
     )
 
     // store data authorizations — raw JSON-LD PUT (expanded form, see putJsonLd)
     for (const dataAuthorization of dataAuthorizations) {
       await putJsonLd(
         dataAuthorization.id,
-        factory.fetch,
+        deps.fetch,
         withContext(dataModelContext, dataAuthorization),
         { 'If-None-Match': '*' }
       )
@@ -215,7 +215,7 @@ export async function generateAuthorization(
       authorizationRegistry,
       existingDataAuthorizations,
       dataAuthorizationsToReuse,
-      factory
+      deps.fetch
     )
   } else {
     // denied authorization: delete all of the grantee's existing data authorization resources
@@ -223,7 +223,7 @@ export async function generateAuthorization(
       authorizationRegistry,
       existingDataAuthorizations,
       [],
-      factory
+      deps.fetch
     )
   }
 

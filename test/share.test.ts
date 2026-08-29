@@ -1,5 +1,9 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
+import {
+  getDataGrantIris,
+  getDataGrants,
+  loadSocialAgentRegistration,
+} from '@janeirodigital/interop-data-model'
 import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { awaitGrantCompletion } from './util'
@@ -63,10 +67,11 @@ describe('share resource', () => {
     // verify the grant for the shared instance on alice's reciprocal registration for kim
     const kimSession = await manager.getSession(kimId)
     const kimRegForAlice = await kimSession.findSocialAgentRegistration(aliceId)
-    const aliceRegForKim = await kimSession.factory.socialAgentRegistration(
-      kimRegForAlice.reciprocalRegistration!
+    const aliceRegForKim = await loadSocialAgentRegistration(
+      kimRegForAlice.reciprocalRegistration!,
+      kimSession.fetch
     )
-    const dataGrants = await getDataGrants(aliceRegForKim, kimSession.factory)
+    const dataGrants = await getDataGrants(aliceRegForKim, kimSession.fetch)
     const sharedGrant = dataGrants.find(
       (grant) =>
         grant.registeredShapeTree === projectShapeTree &&

@@ -1,6 +1,5 @@
-import { INTEROP, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, RDF, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
@@ -17,19 +16,19 @@ export type GrantRegistryData = {
 
 export async function createGrantRegistry(
   data: GrantRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.GrantRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: GrantRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }

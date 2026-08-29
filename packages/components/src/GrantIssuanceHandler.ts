@@ -88,7 +88,10 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // build FinalGrantData for each parent and its inheriting children.
     const finalGrants: FinalGrantData[] = []
     for (const topGrant of grants) {
-      const grantId = GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory)
+      const grantId = GrantRegistry.iriForContained(
+        sai.registrySet.hasGrantRegistry,
+        sai.randomUUID
+      )
       const inheritingGrants = (topGrant.hasInheritingGrant ?? []).map((childData) =>
         this.buildInheritingGrant(sai, childData, grantId)
       )
@@ -154,7 +157,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       creatorAccessMode: childData.creatorAccessMode,
       hasDataInstance: childData.hasDataInstance,
       delegationOfGrant: childData.delegationOfGrant,
-      id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.factory),
+      id: GrantRegistry.iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID),
       inheritsFromGrant,
     }
   }

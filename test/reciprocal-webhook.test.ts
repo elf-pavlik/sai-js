@@ -54,12 +54,12 @@ describe('reciprocal webhook', () => {
       async () => {
         const completed = await ActivityRegistry.getCompletedActivityIris(
           registry,
-          aliceSession.factory
+          aliceSession.fetch
         )
         if (!completed.length) return false
-        const iris = await ActivityRegistry.getActivityIris(registry, aliceSession.factory)
+        const iris = await ActivityRegistry.getActivityIris(registry, aliceSession.fetch)
         for (const iri of iris) {
-          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.factory)
+          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
           if (
             activity.activityType === 'delegatedGrantsUpdated' &&
             completed.includes(activity.id)

@@ -1,6 +1,7 @@
 import {
   RDF,
   SHAPETREES,
+  type WhatwgFetch,
   XSD,
   getAllMatchingQuads,
   getOneMatchingQuad,
@@ -10,8 +11,9 @@ import {
 } from '@janeirodigital/interop-utils'
 import type { DatasetCore, NamedNode } from '@rdfjs/types'
 import { DataFactory, type Store } from 'n3'
-import type { ApplicationFactory, ShapeTreeDescriptionData } from '.'
+import type { ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'
+import { loadShapeTreeDescription } from './shape-tree-description'
 
 export interface ShapeTreeReference {
   shapeTree: string
@@ -51,8 +53,8 @@ export type ShapeTreeData = ShapeTreeId & {
  * document) are extracted directly from the quads, since framing can't
  * capture either shape.
  */
-export async function fromDataset(dataset: DatasetCore, iri: string): Promise<ShapeTreeData> {
-  const node = DataFactory.namedNode(iri)
+export async function fromDataset(dataset: DatasetCore, id: string): Promise<ShapeTreeData> {
+  const node = DataFactory.namedNode(id)
   const referenceNodes = getAllMatchingQuads(dataset, node, SHAPETREES.terms.references).map(
     (quad) => quad.object
   )
@@ -60,7 +62,7 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Sh
     const hasShapeTree = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.hasShapeTree)
     const viaPredicate = getOneMatchingQuad(dataset, referenceNode, SHAPETREES.terms.viaPredicate)
     if (!hasShapeTree || !viaPredicate) {
-      throw new Error(`shape tree ${iri} has a reference missing hasShapeTree/viaPredicate`)
+      throw new Error(`shape tree ${id} has a reference missing hasShapeTree/viaPredicate`)
     }
     return {
       shapeTree: hasShapeTree.object.value,
@@ -68,7 +70,7 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Sh
     }
   })
   return {
-    id: iri,
+    id: id,
     type: getAllMatchingQuads(dataset, node, RDF.terms.type).map((quad) => quad.object.value),
     shape: getOneMatchingQuad(dataset, node, SHAPETREES.terms.shape)?.object.value,
     describesInstance: getOneMatchingQuad(dataset, node, SHAPETREES.terms.describesInstance)?.object
@@ -86,9 +88,9 @@ export async function fromDataset(dataset: DatasetCore, iri: string): Promise<Sh
  * ShapeTreeData POJO. The document can be in expanded, compacted, or flattened
  * form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<ShapeTreeData> {
-  const dataset = await parseJsonld(JSON.stringify(doc), iri)
-  return fromDataset(dataset, iri)
+export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeData> {
+  const dataset = await parseJsonld(JSON.stringify(doc), id)
+  return fromDataset(dataset, id)
 }
 
 // ──────────────────────────
@@ -111,6 +113,18 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
   })
 }
 
+/**
+ * Fetch and load a shape tree resource as a ShapeTreeData POJO
+ * (fetched as application/ld+json).
+ */
+export async function loadShapeTree(id: string, fetch: WhatwgFetch): Promise<ShapeTreeData> {
+  const response = await fetch(id, {
+    headers: { Accept: 'application/ld+json' },
+  })
+  const doc = await response.json()
+  return fromJsonLd(doc, id)
+}
+
 // ──────────────────────────
 // Behavior functions (replacing class methods)
 // ──────────────────────────
@@ -122,9 +136,9 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
 export async function getDescription(
   tree: ShapeTreeData,
   lang: string,
-  factory: ApplicationFactory
+  fetch: WhatwgFetch
 ): Promise<ShapeTreeDescriptionData | null> {
-  const response = await factory.fetch(tree.id, {
+  const response = await fetch(tree.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()
@@ -142,7 +156,7 @@ export async function getDescription(
   const descriptionIri = descriptionNodes.find((node) =>
     getOneMatchingQuad(dataset, node, SHAPETREES.terms.inDescriptionSet, descriptionSetNode)
   )?.value
-  return descriptionIri ? factory.shapeTreeDescription(descriptionIri) : null
+  return descriptionIri ? loadShapeTreeDescription(descriptionIri, fetch) : null
 }
 
 /** The type of resources the shape tree expects (as a NamedNode). */

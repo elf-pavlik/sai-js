@@ -1,6 +1,7 @@
 import { INTEROP, RDF, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
+import type { DataModelDependencies } from '..'
 import {
   type ApplicationRegistrationData,
   createApplicationRegistration,
@@ -39,40 +40,40 @@ export type AgentRegistryData = {
 
 export async function* applicationRegistrations(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<ApplicationRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasApplicationRegistration')
+  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasApplicationRegistration')
   for (const iri of iris) {
-    yield loadApplicationRegistration(iri, factory.fetch)
+    yield loadApplicationRegistration(iri, fetch)
   }
 }
 
 export async function* socialAgentRegistrations(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<SocialAgentRegistrationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasSocialAgentRegistration')
+  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasSocialAgentRegistration')
   for (const iri of iris) {
-    yield loadSocialAgentRegistration(iri, factory.fetch)
+    yield loadSocialAgentRegistration(iri, fetch)
   }
 }
 
 export async function* socialAgentInvitations(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<SocialAgentInvitationData> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'hasSocialAgentInvitation')
+  const iris = await linkedIrisJsonLd(data.id, fetch, 'hasSocialAgentInvitation')
   for (const iri of iris) {
-    yield loadSocialAgentInvitation(iri, factory.fetch)
+    yield loadSocialAgentInvitation(iri, fetch)
   }
 }
 
 export async function findApplicationRegistration(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   registeredAgent: string
 ): Promise<ApplicationRegistrationData | undefined> {
-  for await (const registration of applicationRegistrations(data, factory)) {
+  for await (const registration of applicationRegistrations(data, fetch)) {
     if (registration.registeredAgent === registeredAgent) {
       return registration
     }
@@ -81,10 +82,10 @@ export async function findApplicationRegistration(
 
 export async function findSocialAgentRegistration(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   registeredAgent: string
 ): Promise<SocialAgentRegistrationData | undefined> {
-  for await (const registration of socialAgentRegistrations(data, factory)) {
+  for await (const registration of socialAgentRegistrations(data, fetch)) {
     if (registration.registeredAgent === registeredAgent) {
       return registration
     }
@@ -93,10 +94,10 @@ export async function findSocialAgentRegistration(
 
 export async function findSocialAgentInvitation(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   capabilityUrl: string
 ): Promise<SocialAgentInvitationData | undefined> {
-  for await (const invitation of socialAgentInvitations(data, factory)) {
+  for await (const invitation of socialAgentInvitations(data, fetch)) {
     if (invitation.capabilityUrl === capabilityUrl) {
       return invitation
     }
@@ -105,38 +106,42 @@ export async function findSocialAgentInvitation(
 
 export async function findRegistration(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
-  iri: string
+  fetch: WhatwgFetch,
+  id: string
 ): Promise<ApplicationRegistrationData | SocialAgentRegistrationData | undefined> {
   return (
-    (await findApplicationRegistration(data, factory, iri)) ||
-    findSocialAgentRegistration(data, factory, iri)
+    (await findApplicationRegistration(data, fetch, id)) ||
+    findSocialAgentRegistration(data, fetch, id)
   )
 }
 
 export async function addApplicationRegistration(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   creator: AgentAndClient,
   registeredAgent: string
 ): Promise<ApplicationRegistrationData> {
-  const existing = await findApplicationRegistration(data, factory, registeredAgent)
+  const existing = await findApplicationRegistration(data, deps.fetch, registeredAgent)
   if (existing) {
     throw new Error(`Application Registration for ${registeredAgent} already exists`)
   }
-  const iri = iriForContained(data, factory, true)
-  const registration = await factory.applicationRegistration(iri, {
+  const iri = iriForContained(data, deps.randomUUID, true)
+  const registration: ApplicationRegistrationData = {
+    id: iri,
+    type: [INTEROP.ApplicationRegistration],
     registeredAgent,
-  })
-  await createApplicationRegistration(registration, factory)
+    hasDataGrant: [],
+    granted: false,
+  }
+  await createApplicationRegistration(registration, deps.fetch)
   // link to created application registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
     INTEROP.terms.hasApplicationRegistration,
     DataFactory.namedNode(registration.id)
   )
-  await addStatement(data.id, factory, quad)
-  await setAcr(registration, factory, creator, {
+  await addStatement(data.id, deps.fetch, quad)
+  await setAcr(registration, deps.fetch, creator, {
     agent: creator.agent,
     client: registeredAgent,
   })
@@ -145,33 +150,36 @@ export async function addApplicationRegistration(
 
 export async function addSocialAgentRegistration(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   creator: AgentAndClient,
   registeredAgent: string,
   prefLabel: string,
   note?: string
 ): Promise<SocialAgentRegistrationData> {
-  const existing = await findSocialAgentRegistration(data, factory, registeredAgent)
+  const existing = await findSocialAgentRegistration(data, deps.fetch, registeredAgent)
   if (existing) {
     throw new Error(`Social Agent Registration for ${registeredAgent} already exists`)
   }
-  const iri = iriForContained(data, factory, true)
-  const registration = await factory.socialAgentRegistration(iri, {
+  const iri = iriForContained(data, deps.randomUUID, true)
+  const registration: SocialAgentRegistrationData = {
+    id: iri,
+    type: [INTEROP.SocialAgentRegistration],
     registeredAgent,
     prefLabel,
     note,
-    type: [INTEROP.SocialAgentRegistration],
-  })
-  await createSocialAgentRegistration(registration, factory)
+    hasDataGrant: [],
+    hasAdminGrant: [],
+  }
+  await createSocialAgentRegistration(registration, deps.fetch)
   // link to created social agent registration
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
     INTEROP.terms.hasSocialAgentRegistration,
     DataFactory.namedNode(registration.id)
   )
-  await addStatement(data.id, factory, quad)
-  const peerUas = await discoverAuthorizationAgent(registeredAgent, factory.fetch)
-  await setAcr(registration, factory, creator, {
+  await addStatement(data.id, deps.fetch, quad)
+  const peerUas = await discoverAuthorizationAgent(registeredAgent, deps.fetch)
+  await setAcr(registration, deps.fetch, creator, {
     agent: registeredAgent,
     client: peerUas,
   })
@@ -180,48 +188,49 @@ export async function addSocialAgentRegistration(
 
 export async function addSocialAgentInvitation(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   capabilityUrl: string,
   prefLabel: string,
   note?: string
 ): Promise<SocialAgentInvitationData> {
-  const existing = await findSocialAgentInvitation(data, factory, capabilityUrl)
+  const existing = await findSocialAgentInvitation(data, deps.fetch, capabilityUrl)
   if (existing) {
     throw new Error(`Social Agent Invitation with ${capabilityUrl} already exists`)
   }
-  const iri = iriForContained(data, factory)
-  const invitation = await factory.socialAgentInvitation(iri, {
+  const iri = iriForContained(data, deps.randomUUID)
+  const invitation: SocialAgentInvitationData = {
+    id: iri,
+    type: [INTEROP.SocialAgentInvitation],
     capabilityUrl,
     prefLabel,
     note,
-    type: [INTEROP.SocialAgentInvitation],
-  })
-  await putSocialAgentInvitation(invitation, factory.fetch)
+  }
+  await putSocialAgentInvitation(invitation, deps.fetch)
   // link to created social agent invitation
   const quad = DataFactory.quad(
     DataFactory.namedNode(data.id),
     INTEROP.terms.hasSocialAgentInvitation,
     DataFactory.namedNode(invitation.id)
   )
-  await addStatement(data.id, factory, quad)
+  await addStatement(data.id, deps.fetch, quad)
   return invitation
 }
 
 export async function createAgentRegistry(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: AgentRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }

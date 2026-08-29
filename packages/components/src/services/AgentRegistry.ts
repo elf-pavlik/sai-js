@@ -7,6 +7,8 @@ import {
   discoverAndUpdateReciprocal,
   getAdminGrantIris,
   getDataGrantIris,
+  loadClientIdDocument,
+  loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
 import {
   Application,
@@ -19,11 +21,11 @@ import type * as S from 'effect/Schema'
 import { invitationUrl } from '../util/uriTemplates.js'
 import type { ResolvedContext } from './Context.js'
 import {
+  findSocialAgentRegistration as findRegistrationFromSparql,
   getApplicationRegistration as getApplicationRegistrationFromSparql,
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentInvitation as getInvitationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
-  findSocialAgentRegistration as findRegistrationFromSparql,
   listApplicationRegistrations,
   listContained,
   listSocialAgentInvitations,
@@ -144,9 +146,7 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
     )
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
     const dataGrants = await Promise.all(
-      reciprocalReg.hasDataGrant.map((grantIri) =>
-        getDataGrantFromSparql(transport, grantIri)
-      )
+      reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
     )
     for (const dataGrant of dataGrants) {
       const ownerIri = IRI.make(dataGrant.dataOwner)
@@ -154,7 +154,7 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
       seenIds.add(ownerIri)
       let label = dataGrant.dataOwner
       try {
-        const profile = await ctx.session.factory.webIdProfile(ownerIri)
+        const profile = await loadWebIdProfile(ownerIri, ctx.session.fetch)
         if (profile.label) label = profile.label
       } catch {
         /* fallback to IRI */
@@ -185,7 +185,7 @@ export const addSocialAgent = async (
   }
   const registration = await AgentRegistry.addSocialAgentRegistration(
     ctx.registrySet.hasAgentRegistry,
-    ctx.session.factory,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     { agent: ctx.webId, client: ctx.session.agentId },
     data.webId,
     data.label,
@@ -201,7 +201,10 @@ const buildApplicationProfile = async (
 ) => {
   // Design B: the registration resource is single-node — name/logo/accessNeedGroup/
   // callbackEndpoint come from the client ID document (the canonical source)
-  const clientIdDocument = await ctx.session.factory.clientIdDocument(registration.registeredAgent)
+  const clientIdDocument = await loadClientIdDocument(
+    registration.registeredAgent,
+    ctx.session.fetch
+  )
   // TODO (angel) data validation and how to handle when the applications profile is missing some components?
   return Application.make({
     id: IRI.make(registration.registeredAgent),
@@ -238,11 +241,13 @@ export const getApplications = async (ctx: ResolvedContext) => {
  * Returns the application profile of an application that is _not_ registered for the given agent
  */
 export const getUnregisteredApplication = async (agent: AuthorizationAgent, id: IRI) => {
-  const { name, logo, accessNeedGroup } = await agent.factory.clientIdDocument(id).then((doc) => ({
-    name: doc.clientName,
-    logo: doc.logoUri,
-    accessNeedGroup: doc.hasAccessNeedGroup,
-  }))
+  const { name, logo, accessNeedGroup } = await loadClientIdDocument(id, agent.fetch).then(
+    (doc) => ({
+      name: doc.clientName,
+      logo: doc.logoUri,
+      accessNeedGroup: doc.hasAccessNeedGroup,
+    })
+  )
 
   return UnregisteredApplication.make({ id: IRI.make(id), name, logo, accessNeedGroup })
 }
@@ -284,7 +289,7 @@ export async function createInvitation(
   const id = invitationUrl(ctx.webId)
   const socialAgentInvitation = await AgentRegistry.addSocialAgentInvitation(
     ctx.registrySet.hasAgentRegistry,
-    ctx.session.factory,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     id,
     base.label,
     base.note
@@ -310,7 +315,7 @@ export async function acceptInvitation(
     // create new social agent registration
     socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
       ctx.registrySet.hasAgentRegistry,
-      ctx.session.factory,
+      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
       { agent: ctx.webId, client: ctx.session.agentId },
       webId,
       invitation.label,
@@ -319,11 +324,7 @@ export async function acceptInvitation(
   }
   // discover and add reciprocal
   if (!socialAgentRegistration.reciprocalRegistration) {
-    discoverAndUpdateReciprocal(
-      socialAgentRegistration,
-      ctx.session.factory,
-      ctx.session.fetch
-    )
+    discoverAndUpdateReciprocal(socialAgentRegistration, ctx.session.fetch)
   }
 
   // currently api-handler creates job for reciprocal registration

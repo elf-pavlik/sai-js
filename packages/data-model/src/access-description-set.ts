@@ -5,13 +5,14 @@ import {
   getOneMatchingQuad,
   parseJsonld,
 } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { DatasetCore } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 import type {
   AccessNeedDescriptionData,
   AccessNeedGroupDescriptionData,
 } from './access-description'
-import type { AuthorizationAgentFactory } from './authorization-agent-factory'
+import { loadAccessNeedDescription, loadAccessNeedGroupDescription } from './access-description'
 
 // ──────────────────────────
 // Types
@@ -87,24 +88,20 @@ export function findInLanguage(dataset: DatasetCore, descriptionLang: string): s
  */
 export async function loadDescriptions(
   set: AccessDescriptionSetData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<{
   accessNeedDescriptions: AccessNeedDescriptionData[]
   accessNeedGroupDescriptions: AccessNeedGroupDescriptionData[]
 }> {
-  const response = await factory.fetch(set.id, {
+  const response = await fetch(set.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()
   const dataset = await parseJsonld(JSON.stringify(doc), set.id)
   const [accessNeedDescriptions, accessNeedGroupDescriptions] = await Promise.all([
+    Promise.all(forAccessNeed(dataset, set.id).map((iri) => loadAccessNeedDescription(iri, fetch))),
     Promise.all(
-      forAccessNeed(dataset, set.id).map((iri) => factory.accessNeedDescription(iri))
-    ),
-    Promise.all(
-      forAccessNeedGroup(dataset, set.id).map((iri) =>
-        factory.accessNeedGroupDescription(iri)
-      )
+      forAccessNeedGroup(dataset, set.id).map((iri) => loadAccessNeedGroupDescription(iri, fetch))
     ),
   ])
   return { accessNeedDescriptions, accessNeedGroupDescriptions }

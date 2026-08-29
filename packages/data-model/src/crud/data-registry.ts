@@ -2,14 +2,16 @@ import {
   INTEROP,
   RDF,
   SPACE,
+  type WhatwgFetch,
   discoverStorageDescription,
   fetchJsonLd,
   findNodeIdByType,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory, DataRegistrationData, ShapeTreeData } from '..'
+import type { DataModelDependencies, DataRegistrationData, ShapeTreeData } from '..'
 import { linkedIrisJsonLd } from '../context'
-import { createDataRegistration } from '../data-registration'
+import { createDataRegistration, loadDataRegistration } from '../data-registration'
+import { loadShapeTree } from '../shape-tree'
 import {
   addStatement,
   iriForContained as containerIriForContained,
@@ -30,50 +32,50 @@ export type DataRegistryData = {
 
 export async function hasDataRegistration(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch, 'hasDataRegistration')
+  return linkedIrisJsonLd(data.id, fetch, 'hasDataRegistration')
 }
 
 export async function* registrations(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<DataRegistrationData> {
-  const iris = await hasDataRegistration(data, factory)
+  const iris = await hasDataRegistration(data, fetch)
   for (const iri of iris) {
-    yield factory.dataRegistration(iri)
+    yield loadDataRegistration(iri, fetch)
   }
 }
 
 export async function registeredShapeTrees(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<ShapeTreeData[]> {
   const trees: ShapeTreeData[] = []
-  for await (const registration of registrations(data, factory)) {
-    trees.push(await factory.shapeTree(registration.registeredShapeTree))
+  for await (const registration of registrations(data, fetch)) {
+    trees.push(await loadShapeTree(registration.registeredShapeTree, fetch))
   }
   return trees
 }
 
 export async function createRegistration(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   registeredShapeTree: string
 ): Promise<DataRegistrationData> {
-  for await (const registration of registrations(data, factory)) {
+  for await (const registration of registrations(data, deps.fetch)) {
     if (registration.registeredShapeTree === registeredShapeTree) {
       throw new Error('registration already exists')
     }
   }
-  const iri = iriForContained(data, factory, true)
-  const dataRegistration = await factory.dataRegistration(iri, {
+  const iri = iriForContained(data, deps.randomUUID, true)
+  const dataRegistration: DataRegistrationData = {
     id: iri,
     type: [INTEROP.DataRegistration],
     registeredShapeTree,
     contains: [],
-  })
-  await createDataRegistration(dataRegistration, factory)
+  }
+  await createDataRegistration(dataRegistration, deps.fetch)
 
   // link to created data registration
   const quad = DataFactory.quad(
@@ -81,34 +83,31 @@ export async function createRegistration(
     INTEROP.terms.hasDataRegistration,
     DataFactory.namedNode(dataRegistration.id)
   )
-  await addStatement(data.id, factory, quad)
+  await addStatement(data.id, deps.fetch, quad)
   return dataRegistration
 }
 
-export async function storageIri(
-  data: DataRegistryData,
-  factory: AuthorizationAgentFactory
-): Promise<string> {
-  const storageDescriptionIri = await discoverStorageDescription(data.id, factory.fetch)
-  const doc = await fetchJsonLd(storageDescriptionIri, factory.fetch)
+export async function storageIri(data: DataRegistryData, fetch: WhatwgFetch): Promise<string> {
+  const storageDescriptionIri = await discoverStorageDescription(data.id, fetch)
+  const doc = await fetchJsonLd(storageDescriptionIri, fetch)
   return findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
 }
 
 export async function createDataRegistry(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.DataRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: DataRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }

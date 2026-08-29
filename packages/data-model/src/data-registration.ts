@@ -5,7 +5,6 @@ import {
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgentFactory } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
 
@@ -36,8 +35,8 @@ export type DataRegistrationData = DataRegistrationId & {
  * DataRegistrationData POJO. The document can be in expanded, compacted, or
  * flattened form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<DataRegistrationData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<DataRegistrationData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -47,10 +46,10 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<DataRegistr
 }
 
 export async function loadDataRegistration(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<DataRegistrationData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -59,12 +58,12 @@ export async function loadDataRegistration(
 
 export async function createDataRegistration(
   data: DataRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
   // quads come from data.type (no hand-built DataFactory quads); only the
   // container.create hand-off (PUT empty container + SPARQL patch of the
   // description resource) stays N3-based in the container module
   const dataset = await toStore(withContext(dataModelContext, data), data.id)
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }

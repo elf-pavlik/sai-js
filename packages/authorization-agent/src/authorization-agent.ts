@@ -1,5 +1,4 @@
 import {
-  AuthorizationAgentFactory,
   type DataAuthorizationData,
   type DataInstanceData,
   type DataRegistrationData,
@@ -9,6 +8,10 @@ import {
   type RoleData,
   type WebIdProfileData,
   generateGrantsForAuthorization,
+  loadDataAuthorization,
+  loadDataInstance,
+  loadRegistrySet,
+  loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -24,9 +27,9 @@ import {
 } from './authorization'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
-  findRolesWithMember,
   findSocialAgentInvitation as findInvitationFromSparql,
   findSocialAgentRegistration as findRegistrationFromSparql,
+  findRolesWithMember,
   getDataAuthorization as getDataAuthorizationFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
@@ -74,9 +77,10 @@ function formatAgentWithAccess(dataAuthorization: DataAuthorizationData): AgentW
 }
 
 export class AuthorizationAgent {
-  factory: AuthorizationAgentFactory
-
   fetch: WhatwgFetch
+
+  /** UUID generator for new resource IRIs (iriForContained). */
+  randomUUID: () => string
 
   /** Internal SPARQL endpoint (shared store) this session reads registry data from. */
   sparqlEndpoint: string
@@ -101,11 +105,8 @@ export class AuthorizationAgent {
     public registrySetId?: string
   ) {
     this.fetch = dependencies.fetch
+    this.randomUUID = dependencies.randomUUID
     this.sparqlEndpoint = dependencies.sparqlEndpoint
-    this.factory = new AuthorizationAgentFactory({
-      fetch: this.fetch,
-      randomUUID: dependencies.randomUUID,
-    })
   }
 
   /**
@@ -188,9 +189,9 @@ export class AuthorizationAgent {
   }
 
   private async bootstrap(): Promise<void> {
-    this.webIdProfile = await this.factory.webIdProfile(this.webId)
+    this.webIdProfile = await loadWebIdProfile(this.webId, this.fetch)
     if (this.registrySetId) {
-      this.registrySet = await this.factory.registrySet(this.registrySetId)
+      this.registrySet = await loadRegistrySet(this.registrySetId, this.fetch)
     }
   }
 
@@ -223,7 +224,7 @@ export class AuthorizationAgent {
     if (!registrySetId) {
       throw new Error(`${webId} does not expose a registry set to this agent`)
     }
-    const registrySet = await this.factory.registrySet(registrySetId)
+    const registrySet = await loadRegistrySet(registrySetId, this.fetch)
     this.registrySets.set(webId, registrySet)
     return registrySet
   }
@@ -257,7 +258,7 @@ export class AuthorizationAgent {
       authorization,
       this.webId,
       this.registrySet.hasAuthorizationRegistry,
-      this.factory,
+      { fetch: this.fetch, randomUUID: this.randomUUID },
       extendIfExists,
       this.sparqlEndpoint
     )
@@ -268,9 +269,12 @@ export class AuthorizationAgent {
     grantee: string
   ): Promise<GeneratedGrants> {
     const dataAuthorizations = await Promise.all(
-      dataAuthorizationIris.map((iri) => this.factory.dataAuthorization(iri))
+      dataAuthorizationIris.map((iri) => loadDataAuthorization(iri, this.fetch))
     )
-    return generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee)
+    return generateGrantsForAuthorization(dataAuthorizations, this.registrySet, grantee, {
+      fetch: this.fetch,
+      randomUUID: this.randomUUID,
+    })
   }
 
   public async findAuthorizationsForAgent(peerId: string): Promise<DataAuthorizationData[]> {
@@ -317,7 +321,7 @@ export class AuthorizationAgent {
   }
 
   public async findAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
-    const dataInstance = await this.factory.dataInstance(dataInstanceIri)
+    const dataInstance = await loadDataInstance(dataInstanceIri, this.fetch)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
     // the shared SPARQL listing over the authorization registry (same query
@@ -425,7 +429,7 @@ export class AuthorizationAgent {
 
     // TODO: ensure all agents have social agent registrations, throw error
 
-    const dataInstance = await this.factory.dataInstance(details.resource)
+    const dataInstance = await loadDataInstance(details.resource, this.fetch)
     const authorizations = await Promise.all(
       agents.map(async (agent) => {
         const authorization = await this.formatAuthorization(agent, dataInstance, details)

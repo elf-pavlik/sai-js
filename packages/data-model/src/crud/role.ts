@@ -34,18 +34,18 @@ export type RoleData = RoleId & {
  * to a string array via @type: @id + @container: @set, `prefLabel` to a plain
  * string, and the rdf:type (from framing) to a string array.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<RoleData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     prefLabel: node.prefLabel ?? '',
     members: node.members ?? [],
   }
 }
 
-export async function loadRole(iri: string, fetch: WhatwgFetch): Promise<RoleData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+export async function loadRole(id: string, fetch: WhatwgFetch): Promise<RoleData> {
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────

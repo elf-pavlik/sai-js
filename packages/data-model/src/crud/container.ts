@@ -1,15 +1,15 @@
 import { deletePatch, getDescriptionResource, insertPatch } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
 
 /** Generate an IRI for a resource contained in the given container. */
 export function iriForContained(
   containerIri: string,
-  factory: { randomUUID(): string },
+  randomUUID: () => string,
   container = false
 ): string {
-  let containedIri = `${containerIri}${factory.randomUUID()}`
+  let containedIri = `${containerIri}${randomUUID()}`
   if (container) containedIri += '/'
   return containedIri
 }
@@ -19,9 +19,9 @@ export function iriForContained(
  */
 async function discoverDescriptionResource(
   containerIri: string,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<string> {
-  const headResponse = await factory.fetch(containerIri, { method: 'HEAD' })
+  const headResponse = await fetch(containerIri, { method: 'HEAD' })
   return getDescriptionResource(headResponse.headers.get('Link'))
 }
 
@@ -33,13 +33,13 @@ async function discoverDescriptionResource(
  */
 export async function applyPatch(
   containerIri: string,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   sparqlUpdate: string,
   descriptionResourceIri?: string
 ): Promise<void> {
   const resourceIri =
-    descriptionResourceIri ?? (await discoverDescriptionResource(containerIri, factory))
-  const response = await factory.fetch(resourceIri, {
+    descriptionResourceIri ?? (await discoverDescriptionResource(containerIri, fetch))
+  const response = await fetch(resourceIri, {
     method: 'PATCH',
     body: sparqlUpdate,
     headers: { 'Content-Type': 'application/sparql-update' },
@@ -53,25 +53,25 @@ export async function applyPatch(
 /** Add a statement to a container via SPARQL patch. */
 export async function addStatement(
   containerIri: string,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   quad: Quad
 ): Promise<void> {
-  await applyPatch(containerIri, factory, await insertPatch(new Store([quad])))
+  await applyPatch(containerIri, fetch, await insertPatch(new Store([quad])))
 }
 
 /** Remove a statement from a container via SPARQL patch. */
 export async function removeStatement(
   containerIri: string,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   quad: Quad
 ): Promise<void> {
-  await applyPatch(containerIri, factory, await deletePatch(new Store([quad])))
+  await applyPatch(containerIri, fetch, await deletePatch(new Store([quad])))
 }
 
 /** Replace a statement in a container via SPARQL patch. */
 export async function replaceStatement(
   containerIri: string,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   whichQuad: Quad,
   withQuad: Quad
 ): Promise<void> {
@@ -79,7 +79,7 @@ export async function replaceStatement(
     await deletePatch(new Store([whichQuad])),
     await insertPatch(new Store([withQuad])),
   ].join(';')
-  await applyPatch(containerIri, factory, sparqlUpdate)
+  await applyPatch(containerIri, fetch, sparqlUpdate)
 }
 
 /**
@@ -91,16 +91,16 @@ export async function replaceStatement(
  * dataset serialized as `INSERT DATA { ... }`.
  */
 export async function createContainer(
-  iri: string,
-  factory: AuthorizationAgentFactory,
+  id: string,
+  fetch: WhatwgFetch,
   dataset: DatasetCore
 ): Promise<void> {
   // create empty container, CSS ignores body!
-  const response = await factory.fetch(iri, { method: 'PUT' })
+  const response = await fetch(id, { method: 'PUT' })
   if (!response.ok) {
     console.error(response)
     throw new Error('failed to create empty container')
   }
 
-  await applyPatch(iri, factory, await insertPatch(dataset))
+  await applyPatch(id, fetch, await insertPatch(dataset))
 }

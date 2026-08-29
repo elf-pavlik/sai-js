@@ -1,6 +1,6 @@
-import { INTEROP, RDF } from '@janeirodigital/interop-utils'
+import { INTEROP, RDF, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
+import type { DataModelDependencies } from '..'
 import { linkedIrisJsonLd } from '../context'
 import { createContainer } from './container'
 import { iriForContained as containerIriForContained } from './container'
@@ -20,43 +20,43 @@ export type RoleRegistryData = {
 
 export async function containedIncludes(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   id: string
 ): Promise<boolean> {
-  const iris = await linkedIrisJsonLd(data.id, factory.fetch, 'contains')
+  const iris = await linkedIrisJsonLd(data.id, fetch, 'contains')
   return iris.includes(id)
 }
 
 export async function createRole(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   label: string,
   members: string[]
 ): Promise<RoleData> {
-  const iri = iriForContained(data, factory)
+  const iri = iriForContained(data, deps.randomUUID)
   const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role] }
-  await putRole(role, factory.fetch)
+  await putRole(role, deps.fetch)
   return role
 }
 
 export async function updateRole(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   roleId: string,
   label: string,
   members: string[]
 ): Promise<RoleData> {
   const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role] }
-  await putRole(role, factory.fetch)
+  await putRole(role, fetch)
   return role
 }
 
 export async function deleteRole(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   roleId: string
 ): Promise<void> {
-  const { ok } = await factory.fetch(roleId, { method: 'DELETE' })
+  const { ok } = await fetch(roleId, { method: 'DELETE' })
   if (!ok) {
     throw new Error('failed to delete role')
   }
@@ -64,19 +64,19 @@ export async function deleteRole(
 
 export async function createRoleRegistry(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: RoleRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }

@@ -122,11 +122,11 @@ export async function waitFor<T>(
 async function pendingActivitiesFor(session: AuthorizationAgent): Promise<ActivityData[]> {
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
-  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
   const completed = new Set<string>()
   const workItems: ActivityData[] = []
   for (const iri of iris) {
-    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
     if (activity.activityType === 'activityCompleted') {
       completed.add(activity.target)
     } else {

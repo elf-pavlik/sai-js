@@ -6,9 +6,10 @@ import {
   frameDoc,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { ApplicationFactory } from './application-factory'
 import { dataModelContext } from './context'
 import { childIris, frameDataInstance } from './data-instance'
+import { loadDataRegistration } from './data-registration'
+import { loadShapeTree } from './shape-tree'
 
 // ──────────────────────────
 // Types
@@ -66,8 +67,8 @@ export interface GeneratedGrants {
  * Uses jsonld.frame to resolve @reverse relationships (hasInheritingGrant)
  * automatically, without embedding child nodes.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<GrantData> {
-  return compactNodeToGrantData((await frameDoc(doc, dataModelContext, iri)) as any)
+export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
+  return compactNodeToGrantData((await frameDoc(doc, dataModelContext, id)) as any)
 }
 
 /**
@@ -100,8 +101,8 @@ function compactNodeToGrantData(node: any): GrantData {
 /**
  * Fetch and load a grant resource as a GrantData POJO.
  */
-export async function loadGrant(iri: string, fetch: WhatwgFetch): Promise<GrantData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+export async function loadGrant(id: string, fetch: WhatwgFetch): Promise<GrantData> {
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -128,11 +129,11 @@ export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
  */
 export async function* getDataInstanceIterator(
   grant: GrantData,
-  factory: ApplicationFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<string> {
   switch (grant.scopeOfGrant) {
     case INTEROP.AllFromRegistry: {
-      const registration = await factory.dataRegistration(grant.hasDataRegistration)
+      const registration = await loadDataRegistration(grant.hasDataRegistration, fetch)
       for (const iri of registration.contains) {
         yield iri
       }
@@ -145,14 +146,9 @@ export async function* getDataInstanceIterator(
       break
     }
     case INTEROP.Inherited: {
-      const parentGrant = await factory.dataGrant(grant.inheritsFromGrant!)
-      for await (const parentIri of getDataInstanceIterator(parentGrant, factory)) {
-        yield* await getChildInstanceIris(
-          parentGrant,
-          parentIri,
-          grant.registeredShapeTree,
-          factory
-        )
+      const parentGrant = await loadGrant(grant.inheritsFromGrant!, fetch)
+      for await (const parentIri of getDataInstanceIterator(parentGrant, fetch)) {
+        yield* await getChildInstanceIris(parentGrant, parentIri, grant.registeredShapeTree, fetch)
       }
       break
     }
@@ -169,10 +165,10 @@ async function getChildInstanceIris(
   parentGrant: GrantData,
   parentIri: string,
   childShapeTree: string,
-  factory: ApplicationFactory
+  fetch: WhatwgFetch
 ): Promise<string[]> {
-  const parentShapeTree = await factory.shapeTree(parentGrant.registeredShapeTree)
-  const node = await frameDataInstance(parentIri, factory, parentShapeTree)
+  const parentShapeTree = await loadShapeTree(parentGrant.registeredShapeTree, fetch)
+  const node = await frameDataInstance(parentIri, fetch, parentShapeTree)
   return childIris(node, parentShapeTree, childShapeTree)
 }
 

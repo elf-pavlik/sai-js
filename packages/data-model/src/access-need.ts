@@ -6,9 +6,10 @@ import {
   frameDoc,
   parseJsonld,
 } from '@janeirodigital/interop-utils'
-import type { AccessNeedDescriptionData, AuthorizationAgentFactory } from '.'
+import type { AccessNeedDescriptionData } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import { dataModelContext } from './context'
+import { loadShapeTree } from './shape-tree'
 
 // ──────────────────────────
 // Types
@@ -29,7 +30,7 @@ export type AccessNeedData = AccessNeedId & {
   accessMode: string[]
   /** Whether the need is required (interop:accessNecessity = interop:AccessRequired). */
   required: boolean
-  /** Inheriting needs, loaded recursively by the factory. */
+  /** Inheriting needs, loaded recursively. */
   children: AccessNeedData[]
   /** Languages used by description sets in the access needs document. */
   descriptionLanguages: string[]
@@ -49,8 +50,8 @@ export type AccessNeedData = AccessNeedId & {
  * collected from the whole document (flattened), since it lives on the
  * description sets, not on the need node itself.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -60,12 +61,30 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedD
     accessMode: node.accessMode ?? [],
     required: node.required === INTEROP.AccessRequired,
     children: [],
-    descriptionLanguages: await documentValues(doc, iri, INTEROP.usesLanguage),
+    descriptionLanguages: await documentValues(doc, id, INTEROP.usesLanguage),
   }
 }
 
-export async function loadAccessNeed(iri: string, fetch: WhatwgFetch): Promise<AccessNeedData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+export async function loadAccessNeed(id: string, fetch: WhatwgFetch): Promise<AccessNeedData> {
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
+}
+
+/**
+ * Load an access need with its inheriting needs resolved recursively (the
+ * composed read formerly `AuthorizationAgentFactory.accessNeed`).
+ */
+export async function accessNeed(
+  id: string,
+  fetch: WhatwgFetch,
+  descriptionLang?: string
+): Promise<AccessNeedData> {
+  const need = await loadAccessNeed(id, fetch)
+  if (need.hasInheritingNeed.length) {
+    need.children = await Promise.all(
+      need.hasInheritingNeed.map((childIri) => accessNeed(childIri, fetch, descriptionLang))
+    )
+  }
+  return need
 }
 
 // ──────────────────────────
@@ -79,17 +98,17 @@ export async function loadAccessNeed(iri: string, fetch: WhatwgFetch): Promise<A
 export async function getDescription(
   need: AccessNeedData,
   lang: string,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<AccessNeedDescriptionData | undefined> {
-  const response = await factory.fetch(need.id, {
+  const response = await fetch(need.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()
   const dataset = await parseJsonld(JSON.stringify(doc), need.id)
   const descriptionSetIri = findInLanguage(dataset, lang)
   if (!descriptionSetIri) return undefined
-  const descriptionSet = await factory.accessDescriptionSet(descriptionSetIri)
-  const { accessNeedDescriptions } = await loadDescriptions(descriptionSet, factory)
+  const descriptionSet = { id: descriptionSetIri }
+  const { accessNeedDescriptions } = await loadDescriptions(descriptionSet, fetch)
   return accessNeedDescriptions.find((description) => description.hasAccessNeed === need.id)
 }
 
@@ -98,9 +117,9 @@ export async function getDescription(
  */
 export async function reliableDescriptionLanguages(
   need: AccessNeedData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<Set<string>> {
-  const shapeTree = await factory.shapeTree(need.registeredShapeTree)
+  const shapeTree = await loadShapeTree(need.registeredShapeTree, fetch)
   const shapeTreeLanguages = new Set(shapeTree.descriptionLanguages)
   return new Set(need.descriptionLanguages.filter((lang) => shapeTreeLanguages.has(lang)))
 }

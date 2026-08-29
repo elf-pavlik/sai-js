@@ -105,14 +105,13 @@ describe('getDataRegistries — org context lists own data registries via /sparq
       if (url === STORAGE) {
         return mockResponse(storageDescriptionDoc)
       }
+      if (url === SHAPE_TREE) {
+        return mockResponse({ '@id': SHAPE_TREE, 'http://www.w3.org/ns/shapetrees#references': [] })
+      }
       throw new Error(`unexpected request: ${url}`)
     }
     const session = {
       fetch: sessionFetch,
-      factory: {
-        fetch: sessionFetch,
-        shapeTree: async () => ({ id: SHAPE_TREE }),
-      },
     } as unknown as AuthorizationAgent
 
     // agentId === ctx.webId — the "own registries" branch

@@ -1,13 +1,14 @@
 import {
   INTEROP,
   RDF,
+  type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
+import type { DataModelDependencies } from '..'
 import { dataModelContext, linkedIrisJsonLd } from '../context'
 import { iriForContained as containerIriForContained, createContainer } from './container'
 
@@ -37,16 +38,16 @@ export type AdminAuthorizationData = {
 
 export async function getDataAuthorizationIris(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch, 'contains')
+  return linkedIrisJsonLd(data.id, fetch, 'contains')
 }
 
 export async function getGranted(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<boolean> {
-  return (await getDataAuthorizationIris(data, factory)).length > 0
+  return (await getDataAuthorizationIris(data, fetch)).length > 0
 }
 
 // ──────────────────────────
@@ -55,12 +56,12 @@ export async function getGranted(
 
 /** Load an AdminAuthorization resource as an AdminAuthorizationData POJO. */
 async function loadAdminAuthorization(
-  iri: string,
-  factory: AuthorizationAgentFactory
+  id: string,
+  fetch: WhatwgFetch
 ): Promise<AdminAuthorizationData> {
-  const node = (await frameDoc(await fetchJsonLd(iri, factory.fetch), dataModelContext, iri)) as any
+  const node = (await frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     grantee: node.grantee,
     grantedBy: node.grantedBy,
@@ -74,11 +75,11 @@ async function loadAdminAuthorization(
  */
 export async function* adminAuthorizations(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): AsyncIterable<AdminAuthorizationData> {
-  const iris = await getDataAuthorizationIris(data, factory)
+  const iris = await getDataAuthorizationIris(data, fetch)
   for (const iri of iris) {
-    const adminAuthorization = await loadAdminAuthorization(iri, factory)
+    const adminAuthorization = await loadAdminAuthorization(iri, fetch)
     if (adminAuthorization.type.includes(INTEROP.AdminAuthorization)) {
       yield adminAuthorization
     }
@@ -88,10 +89,10 @@ export async function* adminAuthorizations(
 /** Find the AdminAuthorization for a grantee, if any. */
 export async function findAdminAuthorization(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   grantee: string
 ): Promise<AdminAuthorizationData | undefined> {
-  for await (const adminAuthorization of adminAuthorizations(data, factory)) {
+  for await (const adminAuthorization of adminAuthorizations(data, fetch)) {
     if (adminAuthorization.grantee === grantee) {
       return adminAuthorization
     }
@@ -105,25 +106,22 @@ export async function findAdminAuthorization(
  */
 export async function recordAdminAuthorization(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   adminAuthorization: Pick<AdminAuthorizationData, 'grantee' | 'grantedBy' | 'scopeOfAuthorization'>
 ): Promise<AdminAuthorizationData> {
-  const iri = iriForContained(data, factory)
+  const iri = iriForContained(data, deps.randomUUID)
   const doc = withContext(dataModelContext, {
     ...adminAuthorization,
     id: iri,
     type: [INTEROP.AdminAuthorization],
   })
-  await putJsonLd(iri, factory.fetch, doc, { 'If-None-Match': '*' })
+  await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
   return { id: iri, type: [INTEROP.AdminAuthorization], ...adminAuthorization }
 }
 
 /** Delete an AdminAuthorization resource from the org's AuthorizationRegistry. */
-export async function deleteAdminAuthorization(
-  id: string,
-  factory: AuthorizationAgentFactory
-): Promise<void> {
-  const response = await factory.fetch(id, { method: 'DELETE' })
+export async function deleteAdminAuthorization(id: string, fetch: WhatwgFetch): Promise<void> {
+  const response = await fetch(id, { method: 'DELETE' })
   if (!response.ok) {
     throw new Error(`failed to delete admin authorization: ${response.status}`)
   }
@@ -131,7 +129,7 @@ export async function deleteAdminAuthorization(
 
 export async function createAuthorizationRegistry(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
@@ -141,13 +139,13 @@ export async function createAuthorizationRegistry(
       INTEROP.terms.AuthorizationRegistry
     )
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: AuthorizationRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }

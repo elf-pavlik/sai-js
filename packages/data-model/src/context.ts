@@ -151,10 +151,10 @@ export const dataModelContext: JsonLdContext = {
  * property yields `[]`.
  */
 export async function linkedIrisJsonLd(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch,
   term: string
 ): Promise<string[]> {
-  const node = (await frameDoc(await fetchJsonLd(iri, fetch), dataModelContext, iri)) as any
+  const node = (await frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id)) as any
   return node[term] ?? []
 }

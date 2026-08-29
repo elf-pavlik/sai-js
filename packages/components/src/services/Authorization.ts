@@ -8,16 +8,18 @@ import {
   type AccessNeedGroupData,
   AccessNeedGroup as AccessNeedGroupModule,
   AccessNeed as AccessNeedModule,
-  AgentRegistry,
   ActivityRegistry,
+  AgentRegistry,
   type DataAuthorizationData,
   type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
   getDataGrantIris,
+  loadClientIdDocument,
+  loadShapeTree,
+  accessNeedGroup as resolveAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
-import type { AuthorizationAgentFactory } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {
   type AccessAuthorization,
   AccessNeed,
@@ -29,8 +31,12 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
 import type * as S from 'effect/Schema'
-import { findSocialAgentRegistrationInContext, listSocialAgentRegistrations } from './AgentRegistry.js'
+import {
+  findSocialAgentRegistrationInContext,
+  listSocialAgentRegistrations,
+} from './AgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { dataRegistrationContains } from './peerProxy.js'
 import {
   getDataGrant as getDataGrantFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
@@ -38,16 +44,15 @@ import {
   listDataRegistrations,
   sparqlTransportFor,
 } from './queries/org.js'
-import { dataRegistrationContains } from './peerProxy.js'
 
 const formatAccessNeed = async (
   accessNeed: AccessNeedData,
   descriptionsLang: string,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<S.Schema.Type<typeof AccessNeed>> => {
-  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, factory)
-  const shapeTree = await factory.shapeTree(accessNeed.registeredShapeTree)
-  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, factory)
+  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, fetch)
+  const shapeTree = await loadShapeTree(accessNeed.registeredShapeTree, fetch)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, fetch)
 
   return AccessNeed.make({
     id: IRI.make(accessNeed.id),
@@ -62,7 +67,7 @@ const formatAccessNeed = async (
     parent: accessNeed.inheritsFromNeed ? IRI.make(accessNeed.inheritsFromNeed) : undefined,
     children: accessNeed.children
       ? await Promise.all(
-          accessNeed.children.map((child) => formatAccessNeed(child, descriptionsLang, factory))
+          accessNeed.children.map((child) => formatAccessNeed(child, descriptionsLang, fetch))
         )
       : undefined,
   })
@@ -117,7 +122,7 @@ async function findSocialAgentDataRegistrations(
           // truthy and used to make the AllFromRegistry count silently 0).
           count:
             dataGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
-              ? dataGrant.hasDataInstance?.length ?? 0
+              ? (dataGrant.hasDataInstance?.length ?? 0)
               : (await dataRegistrationContains(ctx, dataGrant.hasDataRegistration)).length,
         })
       }
@@ -145,17 +150,14 @@ export const getDescriptions = async (
   if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
   } else if (agentType === AgentType.Application) {
-    const clientIdDocument = await ctx.session.factory.clientIdDocument(agentIri)
+    const clientIdDocument = await loadClientIdDocument(agentIri, ctx.session.fetch)
     if (!clientIdDocument.hasAccessNeedGroup) return null
     accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
   } else if (agentType === AgentType.SocialAgent) {
     const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentIri)
     if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
     const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
-      ? await getRegistrationFromSparql(
-          transport,
-          socialAgentRegistration.reciprocalRegistration
-        )
+      ? await getRegistrationFromSparql(transport, socialAgentRegistration.reciprocalRegistration)
       : undefined
     accessNeedGroupIriResolved = reciprocalRegistration?.hasAccessNeedGroup
     if (!accessNeedGroupIriResolved) return null
@@ -163,8 +165,9 @@ export const getDescriptions = async (
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')
 
-  const accessNeedGroup = await ctx.session.factory.accessNeedGroup(
+  const accessNeedGroup = await resolveAccessNeedGroup(
     accessNeedGroupIriResolved,
+    ctx.session.fetch,
     preferredLang
   )
 
@@ -212,11 +215,14 @@ export const getDescriptions = async (
     }
   }
   const descriptionLanguages = [
-    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(accessNeedGroup, ctx.session.factory)),
+    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(
+      accessNeedGroup,
+      ctx.session.fetch
+    )),
   ]
   const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
     accessNeedGroup,
-    ctx.session.factory
+    ctx.session.fetch
   )
   const descriptionsLang = reliableDescriptionLanguages.has(preferredLang)
     ? preferredLang
@@ -224,7 +230,7 @@ export const getDescriptions = async (
   const descriptions = await AccessNeedGroupModule.getDescription(
     accessNeedGroup,
     descriptionsLang,
-    ctx.session.factory
+    ctx.session.fetch
   )
 
   return {
@@ -238,7 +244,7 @@ export const getDescriptions = async (
       description: descriptions.definition,
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) =>
-          formatAccessNeed(need, descriptionsLang, ctx.session.factory)
+          formatAccessNeed(need, descriptionsLang, ctx.session.fetch)
         )
       ),
       descriptionLanguages,
@@ -319,7 +325,10 @@ export const recordAuthorization = async (
 ): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
   let structure: AccessAuthorizationStructure
   if (authorization.granted) {
-    const accessNeedGroup = await ctx.session.factory.accessNeedGroup(authorization.accessNeedGroup)
+    const accessNeedGroup = await resolveAccessNeedGroup(
+      authorization.accessNeedGroup,
+      ctx.session.fetch
+    )
     structure = {
       grantee: authorization.grantee,
       hasAccessNeedGroup: authorization.accessNeedGroup,
@@ -373,13 +382,13 @@ export const recordAuthorization = async (
     if (
       !(await AgentRegistry.findApplicationRegistration(
         ctx.registrySet.hasAgentRegistry,
-        ctx.session.factory,
+        ctx.session.fetch,
         authorization.grantee
       ))
     ) {
       await AgentRegistry.addApplicationRegistration(
         ctx.registrySet.hasAgentRegistry,
-        ctx.session.factory,
+        { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
         { agent: ctx.webId, client: ctx.session.agentId },
         authorization.grantee
       )
@@ -387,17 +396,21 @@ export const recordAuthorization = async (
   }
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
-    activityType: 'authorizationRecorded',
-    target: ctx.registrySet.hasAuthorizationRegistry.id,
-    payload: {
-      webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-      authorizationGrantee: {
-        id: authorization.grantee,
-        type: [authorization.agentType],
+  await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      activityType: 'authorizationRecorded',
+      target: ctx.registrySet.hasAuthorizationRegistry.id,
+      payload: {
+        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
+        authorizationGrantee: {
+          id: authorization.grantee,
+          type: [authorization.agentType],
+        },
       },
-    },
-    createdAt: new Date().toISOString(),
-  })
+      createdAt: new Date().toISOString(),
+    }
+  )
   return response
 }

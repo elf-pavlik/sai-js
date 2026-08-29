@@ -48,9 +48,9 @@ export type AccessNeedGroupDescriptionData = AccessDescriptionData & {
  */
 export async function accessNeedDescriptionFromJsonLd(
   doc: unknown,
-  iri: string
+  id: string
 ): Promise<AccessNeedDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -62,10 +62,10 @@ export async function accessNeedDescriptionFromJsonLd(
 }
 
 export async function loadAccessNeedDescription(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<AccessNeedDescriptionData> {
-  return accessNeedDescriptionFromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return accessNeedDescriptionFromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -79,9 +79,9 @@ export async function loadAccessNeedDescription(
  */
 export async function accessNeedGroupDescriptionFromJsonLd(
   doc: unknown,
-  iri: string
+  id: string
 ): Promise<AccessNeedGroupDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -92,8 +92,8 @@ export async function accessNeedGroupDescriptionFromJsonLd(
 }
 
 export async function loadAccessNeedGroupDescription(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<AccessNeedGroupDescriptionData> {
-  return accessNeedGroupDescriptionFromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return accessNeedGroupDescriptionFromJsonLd(await fetchJsonLd(id, fetch), id)
 }

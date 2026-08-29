@@ -5,9 +5,10 @@ import {
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { ApplicationFactory, AuthorizationAgentFactory, GrantData } from '.'
+import type { GrantData } from '.'
 import { dataModelContext } from './context'
 import { createContainer } from './crud/container'
+import { loadGrant } from './grant'
 
 // ──────────────────────────
 // Types
@@ -49,8 +50,8 @@ export type ApplicationId = {
  * ApplicationRegistrationData POJO. The document can be in expanded, compacted,
  * or flattened form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<ApplicationRegistrationData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<ApplicationRegistrationData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   const hasDataGrant = node.hasDataGrant ?? []
   return {
     id: node.id ?? node['@id'],
@@ -62,10 +63,10 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<Application
 }
 
 export async function loadApplicationRegistration(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<ApplicationRegistrationData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -74,13 +75,13 @@ export async function loadApplicationRegistration(
 
 export async function createApplicationRegistration(
   data: ApplicationRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   // build the dataset via jsonld.toRDF (withContext + toStore) — the rdf:type
   // quad comes from `data.type` (captured from framing on read), no hand-built
   // DataFactory quads; only the container.create hand-off stays N3-based
   const dataset = await toStore(withContext(dataModelContext, data))
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 // ──────────────────────────
@@ -95,7 +96,7 @@ export function getGranted(data: ApplicationRegistrationData): boolean {
 /** Fetch all data grants of this application registration. */
 export async function getDataGrants(
   data: ApplicationRegistrationData,
-  factory: ApplicationFactory
+  fetch: WhatwgFetch
 ): Promise<GrantData[]> {
-  return Promise.all(data.hasDataGrant.map((iri) => factory.dataGrant(iri)))
+  return Promise.all(data.hasDataGrant.map((iri) => loadGrant(iri, fetch)))
 }

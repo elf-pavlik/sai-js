@@ -28,8 +28,8 @@ export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
  * ShapeTreeDescriptionData POJO. The document can be in expanded, compacted,
  * or flattened form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<ShapeTreeDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDescriptionData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -39,8 +39,8 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<ShapeTreeDe
 }
 
 export async function loadShapeTreeDescription(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<ShapeTreeDescriptionData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }

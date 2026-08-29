@@ -1,6 +1,10 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris, getDataGrants } from '@janeirodigital/interop-data-model'
+import {
+  getDataGrantIris,
+  getDataGrants,
+  loadSocialAgentRegistration,
+} from '@janeirodigital/interop-data-model'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { awaitGrantCompletion, waitForQuiescence } from './util'
 
@@ -22,12 +26,13 @@ async function verifyAccessGrant(
 
   // reciprocal registration is stored as an IRI — load it on demand
   expect(granteeRegForGrantedBy!.reciprocalRegistration).toBeDefined()
-  const grantedByRegForGrantee = await granteeSession.factory.socialAgentRegistration(
-    granteeRegForGrantedBy!.reciprocalRegistration!
+  const grantedByRegForGrantee = await loadSocialAgentRegistration(
+    granteeRegForGrantedBy!.reciprocalRegistration!,
+    granteeSession.fetch
   )
   expect(grantedByRegForGrantee.registeredAgent).toBe(granteeId)
 
-  const dataGrants = await getDataGrants(grantedByRegForGrantee, granteeSession.factory)
+  const dataGrants = await getDataGrants(grantedByRegForGrantee, granteeSession.fetch)
 
   const dataGrant = dataGrants.find(
     (grant) =>

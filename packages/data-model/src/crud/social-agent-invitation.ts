@@ -39,10 +39,10 @@ export type SocialAgentInvitationData = SocialAgentInvitationId & {
  * `@type: '@id'`, literals to plain strings, and the rdf:type (from framing)
  * to a string array.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentInvitationData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentInvitationData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     capabilityUrl: node.capabilityUrl ?? '',
     prefLabel: node.prefLabel ?? '',
@@ -53,10 +53,10 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgent
 }
 
 export async function loadSocialAgentInvitation(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<SocialAgentInvitationData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────

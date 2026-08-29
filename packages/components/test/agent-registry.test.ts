@@ -1,7 +1,7 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
-import type { ResolvedContext } from '../src/services/Context.js'
 import { getApplications, getSocialAgentInvitations } from '../src/services/AgentRegistry.js'
+import type { ResolvedContext } from '../src/services/Context.js'
 
 // ──────────────────────────
 // Fixtures
@@ -22,10 +22,15 @@ const appRegistrationTurtle = `PREFIX interop: <http://www.w3.org/ns/solid/inter
 
 /** The app's client-id document (webid/client-id profiles stay HTTP). */
 const clientIdDocument = {
-  clientName: 'Projectron',
-  logoUri: 'https://projectron.example/logo.png',
-  hasAccessNeedGroup: 'https://projectron.example/needs',
-  callbackEndpoint: 'https://projectron.example/callback',
+  '@context': [
+    'https://www.w3.org/ns/solid/oidc-context.jsonld',
+    { interop: 'http://www.w3.org/ns/solid/interop#' },
+  ],
+  client_id: APP_WEBID,
+  client_name: 'Projectron',
+  logo_uri: 'https://projectron.example/logo.png',
+  'interop:hasAccessNeedGroup': 'https://projectron.example/needs',
+  'interop:hasAuthorizationCallbackEndpoint': 'https://projectron.example/callback',
 }
 
 const orgProfileDoc = {
@@ -68,6 +73,7 @@ describe('getApplications — org context lists applications via /sparql-admin',
       fetch: async (url: string, init?: RequestInit) => {
         requests.push({ url, init })
         if (url === ORG_WEBID) return mockResponse(orgProfileDoc)
+        if (url === APP_WEBID) return mockResponse(clientIdDocument)
         if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
@@ -88,7 +94,6 @@ describe('getApplications — org context lists applications via /sparql-admin',
         }
         throw new Error(`unexpected sparql-admin query: ${query}`)
       },
-      factory: { clientIdDocument: async () => clientIdDocument },
     } as unknown as AuthorizationAgent
 
     const applications = await getApplications(orgCtx(session))
@@ -97,9 +102,9 @@ describe('getApplications — org context lists applications via /sparql-admin',
       {
         id: APP_WEBID,
         name: 'Projectron',
-        logo: clientIdDocument.logoUri,
-        accessNeedGroup: clientIdDocument.hasAccessNeedGroup,
-        callbackEndpoint: clientIdDocument.callbackEndpoint,
+        logo: 'https://projectron.example/logo.png',
+        accessNeedGroup: 'https://projectron.example/needs',
+        callbackEndpoint: 'https://projectron.example/callback',
       },
     ])
     // profile dereferences the client-id document over HTTP — one webid
@@ -117,14 +122,19 @@ describe('getSocialAgentInvitations — org context lists invitations via /sparq
   const SETTLED_IRI = `${AGENT_REGISTRY}settled`
   const CAPABILITY = 'https://yoyo.example/invitations/zi1nic'
 
-  const inviteTurtle = (iri: string, registeredAgent?: string) => `PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+  const inviteTurtle = (
+    iri: string,
+    registeredAgent?: string
+  ) => `PREFIX interop: <http://www.w3.org/ns/solid/interop#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 <${iri}> a interop:SocialAgentInvitation ;
   interop:hasCapabilityUrl <${CAPABILITY}> ;
   skos:prefLabel "Invite" ;
   skos:note "A note"${
-    registeredAgent ? ` ;
-  interop:registeredAgent <${registeredAgent}>` : ''
+    registeredAgent
+      ? ` ;
+  interop:registeredAgent <${registeredAgent}>`
+      : ''
   } .
 `
 

@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { test } from 'vitest'
-import { AuthorizationAgentFactory } from '../../src'
+import { loadAccessNeedDescription } from '../../src'
 import { expect } from '../expect'
 
-const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
+const deps = { fetch, randomUUID }
 const snippetIri = 'https://projectron.example/descriptions-en#en-need-project'
 
 test('getters', async () => {
-  const description = await factory.accessNeedDescription(snippetIri)
+  const description = await loadAccessNeedDescription(snippetIri, deps.fetch)
   const expectedAccessNeedIri = 'https://projectron.example/access-needs#need-project'
   expect(description.hasAccessNeed).toBe(expectedAccessNeedIri)
   const expectedLabel =

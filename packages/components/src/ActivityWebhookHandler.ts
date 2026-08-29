@@ -1,6 +1,6 @@
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry } from '@janeirodigital/interop-data-model'
 import type { ActivityData } from '@janeirodigital/interop-data-model'
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   BadRequestHttpError,
@@ -42,15 +42,10 @@ import {
 // parallel (grant regeneration + local reciprocal-mirror sync).
 // authorizationRecorded/authorizationRevoked are NOT here — they route to the
 // per-target consumer (processGranteeActivities, Phase 4.1).
-const activityWorkflows: Record<
-  string,
-  Array<{ workflow: Workflow; taskQueue: string }>
-> = {
+const activityWorkflows: Record<string, Array<{ workflow: Workflow; taskQueue: string }>> = {
   roleMembershipChanged: [{ workflow: processRoleMembershipChange, taskQueue: 'create-grants' }],
   roleDeleted: [{ workflow: processRoleDeletion, taskQueue: 'create-grants' }],
-  agentRegistrationAdded: [
-    { workflow: establishReciprocal, taskQueue: 'reciprocal-registration' },
-  ],
+  agentRegistrationAdded: [{ workflow: establishReciprocal, taskQueue: 'reciprocal-registration' }],
   delegatedGrantsUpdated: [
     { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
     // TODO(org-context-sparql phase 4b): re-enable mirror sync once SPARQL
@@ -102,7 +97,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
 
     if (requestBody.type === 'Add' && requestBody.object) {
       const session = await this.sessionManager.getSession(channel.webId)
-      const activity = await ActivityRegistry.loadActivity(requestBody.object, session.factory)
+      const activity = await ActivityRegistry.loadActivity(requestBody.object, session.fetch)
 
       // Forward to the events bus BEFORE dispatch — every Add produces a line,
       // including grantee activities (whose branch returns 200 early below).
@@ -232,7 +227,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
   ): Promise<void> {
     if (activity.activityType === 'activityCompleted') {
       try {
-        const completed = await ActivityRegistry.loadActivity(activity.target, session.factory)
+        const completed = await ActivityRegistry.loadActivity(activity.target, session.fetch)
         this.activityEvents.onActivityAdded(webId, { ...completed, status: 'done' })
       } catch (err) {
         this.logger.error(

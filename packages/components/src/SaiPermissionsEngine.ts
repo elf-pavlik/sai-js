@@ -1,5 +1,5 @@
 import { QueryEngine } from '@comunica/query-sparql-rdfjs'
-import { ApplicationFactory } from '@janeirodigital/interop-data-model'
+import { loadShapeTree } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'
@@ -314,11 +314,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     if (!parentShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${parentGrantId}`)
     const childShapeTreeId = await this.findObject(data, childGrantId, INTEROP.registeredShapeTree)
     if (!childShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${childGrantId}`)
-    const factory = new ApplicationFactory({
-      fetch,
-      randomUUID: crypto.randomUUID,
-    })
-    const shapeTree = await factory.shapeTree(parentShapeTreeId)
+    const shapeTree = await loadShapeTree(parentShapeTreeId, fetch)
     const shapeTreeReference = shapeTree.references.find(
       (stRef) => stRef.shapeTree === childShapeTreeId
     )

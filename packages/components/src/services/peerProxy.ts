@@ -1,13 +1,15 @@
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
-  childIris,
   DataRegistration,
-  frameDataInstanceFromDoc,
   Grant,
   type GrantData,
   type ShapeTreeData,
+  childIris,
+  frameDataInstanceFromDoc,
+  loadDataRegistration,
+  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, INTEROP } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { INTEROP, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import type { ResolvedContext } from './Context.js'
 
 /**
@@ -97,7 +99,7 @@ export async function dataRegistrationContains(
   registrationIri: string
 ): Promise<string[]> {
   if (ctx.webId === ctx.userWebId) {
-    return (await ctx.session.factory.dataRegistration(registrationIri)).contains
+    return (await loadDataRegistration(registrationIri, ctx.session.fetch)).contains
   }
   const doc = await fetchPeerDocument(ctx.session, ctx.webId, registrationIri)
   return (await DataRegistration.fromJsonLd(doc, registrationIri)).contains
@@ -129,7 +131,10 @@ export async function peerInstanceNode(
  * instance content, all through `/proxy-admin`. Personal context keeps
  * `Grant.getDataInstanceIterator`.
  */
-export async function* peerInstanceIris(ctx: ResolvedContext, dataGrant: GrantData): AsyncIterable<string> {
+export async function* peerInstanceIris(
+  ctx: ResolvedContext,
+  dataGrant: GrantData
+): AsyncIterable<string> {
   switch (dataGrant.scopeOfGrant) {
     case INTEROP.AllFromRegistry:
       yield* await dataRegistrationContains(ctx, dataGrant.hasDataRegistration)
@@ -145,7 +150,10 @@ export async function* peerInstanceIris(ctx: ResolvedContext, dataGrant: GrantDa
         dataGrant.inheritsFromGrant!
       )
       for await (const parentIri of peerInstanceIris(ctx, parentGrant)) {
-        const parentShapeTree = await ctx.session.factory.shapeTree(parentGrant.registeredShapeTree)
+        const parentShapeTree = await loadShapeTree(
+          parentGrant.registeredShapeTree,
+          ctx.session.fetch
+        )
         yield* childIris(
           await peerInstanceNode(ctx, parentIri, parentShapeTree),
           parentShapeTree,

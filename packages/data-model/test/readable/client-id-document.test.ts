@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory } from '../../src'
+import { ClientIdDocument } from '../../src'
 import { expect } from '../expect'
 
 const snippetIri = 'https://acme.pod.docker/projectron/id'
@@ -25,27 +25,27 @@ const snippetText = `
 const fetch: WhatwgFetch = async () =>
   ({ ok: true, json: async () => JSON.parse(snippetText) }) as unknown as Response
 
-const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
+const deps = { fetch, randomUUID }
 
 describe('getters', () => {
   test('hasAccessNeedGroup', async () => {
-    const clientIdDocument = await factory.clientIdDocument(snippetIri)
+    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.hasAccessNeedGroup).toBe(
       'https://acme.pod.docker/projectron/access-needs#need-group-pm'
     )
   })
   test('callbackEndpoint', async () => {
-    const clientIdDocument = await factory.clientIdDocument(snippetIri)
+    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.callbackEndpoint).toBe('https://app.example')
   })
 
   test('clientName', async () => {
-    const clientIdDocument = await factory.clientIdDocument(snippetIri)
+    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.clientName).toEqual('Projectron')
   })
 
   test('logoUri', async () => {
-    const clientIdDocument = await factory.clientIdDocument(snippetIri)
+    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.logoUri).toEqual(
       'https://robohash.org/https://projectron.example/?set=set3'
     )

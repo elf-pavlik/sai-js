@@ -1,16 +1,14 @@
-import {
-  discoverAndUpdateReciprocal,
-  type SocialAgentId,
-} from '@janeirodigital/interop-data-model'
+import { type SocialAgentId, discoverAndUpdateReciprocal } from '@janeirodigital/interop-data-model'
+import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'
+import { buildAccountLoginStorage } from '../../builders/accountLoginStorage.js'
+import { buildSessionManager } from '../../builders/sessionManager.js'
 import {
   deleteReciprocalMirror as deleteMirror,
   updateReciprocalMirror,
 } from '../../services/ReciprocalMirror.js'
-import { buildAccountLoginStorage } from '../../builders/accountLoginStorage.js'
-import { buildSessionManager } from '../../builders/sessionManager.js'
 
 function webhookTargetUrl(): string {
   return `${process.env.CSS_BASE_URL}.sai/reciprocal-webhook/${crypto.randomUUID()}`
@@ -37,14 +35,14 @@ export async function reciprocalRegistration(
 ): Promise<ReciprocalWebhookInput> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId)
-  const registration = await session.factory.socialAgentRegistration(payload.registrationId)
+  const registration = await loadSocialAgentRegistration(payload.registrationId, session.fetch)
   if (registration.registeredAgent !== payload.peerId) {
     throw new Error(
       `invalid payload - peerId: ${payload.peerId}, registrationId: ${payload.registrationId}, registeredAgent: ${registration.registeredAgent}`
     )
   }
   if (!registration.reciprocalRegistration) {
-    await discoverAndUpdateReciprocal(registration, session.factory, session.fetch)
+    await discoverAndUpdateReciprocal(registration, session.fetch)
   }
   if (!registration.reciprocalRegistration) {
     throw new Error(`reciprocal registration from ${payload.peerId} was not found`)

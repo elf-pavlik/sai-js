@@ -1,16 +1,17 @@
 import {
   type JsonLdContext,
   SHAPETREES,
+  type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
   framedValue,
   getDescriptionResource,
 } from '@janeirodigital/interop-utils'
-import type { ApplicationFactory } from '.'
 import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
+import { loadDataRegistration } from './data-registration'
 import type { ShapeTreeData } from './shape-tree'
-import { getDescription as getShapeTreeDescription } from './shape-tree'
+import { getDescription as getShapeTreeDescription, loadShapeTree } from './shape-tree'
 
 // ──────────────────────────
 // DataInstanceData (readable POJO)
@@ -18,7 +19,7 @@ import { getDescription as getShapeTreeDescription } from './shape-tree'
 
 export type ChildInfo = {
   shapeTree: {
-    iri: string
+    id: string
     label: string
   }
   count: number
@@ -44,11 +45,8 @@ export function isBlob(shapeTree: ShapeTreeData): boolean {
 }
 
 /** Resolve the description resource IRI of a blob from its Link header. */
-export async function discoverDescriptionResource(
-  iri: string,
-  fetch: ApplicationFactory['fetch']
-): Promise<string> {
-  const response = await fetch(iri, { method: 'HEAD' })
+export async function discoverDescriptionResource(id: string, fetch: WhatwgFetch): Promise<string> {
+  const response = await fetch(id, { method: 'HEAD' })
   return getDescriptionResource(response.headers.get('Link'))
 }
 
@@ -89,10 +87,10 @@ function dataInstanceContext(shapeTree: ShapeTreeData): JsonLdContext {
  */
 export async function frameDataInstanceFromDoc(
   doc: unknown,
-  iri: string,
+  id: string,
   shapeTree: ShapeTreeData
 ): Promise<Record<string, unknown>> {
-  return frameDoc(doc, dataInstanceContext(shapeTree), iri)
+  return frameDoc(doc, dataInstanceContext(shapeTree), id)
 }
 
 /**
@@ -105,16 +103,12 @@ export async function frameDataInstanceFromDoc(
  * framed subject).
  */
 export async function frameDataInstance(
-  iri: string,
-  factory: ApplicationFactory,
+  id: string,
+  fetch: WhatwgFetch,
   shapeTree: ShapeTreeData,
   docIri?: string
 ): Promise<Record<string, unknown>> {
-  return frameDataInstanceFromDoc(
-    await fetchJsonLd(docIri ?? iri, factory.fetch),
-    iri,
-    shapeTree
-  )
+  return frameDataInstanceFromDoc(await fetchJsonLd(docIri ?? id, fetch), id, shapeTree)
 }
 
 /** The data instance's label (describesInstance value or nfo:fileName). */
@@ -142,17 +136,55 @@ export function childIris(
 export async function computeChildren(
   node: Record<string, unknown>,
   shapeTree: ShapeTreeData,
-  factory: ApplicationFactory,
+  fetch: WhatwgFetch,
   lang: string
 ): Promise<ChildInfo[]> {
   return Promise.all(
     shapeTree.references.map(async (reference) => {
-      const childTree = await factory.shapeTree(reference.shapeTree)
-      const description = await getShapeTreeDescription(childTree, lang, factory)
+      const childTree = await loadShapeTree(reference.shapeTree, fetch)
+      const description = await getShapeTreeDescription(childTree, lang, fetch)
       return {
         count: ((node[reference.viaPredicate.value] as string[] | undefined) ?? []).length,
-        shapeTree: { iri: reference.shapeTree, label: description?.prefLabel },
+        shapeTree: { id: reference.shapeTree, label: description?.prefLabel },
       }
     })
   )
+}
+
+/**
+ * Fetch and load a data instance as a DataInstanceData POJO — the composed
+ * read formerly `ApplicationFactory.dataInstance`: resolves the instance's
+ * data registration, its shape tree, and (with `descriptionLang`) the
+ * instance's label and children.
+ */
+export async function loadDataInstance(
+  id: string,
+  fetch: WhatwgFetch,
+  shapeTreeIri?: string,
+  descriptionLang?: string
+): Promise<DataInstanceData> {
+  let dataRegistration: DataRegistrationData | undefined
+  let resolvedShapeTreeIri = shapeTreeIri
+  if (!resolvedShapeTreeIri) {
+    const dataRegistrationIri = `${id.split('/').slice(0, -1).join('/')}/`
+    dataRegistration = await loadDataRegistration(dataRegistrationIri, fetch)
+    resolvedShapeTreeIri = dataRegistration.registeredShapeTree
+  }
+  const shapeTree = await loadShapeTree(resolvedShapeTreeIri, fetch)
+  const blob = isBlob(shapeTree)
+  const data: DataInstanceData = {
+    id: id,
+    shapeTreeIri: resolvedShapeTreeIri,
+    isBlob: blob,
+    children: [],
+    dataRegistration,
+  }
+  if (descriptionLang) {
+    const node = blob
+      ? await frameDataInstance(id, fetch, shapeTree, await discoverDescriptionResource(id, fetch))
+      : await frameDataInstance(id, fetch, shapeTree)
+    data.label = labelFromNode(node)
+    data.children = await computeChildren(node, shapeTree, fetch, descriptionLang)
+  }
+  return data
 }

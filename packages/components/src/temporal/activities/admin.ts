@@ -9,6 +9,7 @@ import {
   dataGrantTemplate,
   dataModelContext,
   linkedIrisJsonLd,
+  loadGrant,
   replaceAdminGrantLinks,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -74,7 +75,7 @@ export async function buildAdminGrants(payload: {
   const registry = session.registrySet.hasGrantRegistry
 
   const registrySetGrant: AdminGrantData = {
-    id: GrantRegistry.iriForContained(registry, session.factory),
+    id: GrantRegistry.iriForContained(registry, session.randomUUID),
     type: [INTEROP.AdminGrant],
     grantee: payload.admin.id,
     grantedBy: payload.webId.id,
@@ -85,7 +86,7 @@ export async function buildAdminGrants(payload: {
   const dataRegistryGrants: AdminGrantData[] = []
   for (const dataRegistry of session.registrySet.hasDataRegistry) {
     dataRegistryGrants.push({
-      id: GrantRegistry.iriForContained(registry, session.factory),
+      id: GrantRegistry.iriForContained(registry, session.randomUUID),
       type: [INTEROP.AdminGrant],
       grantee: payload.admin.id,
       grantedBy: payload.webId.id,
@@ -167,7 +168,7 @@ export async function replaceAdminGrantLink(payload: {
   if (!registration) {
     throw new Error(`social agent registration for admin ${payload.admin.id} not found`)
   }
-  await replaceAdminGrantLinks(registration, session.factory, payload.grantIds)
+  await replaceAdminGrantLinks(registration, session.fetch, payload.grantIds)
 }
 
 /** The admin's AdminGrants in the org's GrantRegistry (by grantee). */
@@ -178,10 +179,10 @@ export async function findAdminGrants(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasGrantRegistry
-  const iris = await linkedIrisJsonLd(registry.id, session.factory.fetch, 'contains')
+  const iris = await linkedIrisJsonLd(registry.id, session.fetch, 'contains')
   const adminGrants: { id: string; type: string[] }[] = []
   for (const iri of iris) {
-    const grant = await session.factory.dataGrant(iri)
+    const grant = await loadGrant(iri, session.fetch)
     if (grant.type.includes(INTEROP.AdminGrant) && grant.grantee === payload.admin.id) {
       adminGrants.push({ id: iri, type: grant.type })
     }
@@ -227,7 +228,7 @@ export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<v
   const admins: AdminAuthorizationData[] = []
   for await (const adminAuthorization of AuthorizationRegistry.adminAuthorizations(
     session.registrySet.hasAuthorizationRegistry,
-    session.factory
+    session.fetch
   )) {
     admins.push(adminAuthorization)
   }

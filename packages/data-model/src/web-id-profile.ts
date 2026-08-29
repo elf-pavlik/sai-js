@@ -27,8 +27,8 @@ export type WebIdProfileData = WebIdProfileId & {
  * WebIdProfileData POJO. The document can be in expanded, compacted, or
  * flattened form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<WebIdProfileData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfileData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -39,6 +39,6 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<WebIdProfil
   }
 }
 
-export async function loadWebIdProfile(iri: string, fetch: WhatwgFetch): Promise<WebIdProfileData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+export async function loadWebIdProfile(id: string, fetch: WhatwgFetch): Promise<WebIdProfileData> {
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }

@@ -24,6 +24,8 @@ import {
   type SocialAgentRegistrationData,
   dataGrantTemplate,
   getDataGrantIris,
+  loadGrant,
+  loadRole,
   replaceDataGrants,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
@@ -114,13 +116,13 @@ function agentIdFromRegistration(
 async function typeGrantee(session: AuthorizationAgent, iri: string): Promise<AgentOrRoleId> {
   const agentRegistration = await AgentRegistry.findRegistration(
     session.registrySet.hasAgentRegistry,
-    session.factory,
+    session.fetch,
     iri
   )
   if (agentRegistration) return agentIdFromRegistration(agentRegistration)
 
   if (
-    await RoleRegistry.containedIncludes(session.registrySet.hasRoleRegistry, session.factory, iri)
+    await RoleRegistry.containedIncludes(session.registrySet.hasRoleRegistry, session.fetch, iri)
   ) {
     return { id: iri, type: [INTEROP.Role] }
   }
@@ -150,9 +152,9 @@ export async function findAffectedGrantees(
   // authorizations (the updateDelegatedGrants path).
   const transport = localSparqlTransport(session.sparqlEndpoint)
   const iris = await listContained(transport, session.registrySet.hasAuthorizationRegistry.id)
-  const dataAuthorizations = (await Promise.all(
-    iris.map((iri) => getDataAuthorization(transport, iri))
-  )).filter((dataAuthorization) => {
+  const dataAuthorizations = (
+    await Promise.all(iris.map((iri) => getDataAuthorization(transport, iri)))
+  ).filter((dataAuthorization) => {
     if (!dataAuthorization.type.includes(INTEROP.DataAuthorization)) return false
     if (dataAuthorization.grantee === payload.peerId.id) return false
     return (
@@ -233,7 +235,7 @@ export async function getGrantees(payload: {
   if (payload.grantee.type.includes(INTEROP.Role)) {
     const manager = buildSessionManager()
     const session = await manager.getSession(payload.webId.id)
-    const role = await session.factory.role(payload.grantee.id)
+    const role = await loadRole(payload.grantee.id, session.fetch)
     return role.members.map((member) => ({ id: member, type: [INTEROP.SocialAgent] }))
   }
   return [payload.grantee as AgentId]
@@ -285,7 +287,7 @@ export async function getExistingGrants(payload: {
   const session = await manager.getSession(payload.webId.id)
   const agentRegistration = await AgentRegistry.findRegistration(
     session.registrySet.hasAgentRegistry,
-    session.factory,
+    session.fetch,
     payload.peerId.id
   )
   if (!agentRegistration) {
@@ -294,7 +296,7 @@ export async function getExistingGrants(payload: {
   const grants: GrantData[] = []
   for (const grantIri of await getDataGrantIris(agentRegistration)) {
     try {
-      grants.push(await session.factory.dataGrant(grantIri))
+      grants.push(await loadGrant(grantIri, session.fetch))
     } catch {
       // grant resource no longer exists (already deleted at the data owner) — tolerate
     }
@@ -557,7 +559,7 @@ export async function replaceDataGrantsOnRegistration(
   const session = await manager.getSession(payload.webId.id)
   const agentRegistration = await AgentRegistry.findRegistration(
     session.registrySet.hasAgentRegistry,
-    session.factory,
+    session.fetch,
     payload.grantee.id
   )
   if (!agentRegistration) {
@@ -565,7 +567,7 @@ export async function replaceDataGrantsOnRegistration(
   }
   await replaceDataGrants(
     agentRegistration,
-    session.factory,
+    session.fetch,
     payload.grants.map((grant) => grant.id!)
   )
 }
@@ -615,12 +617,12 @@ export async function getPendingGranteeActivities(
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
-  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
   // one pass: partition completions into a completed-set, keep typed work items
   const workItems: ActivityData[] = []
   const completed = new Set<string>()
   for (const iri of iris) {
-    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
     if (activity.activityType === 'activityCompleted') {
       completed.add(activity.target)
       continue
@@ -653,12 +655,12 @@ export async function getPendingActivities(
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
-  const iris = await ActivityRegistry.getActivityIris(registry, session.factory)
+  const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
   // one pass: partition completions into a completed-set, keep the rest
   const workItems: ActivityData[] = []
   const completed = new Set<string>()
   for (const iri of iris) {
-    const activity = await ActivityRegistry.loadActivity(iri, session.factory)
+    const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
     if (activity.activityType === 'activityCompleted') {
       completed.add(activity.target)
     } else {
@@ -680,6 +682,10 @@ export async function markActivitiesDone(payload: MarkActivitiesDoneInput): Prom
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return
   for (const activity of payload.activities) {
-    await ActivityRegistry.createCompletion(registry, session.factory, activity.id)
+    await ActivityRegistry.createCompletion(
+      registry,
+      { fetch: session.fetch, randomUUID: session.randomUUID },
+      activity.id
+    )
   }
 }

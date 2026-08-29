@@ -1,8 +1,11 @@
 import { type WhatwgFetch, fetchJsonLd, frameDoc, parseJsonld } from '@janeirodigital/interop-utils'
-import type { AccessNeedGroupDescriptionData, AuthorizationAgentFactory } from '.'
+import type { AccessNeedGroupDescriptionData } from '.'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import type { AccessNeedData } from './access-need'
-import { reliableDescriptionLanguages as needReliableDescriptionLanguages } from './access-need'
+import {
+  accessNeed,
+  reliableDescriptionLanguages as needReliableDescriptionLanguages,
+} from './access-need'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -19,7 +22,7 @@ export type AccessNeedGroupId = {
 /** Plain JSON representation of an access need group. */
 export type AccessNeedGroupData = AccessNeedGroupId & {
   hasAccessNeed: string[]
-  /** The group's access needs, loaded recursively by the factory. */
+  /** The group's access needs, loaded recursively. */
   accessNeeds: AccessNeedData[]
 }
 
@@ -32,8 +35,8 @@ export type AccessNeedGroupData = AccessNeedGroupId & {
  * AccessNeedGroupData POJO. The document can be in expanded, compacted, or
  * flattened form.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedGroupData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedGroupData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -43,10 +46,26 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<AccessNeedG
 }
 
 export async function loadAccessNeedGroup(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<AccessNeedGroupData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
+}
+
+/**
+ * Load an access need group with its access needs resolved recursively (the
+ * composed read formerly `AuthorizationAgentFactory.accessNeedGroup`).
+ */
+export async function accessNeedGroup(
+  id: string,
+  fetch: WhatwgFetch,
+  descriptionLang?: string
+): Promise<AccessNeedGroupData> {
+  const group = await loadAccessNeedGroup(id, fetch)
+  group.accessNeeds = await Promise.all(
+    group.hasAccessNeed.map((needIri) => accessNeed(needIri, fetch, descriptionLang))
+  )
+  return group
 }
 
 // ──────────────────────────
@@ -60,17 +79,17 @@ export async function loadAccessNeedGroup(
 export async function getDescription(
   group: AccessNeedGroupData,
   lang: string,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<AccessNeedGroupDescriptionData | undefined> {
-  const response = await factory.fetch(group.id, {
+  const response = await fetch(group.id, {
     headers: { Accept: 'application/ld+json' },
   })
   const doc = await response.json()
   const dataset = await parseJsonld(JSON.stringify(doc), group.id)
   const descriptionSetIri = findInLanguage(dataset, lang)
   if (!descriptionSetIri) return undefined
-  const descriptionSet = await factory.accessDescriptionSet(descriptionSetIri)
-  const { accessNeedGroupDescriptions } = await loadDescriptions(descriptionSet, factory)
+  const descriptionSet = { id: descriptionSetIri }
+  const { accessNeedGroupDescriptions } = await loadDescriptions(descriptionSet, fetch)
   return accessNeedGroupDescriptions.find(
     (description) => description.hasAccessNeedGroup === group.id
   )
@@ -82,11 +101,11 @@ export async function getDescription(
  */
 export async function reliableDescriptionLanguages(
   group: AccessNeedGroupData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<Set<string>> {
   let languages: Set<string> | null = null
   for (const need of group.accessNeeds) {
-    const needLanguages = await needReliableDescriptionLanguages(need, factory)
+    const needLanguages = await needReliableDescriptionLanguages(need, fetch)
     if (!languages) {
       languages = needLanguages
     } else {

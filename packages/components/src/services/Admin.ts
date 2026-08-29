@@ -22,28 +22,36 @@ export const addAdmin = async (
   const authorizationRegistry = ctx.registrySet.hasAuthorizationRegistry
   const existing = await AuthorizationRegistry.findAdminAuthorization(
     authorizationRegistry,
-    ctx.session.factory,
+    ctx.session.fetch,
     webId
   )
   if (existing) throw new Error(`Admin Authorization for ${webId} already exists`)
 
-  await AuthorizationRegistry.recordAdminAuthorization(authorizationRegistry, ctx.session.factory, {
-    grantee: webId,
-    grantedBy: ctx.webId,
-    scopeOfAuthorization: INTEROP.All,
-  })
+  await AuthorizationRegistry.recordAdminAuthorization(
+    authorizationRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      grantee: webId,
+      grantedBy: ctx.webId,
+      scopeOfAuthorization: INTEROP.All,
+    }
+  )
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
-    activityType: 'adminAuthorizationRecorded',
-    target: authorizationRegistry.id,
-    payload: {
-      webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-      admin: { id: webId, type: [INTEROP.SocialAgent] },
-    },
-    createdAt: new Date().toISOString(),
-  })
+  await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      activityType: 'adminAuthorizationRecorded',
+      target: authorizationRegistry.id,
+      payload: {
+        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
+        admin: { id: webId, type: [INTEROP.SocialAgent] },
+      },
+      createdAt: new Date().toISOString(),
+    }
+  )
 
   return buildSocialAgentProfile(registration, ctx, false)
 }
@@ -63,7 +71,7 @@ export const removeAdmin = async (
   const authorizationRegistry = ctx.registrySet.hasAuthorizationRegistry
   const existing = await AuthorizationRegistry.findAdminAuthorization(
     authorizationRegistry,
-    ctx.session.factory,
+    ctx.session.fetch,
     webId
   )
   if (!existing) throw new Error(`Admin Authorization for ${webId} not found`)
@@ -72,25 +80,29 @@ export const removeAdmin = async (
   let count = 0
   for await (const _adminAuthorization of AuthorizationRegistry.adminAuthorizations(
     authorizationRegistry,
-    ctx.session.factory
+    ctx.session.fetch
   )) {
     count += 1
   }
   if (count === 1) throw new Error('can not remove the last admin')
 
-  await AuthorizationRegistry.deleteAdminAuthorization(existing.id, ctx.session.factory)
+  await AuthorizationRegistry.deleteAdminAuthorization(existing.id, ctx.session.fetch)
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
-    activityType: 'adminAuthorizationRevoked',
-    target: authorizationRegistry.id,
-    payload: {
-      webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-      admin: { id: webId, type: [INTEROP.SocialAgent] },
-    },
-    createdAt: new Date().toISOString(),
-  })
+  await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      activityType: 'adminAuthorizationRevoked',
+      target: authorizationRegistry.id,
+      payload: {
+        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
+        admin: { id: webId, type: [INTEROP.SocialAgent] },
+      },
+      createdAt: new Date().toISOString(),
+    }
+  )
 
   return buildSocialAgentProfile(registration, ctx, false)
 }

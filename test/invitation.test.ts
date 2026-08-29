@@ -113,12 +113,12 @@ describe('accept invitation', () => {
       async () => {
         const completed = await ActivityRegistry.getCompletedActivityIris(
           registry,
-          kimSession.factory
+          kimSession.fetch
         )
         if (!completed.length) return false
-        const iris = await ActivityRegistry.getActivityIris(registry, kimSession.factory)
+        const iris = await ActivityRegistry.getActivityIris(registry, kimSession.fetch)
         for (const iri of iris) {
-          const activity = await ActivityRegistry.loadActivity(iri, kimSession.factory)
+          const activity = await ActivityRegistry.loadActivity(iri, kimSession.fetch)
           if (
             activity.activityType === 'agentRegistrationAdded' &&
             completed.includes(activity.id)

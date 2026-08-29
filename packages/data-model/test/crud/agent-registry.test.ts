@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { describe, test } from 'vitest'
-import { AgentRegistry, AuthorizationAgentFactory } from '../../src'
+import { AgentRegistry } from '../../src'
 import { expect } from '../expect'
 
 const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'
-const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
+const deps = { fetch, randomUUID }
 const snippetIri = 'https://auth.alice.example/1cf3e08b-ffe2-465a-ac5b-94ce165cb8f0'
 
 test('should provide applicationRegistrations', async () => {
-  const registry = await factory.agentRegistry(snippetIri)
+  const registry = await { id: snippetIri }
   let count = 0
-  for await (const authorization of AgentRegistry.applicationRegistrations(registry, factory)) {
+  for await (const authorization of AgentRegistry.applicationRegistrations(registry, deps.fetch)) {
     count += 1
     expect(authorization).toHaveProperty('id')
     expect(authorization).toHaveProperty('registeredAgent')
@@ -21,9 +21,9 @@ test('should provide applicationRegistrations', async () => {
 })
 
 test('should provide socialAgentRegistrations', async () => {
-  const registry = await factory.agentRegistry(snippetIri)
+  const registry = await { id: snippetIri }
   let count = 0
-  for await (const authorization of AgentRegistry.socialAgentRegistrations(registry, factory)) {
+  for await (const authorization of AgentRegistry.socialAgentRegistrations(registry, deps.fetch)) {
     count += 1
     expect(authorization).toHaveProperty('id')
     expect(authorization).toHaveProperty('registeredAgent')
@@ -33,9 +33,9 @@ test('should provide socialAgentRegistrations', async () => {
 
 // TODO: update snippets with some invitations
 test('should provide socialAgentInvitations', async () => {
-  const registry = await factory.agentRegistry(snippetIri)
+  const registry = await { id: snippetIri }
   let count = 0
-  for await (const invitation of AgentRegistry.socialAgentInvitations(registry, factory)) {
+  for await (const invitation of AgentRegistry.socialAgentInvitations(registry, deps.fetch)) {
     count += 1
     expect(invitation).toHaveProperty('capabilityUrl')
   }
@@ -45,9 +45,9 @@ test('should provide socialAgentInvitations', async () => {
 describe('findApplicationRegistration', () => {
   test('finds application registration', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
-      await AgentRegistry.findApplicationRegistration(registry, factory, applicationIri)
+      await AgentRegistry.findApplicationRegistration(registry, deps.fetch, applicationIri)
     ).toHaveProperty('registeredAgent', applicationIri)
   })
 })
@@ -55,9 +55,9 @@ describe('findApplicationRegistration', () => {
 describe('findSocialAgentRegistration', () => {
   test('finds social agent registration', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
-      await AgentRegistry.findSocialAgentRegistration(registry, factory, socialAgentIri)
+      await AgentRegistry.findSocialAgentRegistration(registry, deps.fetch, socialAgentIri)
     ).toHaveProperty('registeredAgent', socialAgentIri)
   })
 })
@@ -66,9 +66,9 @@ describe('findSocialAgentRegistration', () => {
 describe.skip('findSocialAgentInvitation', () => {
   test('finds social agent invitation', async () => {
     const socialAgentInvitationIri = 'TODO'
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
-      await AgentRegistry.findSocialAgentInvitation(registry, factory, socialAgentInvitationIri)
+      await AgentRegistry.findSocialAgentInvitation(registry, deps.fetch, socialAgentInvitationIri)
     ).toHaveProperty('capabilityUrl')
   })
 })
@@ -76,20 +76,18 @@ describe.skip('findSocialAgentInvitation', () => {
 describe('findRegistration', () => {
   test('finds application registration', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.agentRegistry(snippetIri)
-    expect(await AgentRegistry.findRegistration(registry, factory, applicationIri)).toHaveProperty(
-      'registeredAgent',
-      applicationIri
-    )
+    const registry = await { id: snippetIri }
+    expect(
+      await AgentRegistry.findRegistration(registry, deps.fetch, applicationIri)
+    ).toHaveProperty('registeredAgent', applicationIri)
   })
 
   test('finds social agent registration', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.agentRegistry(snippetIri)
-    expect(await AgentRegistry.findRegistration(registry, factory, socialAgentIri)).toHaveProperty(
-      'registeredAgent',
-      socialAgentIri
-    )
+    const registry = await { id: snippetIri }
+    expect(
+      await AgentRegistry.findRegistration(registry, deps.fetch, socialAgentIri)
+    ).toHaveProperty('registeredAgent', socialAgentIri)
   })
 })
 
@@ -98,11 +96,11 @@ describe('addSocialAgentRegistration', () => {
 
   test('throws if registration already exists', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
       AgentRegistry.addSocialAgentRegistration(
         registry,
-        factory,
+        deps,
         { agent: webId, client: agentId },
         socialAgentIri,
         'Someone'
@@ -111,7 +109,7 @@ describe('addSocialAgentRegistration', () => {
   })
 
   test.skip('returns added registration', async () => {
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     const registration = await AgentRegistry.addSocialAgentRegistration(
       registry,
       factory,
@@ -127,17 +125,17 @@ describe('addSocialAgentInvitation', () => {
   const capabilityUrl = 'https://auth.jane.example/some-secret-url'
 
   test.skip('throws if invitation already exists', async () => {
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
-      AgentRegistry.addSocialAgentInvitation(registry, factory, capabilityUrl, 'Someone')
+      AgentRegistry.addSocialAgentInvitation(registry, deps, capabilityUrl, 'Someone')
     ).rejects.toThrow('already exists')
   })
 
   test('returns added invitation', async () => {
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     const invitation = await AgentRegistry.addSocialAgentInvitation(
       registry,
-      factory,
+      deps,
       capabilityUrl,
       'Jane'
     )
@@ -151,11 +149,11 @@ describe('addApplicationRegistration', () => {
 
   test('throws if registration already exists', async () => {
     const applicationIri = 'https://projectron.example/#app'
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     expect(
       AgentRegistry.addApplicationRegistration(
         registry,
-        factory,
+        deps,
         { agent: webId, client: agentId },
         applicationIri
       )
@@ -163,10 +161,10 @@ describe('addApplicationRegistration', () => {
   })
 
   test('returns added registration', async () => {
-    const registry = await factory.agentRegistry(snippetIri)
+    const registry = await { id: snippetIri }
     const registration = await AgentRegistry.addApplicationRegistration(
       registry,
-      factory,
+      deps,
       { agent: webId, client: agentId },
       gigaApp
     )

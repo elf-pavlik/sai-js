@@ -6,14 +6,17 @@ import {
   frameDoc,
   withContext,
 } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgentFactory, RegistrySetData } from '.'
+import type { DataModelDependencies, RegistrySetData } from '.'
 import { dataModelContext } from './context'
 import { getDataGrantIris, getDataGrants } from './crud/agent-registration'
 import * as AgentRegistry from './crud/agent-registry'
 import * as DataRegistry from './crud/data-registry'
 import * as GrantRegistry from './crud/grant-registry'
+import { loadRole } from './crud/role'
+import { loadSocialAgentRegistration } from './crud/social-agent-registration'
 import type { DataRegistrationData } from './data-registration'
 import type { FinalGrantData, GeneratedGrants, GrantData } from './grant'
+import { loadGrant } from './grant'
 
 // ──────────────────────────
 // Types
@@ -70,8 +73,8 @@ export interface SourceAndDelegatedGrants {
  * Uses jsonld.frame to resolve @reverse relationships
  * (hasInheritingAuthorization) automatically, without embedding child nodes.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<DataAuthorizationData> {
-  return compactNodeToDataAuthorizationData((await frameDoc(doc, dataModelContext, iri)) as any)
+export async function fromJsonLd(doc: unknown, id: string): Promise<DataAuthorizationData> {
+  return compactNodeToDataAuthorizationData((await frameDoc(doc, dataModelContext, id)) as any)
 }
 
 /**
@@ -104,10 +107,10 @@ function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
  * Fetch and load a data authorization resource as a DataAuthorizationData POJO.
  */
 export async function loadDataAuthorization(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<DataAuthorizationData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 // ──────────────────────────
@@ -135,10 +138,10 @@ export function toJsonLd(data: FinalDataAuthorizationData): Record<string, unkno
  */
 export async function inheritingAuthorizations(
   data: DataAuthorizationData,
-  factory: AuthorizationAgentFactory
+  deps: DataModelDependencies
 ): Promise<DataAuthorizationData[]> {
   const childIris = data.hasInheritingAuthorization ?? []
-  return Promise.all(childIris.map((iri) => factory.dataAuthorization(iri)))
+  return Promise.all(childIris.map((iri) => loadDataAuthorization(iri, deps.fetch)))
 }
 
 async function generateChildDelegatedGrantData(
@@ -146,15 +149,16 @@ async function generateChildDelegatedGrantData(
   parentGrantIri: string,
   sourceGrant: GrantData,
   registrySet: RegistrySetData,
-  grantee: string
+  grantee: string,
+  deps: DataModelDependencies
 ): Promise<GrantData[]> {
   const result: GrantData[] = []
-  const childAuthorizations = await inheritingAuthorizations(data, registrySet.factory)
+  const childAuthorizations = await inheritingAuthorizations(data, deps)
   for (const childAuthorization of childAuthorizations) {
     // Find matching child grant by fetching each child IRI
     let childSourceGrant: GrantData | undefined
     for (const childIri of sourceGrant.hasInheritingGrant ?? []) {
-      const childGrant = await registrySet.factory.dataGrant(childIri)
+      const childGrant = await loadGrant(childIri, deps.fetch)
       if (childGrant.registeredShapeTree === childAuthorization.registeredShapeTree) {
         childSourceGrant = childGrant
         break
@@ -187,6 +191,7 @@ async function generateDelegatedDataGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
   grantee: string,
+  deps: DataModelDependencies,
   dataOwner?: string
 ): Promise<GrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited) {
@@ -196,7 +201,7 @@ async function generateDelegatedDataGrants(
 
   for await (const agentRegistration of AgentRegistry.socialAgentRegistrations(
     registrySet.hasAgentRegistry,
-    registrySet.factory
+    deps.fetch
   )) {
     // data onwer is specified but it is not their registration
     if (dataOwner && dataOwner !== agentRegistration.registeredAgent) {
@@ -208,13 +213,14 @@ async function generateDelegatedDataGrants(
     }
     // only inspect registrations that have a reciprocal registration
     if (!agentRegistration.reciprocalRegistration) continue
-    const reciprocalReg = await registrySet.factory.socialAgentRegistration(
-      agentRegistration.reciprocalRegistration
+    const reciprocalReg = await loadSocialAgentRegistration(
+      agentRegistration.reciprocalRegistration,
+      deps.fetch
     )
 
     if ((await getDataGrantIris(reciprocalReg)).length === 0) continue
 
-    const reciprocalDataGrants = await getDataGrants(reciprocalReg, registrySet.factory)
+    const reciprocalDataGrants = await getDataGrants(reciprocalReg, deps.fetch)
 
     let matchingDataGrants = reciprocalDataGrants.filter(
       (grant) => grant.registeredShapeTree === data.registeredShapeTree
@@ -228,7 +234,7 @@ async function generateDelegatedDataGrants(
     for (const sourceGrant of matchingDataGrants) {
       const regularGrantIri = GrantRegistry.iriForContained(
         registrySet.hasGrantRegistry,
-        registrySet.factory
+        deps.randomUUID
       )
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
@@ -236,7 +242,8 @@ async function generateDelegatedDataGrants(
         regularGrantIri,
         sourceGrant,
         registrySet,
-        grantee
+        grantee,
+        deps
       )
       const scope: string =
         data.scopeOfAuthorization === INTEROP.SelectedFromRegistry ||
@@ -279,14 +286,15 @@ async function generateChildSourceGrantData(
   dataRegistrations: DataRegistrationData[],
   registrySet: RegistrySetData,
   grantee: string,
-  storageIri: string
+  storageIri: string,
+  deps: DataModelDependencies
 ): Promise<FinalGrantData[]> {
   const result: FinalGrantData[] = []
-  const childAuthorizations = await inheritingAuthorizations(data, registrySet.factory)
+  const childAuthorizations = await inheritingAuthorizations(data, deps)
   for (const childAuthorization of childAuthorizations) {
     const childGrantIri = GrantRegistry.iriForContained(
       registrySet.hasGrantRegistry,
-      registrySet.factory
+      deps.randomUUID
     )
     const dataRegistration = dataRegistrations.find(
       (registration) => registration.registeredShapeTree === childAuthorization.registeredShapeTree
@@ -314,7 +322,8 @@ async function generateChildSourceGrantData(
 async function generateSourceDataGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
-  grantee: string
+  grantee: string,
+  deps: DataModelDependencies
 ): Promise<FinalGrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited) {
     throw new Error('this method should not be callend on data authorizations with Inherited scope')
@@ -326,7 +335,7 @@ async function generateSourceDataGrants(
     // FIXME handle each data registry independently
 
     const dataRegistrations = await asyncIterableToArray(
-      DataRegistry.registrations(dataRegistry, registrySet.factory)
+      DataRegistry.registrations(dataRegistry, deps.fetch)
     )
 
     let matchingRegistration: DataRegistrationData
@@ -348,7 +357,7 @@ async function generateSourceDataGrants(
     // create source grant
     const regularGrantIri = GrantRegistry.iriForContained(
       registrySet.hasGrantRegistry,
-      registrySet.factory
+      deps.randomUUID
     )
 
     // create children if needed
@@ -358,7 +367,8 @@ async function generateSourceDataGrants(
       dataRegistrations,
       registrySet,
       grantee,
-      await DataRegistry.storageIri(dataRegistry, registrySet.factory)
+      await DataRegistry.storageIri(dataRegistry, deps.fetch),
+      deps
     )
 
     let scopeOfGrant: string = INTEROP.AllFromRegistry
@@ -372,7 +382,7 @@ async function generateSourceDataGrants(
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
       hasDataRegistration: matchingRegistration.id,
-      hasStorage: await DataRegistry.storageIri(dataRegistry, registrySet.factory),
+      hasStorage: await DataRegistry.storageIri(dataRegistry, deps.fetch),
       scopeOfGrant,
       accessMode: data.accessMode,
     }
@@ -399,7 +409,8 @@ async function generateSourceDataGrants(
 export async function generateDataGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
-  grantee: string
+  grantee: string,
+  deps: DataModelDependencies
 ): Promise<SourceAndDelegatedGrants> {
   const dataGrantData: SourceAndDelegatedGrants = {
     source: [],
@@ -407,16 +418,17 @@ export async function generateDataGrants(
   }
 
   if (data.dataOwner && data.scopeOfAuthorization === INTEROP.AllFromRole) {
-    const role = await registrySet.factory.role(data.dataOwner)
+    const role = await loadRole(data.dataOwner, deps.fetch)
     for (const member of role.members) {
       if (member === data.grantedBy) {
-        const sourceGrants = await generateSourceDataGrants(data, registrySet, grantee)
+        const sourceGrants = await generateSourceDataGrants(data, registrySet, grantee, deps)
         dataGrantData.source.push(...sourceGrants)
       } else {
         const delegatedGrants = await generateDelegatedDataGrants(
           data,
           registrySet,
           grantee,
+          deps,
           member
         )
         dataGrantData.delegated.push(...delegatedGrants)
@@ -433,7 +445,7 @@ export async function generateDataGrants(
    * Otherwise only delegated data grants are created
    */
   if (!data.dataOwner || data.dataOwner === data.grantedBy) {
-    dataGrantData.source = await generateSourceDataGrants(data, registrySet, grantee)
+    dataGrantData.source = await generateSourceDataGrants(data, registrySet, grantee, deps)
   }
 
   // do not create delegated data grants if granted by data owner, source grants will be created instead
@@ -449,6 +461,7 @@ export async function generateDataGrants(
       data,
       registrySet,
       grantee,
+      deps,
       data.dataOwner
     )
   }
@@ -466,7 +479,8 @@ export async function generateDataGrants(
 export async function generateGrantsForAuthorization(
   dataAuthorizations: DataAuthorizationData[],
   registrySet: RegistrySetData,
-  grantee: string
+  grantee: string,
+  deps: DataModelDependencies
 ): Promise<GeneratedGrants> {
   const sourceGrants: FinalGrantData[] = []
   const delegatedGrants: GrantData[] = []
@@ -475,7 +489,7 @@ export async function generateGrantsForAuthorization(
     if (dataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
       continue
     }
-    const grants = await generateDataGrants(dataAuthorization, registrySet, grantee)
+    const grants = await generateDataGrants(dataAuthorization, registrySet, grantee, deps)
     sourceGrants.push(...grants.source)
     delegatedGrants.push(...grants.delegated)
   }

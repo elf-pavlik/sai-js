@@ -2,21 +2,21 @@ import { randomUUID } from 'node:crypto'
 import { createStatefulFetch, fetch } from '@janeirodigital/interop-test-utils'
 import { INTEROP, asyncIterableToArray } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { AuthorizationAgentFactory, AuthorizationRegistry } from '../../src'
+import { AuthorizationRegistry } from '../../src'
 import { expect } from '../expect'
 
-const factory = new AuthorizationAgentFactory({ fetch, randomUUID })
+const deps = { fetch, randomUUID }
 
 const mixedRegistry = { id: 'https://auth.alice.example/authorization-registry-mixed' }
 
 describe('AdminAuthorization crud (R1 internal read + write)', () => {
   test('recordAdminAuthorization writes the AdminAuthorization resource', async () => {
     const statefulFetch = createStatefulFetch()
-    const statefulFactory = new AuthorizationAgentFactory({ fetch: statefulFetch, randomUUID })
+    const statefulDeps = { fetch: statefulFetch, randomUUID }
 
     const recorded = await AuthorizationRegistry.recordAdminAuthorization(
       mixedRegistry,
-      statefulFactory,
+      statefulDeps,
       {
         grantee: 'https://id/eve',
         grantedBy: 'https://id/yoyo',
@@ -42,7 +42,7 @@ describe('AdminAuthorization crud (R1 internal read + write)', () => {
   test('findAdminAuthorization returns the admin authorization for the grantee', async () => {
     const result = await AuthorizationRegistry.findAdminAuthorization(
       mixedRegistry,
-      factory,
+      deps.fetch,
       'https://id/dan'
     )
     expect(result).toBeDefined()
@@ -55,7 +55,7 @@ describe('AdminAuthorization crud (R1 internal read + write)', () => {
   test('findAdminAuthorization returns undefined for an agent without one', async () => {
     const result = await AuthorizationRegistry.findAdminAuthorization(
       mixedRegistry,
-      factory,
+      deps.fetch,
       'https://id/nobody'
     )
     expect(result).toBeUndefined()
@@ -63,7 +63,7 @@ describe('AdminAuthorization crud (R1 internal read + write)', () => {
 
   test('adminAuthorizations yields only AdminAuthorizations', async () => {
     const result = await asyncIterableToArray(
-      AuthorizationRegistry.adminAuthorizations(mixedRegistry, factory)
+      AuthorizationRegistry.adminAuthorizations(mixedRegistry, deps.fetch)
     )
     expect(result).toHaveLength(1)
     for (const adminAuthorization of result) {
@@ -74,18 +74,18 @@ describe('AdminAuthorization crud (R1 internal read + write)', () => {
 
   test('deleteAdminAuthorization removes the resource', async () => {
     const statefulFetch = createStatefulFetch()
-    const statefulFactory = new AuthorizationAgentFactory({ fetch: statefulFetch, randomUUID })
+    const statefulDeps = { fetch: statefulFetch, randomUUID }
 
     const recorded = await AuthorizationRegistry.recordAdminAuthorization(
       mixedRegistry,
-      statefulFactory,
+      statefulDeps,
       {
         grantee: 'https://id/eve',
         grantedBy: 'https://id/yoyo',
         scopeOfAuthorization: INTEROP.All,
       }
     )
-    await AuthorizationRegistry.deleteAdminAuthorization(recorded.id, statefulFactory)
+    await AuthorizationRegistry.deleteAdminAuthorization(recorded.id, statefulDeps.fetch)
     await expect(statefulFetch(recorded.id).then((response) => response.text())).rejects.toThrow(
       'missing snippet'
     )

@@ -1,18 +1,16 @@
 import {
   INTEROP,
   RDF,
+  type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
+import type { DataModelDependencies } from '..'
 import { dataModelContext, linkedIrisJsonLd } from '../context'
-import {
-  iriForContained as containerIriForContained,
-  createContainer,
-} from './container'
+import { iriForContained as containerIriForContained, createContainer } from './container'
 
 // ──────────────────────────
 // Types
@@ -44,29 +42,29 @@ export type ActivityData = {
 
 export async function createActivityRegistry(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = new Store()
   dataset.add(
     DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.ActivityRegistry)
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 export function iriForContained(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory,
+  randomUUID: () => string,
   container = false
 ): string {
-  return containerIriForContained(data.id, factory, container)
+  return containerIriForContained(data.id, randomUUID, container)
 }
 
 /** The activity resources currently in the registry (ldp:contains). */
 export async function getActivityIris(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, factory.fetch, 'contains')
+  return linkedIrisJsonLd(data.id, fetch, 'contains')
 }
 
 /**
@@ -77,28 +75,25 @@ export async function getActivityIris(
  */
 export async function createActivity(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   activity: Omit<ActivityData, 'id'>
 ): Promise<ActivityData> {
-  const iri = iriForContained(data, factory)
+  const iri = iriForContained(data, deps.randomUUID)
   const doc = withContext(dataModelContext, {
     ...activity,
     id: iri,
     type: [INTEROP.Activity],
     payload: JSON.stringify(activity.payload),
   })
-  await putJsonLd(iri, factory.fetch, doc, { 'If-None-Match': '*' })
+  await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
   return { ...activity, id: iri }
 }
 
 /** Read an activity resource from the Activity Registry. */
-export async function loadActivity(
-  iri: string,
-  factory: AuthorizationAgentFactory
-): Promise<ActivityData> {
-  const node = (await frameDoc(await fetchJsonLd(iri, factory.fetch), dataModelContext, iri)) as any
+export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<ActivityData> {
+  const node = (await frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     activityType: node.activityType,
     target: node.target,
     payload: node.payload ? JSON.parse(node.payload) : undefined,
@@ -115,10 +110,10 @@ export async function loadActivity(
  */
 export async function createCompletion(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory,
+  deps: DataModelDependencies,
   completedIri: string
 ): Promise<void> {
-  const iri = iriForContained(data, factory)
+  const iri = iriForContained(data, deps.randomUUID)
   const doc = withContext(dataModelContext, {
     id: iri,
     type: [INTEROP.Activity],
@@ -126,7 +121,7 @@ export async function createCompletion(
     target: completedIri,
     createdAt: new Date().toISOString(),
   })
-  await putJsonLd(iri, factory.fetch, doc, { 'If-None-Match': '*' })
+  await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
 }
 
 /**
@@ -137,12 +132,12 @@ export async function createCompletion(
  */
 export async function getCompletedActivityIris(
   data: ActivityRegistryData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<string[]> {
-  const iris = await getActivityIris(data, factory)
+  const iris = await getActivityIris(data, fetch)
   const completed: string[] = []
   for (const iri of iris) {
-    const activity = await loadActivity(iri, factory)
+    const activity = await loadActivity(iri, fetch)
     if (activity.activityType === 'activityCompleted') completed.push(activity.target)
   }
   return completed

@@ -36,8 +36,8 @@ export type ClientIdDocumentData = ClientIdDocumentId & {
  * flattened form. Remote contexts (e.g. the Solid OIDC context) are resolved
  * from bundled local copies, never fetched over the network.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<ClientIdDocumentData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<ClientIdDocumentData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
@@ -55,8 +55,8 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<ClientIdDoc
 }
 
 export async function loadClientIdDocument(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<ClientIdDocumentData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }

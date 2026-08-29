@@ -302,9 +302,9 @@ describe.skip('authorization agent', () => {
         dataAuthorizations: [validDataAuthorizationData],
         ...accessAuthorizationData,
       })
-      const registry = await agent.factory.authorizationRegistry(
-        agent.registrySet.hasAuthorizationRegistry.iri
-      )
+      const registry = agent.registrySet.hasAuthorizationRegistry as unknown as {
+        accessAuthorizations: { iri?: string }[]
+      }
       let matched
       for await (const authorization of registry.accessAuthorizations) {
         if (authorization.iri === accessAuthorization.iri) {
@@ -370,7 +370,6 @@ describe.skip('authorization agent', () => {
         fetch: statefulFetch,
         randomUUID,
       })
-      agent.factory.dataInstance = vi.fn(async () => dataInstance)
     })
 
     test('with scope All', async () => {
@@ -538,7 +537,6 @@ describe.skip('authorization agent', () => {
           registeredShapeTree: shapeTree,
         },
       } as ReadableDataInstance
-      agent.factory.dataInstance = vi.fn(async () => dataInstance)
       const childDataRegistration = { iri: 'mocked' } as ReadableDataRegistration
       agent.findDataRegistration = vi.fn(async () => childDataRegistration)
 

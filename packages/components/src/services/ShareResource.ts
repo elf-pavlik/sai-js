@@ -4,13 +4,16 @@ import type {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
-  computeChildren,
-  DataRegistration,
   type DataAuthorizationData,
   type DataInstanceData,
+  DataRegistration,
+  ShapeTree,
+  computeChildren,
   isBlob,
   labelFromNode,
-  ShapeTree,
+  loadClientIdDocument,
+  loadDataInstance,
+  loadShapeTree,
   setAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -85,7 +88,10 @@ async function orgAgentsWithAccess(
   resource: DataInstanceData
 ): Promise<string[]> {
   const transport = sparqlTransportFor(ctx)
-  const authorizationIris = await listContained(transport, ctx.registrySet.hasAuthorizationRegistry.id)
+  const authorizationIris = await listContained(
+    transport,
+    ctx.registrySet.hasAuthorizationRegistry.id
+  )
   const authorizations = await Promise.all(
     authorizationIris.map((iri) => getDataAuthorization(transport, iri))
   )
@@ -115,7 +121,7 @@ async function orgContextDataInstance(
     await fetchPeerDocument(ctx.session, ctx.webId, registrationIri),
     registrationIri
   )
-  const shapeTree = await ctx.session.factory.shapeTree(registration.registeredShapeTree)
+  const shapeTree = await loadShapeTree(registration.registeredShapeTree, ctx.session.fetch)
   const node = await peerInstanceNode(ctx, iri, shapeTree)
   return {
     id: iri,
@@ -123,17 +129,17 @@ async function orgContextDataInstance(
     label: labelFromNode(node),
     isBlob: isBlob(shapeTree),
     dataRegistration: registration,
-    children: await computeChildren(node, shapeTree, ctx.session.factory, lang),
+    children: await computeChildren(node, shapeTree, ctx.session.fetch, lang),
   }
 }
 
 export const getResource = async (ctx: ResolvedContext, iri: string, lang: string) => {
   const resource = await (ctx.webId === ctx.userWebId
-    ? ctx.session.factory.dataInstance(iri, undefined, lang)
+    ? loadDataInstance(iri, ctx.session.fetch, undefined, lang)
     : orgContextDataInstance(ctx, iri, lang))
   if (!resource) throw new Error(`Resource not found: ${iri}`)
-  const shapeTree = await ctx.session.factory.shapeTree(resource.shapeTreeIri!)
-  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.factory)
+  const shapeTree = await loadShapeTree(resource.shapeTreeIri!, ctx.session.fetch)
+  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.fetch)
   // "who has access" is read via SPARQL in both contexts — personal via
   // the session's internal endpoint, org via `/sparql-admin`
   // (`sparqlTransportFor`).
@@ -148,7 +154,7 @@ export const getResource = async (ctx: ResolvedContext, iri: string, lang: strin
     accessGrantedTo: accessGrantedTo.map((agent) => IRI.make(agent)),
     children: resource.children.map((child) => ({
       shapeTree: {
-        id: IRI.make(child.shapeTree.iri),
+        id: IRI.make(child.shapeTree.id),
         label: child.shapeTree.label,
       },
       count: child.count,
@@ -168,8 +174,9 @@ export const shareResource = async (
     shareAuthorization as unknown as ShareDataInstanceStructure
   )
 
-  const clientIdDocument = await ctx.session.factory.clientIdDocument(
-    shareAuthorization.applicationId
+  const clientIdDocument = await loadClientIdDocument(
+    shareAuthorization.applicationId,
+    ctx.session.fetch
   )
 
   // grantees are social agents in the share flow (roles are not share targets)
@@ -181,15 +188,19 @@ export const shareResource = async (
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   for (const grantee of grantees) {
-    await ActivityRegistry.createActivity(activityRegistry, ctx.session.factory, {
-      activityType: 'authorizationRecorded',
-      target: ctx.registrySet.hasAuthorizationRegistry.id,
-      payload: {
-        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-        authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
-      },
-      createdAt: new Date().toISOString(),
-    })
+    await ActivityRegistry.createActivity(
+      activityRegistry,
+      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+      {
+        activityType: 'authorizationRecorded',
+        target: ctx.registrySet.hasAuthorizationRegistry.id,
+        payload: {
+          webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
+          authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
+        },
+        createdAt: new Date().toISOString(),
+      }
+    )
   }
 
   return {
@@ -203,10 +214,10 @@ export async function requestAccessUsingApplicationNeeds(
   webId: string
 ): Promise<void> {
   const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, webId)
-  const clientIdDocument = await ctx.session.factory.clientIdDocument(applicationIri)
+  const clientIdDocument = await loadClientIdDocument(applicationIri, ctx.session.fetch)
   await setAccessNeedGroup(
     socialAgentRegistration,
-    ctx.session.factory,
+    ctx.session.fetch,
     clientIdDocument.hasAccessNeedGroup
   )
 }

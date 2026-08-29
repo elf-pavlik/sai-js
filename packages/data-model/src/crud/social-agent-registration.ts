@@ -11,7 +11,6 @@ import {
   insertPatch,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { AuthorizationAgentFactory } from '..'
 import { dataModelContext } from '../context'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { addStatement, applyPatch, createContainer, replaceStatement } from './container'
@@ -56,10 +55,10 @@ export type SocialAgentId = {
  * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
  * rdf:type (from framing) to a string array.
  */
-export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgentRegistrationData> {
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentRegistrationData> {
+  const node = (await frameDoc(doc, dataModelContext, id)) as any
   return {
-    id: iri,
+    id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     registeredAgent: node.registeredAgent,
     hasDataGrant: node.hasDataGrant ?? [],
@@ -73,10 +72,10 @@ export async function fromJsonLd(doc: unknown, iri: string): Promise<SocialAgent
 }
 
 export async function loadSocialAgentRegistration(
-  iri: string,
+  id: string,
   fetch: WhatwgFetch
 ): Promise<SocialAgentRegistrationData> {
-  return fromJsonLd(await fetchJsonLd(iri, fetch), iri)
+  return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
 
 /**
@@ -86,10 +85,10 @@ export async function loadSocialAgentRegistration(
  */
 export async function loadReciprocalRegistration(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<SocialAgentRegistrationData | undefined> {
   if (!data.reciprocalRegistration) return undefined
-  return factory.socialAgentRegistration(data.reciprocalRegistration)
+  return loadSocialAgentRegistration(data.reciprocalRegistration, fetch)
 }
 
 // ──────────────────────────
@@ -117,7 +116,7 @@ export async function toDataset(data: SocialAgentRegistrationData): Promise<Stor
 
 export async function createSocialAgentRegistration(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory
+  fetch: WhatwgFetch
 ): Promise<void> {
   const dataset = await toDataset(data)
   dataset.add(
@@ -127,7 +126,7 @@ export async function createSocialAgentRegistration(
       INTEROP.terms.SocialAgentRegistration
     )
   )
-  await createContainer(data.id, factory, dataset)
+  await createContainer(data.id, fetch, dataset)
 }
 
 // ──────────────────────────
@@ -136,17 +135,16 @@ export async function createSocialAgentRegistration(
 
 export async function discoverReciprocal(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
   fetch: WhatwgFetch
 ): Promise<string | null> {
-  const authrizationAgentIri = await discoverAuthorizationAgent(data.registeredAgent, factory.fetch)
+  const authrizationAgentIri = await discoverAuthorizationAgent(data.registeredAgent, fetch)
   if (!authrizationAgentIri) return null
   return discoverAgentRegistration(authrizationAgentIri, fetch)
 }
 
 async function updateReciprocal(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   reciprocalRegistrationIri: string
 ): Promise<void> {
   const node = DataFactory.namedNode(data.id)
@@ -161,27 +159,26 @@ async function updateReciprocal(
       INTEROP.terms.reciprocalRegistration,
       DataFactory.namedNode(data.reciprocalRegistration)
     )
-    await replaceStatement(data.id, factory, priorQuad, quad)
+    await replaceStatement(data.id, fetch, priorQuad, quad)
   } else {
-    await addStatement(data.id, factory, quad)
+    await addStatement(data.id, fetch, quad)
   }
   data.reciprocalRegistration = reciprocalRegistrationIri
 }
 
 export async function discoverAndUpdateReciprocal(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
   fetch: WhatwgFetch
 ): Promise<void> {
-  const reciprocalRegistrationIri = await discoverReciprocal(data, factory, fetch)
+  const reciprocalRegistrationIri = await discoverReciprocal(data, fetch)
   if (reciprocalRegistrationIri) {
-    await updateReciprocal(data, factory, reciprocalRegistrationIri)
+    await updateReciprocal(data, fetch, reciprocalRegistrationIri)
   }
 }
 
 export async function setAccessNeedGroup(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   accessNeedGroupIri: string
 ): Promise<void> {
   const node = DataFactory.namedNode(data.id)
@@ -196,9 +193,9 @@ export async function setAccessNeedGroup(
       INTEROP.terms.hasAccessNeedGroup,
       DataFactory.namedNode(data.hasAccessNeedGroup)
     )
-    await replaceStatement(data.id, factory, priorQuad, quad)
+    await replaceStatement(data.id, fetch, priorQuad, quad)
   } else {
-    await addStatement(data.id, factory, quad)
+    await addStatement(data.id, fetch, quad)
   }
   data.hasAccessNeedGroup = accessNeedGroupIri
 }
@@ -220,7 +217,7 @@ export async function getAdminGrantIris(data: SocialAgentRegistrationData): Prom
  */
 export async function replaceAdminGrantLinks(
   data: SocialAgentRegistrationData,
-  factory: AuthorizationAgentFactory,
+  fetch: WhatwgFetch,
   grantIris: string[]
 ): Promise<void> {
   const current = await getAdminGrantIris(data)
@@ -241,6 +238,6 @@ export async function replaceAdminGrantLinks(
     ...(removed.size ? [await deletePatch(new Store(removeQuads))] : []),
     ...(added.size ? [await insertPatch(new Store(insertQuads))] : []),
   ].join(';')
-  await applyPatch(data.id, factory, sparqlUpdate)
+  await applyPatch(data.id, fetch, sparqlUpdate)
   data.hasAdminGrant = [...grantIris]
 }

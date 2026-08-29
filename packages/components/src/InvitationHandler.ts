@@ -1,4 +1,8 @@
-import { ActivityRegistry, AgentRegistry, setRegisteredAgent } from '@janeirodigital/interop-data-model'
+import {
+  ActivityRegistry,
+  AgentRegistry,
+  setRegisteredAgent,
+} from '@janeirodigital/interop-data-model'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -46,7 +50,7 @@ export class InvitationHandler extends OperationHttpHandler {
     if (!socialAgentRegistration) {
       socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
         sai.registrySet.hasAgentRegistry,
-        sai.factory,
+        { fetch: sai.fetch, randomUUID: sai.randomUUID },
         { agent: sai.webId, client: sai.agentId },
         invitedId,
         socialAgentInvitation.prefLabel,
@@ -57,22 +61,26 @@ export class InvitationHandler extends OperationHttpHandler {
       // startDelay hack — §6.7)
       const activityRegistry = sai.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
-      await ActivityRegistry.createActivity(activityRegistry, sai.factory, {
-        activityType: 'agentRegistrationAdded',
-        target: socialAgentRegistration.id,
-        payload: {
-          webId: inviteeId,
-          peerId: invitedId,
-          registrationId: socialAgentRegistration.id,
-        },
-        createdAt: new Date().toISOString(),
-      })
+      await ActivityRegistry.createActivity(
+        activityRegistry,
+        { fetch: sai.fetch, randomUUID: sai.randomUUID },
+        {
+          activityType: 'agentRegistrationAdded',
+          target: socialAgentRegistration.id,
+          payload: {
+            webId: inviteeId,
+            peerId: invitedId,
+            registrationId: socialAgentRegistration.id,
+          },
+          createdAt: new Date().toISOString(),
+        }
+      )
     }
 
     // update invitation with agent who accepted it
     await setRegisteredAgent(
       socialAgentInvitation,
-      sai.factory.fetch,
+      sai.fetch,
       socialAgentRegistration.registeredAgent
     )
 

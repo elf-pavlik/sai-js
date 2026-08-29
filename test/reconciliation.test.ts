@@ -1,5 +1,9 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import {
+  ActivityRegistry,
+  getDataGrantIris,
+  loadSocialAgentRegistration,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -18,15 +22,19 @@ describe('reconciliation sweep', () => {
     // acme has NO pre-seeded activity-webhook channel → CSS never delivers →
     // the activity stays unprocessed until the sweep processes it
     const registry = acmeSession.registrySet.hasActivityRegistry!
-    const activity = await ActivityRegistry.createActivity(registry, acmeSession.factory, {
-      activityType: 'authorizationRecorded',
-      target: acmeSession.registrySet.hasAuthorizationRegistry.id,
-      payload: {
-        webId: { id: acmeId, type: [INTEROP.SocialAgent] },
-        authorizationGrantee: { id: aliceId, type: [INTEROP.SocialAgent] },
-      },
-      createdAt: new Date().toISOString(),
-    })
+    const activity = await ActivityRegistry.createActivity(
+      registry,
+      { fetch: acmeSession.fetch, randomUUID: acmeSession.randomUUID },
+      {
+        activityType: 'authorizationRecorded',
+        target: acmeSession.registrySet.hasAuthorizationRegistry.id,
+        payload: {
+          webId: { id: acmeId, type: [INTEROP.SocialAgent] },
+          authorizationGrantee: { id: aliceId, type: [INTEROP.SocialAgent] },
+        },
+        createdAt: new Date().toISOString(),
+      }
+    )
 
     // run the sweep (executed by workflow type name — registered on the worker)
     const connection = await Connection.connect({
@@ -43,12 +51,15 @@ describe('reconciliation sweep', () => {
     // and alice's grants regenerated
     await waitFor(
       async () => {
-        const completed = await ActivityRegistry.getCompletedActivityIris(registry, acmeSession.factory)
+        const completed = await ActivityRegistry.getCompletedActivityIris(
+          registry,
+          acmeSession.fetch
+        )
         return completed.includes(activity.id)
       },
       { timeout: 30_000 }
     )
-    const regForAlice = await acmeSession.factory.socialAgentRegistration(acmeRegForAlice)
+    const regForAlice = await loadSocialAgentRegistration(acmeRegForAlice, acmeSession.fetch)
     const iris = await getDataGrantIris(regForAlice)
     expect(iris.length).toBeGreaterThan(0)
     // full regeneration replaced the seed grant with freshly generated ones

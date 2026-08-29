@@ -2,16 +2,25 @@ import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
   DataRegistry as DataRegistryModule,
   Grant,
-  labelFromNode,
   ShapeTree,
+  labelFromNode,
+  loadDataInstance,
+  loadDataRegistration,
+  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { DataInstance, DataRegistration, DataRegistry as DataRegistrySchema, IRI } from '@janeirodigital/sai-api-messages'
+import {
+  DataInstance,
+  DataRegistration,
+  DataRegistry as DataRegistrySchema,
+  IRI,
+} from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import {
   findSocialAgentRegistrationInContext,
   listSocialAgentRegistrations,
 } from './AgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
 import {
   getDataGrant as getDataGrantFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
@@ -19,7 +28,6 @@ import {
   listDataRegistrations,
   sparqlTransportFor,
 } from './queries/org.js'
-import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
 
 const buildDataRegistry = async (
   registry: { id: string },
@@ -31,9 +39,9 @@ const buildDataRegistry = async (
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for (const iri of iris) {
     const registration = await getDataRegistrationFromSparql(transport, iri)
-    const shapeTree = await ctx.session.factory.shapeTree(registration.registeredShapeTree)
+    const shapeTree = await loadShapeTree(registration.registeredShapeTree, ctx.session.fetch)
     const shapeTreeDescription = descriptionsLang
-      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.factory)
+      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.fetch)
       : undefined
     registrations.push(
       DataRegistration.make({
@@ -47,7 +55,7 @@ const buildDataRegistry = async (
   }
   return DataRegistrySchema.make({
     id: IRI.make(registry.id),
-    label: await DataRegistryModule.storageIri(registry, ctx.session.factory),
+    label: await DataRegistryModule.storageIri(registry, ctx.session.fetch),
     registrations,
   })
 }
@@ -63,9 +71,9 @@ const buildDataRegistryForGrant = async (
   for (const dataGrant of dataGrants) {
     if (seen.has(dataGrant.hasDataRegistration)) continue
     seen.add(dataGrant.hasDataRegistration)
-    const shapeTree = await ctx.session.factory.shapeTree(dataGrant.registeredShapeTree)
+    const shapeTree = await loadShapeTree(dataGrant.registeredShapeTree, ctx.session.fetch)
     const shapeTreeDescription = descriptionsLang
-      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.factory)
+      ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.fetch)
       : undefined
     registrations.push(
       DataRegistration.make({
@@ -171,10 +179,11 @@ export const listDataInstances = async (
 ) => {
   const dataInstances = []
   if (agentId === ctx.webId) {
-    const dataRegistration = await ctx.session.factory.dataRegistration(registrationId)
+    const dataRegistration = await loadDataRegistration(registrationId, ctx.session.fetch)
     for (const dataInstanceIri of dataRegistration.contains) {
-      const dataInstance = await ctx.session.factory.dataInstance(
+      const dataInstance = await loadDataInstance(
         dataInstanceIri,
+        ctx.session.fetch,
         undefined,
         descriptionsLang
       )
@@ -192,10 +201,7 @@ export const listDataInstances = async (
     // (personal: internal endpoint, org: `/sparql-admin`).
     const transport = sparqlTransportFor(ctx)
     const reciprocalReg = socialAgentRegistration?.reciprocalRegistration
-      ? await getRegistrationFromSparql(
-          transport,
-          socialAgentRegistration.reciprocalRegistration
-        )
+      ? await getRegistrationFromSparql(transport, socialAgentRegistration.reciprocalRegistration)
       : undefined
     let dataGrants: GrantData[]
     if (reciprocalReg && reciprocalReg.hasDataGrant.length > 0) {
@@ -214,12 +220,13 @@ export const listDataInstances = async (
       if (ctx.webId === ctx.userWebId) {
         for await (const instanceIri of Grant.getDataInstanceIterator(
           dataGrant,
-          ctx.session.factory
+          ctx.session.fetch
         )) {
           if (seenInstances.has(instanceIri)) continue
           seenInstances.add(instanceIri)
-          const dataInstance = await ctx.session.factory.dataInstance(
+          const dataInstance = await loadDataInstance(
             instanceIri,
+            ctx.session.fetch,
             dataGrant.registeredShapeTree,
             descriptionsLang
           )
@@ -234,7 +241,7 @@ export const listDataInstances = async (
         // org context — the admin's session derefs no peer document
         // (403); the org's server fetches peer docs with the org's session
         // via /proxy-admin. Shape trees are public (admin-session fetch).
-        const shapeTree = await ctx.session.factory.shapeTree(dataGrant.registeredShapeTree)
+        const shapeTree = await loadShapeTree(dataGrant.registeredShapeTree, ctx.session.fetch)
         for await (const instanceIri of peerInstanceIris(ctx, dataGrant)) {
           if (seenInstances.has(instanceIri)) continue
           seenInstances.add(instanceIri)

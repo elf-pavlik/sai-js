@@ -176,20 +176,24 @@ describe('DelegationRevocationRequesterHop', () => {
     // activity-webhook channel starts processGrantsRevocation
     const activityRegistry = aliceSession.registrySet.hasActivityRegistry
     if (!activityRegistry) throw new Error('activity registry not found')
-    await ActivityRegistry.createActivity(activityRegistry, aliceSession.factory, {
-      activityType: 'grantsRevoked',
-      target: aliceId,
-      payload: {
-        webId: { id: aliceId, type: [INTEROP.SocialAgent] },
-        grantee: { id: testClient, type: [APPLICATION_TYPE] },
-        dataOwner: acmeId,
-        grants: [
-          { id: aliceGrant, type: [INTEROP.DataGrant] },
-          { id: aliceChildGrant, type: [INTEROP.DataGrant] },
-        ],
-      },
-      createdAt: new Date().toISOString(),
-    })
+    await ActivityRegistry.createActivity(
+      activityRegistry,
+      { fetch: aliceSession.fetch, randomUUID: aliceSession.randomUUID },
+      {
+        activityType: 'grantsRevoked',
+        target: aliceId,
+        payload: {
+          webId: { id: aliceId, type: [INTEROP.SocialAgent] },
+          grantee: { id: testClient, type: [APPLICATION_TYPE] },
+          dataOwner: acmeId,
+          grants: [
+            { id: aliceGrant, type: [INTEROP.DataGrant] },
+            { id: aliceChildGrant, type: [INTEROP.DataGrant] },
+          ],
+        },
+        createdAt: new Date().toISOString(),
+      }
+    )
 
     // await the requester-hop workflow to completion FIRST — a failing test
     // must not leave the workflow running into the next test's reseed
@@ -198,12 +202,12 @@ describe('DelegationRevocationRequesterHop', () => {
       async () => {
         const completed = await ActivityRegistry.getCompletedActivityIris(
           registry,
-          aliceSession.factory
+          aliceSession.fetch
         )
         if (!completed.length) return false
-        const all = await ActivityRegistry.getActivityIris(registry, aliceSession.factory)
+        const all = await ActivityRegistry.getActivityIris(registry, aliceSession.fetch)
         for (const iri of all) {
-          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.factory)
+          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
           if (activity.activityType === 'grantsRevoked' && completed.includes(activity.id)) {
             return true
           }

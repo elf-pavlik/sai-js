@@ -2,38 +2,38 @@ import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
-import { ApplicationFactory, Grant } from '../../src'
+import { Grant, loadGrant } from '../../src'
 import { expect } from '../expect'
 
-const factory = new ApplicationFactory({ fetch, randomUUID })
+const deps = { fetch, randomUUID }
 const snippetIri = 'https://auth.alice.example/7b2bc4ff-b4b8-47b8-96f6-06695f4c5126'
 
 test('should set correct scopeOfGrant', async () => {
-  const dataGrant = await factory.dataGrant(snippetIri)
+  const dataGrant = await loadGrant(snippetIri, deps.fetch)
   expect(dataGrant.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
 })
 
 test('should set correct canCreate', async () => {
-  const dataGrant = await factory.dataGrant(snippetIri)
+  const dataGrant = await loadGrant(snippetIri, deps.fetch)
   expect(Grant.canCreate(dataGrant)).toBeTruthy()
 })
 
 test('should set hasDataRegistration', async () => {
-  const dataGrant = await factory.dataGrant(snippetIri)
+  const dataGrant = await loadGrant(snippetIri, deps.fetch)
   const dataRegistrationIri = 'https://home.alice.example/f6ccd3a4-45ea-4f98-8a36-98eac92a6720'
   expect(dataGrant.hasDataRegistration).toBe(dataRegistrationIri)
 })
 
 // depends on slash semantics
 test('should provide dataRegistryIri', async () => {
-  const dataGrant = await factory.dataGrant(snippetIri)
+  const dataGrant = await loadGrant(snippetIri, deps.fetch)
   expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
 })
 
 test('should provide data instance iterator', async () => {
-  const dataGrant = await factory.dataGrant(snippetIri)
+  const dataGrant = await loadGrant(snippetIri, deps.fetch)
   let count = 0
-  for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, factory)) {
+  for await (const instanceIri of Grant.getDataInstanceIterator(dataGrant, deps.fetch)) {
     expect(typeof instanceIri).toBe('string')
     count += 1
   }

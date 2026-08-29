@@ -20,12 +20,12 @@ export async function removeGrantsFromRegistration(
 ): Promise<void> {
   const registration = await AgentRegistry.findRegistration(
     session.registrySet.hasAgentRegistry,
-    session.factory,
+    session.fetch,
     grantee
   )
   if (!registration) return // nothing to clear — the projection is already empty
   const revoked = new Set(grants)
   const current = await getDataGrantIris(registration)
   const remaining = current.filter((iri) => !revoked.has(iri))
-  await replaceDataGrants(registration, session.factory, remaining)
+  await replaceDataGrants(registration, session.fetch, remaining)
 }

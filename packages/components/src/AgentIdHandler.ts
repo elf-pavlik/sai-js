@@ -16,7 +16,7 @@ import {
   type SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
 import type { SessionManager } from './SessionManager'
-import { INTEROP } from './vocabularies.js'
+import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class AgentIdHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)

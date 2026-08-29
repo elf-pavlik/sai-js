@@ -1,13 +1,11 @@
 import {
-  ACL,
-  INTEROP,
   buildOidcSession,
   buildSessionManager,
   issuanceUrl,
 } from '@elfpavlik/sai-components'
 import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
-import { LDP, parseTurtle } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP, LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import { waitFor } from './util'
 import { SOLIDTREES } from './vocabularies'

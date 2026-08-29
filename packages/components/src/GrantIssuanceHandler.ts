@@ -30,7 +30,7 @@ import { GrantRevocationHandler } from './GrantRevocationHandler.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
-import { INTEROP } from './vocabularies.js'
+import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class GrantIssuanceHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)

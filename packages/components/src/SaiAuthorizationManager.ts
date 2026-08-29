@@ -4,7 +4,7 @@ import type { IdentifierStrategy, StorageLocationStrategy } from '@solid/communi
 import type { AuthorizationManager } from '@solidlab/policy-engine'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
-import { INTEROP } from './vocabularies.js'
+import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class SaiAuthorizationManager implements AuthorizationManager {
   private fetcher: SparqlEndpointFetcher

@@ -1,12 +1,12 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
-  getDataGrantIris,
-  getDataGrants,
-  loadSocialAgentRegistration,
-} from '@janeirodigital/interop-data-model'
+  type AuthorizationAgent,
+  getSocialAgentRegistration,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import { getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { beforeEach, describe, expect, test } from 'vitest'
-import { awaitGrantCompletion, waitForQuiescence } from './util'
+import { awaitGrantCompletion, dataGrants, waitForQuiescence } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -24,17 +24,17 @@ async function verifyAccessGrant(
   expect(granteeRegForGrantedBy).toBeDefined()
   expect(granteeRegForGrantedBy!.registeredAgent).toBe(grantedById)
 
-  // reciprocal registration is stored as an IRI — load it on demand
+  // reciprocal registration is stored as an IRI — load it on demand (SPARQL plane)
   expect(granteeRegForGrantedBy!.reciprocalRegistration).toBeDefined()
-  const grantedByRegForGrantee = await loadSocialAgentRegistration(
-    granteeRegForGrantedBy!.reciprocalRegistration!,
-    granteeSession.fetch
+  const grantedByRegForGrantee = await getSocialAgentRegistration(
+    localSparqlTransport(granteeSession.sparqlEndpoint),
+    granteeRegForGrantedBy!.reciprocalRegistration!
   )
   expect(grantedByRegForGrantee.registeredAgent).toBe(granteeId)
 
-  const dataGrants = await getDataGrants(grantedByRegForGrantee, granteeSession.fetch)
+  const grants = await dataGrants(grantedByRegForGrantee, granteeSession)
 
-  const dataGrant = dataGrants.find(
+  const dataGrant = grants.find(
     (grant) =>
       grant.registeredShapeTree === shapeTree &&
       grant.grantedBy === grantedById &&

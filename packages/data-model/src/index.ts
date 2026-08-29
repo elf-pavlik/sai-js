@@ -38,8 +38,6 @@ export {
 export * as SocialAgentInvitation from './social-agent-invitation'
 export type { RoleData, RoleId } from './role'
 export { createDataRegistration } from './data-registration'
-// explicit re-export to resolve getGranted ambiguity with ./agent-registration
-export { getDataAuthorizationIris } from './authorization-registry'
 // registries are exported as namespaces to avoid colliding names
 export * as AgentRegistry from './agent-registry'
 export * as RoleRegistry from './role-registry'

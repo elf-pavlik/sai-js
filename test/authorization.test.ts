@@ -1,5 +1,4 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { getGranted } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 import { awaitGrantCompletion } from './util'
 
@@ -157,7 +156,9 @@ describe('denied', () => {
       expect(Array.isArray(granted)).toBe(true)
       expect(granted.length).toBeGreaterThan(0)
     })
-    expect(await getGranted(await session.findApplicationRegistration(clientId))).toBeTruthy()
+    expect(
+      (await session.findApplicationRegistration(clientId))?.hasDataGrant?.length
+    ).toBeGreaterThan(0)
 
     // deny — grants revoked (single registration Update)
     await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
@@ -171,6 +172,6 @@ describe('denied', () => {
     const authorizations = await session.findAuthorizationsForAgent(clientId)
     expect(authorizations.length).toBe(0)
     const regAfterDeny = await session.findApplicationRegistration(clientId)
-    expect(await getGranted(regAfterDeny)).toBeFalsy()
+    expect((regAfterDeny?.hasDataGrant ?? []).length).toBe(0)
   })
 })

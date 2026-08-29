@@ -1,13 +1,10 @@
 import {
   INTEROP,
   LDP,
-  RDF,
   type WhatwgFetch,
-  createContainer,
   iriForContained,
   linkedIrisJsonLd,
 } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
 import type { DataModelDependencies } from '.'
 
 import { type RoleData, putRole } from './role'
@@ -66,15 +63,4 @@ export async function deleteRole(
   if (!ok) {
     throw new Error('failed to delete role')
   }
-}
-
-export async function createRoleRegistry(
-  data: RoleRegistryData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  const dataset = new Store()
-  dataset.add(
-    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.RoleRegistry)
-  )
-  await createContainer(data.id, fetch, dataset)
 }

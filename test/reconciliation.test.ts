@@ -1,9 +1,9 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import {
-  ActivityRegistry,
-  getDataGrantIris,
-  loadSocialAgentRegistration,
-} from '@janeirodigital/interop-data-model'
+  getSocialAgentRegistration,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import { ActivityRegistry, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -59,7 +59,10 @@ describe('reconciliation sweep', () => {
       },
       { timeout: 30_000 }
     )
-    const regForAlice = await loadSocialAgentRegistration(acmeRegForAlice, acmeSession.fetch)
+    const regForAlice = await getSocialAgentRegistration(
+      localSparqlTransport(acmeSession.sparqlEndpoint),
+      acmeRegForAlice
+    )
     const iris = await getDataGrantIris(regForAlice)
     expect(iris.length).toBeGreaterThan(0)
     // full regeneration replaced the seed grant with freshly generated ones

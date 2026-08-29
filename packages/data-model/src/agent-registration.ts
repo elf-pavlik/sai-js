@@ -11,8 +11,6 @@ import {
   serializeTurtle,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
-import type { GrantData } from '.'
-import { loadGrant } from './grant'
 import { agentRegistrationAcrTemplate } from './templates/AgentRegistration.acr'
 import type { AgentAndClient } from './templates/types'
 
@@ -83,18 +81,6 @@ export async function setAcr(
 
 export async function getDataGrantIris(data: AgentRegistrationData): Promise<string[]> {
   return data.hasDataGrant ?? []
-}
-
-export async function getGranted(data: AgentRegistrationData): Promise<boolean> {
-  return (await getDataGrantIris(data)).length > 0
-}
-
-export async function getDataGrants(
-  data: AgentRegistrationData,
-  fetch: WhatwgFetch
-): Promise<GrantData[]> {
-  const iris = await getDataGrantIris(data)
-  return Promise.all(iris.map((iri) => loadGrant(iri, fetch)))
 }
 
 export async function addDataGrant(

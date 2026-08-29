@@ -1,15 +1,13 @@
 import {
   INTEROP,
   LDP,
-  RDF,
   addStatement,
-  createContainer,
   discoverAuthorizationAgent,
   iriForContained,
   linkedIrisJsonLd,
 } from '@janeirodigital/interop-utils'
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
+import { DataFactory } from 'n3'
 import type { DataModelDependencies } from '.'
 import { type AgentRegistrationData, setAcr } from './agent-registration'
 import {
@@ -217,15 +215,4 @@ export async function addSocialAgentInvitation(
   )
   await addStatement(data.id, deps.fetch, quad)
   return invitation
-}
-
-export async function createAgentRegistry(
-  data: AgentRegistryData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  const dataset = new Store()
-  dataset.add(
-    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.AgentRegistry)
-  )
-  await createContainer(data.id, fetch, dataset)
 }

@@ -1,9 +1,7 @@
 import {
   INTEROP,
   LDP,
-  RDF,
   type WhatwgFetch,
-  createContainer,
   fetchJsonLd,
   frameDoc,
   iriForContained,
@@ -11,7 +9,6 @@ import {
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
-import { DataFactory, Store } from 'n3'
 import type { DataModelDependencies } from '.'
 import { dataModelContext } from './context'
 
@@ -42,17 +39,6 @@ export type ActivityData = {
 // ──────────────────────────
 // Behavior functions
 // ──────────────────────────
-
-export async function createActivityRegistry(
-  data: ActivityRegistryData,
-  fetch: WhatwgFetch
-): Promise<void> {
-  const dataset = new Store()
-  dataset.add(
-    DataFactory.quad(DataFactory.namedNode(data.id), RDF.terms.type, INTEROP.terms.ActivityRegistry)
-  )
-  await createContainer(data.id, fetch, dataset)
-}
 
 /** The activity resources currently in the registry (ldp:contains). */
 export async function getActivityIris(

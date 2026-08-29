@@ -1,6 +1,15 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { type ActivityData, ActivityRegistry } from '@janeirodigital/interop-data-model'
+import {
+  type AuthorizationAgent,
+  getDataGrant,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import {
+  type ActivityData,
+  ActivityRegistry,
+  type GrantData,
+  type SocialAgentRegistrationData,
+} from '@janeirodigital/interop-data-model'
 import {
   AS,
   RDF,
@@ -14,6 +23,18 @@ import {
 export interface NotificationStream {
   reader: ReadableStreamDefaultReader<Uint8Array>
   response: Response
+}
+
+/**
+ * Data grants of a registration, read via the session's SPARQL plane —
+ * the SPARQL counterpart of the removed data-model HTTP `getDataGrants`.
+ */
+export async function dataGrants(
+  registration: SocialAgentRegistrationData,
+  session: AuthorizationAgent
+): Promise<GrantData[]> {
+  const transport = localSparqlTransport(session.sparqlEndpoint)
+  return Promise.all((registration.hasDataGrant ?? []).map((iri) => getDataGrant(transport, iri)))
 }
 
 /**

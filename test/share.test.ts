@@ -1,12 +1,12 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import {
-  getDataGrantIris,
-  getDataGrants,
-  loadSocialAgentRegistration,
-} from '@janeirodigital/interop-data-model'
+  getSocialAgentRegistration,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import { getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { AS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitGrantCompletion } from './util'
+import { awaitGrantCompletion, dataGrants } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -67,12 +67,12 @@ describe('share resource', () => {
     // verify the grant for the shared instance on alice's reciprocal registration for kim
     const kimSession = await manager.getSession(kimId)
     const kimRegForAlice = await kimSession.findSocialAgentRegistration(aliceId)
-    const aliceRegForKim = await loadSocialAgentRegistration(
-      kimRegForAlice.reciprocalRegistration!,
-      kimSession.fetch
+    const aliceRegForKim = await getSocialAgentRegistration(
+      localSparqlTransport(kimSession.sparqlEndpoint),
+      kimRegForAlice.reciprocalRegistration!
     )
-    const dataGrants = await getDataGrants(aliceRegForKim, kimSession.fetch)
-    const sharedGrant = dataGrants.find(
+    const grants = await dataGrants(aliceRegForKim, kimSession)
+    const sharedGrant = grants.find(
       (grant) =>
         grant.registeredShapeTree === projectShapeTree &&
         grant.grantedBy === aliceId &&

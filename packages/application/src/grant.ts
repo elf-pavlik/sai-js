@@ -27,21 +27,12 @@ export async function getDataGrants(
 }
 
 /**
- * Generate a new id for a data instance within this grant's registration.
- */
-export function iriForNew(grant: GrantData, randomUUID: () => string): string {
-  return `${grant.hasDataRegistration}${randomUUID()}`
-}
-
-/**
  * Iterate over the ids of the data instances described by this grant.
  * Dispatches based on scopeOfGrant.
  *
- * The application's copy of the iterator (the data-model one in
- * `packages/data-model/src/grant.ts` still serves the components
- * services/DataRegistry consumer — TODO in the plan's Phase 4 replaces that
- * use with an AA SPARQL-backed enumeration, after which this copy becomes the
- * single home).
+ * Application-only domain logic: the former data-model copy was removed and
+ * components switched to an authorization-agent SPARQL-backed enumeration, so
+ * this is the single home of the iterator.
  */
 export async function* getDataInstanceIterator(
   grant: GrantData,

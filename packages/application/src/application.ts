@@ -11,8 +11,9 @@ import {
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
+  iriForContained,
 } from '@janeirodigital/interop-utils'
-import { getDataGrants, getDataInstanceIterator, getGranted, iriForNew } from './grant'
+import { getDataGrants, getDataInstanceIterator, getGranted } from './grant'
 
 interface ApplicationDependencies {
   fetch: WhatwgFetch
@@ -214,7 +215,7 @@ export class Application {
   public async iriForNew(resourceServer: string, scope: string): Promise<string> {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
-    return iriForNew(grant, this.randomUUID)
+    return iriForContained({ id: grant.hasDataRegistration }, this.randomUUID)
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

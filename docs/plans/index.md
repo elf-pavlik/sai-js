@@ -10,10 +10,10 @@ primary source.
 |---|---|---|
 | ✅ done | 19 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling`, `reorganize-authz-agent-logic` |
 | 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
-| ⬜ not started / design only | 9 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql` |
+| ⬜ not started / design only | 10 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `components-tweaks` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**30 plans total.** All remaining work lives in the 11 non-done plans below —
+**31 plans total.** All remaining work lives in the 12 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -50,6 +50,7 @@ nothing open is blocked by an unlanded plan.
 | `isolated-datasets-and-sparql.md` | ⬜ not started (design only) | Per-owner datasets + SPARQL: 4a endpoint registry in `AccountLoginStorage` (env-var fallback) → 4b per-owner store cutover (joint checkpoint): mirror activation + backfill, serialized syncs, `/sparql-admin` → the org's own store, external admin-endpoint discovery, environment work, cross-owner isolation + mirror-freshness tests. The IRI-parametrized reads of `org-context-sparql` phases 2–3 resolve to mirrors unchanged | `org-context-sparql` (phases 1–3); `federation.md` shortcuts 1/1a |
 | `org-context-proxy.md` | ✅ done (implemented + verified; `/test` org-context proxy parity suite green) | Org-context reads of peers' granted data (the `org-context-sparql` §2.4 known issue): `/.sai/proxy-admin` endpoint (YoYo side — org-credentialed fetch as grantee) + shared admin gate + admin-side clients (`fetchPeerDocument`, `dataRegistrationContains`, `peerInstanceIris`, `peerInstanceNode`); wired `getDescriptions` AllFromRegistry counts (were 0 — dead `[]`-truthiness fallback), `listDataInstances` peer branch (all scopes), `getResource` full-body + org-side access list; registry plane routed via `/sparql-admin` over HTTP `QUERY` (DPoP-verifiable since the token-verifier 2.1.2 added it to its method whitelist). Scope answers: instance listing enters org-context scope **yes** (labels + full bodies); direction 4 = grantee visibility (data grants, not ACRs — the engine resolved the seed grant fine) | `org-context-sparql` (§2.4 + phases 2–3); `isolated-datasets-and-sparql` (4b data-plane analogue) |
 | `reorganize-authz-agent-logic.md` | ✅ done | Four behavior-preserving phases, each gated by full build + package tests + `/test` integration: **P1** removes the factories (threaded `factory` param → `{ fetch, randomUUID }`, adds `loadShapeTree`, instance assembly becomes `loadDataInstance` on `data-instance.ts`) and folds in the `iri`→`id` param rename; **P2** extracts application-specific logic to `application` (`Grant.iriForNew`, `ApplicationRegistration.getDataGrants`, `getDataInstanceIterator` duplicated w/ Phase-4 SPARQL TODO); **P3** extracts authorization-specific logic to AA session methods (grant-generation chain, AdminAuthorization block, reciprocal-registration federation) + data-model orphan cleanup; **P4** moves components SAI domain logic to AA (services rules, temporal match semantics, delegation/revocation rules), components keeps CSS handlers, storage, RPC API, webhooks, notifications, workflow glue — adapters convert to/from `api-messages` only | — |
+| `components-tweaks.md` | ⬜ design only (investigation write-up) | Residual SAI domain/spec logic still in components after the reorganize phases: extract `SaiPermissionsEngine`'s grant-evaluation predicates (grant→request coverage, Inherited-chain resolution, admin modes) and the 4×-duplicated `hasAdminGrant` admin-marker rule to AA session methods/predicates; move the delegation-endpoint inheritance completion (`GrantIssuanceHandler`) and `buildAdminGrants` materialization to AA; plane-based session `findRegistration` | `reorganize-authz-agent-logic` (§9 deferrals) |
 
 ## Dependency graph
 
@@ -105,6 +106,7 @@ refactor-grants-workflows  ✅
   validation then scheduling). Items 3 & 4 would also re-enable the
   `refactor-grants-workflows` commented-out delete.
 - `remove-turtle-serialization` — independent of the workflow/revocation arcs.
+- `components-tweaks` — **unblocked**: follows the completed `reorganize-authz-agent-logic` (§9 deferrals + residual engine/admin-marker findings); the extraction is component-side only (AA session methods/predicates, engine keeps the plugin adapter).
 
 ### D. Org-admin workstream companion docs
 
@@ -249,4 +251,5 @@ standalone (still open) plans listed above; the docs pass (Phase 5) is done.
 commit `ee2b366c immutable activities` (confirmed with the user).
 ⁷ `refactor-ui.md` — doc header said "planned"; implementation landed in commit
 `240bb321 [ui] refactor` (confirmed with the user).
+⁸ `reorganize-authz-agent-logic.md` — §9 deferred items (org-context registry reads + UI shaping, admin-marker reciprocal read, HTTP `AgentRegistry.findRegistration`, HTTP admin reads) are now tracked as the ⬜ `components-tweaks.md` (investigation write-up, no code changed).
 

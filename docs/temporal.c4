@@ -184,7 +184,7 @@ views {
     Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
   }
 
-  dynamic view applicationRegistrationDiscovery {
+  dynamic view application-registration-discovery {
     title: 'Application Registration discovery'
 
     include Alice, App
@@ -213,7 +213,7 @@ views {
     Alice.UAS -> App 'OK with Link in a header to application registration'
   }
 
-  dynamic view socialAgentRegistrationDiscovery {
+  dynamic view social-agent-registration-discovery {
     title: 'Social Agent Registration discovery'
 
     include Bob, Alice
@@ -460,46 +460,19 @@ views {
     Bob.ActivityWebhookHandler -> Bob.AUI 'done'
     Bob.AUI -> App 'redirect back'
     App .overview Bob.UAS 'discover application registration' {
-        navigateTo applicationRegistrationDiscovery
+        navigateTo application-registration-discovery
     }
     App -> Bob.Registry 'GET Application Registration [Agent]'
     Bob.Registry -> App 'Application Registration'
   }
 
-  dynamic view invitation-create {
-    title: 'Create invitation'
+  dynamic view invitation {
+    title: 'Invitation - Alice to Bob'
 
-    include Alice, App
-    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.Temporal, Alice.Worker
+    include Bob, Alice
+    include Bob.AUI, Bob.UAS, Bob.Registry, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Alice.AUI
 
     style Alice {
-      color: green
-    }
-
-    Alice.AUI -> Alice.UAS 'POST (RPC) createInvitation' {
-        notes'''
-          uses cookie session with User Authorization Server
-        '''
-    }
-    Alice.UAS -> Alice.Registry 'create Social Agent Invitation [Agent]'
-    Alice.Registry -> Alice.UAS '201 Created'
-    Alice.UAS -> Alice.AUI 'OK' {
-        notes'''
-          SocialAgentInvitation in the payload
-        '''
-      }
-  }
-
-  dynamic view invitation-accept {
-    title: 'Accept invitation'
-    description: '''
-      Test case: https://sai.js.org/
-    '''
-
-    include Bob, Kim
-    include Bob.AUI, Bob.UAS, Bob.Registry, Kim.AUI, Kim.UAS, Kim.Registry, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Worker
-
-    style Kim {
       color: sky
     }
 
@@ -507,52 +480,1464 @@ views {
       color: indigo
     }
 
-    Bob.AUI -> Bob.UAS 'POST (RPC) acceptInvitation' {
-      notes'''
-        uses cookie session with User Authorization Server
+    Alice.AUI -> Alice.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >invitation.test.ts > personal
 
-        capabilityUrl
-      '''
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
     }
-    Bob.UAS -> Kim.UAS 'POST capabilityUrl' {
-      notes'''
-        with credentials
-      '''
+    Alice.AUI -> Alice.UAS 'POST (RPC) createInvitation' {
+        notes'''
+          #### POST (RPC) createInvitation
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "CreateInvitation",
+                "label": "Bob",
+                "note": "Some note",
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+        '''
     }
-    Kim.UAS -> Kim.Registry 'find Social Agent Invitation [Agent]'
-    Kim.Registry -> Kim.UAS 'Social Agent Invitation'
-    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
-      notes'''
-        to keep indepotent check if already exists
-      '''
+    Alice.UAS -> Alice.Registry 'PUT invitation resource [Agent]' {
+        notes'''
+          #### PUT invitation resource [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > `https://auth/.sai/invitations/{base64url(webId)}.{uuid}`
+
+          ```http
+          PUT https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "Bob",
+            "note": "Some note"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
     }
-    Kim.Registry -> Kim.UAS '201 Created'
-    Kim.UAS -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]'
-    Kim.UAS -> Kim.Registry 'update Social Agent Invitation [Agent]'
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start establishReciprocal workflow'
-    Kim.Registry -> Kim.UAS 'OK'
-    Kim.UAS -> Bob.UAS 'WebId'
+    Alice.UAS -> Alice.Registry 'PATCH agent registry container [Agent]' {
+        notes'''
+          #### PATCH agent registry container [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          PATCH https://registry/alice/agent/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/alice/agent/>
+              <https://www.w3.org/ns/solid/interop#hasSocialAgentInvitation>
+                <https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.AUI 'OK' {
+        notes'''
+          #### OK
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "id": "https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+              "label": "Bob",
+              "note": "Some note"
+            }
+          }
+          ```
+          ### Checks
+
+          #### Compare with request
+          * `label`
+          * `note`
+
+          #### String matching
+          * `capabilityUrl` - `https://auth/.sai/invitations`
+        '''
+    }
+    Alice.AUI -> Bob.AUI 'pass link out of band' {
+        notes'''
+          #### pass link out of band
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f`
+        '''
+    }
+    Bob.AUI -> Bob.UAS 'POST (RPC) acceptInvitation' {
+        notes'''
+          #### POST (RPC) acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AcceptInvitation",
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+                "label": "Alice",
+                "note": "Beep boop",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.UAS -> Alice.UAS 'POST capabilityUrl' {
+        notes'''
+          #### POST capabilityUrl
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          POST https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'fetch Social Agent Invitation [Agent]' {
+        notes'''
+          #### fetch Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          POST http://sparql/sparql
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-query
+          Accept: application/ld+json
+          ```
+
+          ```sparql
+          PREFIX interop: <https://www.w3.org/ns/solid/interop#>
+
+          CONSTRUCT {
+            ?s ?p ?o
+          } WHERE {
+            GRAPH ?g {
+              ?invitation
+                interop:hasCapabilityUrl
+                  <https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f> .
+              ?s ?p ?o
+            }
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "Bob",
+            "note": "Some note"
+          }
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'create Social Agent Registration [Agent]' {
+        notes'''
+          #### create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          >Peer WebId from Solid OIDC token in POST to capabilityUrl
+
+          ```http
+          PUT https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/bob",
+            "prefLabel": "Bob",
+            "note": "Some note",
+            "hasDataGrant": [],
+            "hasAdminGrant": []
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+        notes'''
+          #### PUT agentRegistrationAdded activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          PUT https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+            "type": ["Activity"],
+            "activityType": "agentRegistrationAdded",
+            "target": "https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "payload": "{\"webId\":\"https://id/alice\",\"peerId\":\"https://id/bob\",\"registrationId\":\"https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:27043339-c070-41ea-a987-8d8f445b3a4c",
+            "type": "Add",
+            "object": "https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+            "target": "https://registry/alice/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start establishReciprocal workflow' {
+        notes'''
+          #### start establishReciprocal workflow
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+            "webId": "https://id/alice",
+            "peerId": "https://id/bob",
+            "registrationId": "https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "activityIri": "https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'update Social Agent Invitation [Agent]' {
+        notes'''
+          #### update Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          >add `registeredAgent`
+
+          ```http
+          PUT https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "Bob",
+            "note": "Some note",
+            "registeredAgent": "https://id/bob"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS -> Bob.UAS 'WebId' {
+        notes'''
+          #### WebId
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: text/plain
+          ```
+
+          ```text
+          https://id/alice
+          ```
+        '''
+    }
     Bob.UAS -> Bob.Registry 'create Social Agent Registration [Agent]' {
-      notes'''
-        to keep indepotent check if already exists
-      '''
+        notes'''
+          #### create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          >Peer WebId from response after POST to capabilityUrl
+
+
+          ```http
+          PUT https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/alice",
+            "prefLabel": "Alice",
+            "note": "Beep boop",
+            "hasDataGrant": [],
+            "hasAdminGrant": []
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
     }
-    Bob.Registry -> Bob.UAS '201 Created'
-    Bob.UAS -> Bob.Registry 'discover and update reciprocal registration [Agent]'
+    Bob.UAS -> Bob.Registry 'discover reciprocal registration [Agent]' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/alice>;
+                anchor="https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'update reciprocal registration [Agent]' {
+        notes'''
+          #### update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          PATCH https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
     Bob.UAS -> Bob.AUI 'OK' {
-      notes'''
-        Social Agent in the payload
-      '''
+        notes'''
+          #### OK
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "id": "https://id/alice",
+              "label": "Alice",
+              "note": "Beep boop"
+            }
+          }
+          ```
+        '''
     }
-    Kim.Temporal -> Kim.Worker '(workflow) run establishReciprocal'
-    Kim.Worker -> Kim.Registry '(activity) discover and update reciprocal registration [Agent]' {
-      notes'''
-        depends on Bob's UAS already creating on, can fail if not done already and will retry
-      '''
+    Alice.Temporal -> Alice.Worker '(workflow) run establishReciprocal' {
+        notes'''
+          #### (workflow) run establishReciprocal
+          >[!NOTE]
+          >invitation.test.ts > personal
+        '''
+        notes'''
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+            "webId": "https://id/alice",
+            "peerId": "https://id/bob",
+            "registrationId": "https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "activityIri": "https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
     }
-    Kim.Worker -> Bob.Registry '(activity) subscribe webhook to reciprocal registration [Agent]'
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]'
+    Alice.Worker -> Alice.Registry '(activity) discover reciprocal registration [Agent]' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### (activity) discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/bob>;
+                anchor="https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    Alice.Worker -> Alice.Registry '(activity) update reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          PATCH https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.Worker -> Bob.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/37048cbb-9cd7-4a20-b040-ff9e7925fe0c"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": "https://www.w3.org/ns/solid/notification/v1",
+            "id": "https://registry/.notifications/WebhookChannel2023/df9d9e3c-ba4b-4f7b-8e3c-eef0854406b3",
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/bob/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
+            "sender": "https://id/bob"
+          }
+          ```
+        '''
+    }
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```http
+          PUT https://registry/alice/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
+    }
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+            "type": "Add",
+            "object": "https://registry/alice/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444",
+            "target": "https://registry/alice/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Alice.ActivityWebhookHandler -> Alice.AUI 'forward done event (NDJSON)' {
+        notes'''
+          #### forward done event (NDJSON)
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/alice/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169","activityType":"agentRegistrationAdded","target":"https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/","payload":{"webId":"https://id/alice","peerId":"https://id/bob","registrationId":"https://registry/alice/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
+  }
+
+  dynamic view admin-invitation {
+    title: 'Invitation — Dan as YoYo admin to Bob'
+
+    include Bob, YoYo, Dan
+    include Bob.AUI, Bob.UAS, Bob.Registry, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker, Dan.UAS, Dan.ActivityWebhookHandler, Dan.AUI
+
+    style YoYo {
+      color: green
+    }
+
+    style Dan {
+      color: indigo
+    }
+
+    style Bob {
+      color: sky
+    }
+
+    Dan.AUI -> Dan.UAS 'GET /.sai/events — NDJSON notifications' {
+        notes'''
+          #### GET /.sai/events — NDJSON notifications
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'POST (RPC) createInvitation' {
+        notes'''
+          #### POST (RPC) createInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "CreateInvitation",
+                "label": "Bob",
+                "note": "Some note",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+        navigateTo org-registry-set-discovery
+        notes'''
+          #### discover org registry set
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [org-registry-set-discovery](../org-registry-set-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://registry/yoyo/>;
+                rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PUT invitation resource [Agent]' {
+        notes'''
+          #### PUT invitation resource [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          >[!TIP]
+          > `https://auth/.sai/invitations/{base64url(webId)}.{uuid}`
+
+          ```http
+          PUT https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+            "prefLabel": "Bob",
+            "note": "Some note"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PATCH agent registry container [Agent]' {
+        notes'''
+          #### PATCH agent registry container [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          ```http
+          PATCH https://registry/yoyo/agent/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/yoyo/agent/>
+              <https://www.w3.org/ns/solid/interop#hasSocialAgentInvitation>
+                <https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Dan.UAS -> Dan.AUI 'OK' {
+        notes'''
+          #### OK
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+              "label": "Bob",
+              "note": "Some note"
+            }
+          }
+          ```
+          ### Checks
+
+          #### Compare with request
+          * `label`
+          * `note`
+
+          #### String matching
+          * `capabilityUrl` - `https://auth/.sai/invitations`
+        '''
+    }
+    Dan.AUI -> Bob.AUI 'pass link out of band' {
+        notes'''
+          #### pass link out of band
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f`
+        '''
+    }
+    Bob.AUI -> Bob.UAS 'POST (RPC) acceptInvitation' {
+        notes'''
+          #### POST (RPC) acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AcceptInvitation",
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+                "label": "YoYo",
+                "note": "Beep boop",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.UAS -> YoYo.UAS 'POST capabilityUrl' {
+        notes'''
+          #### POST capabilityUrl
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          POST https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+        '''
+    }
+    YoYo.UAS -> YoYo.Registry 'fetch Social Agent Invitation [Agent]' {
+        notes'''
+          #### fetch Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          POST http://sparql/sparql
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-query
+          Accept: application/ld+json
+          ```
+
+          ```sparql
+          PREFIX interop: <https://www.w3.org/ns/solid/interop#>
+
+          CONSTRUCT {
+            ?s ?p ?o
+          } WHERE {
+            GRAPH ?g {
+              ?invitation
+                interop:hasCapabilityUrl
+                  <https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f> .
+              ?s ?p ?o
+            }
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+            "prefLabel": "Bob",
+            "note": "Some note"
+          }
+          ```
+        '''
+    }
+    YoYo.UAS -> YoYo.Registry 'create Social Agent Registration [Agent]' {
+        notes'''
+          #### create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          >Peer WebId from Solid OIDC token in POST to capabilityUrl
+
+          ```http
+          PUT https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/bob",
+            "prefLabel": "Bob",
+            "note": "Some note",
+            "hasDataGrant": [],
+            "hasAdminGrant": []
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    YoYo.UAS -> YoYo.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+        notes'''
+          #### PUT agentRegistrationAdded activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          PUT https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "type": ["Activity"],
+            "activityType": "agentRegistrationAdded",
+            "target": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "payload": "{\"webId\":\"https://id/yoyo\",\"peerId\":\"https://id/bob\",\"registrationId\":\"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start establishReciprocal workflow' {
+        notes'''
+          #### start establishReciprocal workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+        '''
+        notes'''
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+            "webId": "https://id/yoyo",
+            "peerId": "https://id/bob",
+            "registrationId": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.UAS -> YoYo.Registry 'update Social Agent Invitation [Agent]' {
+        notes'''
+          #### update Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          PUT https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+            "prefLabel": "Bob",
+            "note": "Some note",
+            "registeredAgent": "https://id/bob"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    YoYo.UAS -> Bob.UAS 'WebId' {
+        notes'''
+          #### WebId
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: text/plain
+          ```
+
+          ```text
+          https://id/yoyo
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'create Social Agent Registration [Agent]' {
+        notes'''
+          #### create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          PUT https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/yoyo",
+            "prefLabel": "YoYo",
+            "note": "Beep boop",
+            "hasDataGrant": [],
+            "hasAdminGrant": []
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'discover reciprocal registration [Agent]' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/yoyo>;
+                anchor="https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'update reciprocal registration [Agent]' {
+        notes'''
+          #### update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          PATCH https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.AUI 'OK' {
+        notes'''
+          #### OK
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "id": "https://id/yoyo",
+              "label": "YoYo",
+              "note": "Beep boop"
+            }
+          }
+          ```
+        '''
+    }
+    YoYo.Temporal -> YoYo.Worker '(workflow) run establishReciprocal' {
+        notes'''
+          #### (workflow) run establishReciprocal
+          >[!NOTE]
+          >invitation.test.ts > admin
+        '''
+        notes'''
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+            "webId": "https://id/yoyo",
+            "peerId": "https://id/bob",
+            "registrationId": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.Worker -> Bob.Registry '(activity) discover reciprocal registration [Agent]' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### (activity) discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/bob>;
+                anchor="https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          PATCH https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    YoYo.Worker -> Bob.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/9dbd8733-5624-4949-9966-00faf6cb936d"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": "https://www.w3.org/ns/solid/notification/v1",
+            "id": "https://registry/.notifications/WebhookChannel2023/f39bafa5-7a13-4fde-beb9-ad804573998c",
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/bob/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/",
+            "sender": "https://id/bob"
+          }
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          PUT https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+        notes'''
+          #### notify Add activity (admin channel — forward only) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
+        notes'''
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95","activityType":"agentRegistrationAdded","target":"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/","payload":{"webId":"https://id/yoyo","peerId":"https://id/bob","registrationId":"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
   }
 
   dynamic view role-membership-change {

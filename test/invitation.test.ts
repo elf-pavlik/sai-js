@@ -1,134 +1,171 @@
 import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
-import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
-import { waitFor } from './util'
+import { rpcPayload, waitFor, waitForAgentRegistrationAddedCompletion } from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 const kimId = 'https://id/kim'
 
-describe('create invitation', () => {
-  const aliceId = 'https://id/alice'
-  const aliceCookie = 'css-account=8187358a-2072-4dce-9c76-24caffcc84a4'
+// ──────────────────────────────────────────────────────────────────────────
+// Personal flow — one long create + accept chain. Dan invites Kim directly
+// (dan↔kim has NO seeded relationship in registry.trig — unlike alice↔bob),
+// so the accept runs the full establishReciprocal chain.
+// ──────────────────────────────────────────────────────────────────────────
+describe('invitation', () => {
+  const danId = 'https://id/dan'
+  const danCookie = 'css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28'
+  const kimCookie = 'css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c'
 
-  const invitationData = {
-    label: 'Bob',
-    note: 'Some note',
-  }
-  const payload = [
-    {
-      request: {
-        _tag: 'CreateInvitation',
-        ...invitationData,
-        context: aliceId,
-      },
-      headers: {},
-      traceId: '13c2035f72f45c1ebbf13b055b7dc526',
-      spanId: '685581075752b8a2',
-      sampled: true,
-    },
-  ]
-
-  test('responds with invitation', async () => {
-    const response = await fetch(rpcEndpoint, {
+  test('dan creates invitation, kim accepts — establishReciprocal completes', async () => {
+    // Dan creates the invitation for Kim
+    const createResponse = await fetch(rpcEndpoint, {
       method: 'POST',
       headers: {
-        ContentType: 'application/json',
-        Cookie: aliceCookie,
+        'Content-Type': 'application/json',
+        Cookie: danCookie,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(
+        rpcPayload({
+          _tag: 'CreateInvitation',
+          label: 'Kim',
+          note: 'Some note',
+          context: danId,
+        })
+      ),
     })
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    const { _tag, value } = body[0]
-    expect(_tag).toBe('Success')
-    expect(value).toEqual(expect.objectContaining(invitationData))
-    expect(value.capabilityUrl).toMatch('https://auth/.sai/invitations')
+    expect(createResponse.status).toBe(200)
+    const createBody = await createResponse.json()
+    const create = createBody[0]
+    expect(create._tag).toBe('Success')
+    expect(create.value).toEqual(expect.objectContaining({ label: 'Kim', note: 'Some note' }))
+    expect(create.value.capabilityUrl).toMatch('https://auth/.sai/invitations')
 
-    const session = await buildOidcSession(aliceId)
-    const check = await session.authFetch(value.id)
+    // verify the invitation resource with dan's own session
+    const session = await buildOidcSession(danId)
+    const check = await session.authFetch(create.value.id)
     expect(check.status).toBe(200)
     // TODO: validate data using SocialAgentInvitation shape
-  })
-})
 
-describe('accept invitation', () => {
-  const bobId = 'https://id/bob'
-  const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
-  const invKimToBob =
-    'https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f'
-
-  const acceptData = {
-    label: 'Kim',
-    note: 'Beep boop',
-  }
-  const payload = [
-    {
-      request: {
-        _tag: 'AcceptInvitation',
-        capabilityUrl: invKimToBob,
-        ...acceptData,
-        context: bobId,
-      },
-      headers: {},
-      traceId: '13c2035f72f45c1ebbf13b055b7dc526',
-      spanId: '685581075752b8a2',
-      sampled: true,
-    },
-  ]
-
-  test('responds with agent registration', async () => {
-    const response = await fetch(rpcEndpoint, {
+    // Dan passes the link out of band — Kim accepts it
+    const acceptResponse = await fetch(rpcEndpoint, {
       method: 'POST',
       headers: {
-        ContentType: 'application/json',
-        Cookie: bobCookie,
+        'Content-Type': 'application/json',
+        Cookie: kimCookie,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(
+        rpcPayload({
+          _tag: 'AcceptInvitation',
+          capabilityUrl: create.value.capabilityUrl,
+          label: 'Dan',
+          note: 'Beep boop',
+          context: kimId,
+        })
+      ),
     })
-    expect(response.status).toBe(200)
-    const body = await response.json()
-    const { _tag, value } = body[0]
-    expect(_tag).toBe('Success')
-    expect(value.id).toBe(kimId)
-    expect(value).toEqual(expect.objectContaining(acceptData))
+    expect(acceptResponse.status).toBe(200)
+    const acceptBody = await acceptResponse.json()
+    const accept = acceptBody[0]
+    expect(accept._tag).toBe('Success')
+    expect(accept.value.id).toBe(danId)
+    expect(accept.value).toEqual(expect.objectContaining({ label: 'Dan', note: 'Beep boop' }))
 
+    // Kim registered Dan during accept (fresh — no seeded relationship)
     const manager = buildSessionManager()
-    const session = await manager.getSession(bobId)
-    const registration = await session.findSocialAgentRegistration(value.id)
+    const kimSession = await manager.getSession(kimId)
+    const registration = await kimSession.findSocialAgentRegistration(danId)
     expect(registration).toBeDefined()
     // TODO: validate data using SocialAgentRegistration shape
 
     // CSS delivers the agentRegistrationAdded Add (Phase 2) — wait for the
-    // reciprocal link, the establishReciprocal workflow outcome
-    const kimSession = await manager.getSession(kimId)
+    // reciprocal link, the establishReciprocal workflow outcome on dan's side
+    const danSession = await manager.getSession(danId)
     await waitFor(async () => {
-      const kimRegForBob = await kimSession.findSocialAgentRegistration(bobId)
-      return kimRegForBob?.reciprocalRegistration
+      const danRegForKim = await danSession.findSocialAgentRegistration(kimId)
+      return danRegForKim?.reciprocalRegistration
     })
 
     // establishReciprocal marked the agentRegistrationAdded activity done — a
-    // completion activity referencing it exists in kim's Activity Registry
-    const registry = kimSession.registrySet.hasActivityRegistry!
-    await waitFor(
-      async () => {
-        const completed = await ActivityRegistry.getCompletedActivityIris(
-          registry,
-          kimSession.fetch
-        )
-        if (!completed.length) return false
-        const iris = await ActivityRegistry.getActivityIris(registry, kimSession.fetch)
-        for (const iri of iris) {
-          const activity = await ActivityRegistry.loadActivity(iri, kimSession.fetch)
-          if (
-            activity.activityType === 'agentRegistrationAdded' &&
-            completed.includes(activity.id)
-          ) {
-            return true
-          }
-        }
-        return false
+    // completion activity referencing it exists in dan's Activity Registry
+    await waitForAgentRegistrationAddedCompletion(danSession)
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────
+// Admin variant (admin-invitation view): Dan — as YoYo admin — invites Kim.
+// The org and Kim have no seeded relationship, so the accept runs the full
+// establishReciprocal chain.
+// ──────────────────────────────────────────────────────────────────────────
+describe('admin invitation', () => {
+  const danId = 'https://id/dan'
+  const danCookie = 'css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28'
+  const kimCookie = 'css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c'
+  const yoyoId = 'https://id/yoyo'
+
+  test('dan invites kim to yoyo; kim accepts — establishReciprocal completes', async () => {
+    // Dan (YoYo admin) creates the invitation for Kim in the org context
+    const createResponse = await fetch(rpcEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: danCookie,
       },
-      { timeout: 30_000 }
-    )
+      body: JSON.stringify(
+        rpcPayload({
+          _tag: 'CreateInvitation',
+          label: 'Kim',
+          note: 'Some note',
+          context: yoyoId,
+        })
+      ),
+    })
+    expect(createResponse.status).toBe(200)
+    const createBody = await createResponse.json()
+    const create = createBody[0]
+    expect(create._tag).toBe('Success')
+    expect(create.value).toEqual(expect.objectContaining({ label: 'Kim', note: 'Some note' }))
+    expect(create.value.capabilityUrl).toMatch('https://auth/.sai/invitations')
+
+    // Kim accepts the invitation to the org
+    const acceptResponse = await fetch(rpcEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: kimCookie,
+      },
+      body: JSON.stringify(
+        rpcPayload({
+          _tag: 'AcceptInvitation',
+          capabilityUrl: create.value.capabilityUrl,
+          label: 'YoYo',
+          note: 'Beep boop',
+          context: kimId,
+        })
+      ),
+    })
+    expect(acceptResponse.status).toBe(200)
+    const acceptBody = await acceptResponse.json()
+    const accept = acceptBody[0]
+    expect(accept._tag).toBe('Success')
+    expect(accept.value.id).toBe(yoyoId)
+    expect(accept.value).toEqual(expect.objectContaining({ label: 'YoYo', note: 'Beep boop' }))
+
+    // Kim's registration of YoYo (fresh — no seeded relationship)
+    const manager = buildSessionManager()
+    const kimSession = await manager.getSession(kimId)
+    const registration = await kimSession.findSocialAgentRegistration(yoyoId)
+    expect(registration).toBeDefined()
+    // TODO: validate data using SocialAgentRegistration shape
+
+    // CSS delivers the agentRegistrationAdded Add (Phase 2) — wait for the
+    // reciprocal link, the establishReciprocal workflow outcome on the org side
+    const yoyoSession = await manager.getSession(yoyoId)
+    await waitFor(async () => {
+      const yoyoRegForKim = await yoyoSession.findSocialAgentRegistration(kimId)
+      return yoyoRegForKim?.reciprocalRegistration
+    })
+
+    // establishReciprocal marked the agentRegistrationAdded activity done — a
+    // completion activity referencing it exists in YoYo's Activity Registry
+    await waitForAgentRegistrationAddedCompletion(yoyoSession)
   })
 })

@@ -26,6 +26,22 @@ export interface NotificationStream {
 }
 
 /**
+ * Wrap an RPC request in the sai-api-messages protocol envelope (one call per
+ * batch; trace/span are stable convenience values).
+ */
+export function rpcPayload(request: unknown) {
+  return [
+    {
+      request,
+      headers: {},
+      traceId: '13c2035f72f45c1ebbf13b055b7dc526',
+      spanId: '685581075752b8a2',
+      sampled: true,
+    },
+  ]
+}
+
+/**
  * Data grants of a registration, read via the session's SPARQL plane —
  * the SPARQL counterpart of the removed data-model HTTP `getDataGrants`.
  */
@@ -219,6 +235,35 @@ export async function awaitGrantCompletion(
   const received = await awaitNotification(stream, AS.Update)
   if (!received) throw new Error(`expected registration Update on ${registrationId}`)
   await waitForQuiescence(webIds)
+}
+
+/**
+ * The inviter-side tail of the invitation accept flow: establishReciprocal
+ * marked the agentRegistrationAdded activity done — a completion activity
+ * referencing it exists in the session's Activity Registry.
+ */
+export async function waitForAgentRegistrationAddedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  const registry = session.registrySet.hasActivityRegistry!
+  await waitFor(
+    async () => {
+      const completed = await ActivityRegistry.getCompletedActivityIris(registry, session.fetch)
+      if (!completed.length) return false
+      const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
+      for (const iri of iris) {
+        const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
+        if (
+          activity.activityType === 'agentRegistrationAdded' &&
+          completed.includes(activity.id)
+        ) {
+          return true
+        }
+      }
+      return false
+    },
+    { timeout: 30_000 }
+  )
 }
 
 // ---------------------------------------------------------------------------

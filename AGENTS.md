@@ -7,6 +7,12 @@ Only user can stage/unstage and commit with git. Agent can use git commands only
 Only user can run tests in /test they use dagger setup in /.dagger.
 Agent can run vitest tests in /packages
 
+Test data comes from
+/environments/data
+
+For dev environment URLs are mapped with
+/environments/dev/map.json
+
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 

@@ -24,10 +24,10 @@ describe('applicatrion registration exists', () => {
   test('should build application registration if discovered', async () => {
     mocked.mockResolvedValueOnce(await statelessFetch(webId)).mockResolvedValueOnce(responseMock)
     const app = await Application.build(webId, applicationId, { fetch: mocked, randomUUID })
-    expect(app.hasApplicationRegistration?.id).toBe(
+    expect(app.applicationRegistration?.id).toBe(
       'https://auth.alice.example/bcf22534-0187-4ae4-b88f-fe0f9fa96659'
     )
-    expect(app.hasApplicationRegistration?.registeredAgent).toBe('https://projectron.example/#app')
+    expect(app.applicationRegistration?.registeredAgent).toBe('https://projectron.example/#app')
   })
 
   test('should have dataOwners getter', async () => {
@@ -53,7 +53,7 @@ describe('discovery helpers', () => {
   test('should not build appliction registration if not discovered', async () => {
     mocked.mockResolvedValueOnce(await statelessFetch(webId)).mockResolvedValueOnce(responseMock)
     const app = await Application.build(webId, applicationId, { fetch: mocked, randomUUID })
-    expect(app.hasApplicationRegistration).toBeUndefined()
+    expect(app.applicationRegistration).toBeUndefined()
   })
 
   test('should have authorizationRedirectEndpoint discovered', async () => {

@@ -1,7 +1,11 @@
 import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { ActivityRegistryData } from './activity-registry'
-import type { AgentRegistryData } from './agent-registry'
+import type {
+  ApplicationRegistryData,
+  InvitationRegistryData,
+  SocialAgentRegistryData,
+} from './agent-registry'
 import type { AuthorizationRegistryData } from './authorization-registry'
 import type { DataRegistryData } from './data-registry'
 import type { GrantRegistryData } from './grant-registry'
@@ -17,7 +21,9 @@ export type RegistrySetData = {
   type: string[]
   hasAuthorizationRegistry: AuthorizationRegistryData
   hasGrantRegistry: GrantRegistryData
-  hasAgentRegistry: AgentRegistryData
+  hasSocialAgentRegistry: SocialAgentRegistryData
+  hasApplicationRegistry: ApplicationRegistryData
+  hasInvitationRegistry: InvitationRegistryData
   hasRoleRegistry: RoleRegistryData
   hasDataRegistry: DataRegistryData[]
   /** present once the Activity Registry is seeded; producers throw without it */
@@ -41,7 +47,9 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetD
     // @type: '@id' coerced — plain IRI strings
     hasAuthorizationRegistry: { id: node.hasAuthorizationRegistry },
     hasGrantRegistry: { id: node.hasGrantRegistry },
-    hasAgentRegistry: { id: node.hasAgentRegistry },
+    hasSocialAgentRegistry: { id: node.hasSocialAgentRegistry },
+    hasApplicationRegistry: { id: node.hasApplicationRegistry },
+    hasInvitationRegistry: { id: node.hasInvitationRegistry },
     hasRoleRegistry: { id: node.hasRoleRegistry },
     hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
     hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,

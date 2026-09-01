@@ -8,12 +8,12 @@ primary source.
 
 | Status | Count | Plans |
 |---|---|---|
-| ✅ done | 19 | `cleanup-fetch-utils`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling`, `reorganize-authz-agent-logic` |
+| ✅ done | 20 | `cleanup-fetch-utils`, `dedicated-registries`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling`, `reorganize-authz-agent-logic` |
 | 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
 | ⬜ not started / design only | 10 | `authorization-revoked`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `components-tweaks` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**31 plans total.** All remaining work lives in the 12 non-done plans below —
+**32 plans total.** All remaining work lives in the 12 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table
@@ -21,6 +21,7 @@ nothing open is blocked by an unlanded plan.
 | Plan | Status | What it does | Depends on |
 |---|---|---|---|
 | `simplify-grant-as-pojos.md` | ✅ done (historical) | Grants as `GrantData` POJOs (read/write via JSON-LD round-trip, scope-based dispatch) | — (foundation of the POJO migration) |
+| `dedicated-registries.md` | ✅ done | Splits `AgentRegistry` into `SocialAgentRegistry` / `ApplicationRegistry` / `InvitationRegistry` (new interop vocabulary terms); containment via server-managed `ldp:contains` only — the `has*Registration` predicates and the extra container PATCH are gone; components `services/AgentRegistry.ts` split into 3 models; `listContained` becomes the single listing query | `simplify-authorization-containment` (the `ldp:contains` precedent) |
 | `remove-access-grant-indirection.md` | ✅ done | Drops the `AccessGrant` wrapper: `AgentRegistration` links `hasDataGrant` directly | `simplify-grant-as-pojos` (the pattern it mirrors) |
 | `remove-access-authorization-indirection.md` | ✅ done | Drops the `AccessAuthorization` wrapper: registry links `DataAuthorization` directly; extracts `jsonld-utils` | `remove-access-grant-indirection` (its mirror) |
 | `simplify-authorization-containment.md` | ✅ done¹ | Authorization registry containment via server-managed `ldp:contains`; deny/revoke physically DELETEs resources | `remove-access-authorization-indirection` |

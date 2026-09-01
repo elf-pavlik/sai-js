@@ -3,7 +3,7 @@ import {
   type AdminAuthorizationData,
   type AgentId,
   type AgentOrRoleId,
-  type AgentRegistryData,
+  type ApplicationRegistryData,
   type ApplicationRegistrationData,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
@@ -12,9 +12,11 @@ import {
   type DataRegistrationData,
   type FinalDataAuthorizationData,
   type GeneratedGrants,
+  type InvitationRegistryData,
   type RegistrySetData,
   type RoleData,
   type SocialAgentRegistrationData,
+  type SocialAgentRegistryData,
   type WebIdProfileData,
   getDataGrantIris,
   loadRegistrySet,
@@ -64,7 +66,6 @@ import {
   getGrantsAuthority,
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
-  listApplicationRegistrations,
   listContained,
   listDataRegistrations,
   localSparqlTransport,
@@ -157,16 +158,15 @@ export class AuthorizationAgent {
 
   /**
    * The context registry's registration of application `registeredAgent`,
-   * via the shared SPARQL query — the symmetric counterpart of
-   * `findSocialAgentRegistration` over the
-   * `interop:hasApplicationRegistration` predicate (docs/sparql.md step 3);
+   * via the shared SPARQL query — list-and-scan over the application
+   * registry's server-managed `ldp:contains` (docs/sparql.md step 3);
    * served per client-id by `AgentIdHandler`. Same query the services'
    * org-context counterpart runs against `/sparql-admin`.
    */
   public async findApplicationRegistration(iri: string, registrySet?: RegistrySetData) {
     return findApplicationRegistrationFromSparql(
       localSparqlTransport(this.sparqlEndpoint),
-      (registrySet ?? this.registrySet).hasAgentRegistry.id,
+      (registrySet ?? this.registrySet).hasApplicationRegistry.id,
       iri
     )
   }
@@ -181,7 +181,7 @@ export class AuthorizationAgent {
   public async findSocialAgentRegistration(registeredAgent: string, registrySet?: RegistrySetData) {
     return findRegistrationFromSparql(
       localSparqlTransport(this.sparqlEndpoint),
-      (registrySet ?? this.registrySet).hasAgentRegistry.id,
+      (registrySet ?? this.registrySet).hasSocialAgentRegistry.id,
       registeredAgent
     )
   }
@@ -205,7 +205,7 @@ export class AuthorizationAgent {
   public async findSocialAgentInvitation(capabilityUrl: string) {
     return findInvitationFromSparql(
       localSparqlTransport(this.sparqlEndpoint),
-      this.registrySet.hasAgentRegistry.id,
+      this.registrySet.hasInvitationRegistry.id,
       capabilityUrl
     )
   }
@@ -347,7 +347,7 @@ export class AuthorizationAgent {
 
     if (structure.granted && structure.agentType === INTEROP.Application) {
       await this.ensureApplicationRegistration(
-        registrySet.hasAgentRegistry,
+        registrySet.hasApplicationRegistry,
         grantedBy,
         structure.grantee
       )
@@ -364,18 +364,18 @@ export class AuthorizationAgent {
   }
 
   private async ensureApplicationRegistration(
-    agentRegistry: AgentRegistryData,
+    applicationRegistry: ApplicationRegistryData,
     creatorAgent: string,
     grantee: string
   ): Promise<void> {
     const existing = await findApplicationRegistrationInAgentRegistry(
-      agentRegistry,
+      applicationRegistry,
       this.fetch,
       grantee
     )
     if (existing) return
     await addApplicationRegistration(
-      agentRegistry,
+      applicationRegistry,
       { fetch: this.fetch, randomUUID: this.randomUUID },
       { agent: creatorAgent, client: this.agentId },
       grantee
@@ -478,15 +478,12 @@ export class AuthorizationAgent {
    */
   private async typeGrantee(iri: string): Promise<AgentOrRoleId> {
     const transport = localSparqlTransport(this.sparqlEndpoint)
-    const socialIris = await listContained(transport, this.registrySet.hasAgentRegistry.id)
+    const socialIris = await listContained(transport, this.registrySet.hasSocialAgentRegistry.id)
     for (const registrationIri of socialIris) {
       const registration = await getRegistrationFromSparql(transport, registrationIri)
       if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)
     }
-    const applicationIris = await listApplicationRegistrations(
-      transport,
-      this.registrySet.hasAgentRegistry.id
-    )
+    const applicationIris = await listContained(transport, this.registrySet.hasApplicationRegistry.id)
     for (const registrationIri of applicationIris) {
       const registration = await getApplicationRegistration(transport, registrationIri)
       if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)
@@ -548,7 +545,8 @@ export class AuthorizationAgent {
    */
   public async removeGrantsFromRegistration(grantee: string, grants: string[]): Promise<void> {
     const registration = await findRegistrationInAgentRegistry(
-      this.registrySet.hasAgentRegistry,
+      this.registrySet.hasSocialAgentRegistry,
+      this.registrySet.hasApplicationRegistry,
       this.fetch,
       grantee
     )
@@ -706,7 +704,7 @@ export class AuthorizationAgent {
     const agentsWithAccess = await this.findAgentsWithAccess(dataInstanceIri)
     const socialAgentsWithAccess: AgentWithAccess[] = []
     const transport = localSparqlTransport(this.sparqlEndpoint)
-    const iris = await listContained(transport, this.registrySet.hasAgentRegistry.id)
+    const iris = await listContained(transport, this.registrySet.hasSocialAgentRegistry.id)
     const registrations = await Promise.all(
       iris.map((iri) => getRegistrationFromSparql(transport, iri))
     )

@@ -170,7 +170,8 @@ export async function getExistingGrants(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const agentRegistration = await AgentRegistry.findRegistration(
-    session.registrySet.hasAgentRegistry,
+    session.registrySet.hasSocialAgentRegistry,
+    session.registrySet.hasApplicationRegistry,
     session.fetch,
     payload.peerId.id
   )
@@ -442,7 +443,8 @@ export async function replaceDataGrantsOnRegistration(
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const agentRegistration = await AgentRegistry.findRegistration(
-    session.registrySet.hasAgentRegistry,
+    session.registrySet.hasSocialAgentRegistry,
+    session.registrySet.hasApplicationRegistry,
     session.fetch,
     payload.grantee.id
   )

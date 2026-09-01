@@ -5,6 +5,15 @@ around a single principle: **the same registry query runs against whichever
 endpoint the context requires.** Only the endpoint differs — never the query,
 never the mapping.
 
+> **Current state (dedicated-registries.md):** the three agent registries are
+> split into dedicated containers (social-agent, application, invitation) and
+> every membership listing — including grants, roles, authorizations and data
+> registrations — reads the server-managed `ldp:contains` via `listContained`.
+> The `listApplicationRegistrations` / `listSocialAgentInvitations` queries and
+> the interop membership predicates they read (`hasApplicationRegistration`,
+> `hasSocialAgentInvitation`, `hasSocialAgentRegistration`) are gone; the
+> step-3 / candidate-1 entries below are historical.
+
 ## Transport abstraction
 
 The transport + registry query core lives in
@@ -106,16 +115,16 @@ data-model as needed, so cleanup may be scheduled explicitly.
    `findRolesWithMember` SELECT; the HTTP `roles` getter was removed — it
    had no other consumers; unit test in `authorization-agent/test`; dagger
    `/test/services.test.ts`, `/test/authorization.test.ts`).
-3. **`findApplicationRegistration`** — **done** (new `listApplicationRegistrations`
-   query — `interop:hasApplicationRegistration` in both graphs only, exact
-   parity with the HTTP `linkedIrisJsonLd` read, since runtime writes patch
-   that predicate into the container — plus `getApplicationRegistration`
-   framing via data-model `ApplicationRegistration.fromJsonLd`, mirroring
+3. **`findApplicationRegistration`** — **done → superseded by dedicated
+   registries** (dedicated-registries.md): the original `listApplicationRegistrations`
+   query (`interop:hasApplicationRegistration` in both graphs) is folded into
+   `listContained` over the application registry's server-managed `ldp:contains`;
+   `getApplicationRegistration` framing via data-model
+   `ApplicationRegistration.fromJsonLd`, mirroring
    `findSocialAgentRegistration` / `getSocialAgentRegistration`; wired in
    the AA method served by `AgentIdHandler` and in `getApplications`;
    per-app profiles still dereference the client-id document over HTTP;
-   invitation reads were done later the same way (candidate 1 below); unit
-   tests in `authorization-agent`
+   unit tests in `authorization-agent`
    and `components/test/agent-registry.test.ts`; dagger `/test/agents.test.ts`,
    `/test/authorization.test.ts`, `/test/delegation-endpoint.test.ts`).
 4. **`findDataRegistration` + own data-registry listings** (`buildDataRegistry`,
@@ -170,12 +179,14 @@ Replaced data-model functions — remaining callers (steps 1–4, candidates, fi
 Additional candidates (post-plan, one by one; same discipline):
 
 1. **Invitation reads** (`getSocialAgentInvitations`, AA
-   `findSocialAgentInvitation`) — **done** (new `listSocialAgentInvitations`
-   query — `interop:hasSocialAgentInvitation` in both graphs only, parity with
-   the HTTP `linkedIrisJsonLd` read — plus `getSocialAgentInvitation` framing
-   via data-model `SocialAgentInvitation.fromJsonLd`, whose namespace export
-   was added, and `findSocialAgentInvitation` list-and-match on
-   `capabilityUrl` served by `InvitationHandler`). Caller check:
+   `findSocialAgentInvitation`) — **done → superseded by dedicated
+   registries** (dedicated-registries.md): the original
+   `listSocialAgentInvitations` query (`interop:hasSocialAgentInvitation` in
+   both graphs) is folded into `listContained` over the invitation registry's
+   server-managed `ldp:contains` — plus `getSocialAgentInvitation` framing
+   via data-model `SocialAgentInvitation.fromJsonLd`, and
+   `findSocialAgentInvitation` list-and-match on `capabilityUrl` served by
+   `InvitationHandler`. Caller check:
    `AgentRegistry.socialAgentInvitations` / `findSocialAgentInvitation` —
    **still used** by data-model internals (`findSocialAgentInvitation`
    iteration, `addSocialAgentInvitation` existence check) + data-model

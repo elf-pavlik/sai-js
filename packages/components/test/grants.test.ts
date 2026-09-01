@@ -55,7 +55,7 @@ import { findAffectedGrantees, findRoleUsage } from '../src/temporal/activities/
 const ALICE = 'https://alice.example/#id'
 const ROLE_ID = 'https://auth.alice.example/role/admin'
 const AUTHZ_REGISTRY = 'https://auth.alice.example/authorization/'
-const AGENT_REGISTRY = 'https://auth.alice.example/agent/'
+const SOCIAL_AGENT_REGISTRY = 'https://auth.alice.example/social-agent/'
 const AUTHZ_GRANTEE = 'https://auth.alice.example/authz-grantee'
 const AUTHZ_ADMIN = 'https://auth.alice.example/admin-authz'
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
@@ -124,7 +124,9 @@ function fakeSession(): AuthorizationAgentType {
     type: [],
     hasAuthorizationRegistry: { id: AUTHZ_REGISTRY },
     hasGrantRegistry: { id: 'https://auth.alice.example/grant/' },
-    hasAgentRegistry: { id: AGENT_REGISTRY },
+    hasSocialAgentRegistry: { id: SOCIAL_AGENT_REGISTRY },
+    hasApplicationRegistry: { id: 'https://auth.alice.example/application/' },
+    hasInvitationRegistry: { id: 'https://auth.alice.example/invitation/' },
     hasRoleRegistry: { id: 'https://auth.alice.example/role/' },
     hasDataRegistry: [],
   }
@@ -146,7 +148,7 @@ describe('findRoleUsage — authorizations sweep via SPARQL', () => {
 
     sparqlMock.handlers.bindings = (query) => {
       expect(query).toContain('SELECT DISTINCT ?child')
-      if (query.includes(AGENT_REGISTRY)) return []
+      if (query.includes(SOCIAL_AGENT_REGISTRY)) return []
       return [AUTHZ_GRANTEE, AUTHZ_ADMIN].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
@@ -180,7 +182,7 @@ describe('findRoleUsage — authorizations sweep via SPARQL', () => {
     sessionMock.setSession(fakeSession())
 
     sparqlMock.handlers.bindings = (query) => {
-      if (query.includes(AGENT_REGISTRY)) return []
+      if (query.includes(SOCIAL_AGENT_REGISTRY)) return []
       return [{ child: { termType: 'NamedNode', value: AUTHZ_GRANTEE } }]
     }
     sparqlMock.handlers.triples = (query) => {
@@ -253,7 +255,7 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
     sparqlMock.handlers.bindings = (query) => {
       // the agent registry listing serves the grantee registrations so the
       // session types them as social agents
-      if (query.includes(AGENT_REGISTRY)) {
+      if (query.includes(SOCIAL_AGENT_REGISTRY)) {
         return [GRANTEE_A, GRANTEE_B].map((iri) => ({
           child: { termType: 'NamedNode', value: iri },
         }))
@@ -276,7 +278,7 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
     sessionMock.setSession(fakeSession())
 
     sparqlMock.handlers.bindings = (query) => {
-      if (query.includes(AGENT_REGISTRY)) {
+      if (query.includes(SOCIAL_AGENT_REGISTRY)) {
         return [GRANTEE_A].map((iri) => ({ child: { termType: 'NamedNode', value: iri } }))
       }
       return [AUTHZ_DELEG, AUTHZ_ALL].map((iri) => ({

@@ -23,7 +23,11 @@ export * as SocialAgentInvitation from './social-agent-invitation'
 export type { RoleData, RoleId } from './role'
 export * as Role from './role'
 // registries exported as namespaces to avoid colliding names
-export type { AgentRegistryData } from './agent-registry'
+export type {
+  SocialAgentRegistryData,
+  ApplicationRegistryData,
+  InvitationRegistryData,
+} from './agent-registry'
 export type { RoleRegistryData } from './role-registry'
 export type { DataRegistryData } from './data-registry'
 export type { AuthorizationRegistryData } from './authorization-registry'

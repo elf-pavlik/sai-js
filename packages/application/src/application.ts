@@ -45,7 +45,7 @@ export class Application {
   registrationIri: string
 
   // TODO rename
-  hasApplicationRegistration?: ApplicationRegistrationData
+  applicationRegistration?: ApplicationRegistrationData
 
   public parentMap: Map<string, ParentInfo> = new Map()
 
@@ -73,7 +73,7 @@ export class Application {
 
   public async buildRegistration(): Promise<void> {
     if (this.registrationIri) {
-      this.hasApplicationRegistration = await loadApplicationRegistration(
+      this.applicationRegistration = await loadApplicationRegistration(
         this.registrationIri,
         this.fetch
       )
@@ -105,7 +105,7 @@ export class Application {
    * @public
    */
   get dataOwners(): DataOwnerData[] {
-    if (!this.hasApplicationRegistration) return []
+    if (!this.applicationRegistration) return []
     // Note: this is now lazy — fetches data grants each time
     // The property access pattern changed from sync to async.
     // Consumers should use getDataOwnersAsync() instead.
@@ -113,10 +113,10 @@ export class Application {
   }
 
   public async getDataOwnersAsync(): Promise<DataOwnerData[]> {
-    if (!this.hasApplicationRegistration || !getGranted(this.hasApplicationRegistration)) {
+    if (!this.applicationRegistration || !getGranted(this.applicationRegistration)) {
       return []
     }
-    const dataGrants = await getDataGrants(this.hasApplicationRegistration, this.fetch)
+    const dataGrants = await getDataGrants(this.applicationRegistration, this.fetch)
     return dataGrants.reduce((acc, grant) => {
       let owner: DataOwnerData = acc.find((agent) => agent.id === grant.dataOwner)
       if (!owner) {

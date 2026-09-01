@@ -129,7 +129,7 @@ class Task extends Custom {
   const application = await Application.build(session.info.webId, applicationId, { fetch: session.fetch, randomUUID });
 
   // if application wasn't authorized it needs to be redirected to user's authorization agent
-  if (!application.hasApplicationRegistration) {
+  if (!application.applicationRegistration) {
     window.location.href = application.authorizationRedirectUri;
   }
 

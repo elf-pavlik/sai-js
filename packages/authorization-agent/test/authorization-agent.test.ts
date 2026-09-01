@@ -79,7 +79,7 @@ describe.skip('authorization agent', () => {
       fetch: statelessFetch,
       randomUUID,
     })
-    const spy = vi.spyOn(agent.registrySet.hasAgentRegistry, 'findApplicationRegistration')
+    const spy = vi.spyOn(agent.registrySet.hasApplicationRegistry, 'findApplicationRegistration')
     const iri = 'https://projectron.example/#app'
     await agent.findApplicationRegistration(iri)
     expect(spy).toHaveBeenCalledTimes(1)
@@ -345,11 +345,15 @@ describe.skip('authorization agent', () => {
       })
       const registeredAgentIri = 'https://projectron.example/#app'
       const agentRegistration =
-        await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
+        await agent.registrySet.hasSocialAgentRegistry.findSocialAgentRegistration(
+          registeredAgentIri
+        )
       const beforeIris = getDataGrantIris(agentRegistration!)
       await agent.generateDataGrants(accessAuthorizationIri)
       const updatedAgentRegistration =
-        await agent.registrySet.hasAgentRegistry.findRegistration(registeredAgentIri)
+        await agent.registrySet.hasSocialAgentRegistry.findSocialAgentRegistration(
+          registeredAgentIri
+        )
       const afterIris = getDataGrantIris(updatedAgentRegistration!)
       expect(afterIris).not.toEqual(beforeIris)
       expect(afterIris.length).toBeGreaterThan(beforeIris.length)
@@ -717,7 +721,7 @@ describe('findApplicationRegistration', () => {
   const APP_REG = 'https://auth.alice.example/app-reg'
   const APP_WEBID = 'https://projectron.example/#app'
 
-  test('finds the registration of the application webId via the hasApplicationRegistration listing', async () => {
+  test('finds the registration of the application webId via the ldp:contains listing', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -725,7 +729,7 @@ describe('findApplicationRegistration', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('hasApplicationRegistration')
+      expect(query).toContain('ldp#contains')
       return [{ child: { termType: 'NamedNode', value: APP_REG } }]
     }
     sparqlMock.handlers.triples = (query) => {
@@ -856,7 +860,7 @@ describe('findSocialAgentInvitation', () => {
     ),
   ]
 
-  test('lists invitations via hasSocialAgentInvitation and matches the capability URL', async () => {
+  test('lists invitations via the ldp:contains listing and matches the capability URL', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -864,7 +868,7 @@ describe('findSocialAgentInvitation', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('hasSocialAgentInvitation')
+      expect(query).toContain('ldp#contains')
       return [INVITE_1, INVITE_2].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))

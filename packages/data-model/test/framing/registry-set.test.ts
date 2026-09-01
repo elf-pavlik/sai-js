@@ -8,7 +8,8 @@ import { docFromGraphs } from './helpers'
 const REGISTRY_SET_IRI = 'https://registry/alice/'
 
 // Graph <meta:https://registry/alice/> in registry.trig: the RegistrySet with
-// its six registries (hasDataRegistry is multi-valued).
+// its eight registries (hasDataRegistry is multi-valued; the agent-side split
+// into social-agent, application and invitation registries).
 describe('RegistrySet framing', () => {
   test('frames the registry set graph into RegistrySetData', async () => {
     const doc = await docFromGraphs([`meta:${REGISTRY_SET_IRI}`])
@@ -19,7 +20,9 @@ describe('RegistrySet framing', () => {
       type: [INTEROP.RegistrySet, LDP.Resource, SPACE.Storage],
       hasAuthorizationRegistry: { id: 'https://registry/alice/authorization/' },
       hasGrantRegistry: { id: 'https://registry/alice/grant/' },
-      hasAgentRegistry: { id: 'https://registry/alice/agent/' },
+      hasSocialAgentRegistry: { id: 'https://registry/alice/social-agent/' },
+      hasApplicationRegistry: { id: 'https://registry/alice/application/' },
+      hasInvitationRegistry: { id: 'https://registry/alice/invitation/' },
       hasRoleRegistry: { id: 'https://registry/alice/role/' },
       hasActivityRegistry: { id: 'https://registry/alice/activity/' },
       hasDataRegistry: [{ id: 'https://data/alice-home/' }, { id: 'https://data/alice-work/' }],

@@ -49,7 +49,7 @@ export class InvitationHandler extends OperationHttpHandler {
     let socialAgentRegistration = await sai.findSocialAgentRegistration(invitedId)
     if (!socialAgentRegistration) {
       socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
-        sai.registrySet.hasAgentRegistry,
+        sai.registrySet.hasSocialAgentRegistry,
         { fetch: sai.fetch, randomUUID: sai.randomUUID },
         { agent: sai.webId, client: sai.agentId },
         invitedId,

@@ -164,9 +164,12 @@ async function generateDelegatedDataGrants(
   }
   const result: GrantData[] = []
 
-  // the `hasSocialAgentRegistration` listing + bodies via the registry plane
+  // the social-agent registry listing + bodies via the registry plane
   // (replaces the HTTP `AgentRegistry.socialAgentRegistrations` sweep)
-  const agentRegistrationIris = await listContained(transport, registrySet.hasAgentRegistry.id)
+  const agentRegistrationIris = await listContained(
+    transport,
+    registrySet.hasSocialAgentRegistry.id
+  )
   const agentRegistrations = await Promise.all(
     agentRegistrationIris.map((iri) => getSocialAgentRegistration(transport, iri))
   )

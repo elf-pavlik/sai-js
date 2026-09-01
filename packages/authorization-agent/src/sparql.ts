@@ -109,10 +109,13 @@ export async function graphDoc(transport: SparqlTransport, iri: string): Promise
 
 /**
  * Children of a registry container — the registration listing. Reads both
- * the container graph and its `meta:` graph, and both the generic
- * `ldp:contains` and the interop member predicate (seeds/HTTP-served
- * containers store membership in the meta graph, runtime-created ones in
- * the plain graph via `SparqlDataAccessor`).
+ * the container graph and its `meta:` graph for the server-managed
+ * `ldp:contains` quads (seeds/HTTP-served containers store membership in
+ * the meta graph, runtime-created ones in the plain graph via
+ * `SparqlDataAccessor`). One query for every dedicated registry: grants,
+ * roles, authorizations, and the three agent registries (social-agent,
+ * application, invitation — the former `has*Registration` interop
+ * predicates are gone).
  */
 export async function listContained(
   transport: SparqlTransport,
@@ -121,12 +124,6 @@ export async function listContained(
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?child WHERE {
   { GRAPH <${containerIri}> { <${containerIri}> <${LDP.contains}> ?child } }
-  UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${LDP.contains}> ?child } }
-  UNION
-  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentRegistration}> ?child } }
-  UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentRegistration}> ?child } }
 }`
   )
   return bindings.map((binding) => binding.child.value)
@@ -158,49 +155,20 @@ export async function getSocialAgentRegistration(
 }
 
 /**
- * Find the registration of `webId` in the given agent registry container
- * (match on `interop:registeredAgent`). Simple list-and-scan: the peer
- * registration bodies may live in `meta:` graphs, which a `GRAPH ?r` join
- * would miss, and the registries are small.
+ * Find the registration of `webId` in the given social-agent registry
+ * container (match on `interop:registeredAgent`). Simple list-and-scan: the
+ * peer registration bodies may live in `meta:` graphs, which a `GRAPH ?r`
+ * join would miss, and the registries are small.
  */
 export async function findSocialAgentRegistration(
   transport: SparqlTransport,
-  agentRegistryContainerIri: string,
+  socialAgentRegistryContainerIri: string,
   webId: string
 ): Promise<SocialAgentRegistrationData | undefined> {
-  for (const iri of await listContained(transport, agentRegistryContainerIri)) {
+  for (const iri of await listContained(transport, socialAgentRegistryContainerIri)) {
     const registration = await getSocialAgentRegistration(transport, iri)
     if (registration.registeredAgent === webId) return registration
   }
-}
-
-/**
- * Children of an agent registry container linked as application
- * registrations — `interop:hasApplicationRegistration` in both the
- * container graph and its `meta:` graph (docs/sparql.md step 3). Seeded
- * agent registries list membership via the interop predicates **only**,
- * with no `ldp:contains` (`environments/data/registry.trig`), and the
- * runtime write path (`addApplicationRegistration`) patches the same
- * predicate into the container — so this listing reads it, and only it,
- * matching the HTTP `linkedIrisJsonLd(..., 'hasApplicationRegistration')`
- * read exactly. The social-agent counterpart reads `ldp:contains` +
- * `hasSocialAgentRegistration`; deliberately not generalized — a merged
- * listing would hand social-agent registrations to the application
- * framing, whose callers then dereference their `registeredAgent` as a
- * client-id document.
- */
-export async function listApplicationRegistrations(
-  transport: SparqlTransport,
-  containerIri: string
-): Promise<string[]> {
-  const bindings = await transport.fetchBindings(
-    `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasApplicationRegistration}> ?child } }
-  UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasApplicationRegistration}> ?child } }
-}`
-  )
-  return bindings.map((binding) => binding.child.value)
 }
 
 /**
@@ -217,44 +185,19 @@ export async function getApplicationRegistration(
 }
 
 /**
- * Find the registration of application `webId` in the given agent registry
- * container (match on `interop:registeredAgent`) — the symmetric query for
- * application registrations mirroring `findSocialAgentRegistration`
- * (docs/sparql.md step 3).
+ * Find the registration of application `webId` in the given application
+ * registry container (match on `interop:registeredAgent`) — list-and-scan
+ * over the server-managed `ldp:contains` listing (docs/sparql.md step 3).
  */
 export async function findApplicationRegistration(
   transport: SparqlTransport,
-  agentRegistryContainerIri: string,
+  applicationRegistryContainerIri: string,
   webId: string
 ): Promise<ApplicationRegistrationData | undefined> {
-  for (const iri of await listApplicationRegistrations(transport, agentRegistryContainerIri)) {
+  for (const iri of await listContained(transport, applicationRegistryContainerIri)) {
     const registration = await getApplicationRegistration(transport, iri)
     if (registration.registeredAgent === webId) return registration
   }
-}
-
-/**
- * Children of an agent registry container linked as social-agent
- * invitations — `interop:hasSocialAgentInvitation` in both the container
- * graph and its `meta:` graph (docs/sparql.md, invitations candidate).
- * Same storage shape as the other agent-registry memberships: seeded
- * containers list invitations via the interop predicate only, and the
- * runtime write path (`AgentRegistry.addSocialAgentInvitation`) patches
- * the same predicate into the container — matching the HTTP
- * `linkedIrisJsonLd(..., 'hasSocialAgentInvitation')` read exactly.
- */
-export async function listSocialAgentInvitations(
-  transport: SparqlTransport,
-  containerIri: string
-): Promise<string[]> {
-  const bindings = await transport.fetchBindings(
-    `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentInvitation}> ?child } }
-  UNION
-  { GRAPH <meta:${containerIri}> { <${containerIri}> <${INTEROP.hasSocialAgentInvitation}> ?child } }
-}`
-  )
-  return bindings.map((binding) => binding.child.value)
 }
 
 /**
@@ -271,21 +214,22 @@ export async function getSocialAgentInvitation(
 }
 
 /**
- * Find the invitation with `capabilityUrl` in the given agent registry
- * container — list-and-scan over the `hasSocialAgentInvitation` listing,
- * matching the HTTP `findSocialAgentInvitation` read (docs/sparql.md,
- * invitations candidate; served by `InvitationHandler`).
+ * Find the invitation with `capabilityUrl` in the given invitation registry
+ * container — list-and-scan over the server-managed `ldp:contains`
+ * listing, matching the HTTP `findSocialAgentInvitation` read
+ * (docs/sparql.md, invitations candidate; served by `InvitationHandler`).
  */
 export async function findSocialAgentInvitation(
   transport: SparqlTransport,
-  agentRegistryContainerIri: string,
+  invitationRegistryContainerIri: string,
   capabilityUrl: string
 ): Promise<SocialAgentInvitationData | undefined> {
-  for (const iri of await listSocialAgentInvitations(transport, agentRegistryContainerIri)) {
+  for (const iri of await listContained(transport, invitationRegistryContainerIri)) {
     const invitation = await getSocialAgentInvitation(transport, iri)
     if (invitation.capabilityUrl === capabilityUrl) return invitation
   }
 }
+
 
 /**
  * Children of a data registry container linked as data registrations —

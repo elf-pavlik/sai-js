@@ -1,33 +1,19 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
-  type ApplicationRegistrationData,
-  type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   getAdminGrantIris,
   getDataGrantIris,
-  loadClientIdDocument,
   loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
-import {
-  Application,
-  IRI,
-  SocialAgent,
-  SocialAgentInvitation,
-  UnregisteredApplication,
-} from '@janeirodigital/sai-api-messages'
+import { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { invitationUrl } from '../util/uriTemplates.js'
 import type { ResolvedContext } from './Context.js'
 import {
   findSocialAgentRegistration as findRegistrationFromSparql,
-  getApplicationRegistration as getApplicationRegistrationFromSparql,
   getDataGrant as getDataGrantFromSparql,
-  getSocialAgentInvitation as getInvitationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
-  listApplicationRegistrations,
   listContained,
-  listSocialAgentInvitations,
   sparqlTransportFor,
 } from './queries/org.js'
 
@@ -50,18 +36,19 @@ async function getReciprocalRegistration(
 }
 
 /**
- * The social-agent registrations of the *context* registry, via SPARQL:
- * personal context reads the session's internal endpoint, org context the
- * org's `/sparql-admin` (`sparqlTransportFor`). Seeded registration
- * resources carry own `.acr`s that never grant the admin
- * (registered-agent/org only, org-context-sparql.md §3.0/3b), so HTTP reads
- * 403 for them — SPARQL sidesteps dereferencing entirely.
+ * The social-agent registrations of the *context* social-agent registry, via
+ * SPARQL over its server-managed `ldp:contains` listing: personal context
+ * reads the session's internal endpoint, org context the org's
+ * `/sparql-admin` (`sparqlTransportFor`). Seeded registration resources
+ * carry own `.acr`s that never grant the admin (registered-agent/org only,
+ * org-context-sparql.md §3.0/3b), so HTTP reads 403 for them — SPARQL
+ * sidesteps dereferencing entirely.
  */
 async function listSocialAgentRegistrations(
   ctx: ResolvedContext
 ): Promise<SocialAgentRegistrationData[]> {
   const transport = sparqlTransportFor(ctx)
-  const iris = await listContained(transport, ctx.registrySet.hasAgentRegistry.id)
+  const iris = await listContained(transport, ctx.registrySet.hasSocialAgentRegistry.id)
   return Promise.all(iris.map((iri) => getRegistrationFromSparql(transport, iri)))
 }
 
@@ -79,7 +66,7 @@ export const findSocialAgentRegistrationInContext = async (
 ): Promise<SocialAgentRegistrationData | undefined> => {
   return findRegistrationFromSparql(
     sparqlTransportFor(ctx),
-    ctx.registrySet.hasAgentRegistry.id,
+    ctx.registrySet.hasSocialAgentRegistry.id,
     webId
   )
 }
@@ -183,7 +170,7 @@ export const addSocialAgent = async (
     return buildSocialAgentProfile(existing, ctx)
   }
   const registration = await AgentRegistry.addSocialAgentRegistration(
-    ctx.registrySet.hasAgentRegistry,
+    ctx.registrySet.hasSocialAgentRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     { agent: ctx.webId, client: ctx.session.agentId },
     data.webId,
@@ -192,108 +179,6 @@ export const addSocialAgent = async (
   )
 
   return buildSocialAgentProfile(registration, ctx)
-}
-
-const buildApplicationProfile = async (
-  ctx: ResolvedContext,
-  registration: ApplicationRegistrationData
-) => {
-  // Design B: the registration resource is single-node — name/logo/accessNeedGroup/
-  // callbackEndpoint come from the client ID document (the canonical source)
-  const clientIdDocument = await loadClientIdDocument(
-    registration.registeredAgent,
-    ctx.session.fetch
-  )
-  // TODO (angel) data validation and how to handle when the applications profile is missing some components?
-  return Application.make({
-    id: IRI.make(registration.registeredAgent),
-    name: clientIdDocument.clientName!,
-    logo: clientIdDocument.logoUri,
-    //authorizationDate: registration.registeredAt!.toISOString(),
-    //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessNeedGroup: clientIdDocument.hasAccessNeedGroup!,
-    callbackEndpoint: clientIdDocument.callbackEndpoint,
-  })
-}
-/**
- * Returns all the registered applications for the context registry — via
- * SPARQL over the `interop:hasApplicationRegistration` listing
- * (docs/sparql.md step 3): personal context reads the session's internal
- * endpoint, org context the org's `/sparql-admin` (`sparqlTransportFor`).
- * The per-app profile still dereferences the client-id document over HTTP
- * (webid/client-id profiles stay data-plane).
- */
-export const getApplications = async (ctx: ResolvedContext) => {
-  const transport = sparqlTransportFor(ctx)
-  const iris = await listApplicationRegistrations(transport, ctx.registrySet.hasAgentRegistry.id)
-  const registrations = await Promise.all(
-    iris.map((iri) => getApplicationRegistrationFromSparql(transport, iri))
-  )
-  const profiles = []
-  for (const registration of registrations) {
-    profiles.push(await buildApplicationProfile(ctx, registration))
-  }
-  return profiles
-}
-
-/**
- * Returns the application profile of an application that is _not_ registered for the given agent
- */
-export const getUnregisteredApplication = async (agent: AuthorizationAgent, id: IRI) => {
-  const { name, logo, accessNeedGroup } = await loadClientIdDocument(id, agent.fetch).then(
-    (doc) => ({
-      name: doc.clientName,
-      logo: doc.logoUri,
-      accessNeedGroup: doc.hasAccessNeedGroup,
-    })
-  )
-
-  return UnregisteredApplication.make({ id: IRI.make(id), name, logo, accessNeedGroup })
-}
-
-function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitationData) {
-  return SocialAgentInvitation.make({
-    id: IRI.make(socialAgentInvitation.id),
-    capabilityUrl: socialAgentInvitation.capabilityUrl,
-    label: socialAgentInvitation.prefLabel,
-    note: socialAgentInvitation.note,
-  })
-}
-
-/**
- * The context's social-agent invitations via SPARQL over the
- * `hasSocialAgentInvitation` listing (docs/sparql.md, invitations
- * candidate) — personal context reads the session's internal endpoint, org
- * context the org's `/sparql-admin` (`sparqlTransportFor`).
- */
-export async function getSocialAgentInvitations(ctx: ResolvedContext) {
-  const transport = sparqlTransportFor(ctx)
-  const invitations = []
-  for (const iri of await listSocialAgentInvitations(
-    transport,
-    ctx.registrySet.hasAgentRegistry.id
-  )) {
-    const invitation = await getInvitationFromSparql(transport, iri)
-    if (!invitation.registeredAgent) {
-      invitations.push(buildSocialAgentInvitation(invitation))
-    }
-  }
-  return invitations
-}
-
-export async function createInvitation(
-  ctx: ResolvedContext,
-  base: { label: string; note?: string }
-): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
-  const id = invitationUrl(ctx.webId)
-  const socialAgentInvitation = await AgentRegistry.addSocialAgentInvitation(
-    ctx.registrySet.hasAgentRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    id,
-    base.label,
-    base.note
-  )
-  return buildSocialAgentInvitation(socialAgentInvitation)
 }
 
 export async function acceptInvitation(
@@ -313,7 +198,7 @@ export async function acceptInvitation(
   if (!socialAgentRegistration) {
     // create new social agent registration
     socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
-      ctx.registrySet.hasAgentRegistry,
+      ctx.registrySet.hasSocialAgentRegistry,
       { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
       { agent: ctx.webId, client: ctx.session.agentId },
       webId,

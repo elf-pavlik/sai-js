@@ -557,34 +557,6 @@ views {
           ```
         '''
     }
-    Alice.UAS -> Alice.Registry 'PATCH agent registry container [Agent]' {
-        notes'''
-          #### PATCH agent registry container [Agent]
-          >[!NOTE]
-          >invitation.test.ts > personal
-
-          >[!IMPORTANT]
-          > Auth: Solid OIDC access token as `alice`
-
-          ```http
-          PATCH https://registry/alice/agent/
-          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
-          ```
-
-          ```sparql
-          INSERT DATA {
-            <https://registry/alice/agent/>
-              <https://www.w3.org/ns/solid/interop#hasSocialAgentInvitation>
-                <https://registry/alice/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f> .
-          }
-          ```
-          ---
-
-          ```http
-          HTTP/1.1 200 OK
-          ```
-        '''
-    }
     Alice.UAS -> Alice.AUI 'OK' {
         notes'''
           #### OK
@@ -743,9 +715,7 @@ views {
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/bob",
             "prefLabel": "Bob",
-            "note": "Some note",
-            "hasDataGrant": [],
-            "hasAdminGrant": []
+            "note": "Some note"
           }
           ```
           ---
@@ -911,9 +881,7 @@ views {
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/alice",
             "prefLabel": "Alice",
-            "note": "Beep boop",
-            "hasDataGrant": [],
-            "hasAdminGrant": []
+            "note": "Beep boop"
           }
           ```
           ---
@@ -1297,34 +1265,6 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PATCH agent registry container [Agent]' {
-        notes'''
-          #### PATCH agent registry container [Agent]
-          >[!NOTE]
-          >invitation.test.ts > admin
-
-          >[!IMPORTANT]
-          > Auth: Solid OIDC access token as `dan`
-
-          ```http
-          PATCH https://registry/yoyo/agent/
-          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
-          ```
-
-          ```sparql
-          INSERT DATA {
-            <https://registry/yoyo/agent/>
-              <https://www.w3.org/ns/solid/interop#hasSocialAgentInvitation>
-                <https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b> .
-          }
-          ```
-          ---
-
-          ```http
-          HTTP/1.1 200 OK
-          ```
-        '''
-    }
     Dan.UAS -> Dan.AUI 'OK' {
         notes'''
           #### OK
@@ -1483,9 +1423,7 @@ views {
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/bob",
             "prefLabel": "Bob",
-            "note": "Some note",
-            "hasDataGrant": [],
-            "hasAdminGrant": []
+            "note": "Some note"
           }
           ```
           ---
@@ -1645,9 +1583,7 @@ views {
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/yoyo",
             "prefLabel": "YoYo",
-            "note": "Beep boop",
-            "hasDataGrant": [],
-            "hasAdminGrant": []
+            "note": "Beep boop"
           }
           ```
           ---

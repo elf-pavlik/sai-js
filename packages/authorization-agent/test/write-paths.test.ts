@@ -62,7 +62,7 @@ describe('role write path', () => {
 })
 
 describe('social-agent-invitation write path', () => {
-  const iri = 'https://registry/kim/agent/inv1'
+  const iri = 'https://registry/kim/invitation/inv1'
   const invitationData = {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
@@ -129,7 +129,7 @@ describe('data-registration write path', () => {
 
 describe('application-registration write path', () => {
   test('shared context serializes the registration fields to the expected quads', async () => {
-    const iri = 'https://registry/alice/agent/app1/'
+    const iri = 'https://registry/alice/application/app1/'
     const data = {
       id: iri,
       type: [INTEROP.ApplicationRegistration, LDP.Resource],

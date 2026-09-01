@@ -4,9 +4,9 @@ import { ApplicationRegistration } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const REGISTRATION_IRI = 'https://registry/alice/agent/cvmsa4/'
+const REGISTRATION_IRI = 'https://registry/alice/application/cvmsa4/'
 
-// Graph <meta:https://registry/alice/agent/cvmsa4/> in registry.trig:
+// Graph <meta:https://registry/alice/application/cvmsa4/> in registry.trig:
 // ApplicationRegistration node (type, registeredAgent, hasDataGrant) and the
 // embedded client-id-document node — the latter must not disturb framing.
 describe('ApplicationRegistration framing', () => {

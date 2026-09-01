@@ -125,7 +125,7 @@ describe('org context — registry-set resolution (2.3)', () => {
 
     const registrySet = await danSession.getRegistrySet(yoyoId)
     expect(registrySet.id).toBe(yoyoRegistrySet)
-    expect(registrySet.hasAgentRegistry.id).toBe('https://registry/yoyo/agent/')
+    expect(registrySet.hasSocialAgentRegistry.id).toBe('https://registry/yoyo/social-agent/')
     expect(registrySet.hasRoleRegistry.id).toBe('https://registry/yoyo/role/')
 
     // the resolved registry set must be readable with the admin's (authenticated) fetch

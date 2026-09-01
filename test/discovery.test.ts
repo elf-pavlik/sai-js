@@ -27,7 +27,7 @@ describe('discoverAgentRegistration', () => {
   test('should discover Agent Registration from link header', async () => {
     const session = await buildOidcSession(aliceId, testClient)
     const iri = await discoverAgentRegistration(aliceAgentId, session.authFetch.bind(session))
-    expect(iri).toBe('https://registry/alice/agent/cvmsa4/')
+    expect(iri).toBe('https://registry/alice/application/cvmsa4/')
   })
 
   test('should return undefined if no link header', async () => {

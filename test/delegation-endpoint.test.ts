@@ -158,7 +158,7 @@ describe('DelegationRevocationEndpoint', () => {
 describe('DelegationRevocationRequesterHop', () => {
   test('pending activity → AccessRevocation → registration cleared → done', async () => {
     // seeded fixtures (no runtime grant issuance): alice's application
-    // registration for testClient (registry/alice/agent/cvmsa4/) already links
+    // registration for testClient (registry/alice/application/cvmsa4/) already links
     // the seeded acme grants wwp4j6 (Project parent) and qwvbcu (inheriting
     // Task child); the only writer is the requester-hop workflow
     const aliceGrant = 'https://registry/acme/grant/wwp4j6'

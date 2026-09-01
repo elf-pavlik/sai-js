@@ -2,7 +2,7 @@ import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { buildSocialAgentProfile, findSocialAgentRegistrationInContext } from './AgentRegistry.js'
+import { buildSocialAgentProfile, findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
 
 /**

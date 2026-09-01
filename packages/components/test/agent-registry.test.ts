@@ -1,6 +1,7 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
-import { getApplications, getSocialAgentInvitations } from '../src/services/AgentRegistry.js'
+import { getApplications } from '../src/services/ApplicationRegistry.js'
+import { getSocialAgentInvitations } from '../src/services/InvitationRegistry.js'
 import type { ResolvedContext } from '../src/services/Context.js'
 
 // ──────────────────────────
@@ -10,8 +11,10 @@ import type { ResolvedContext } from '../src/services/Context.js'
 const ORG_WEBID = 'https://yoyo.example/profile/card#me'
 const ORG_AA = 'https://yoyo.example/.sai/agents/zzzz'
 const USER_WEBID = 'https://dan.example/profile/card#me'
-const AGENT_REGISTRY = 'https://registry/yoyo/agent/'
-const APP_REG = `${AGENT_REGISTRY}p9xnub/`
+const SOCIAL_AGENT_REGISTRY = 'https://registry/yoyo/social-agent/'
+const APPLICATION_REGISTRY = 'https://registry/yoyo/application/'
+const INVITATION_REGISTRY = 'https://registry/yoyo/invitation/'
+const APP_REG = `${APPLICATION_REGISTRY}p9xnub/`
 const APP_WEBID = 'https://projectron.example/#app'
 
 /** The registration body served for the application's graph (CONSTRUCT). */
@@ -56,7 +59,11 @@ function orgCtx(session: AuthorizationAgent): ResolvedContext {
     session,
     webId: ORG_WEBID,
     userWebId: USER_WEBID,
-    registrySet: { hasAgentRegistry: { id: AGENT_REGISTRY } },
+    registrySet: {
+      hasSocialAgentRegistry: { id: SOCIAL_AGENT_REGISTRY },
+      hasApplicationRegistry: { id: APPLICATION_REGISTRY },
+      hasInvitationRegistry: { id: INVITATION_REGISTRY },
+    },
   } as unknown as ResolvedContext
 }
 
@@ -67,7 +74,7 @@ const sparqlAdminUrl = `${new URL(ORG_AA).origin}/.sai/sparql-admin/${Buffer.fro
 // ──────────────────────────
 
 describe('getApplications — org context lists applications via /sparql-admin', () => {
-  test('hasApplicationRegistration listing + per-registration body; profile from the client-id document', async () => {
+  test('ldp:contains listing + per-registration body; profile from the client-id document', async () => {
     const requests: { url: string; init?: RequestInit }[] = []
     const session = {
       fetch: async (url: string, init?: RequestInit) => {
@@ -77,9 +84,9 @@ describe('getApplications — org context lists applications via /sparql-admin',
         if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must carry the hasApplicationRegistration
-          // predicate (the seed container has no ldp:contains)
-          expect(query).toContain('hasApplicationRegistration')
+          // the SPARQL listing must read the server-managed ldp:contains
+          // of the dedicated application registry container
+          expect(query).toContain('ldp#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },
@@ -118,8 +125,8 @@ describe('getApplications — org context lists applications via /sparql-admin',
 // ──────────────────────────
 
 describe('getSocialAgentInvitations — org context lists invitations via /sparql-admin', () => {
-  const INVITE_IRI = `${AGENT_REGISTRY}zi1nic`
-  const SETTLED_IRI = `${AGENT_REGISTRY}settled`
+  const INVITE_IRI = `${INVITATION_REGISTRY}zi1nic`
+  const SETTLED_IRI = `${INVITATION_REGISTRY}settled`
   const CAPABILITY = 'https://yoyo.example/invitations/zi1nic'
 
   const inviteTurtle = (
@@ -138,15 +145,15 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   } .
 `
 
-  test('hasSocialAgentInvitation listing + per-invitation body; settled invitations excluded', async () => {
+  test('ldp:contains listing + per-invitation body; settled invitations excluded', async () => {
     const session = {
       fetch: async (url: string, init?: RequestInit) => {
         if (url === ORG_WEBID) return mockResponse(orgProfileDoc)
         if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must carry the hasSocialAgentInvitation predicate
-          expect(query).toContain('hasSocialAgentInvitation')
+          // the SPARQL listing must read the invitation registry's ldp:contains
+          expect(query).toContain('ldp#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },

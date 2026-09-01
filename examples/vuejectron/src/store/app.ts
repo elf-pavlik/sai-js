@@ -352,7 +352,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function checkAuthoriztion(): Promise<boolean> {
     await ensureSaiSession()
-    return !!session.hasApplicationRegistration?.granted
+    return !!session.applicationRegistration?.granted
   }
 
   async function getAuthorizationRedirectUri(): Promise<string> {

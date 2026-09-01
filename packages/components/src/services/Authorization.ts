@@ -32,7 +32,7 @@ import type * as S from 'effect/Schema'
 import {
   findSocialAgentRegistrationInContext,
   listSocialAgentRegistrations,
-} from './AgentRegistry.js'
+} from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
 import { dataRegistrationContains } from './peerProxy.js'
 import {

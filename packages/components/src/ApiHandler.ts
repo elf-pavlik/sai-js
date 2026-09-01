@@ -20,14 +20,9 @@ import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import type { AccountService } from './services/Account.js'
 import { addAdmin, removeAdmin } from './services/Admin.js'
 import { resolveContext } from './services/Context.js'
-import {
-  acceptInvitation,
-  createInvitation,
-  getApplications,
-  getSocialAgentInvitations,
-  getSocialAgents,
-  getUnregisteredApplication,
-} from './services/AgentRegistry.js'
+import { getApplications, getUnregisteredApplication } from './services/ApplicationRegistry.js'
+import { acceptInvitation, getSocialAgents } from './services/SocialAgentRegistry.js'
+import { createInvitation, getSocialAgentInvitations } from './services/InvitationRegistry.js'
 import { getDescriptions, recordAuthorization } from './services/Authorization.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
 import { revokeGrants } from './services/Revocation.js'

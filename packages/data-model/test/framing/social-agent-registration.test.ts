@@ -4,9 +4,9 @@ import { fromJsonLd as registrationFromJsonLd } from '../../src/social-agent-reg
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const REGISTRATION_IRI = 'https://registry/acme/agent/je0s7n/'
+const REGISTRATION_IRI = 'https://registry/acme/social-agent/je0s7n/'
 
-// Graph <meta:https://registry/acme/agent/je0s7n/> in registry.trig: a
+// Graph <meta:https://registry/acme/social-agent/je0s7n/> in registry.trig: a
 // SocialAgentRegistration with registeredAgent, reciprocalRegistration,
 // hasDataGrant, skos:prefLabel and skos:note.
 describe('SocialAgentRegistration framing', () => {
@@ -22,7 +22,7 @@ describe('SocialAgentRegistration framing', () => {
       prefLabel: 'Alice',
       note: 'Chasing white rabits.',
       hasAccessNeedGroup: undefined,
-      reciprocalRegistration: 'https://registry/alice/agent/cp9g7p/',
+      reciprocalRegistration: 'https://registry/alice/social-agent/cp9g7p/',
     })
   })
 })

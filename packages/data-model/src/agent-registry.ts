@@ -2,6 +2,14 @@
 // Types
 // ──────────────────────────
 
-export type AgentRegistryData = {
+export type SocialAgentRegistryData = {
+  id: string
+}
+
+export type ApplicationRegistryData = {
+  id: string
+}
+
+export type InvitationRegistryData = {
   id: string
 }

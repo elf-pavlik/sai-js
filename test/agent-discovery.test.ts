@@ -25,7 +25,7 @@ describe('AgentIdHandler', () => {
         expect(response.status).toBe(200)
         const linkHeader = response.headers.get('Link')
         expect(linkHeader).toBeDefined()
-        expect(getAgentRegistrationIri(linkHeader!)).toBe('https://registry/alice/agent/vzp6ky/')
+        expect(getAgentRegistrationIri(linkHeader!)).toBe('https://registry/alice/social-agent/vzp6ky/')
       })
     })
     describe('responds with application registry in headers', (): void => {
@@ -36,7 +36,7 @@ describe('AgentIdHandler', () => {
         expect(response.status).toBe(200)
         const linkHeader = response.headers.get('Link')
         expect(linkHeader).toBeDefined()
-        expect(getAgentRegistrationIri(linkHeader!)).toBe('https://registry/alice/agent/cvmsa4/')
+        expect(getAgentRegistrationIri(linkHeader!)).toBe('https://registry/alice/application/cvmsa4/')
       })
     })
     describe('responds with no Link if no registry was found', (): void => {

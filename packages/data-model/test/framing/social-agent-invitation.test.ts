@@ -4,9 +4,9 @@ import { fromJsonLd as invitationFromJsonLd } from '../../src/social-agent-invit
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const INVITATION_IRI = 'https://registry/kim/agent/zi1nic'
+const INVITATION_IRI = 'https://registry/kim/invitation/zi1nic'
 
-// Graph <https://registry/kim/agent/zi1nic> in registry.trig: a
+// Graph <https://registry/kim/invitation/zi1nic> in registry.trig: a
 // SocialAgentInvitation with capabilityUrl, skos:prefLabel and skos:note.
 describe('SocialAgentInvitation framing', () => {
   test('frames the invitation graph into SocialAgentInvitationData', async () => {

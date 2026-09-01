@@ -12,7 +12,7 @@ import { waitFor } from './util'
 
 const acmeId = 'https://id/acme'
 const aliceId = 'https://id/alice'
-const acmeRegForAlice = 'https://registry/acme/agent/je0s7n/'
+const acmeRegForAlice = 'https://registry/acme/social-agent/je0s7n/'
 const seedGrant = 'https://registry/acme/grant/g4yhtm'
 
 describe('reconciliation sweep', () => {

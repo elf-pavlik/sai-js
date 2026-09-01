@@ -2509,10 +2509,15 @@ GRAPH <https://registry/alice/grant/t7k5nw.acr> {
 
 GRAPH <meta:https://data/alice-work/> {
   <https://data/alice-work/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/alice-work/sx86hi/> ,
-    <https://data/alice-work/btze4a/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/alice-work/> {
+  <https://data/alice-work/>
+    ldp:contains
+      <https://data/alice-work/sx86hi/>,
+      <https://data/alice-work/btze4a/>.
 }
 
 GRAPH <meta:https://data/alice-work/sx86hi/> {
@@ -2596,10 +2601,15 @@ GRAPH <https://data/alice-work/btze4a/m2k7wp> {
 
 GRAPH <meta:https://data/alice-home/> {
   <https://data/alice-home/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/alice-home/x1n3cm/> ,
-    <https://data/alice-home/pm1oxz/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/alice-home/> {
+  <https://data/alice-home/>
+    ldp:contains
+      <https://data/alice-home/x1n3cm/>,
+      <https://data/alice-home/pm1oxz/>.
 }
 
 GRAPH <meta:https://data/alice-home/x1n3cm/> {
@@ -2755,13 +2765,18 @@ GRAPH <https://data/alice-home/pm1oxz/d2k6qt> {
 }
 
 GRAPH <meta:https://data/bob/> {
-<https://data/bob/>
-  a interop:DataRegistry, ldp:Resource, space:Storage ;
-  interop:hasDataRegistration
-   <https://data/bob/avn9hv/> ,
-   <https://data/bob/x6hx8e/> ,
-   <https://data/bob/a0z5br/> ,
-   <https://data/bob/oapdnp/> .
+  <https://data/bob/>
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/bob/> {
+  <https://data/bob/>
+    ldp:contains
+      <https://data/bob/avn9hv/>,
+      <https://data/bob/x6hx8e/>,
+      <https://data/bob/a0z5br/>,
+      <https://data/bob/oapdnp/>.
 }
 
 GRAPH <meta:https://data/bob/avn9hv/> {
@@ -2878,10 +2893,15 @@ GRAPH <https://data/bob/x6hx8e/f5p1ly> {
 
 GRAPH <meta:https://data/acme-rnd/> {
   <https://data/acme-rnd/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/acme-rnd/reb39k/> ,
-    <https://data/acme-rnd/x0md9s/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/acme-rnd/> {
+  <https://data/acme-rnd/>
+    ldp:contains
+      <https://data/acme-rnd/reb39k/>,
+      <https://data/acme-rnd/x0md9s/>.
 }
 
 GRAPH <meta:https://data/acme-rnd/reb39k/> {
@@ -2992,10 +3012,15 @@ GRAPH <https://data/acme-rnd/x0md9s/b3x9kq> {
 
 GRAPH <meta:https://data/acme-hr/> {
   <https://data/acme-hr/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/acme-hr/p7t9km/> ,
-    <https://data/acme-hr/v4n2qx/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/acme-hr/> {
+  <https://data/acme-hr/>
+    ldp:contains
+      <https://data/acme-hr/p7t9km/>,
+      <https://data/acme-hr/v4n2qx/>.
 }
 
 GRAPH <meta:https://data/acme-hr/p7t9km/> {
@@ -3100,10 +3125,15 @@ GRAPH <https://data/acme-hr/v4n2qx/b4n1kx> {
 
 GRAPH <meta:https://data/kim-red/> {
   <https://data/kim-red/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/kim-red/n8w3qp/> ,
-    <https://data/kim-red/t6k9mx/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/kim-red/> {
+  <https://data/kim-red/>
+    ldp:contains
+      <https://data/kim-red/n8w3qp/>,
+      <https://data/kim-red/t6k9mx/>.
 }
 
 GRAPH <meta:https://data/kim-red/n8w3qp/> {
@@ -3260,10 +3290,15 @@ GRAPH <https://data/kim-red/t6k9mx/d6t3jm> {
 
 GRAPH <meta:https://data/kim-blue/> {
   <https://data/kim-blue/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/kim-blue/p3m8kz/> ,
-    <https://data/kim-blue/r7v2nw/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/kim-blue/> {
+  <https://data/kim-blue/>
+    ldp:contains
+      <https://data/kim-blue/p3m8kz/>,
+      <https://data/kim-blue/r7v2nw/>.
 }
 
 GRAPH <meta:https://data/kim-blue/p3m8kz/> {
@@ -3381,10 +3416,15 @@ GRAPH <https://data/kim-blue/r7v2nw/k1n6vq> {
 
 GRAPH <meta:https://data/yoyo-eu/> {
   <https://data/yoyo-eu/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/yoyo-eu/w4n9kx/> ,
-    <https://data/yoyo-eu/m7p3qt/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/yoyo-eu/> {
+  <https://data/yoyo-eu/>
+    ldp:contains
+      <https://data/yoyo-eu/w4n9kx/>,
+      <https://data/yoyo-eu/m7p3qt/>.
 }
 
 GRAPH <meta:https://data/yoyo-eu/w4n9kx/> {
@@ -3541,10 +3581,15 @@ GRAPH <https://data/yoyo-eu/m7p3qt/t5w2nz> {
 
 GRAPH <meta:https://data/yoyo-na/> {
   <https://data/yoyo-na/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/yoyo-na/k9m4wx/> ,
-    <https://data/yoyo-na/p3n7vz/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/yoyo-na/> {
+  <https://data/yoyo-na/>
+    ldp:contains
+      <https://data/yoyo-na/k9m4wx/>,
+      <https://data/yoyo-na/p3n7vz/>.
 }
 
 GRAPH <meta:https://data/yoyo-na/k9m4wx/> {
@@ -3662,9 +3707,14 @@ GRAPH <https://data/yoyo-na/p3n7vz/n5w2kr> {
 
 GRAPH <meta:https://data/test-client/> {
   <https://data/test-client/>
-    a interop:DataRegistry, ldp:Resource, space:Storage ;
-    interop:hasDataRegistration
-    <https://data/test-client/public/> .
+    a interop:DataRegistry, ldp:Resource, space:Storage .
+}
+
+
+GRAPH <https://data/test-client/> {
+  <https://data/test-client/>
+    ldp:contains
+      <https://data/test-client/public/>.
 }
 
 GRAPH <meta:https://data/test-client/public/> {

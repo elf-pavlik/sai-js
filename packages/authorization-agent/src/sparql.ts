@@ -232,29 +232,6 @@ export async function findSocialAgentInvitation(
 
 
 /**
- * Children of a data registry container linked as data registrations —
- * `interop:hasDataRegistration` in both the container graph and its `meta:`
- * graph (docs/sparql.md step 4). Seeded data registries list membership via
- * the interop predicate only, with no `ldp:contains`
- * (`environments/data/registry.trig`), and the runtime write path
- * (`DataRegistry.createRegistration`) patches the same predicate into the
- * container — matching the HTTP `hasDataRegistration` read exactly.
- */
-export async function listDataRegistrations(
-  transport: SparqlTransport,
-  dataRegistryContainerIri: string
-): Promise<string[]> {
-  const bindings = await transport.fetchBindings(
-    `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP.hasDataRegistration}> ?child } }
-  UNION
-  { GRAPH <meta:${dataRegistryContainerIri}> { <${dataRegistryContainerIri}> <${INTEROP.hasDataRegistration}> ?child } }
-}`
-  )
-  return bindings.map((binding) => binding.child.value)
-}
-
-/**
  * Data registration body from its graph — framed via the data-model's own
  * `DataRegistration.fromJsonLd` (same POJO as `factory.dataRegistration`):
  * `registeredShapeTree` plus `contains` (the contained data instances, the

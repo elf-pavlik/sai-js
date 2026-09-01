@@ -67,7 +67,6 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
   listContained,
-  listDataRegistrations,
   localSparqlTransport,
 } from './sparql'
 interface AuthorizationAgentDependencies {
@@ -212,11 +211,10 @@ export class AuthorizationAgent {
 
   /**
    * The context's data registration for `shapeTree` in `dataRegistryIri` —
-   * via the registry plane (docs/sparql.md step 4): `listDataRegistrations`
-   * + one `getDataRegistration` graph read per registration (the
-   * `hasDataRegistration` predicate in both graphs — the same listing the
-   * HTTP `DataRegistry.registrations` iterator read). The container IRI
-   * targets the graph directly.
+   * via the registry plane (docs/sparql.md step 4): `listContained` (the
+   * server-managed `ldp:contains` listing) + one `getDataRegistration`
+   * graph read per registration. The container IRI targets the graph
+   * directly.
    */
   public async findDataRegistration(
     dataRegistryIri: string,
@@ -224,7 +222,7 @@ export class AuthorizationAgent {
   ): Promise<DataRegistrationData> {
     const transport = localSparqlTransport(this.sparqlEndpoint)
     let dataRegistration: DataRegistrationData
-    for (const iri of await listDataRegistrations(transport, dataRegistryIri)) {
+    for (const iri of await listContained(transport, dataRegistryIri)) {
       const registration = await getDataRegistrationFromSparql(transport, iri)
       if (registration.registeredShapeTree === shapeTree) {
         dataRegistration = registration

@@ -26,7 +26,7 @@ import {
   getDataGrant as getDataGrantFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
-  listDataRegistrations,
+  listContained,
   sparqlTransportFor,
 } from './queries/org.js'
 
@@ -36,7 +36,7 @@ const buildDataRegistry = async (
   ctx: ResolvedContext
 ) => {
   const transport = sparqlTransportFor(ctx)
-  const iris = await listDataRegistrations(transport, registry.id)
+  const iris = await listContained(transport, registry.id)
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for (const iri of iris) {
     const registration = await getDataRegistrationFromSparql(transport, iri)

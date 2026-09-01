@@ -24,7 +24,6 @@ import {
   getRole,
   getSocialAgentRegistration,
   listContained,
-  listDataRegistrations,
 } from './sparql'
 
 // ──────────────────────────
@@ -305,9 +304,9 @@ async function generateSourceDataGrants(
   for (const dataRegistry of registrySet.hasDataRegistry) {
     // FIXME handle each data registry independently
 
-    // the `hasDataRegistration` listing + bodies via the registry plane
+    // the `ldp:contains` listing + bodies via the registry plane
     // (replaces the HTTP `DataRegistry.registrations` iterator)
-    const registrationIris = await listDataRegistrations(transport, dataRegistry.id)
+    const registrationIris = await listContained(transport, dataRegistry.id)
     const dataRegistrations = await Promise.all(
       registrationIris.map((iri) => getDataRegistration(transport, iri))
     )

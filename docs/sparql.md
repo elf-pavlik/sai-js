@@ -11,8 +11,10 @@ never the mapping.
 > registrations — reads the server-managed `ldp:contains` via `listContained`.
 > The `listApplicationRegistrations` / `listSocialAgentInvitations` queries and
 > the interop membership predicates they read (`hasApplicationRegistration`,
-> `hasSocialAgentInvitation`, `hasSocialAgentRegistration`) are gone; the
-> step-3 / candidate-1 entries below are historical.
+> `hasSocialAgentInvitation`, `hasSocialAgentRegistration`) are gone, and
+> `listDataRegistrations` is **folded into `listContained`** (removed; the
+> `interop:hasDataRegistration` container membership is gone too); the
+> step-3 / step-4 / candidate-1 entries below are historical.
 
 ## Transport abstraction
 
@@ -128,17 +130,19 @@ data-model as needed, so cleanup may be scheduled explicitly.
    and `components/test/agent-registry.test.ts`; dagger `/test/agents.test.ts`,
    `/test/authorization.test.ts`, `/test/delegation-endpoint.test.ts`).
 4. **`findDataRegistration` + own data-registry listings** (`buildDataRegistry`,
-   `findUserDataRegistrations`) — **done** (new `listDataRegistrations` query —
-   `interop:hasDataRegistration` in both graphs only, exact parity with the
-   HTTP `hasDataRegistration` read, since runtime writes
-   (`DataRegistry.createRegistration`) patch that predicate into the
-   container — plus `getDataRegistration` framing via data-model
-   `DataRegistration.fromJsonLd`; wired in the AA `findDataRegistration`
-   (share flow) and in `buildDataRegistry` / `findUserDataRegistrations`;
-   storage description for the registry label stays HTTP data-plane; unit
-   tests in `authorization-agent` and `components/test/data-registry.test.ts`;
-   dagger `/test/share.test.ts`, `/test/authorization.test.ts`, agents/data
-   registry RPC tests).
+   `findUserDataRegistrations`) — **done → superseded by dedicated
+   registries** (dedicated-registries.md): the original `listDataRegistrations`
+   query — `interop:hasDataRegistration` in both graphs only — is **folded
+   into `listContained` (removed)**; the data-registry listing reads the
+   server-managed `ldp:contains` (the
+   membership predicate and its client writes are gone; data registries are
+   seeded as contained children) — plus `getDataRegistration` framing via
+   data-model `DataRegistration.fromJsonLd`; wired in the AA
+   `findDataRegistration` (share flow) and in `buildDataRegistry` /
+   `findUserDataRegistrations`; storage description for the registry label
+   stays HTTP data-plane; unit tests in `authorization-agent` and
+   `components/test/data-registry.test.ts`; dagger `/test/share.test.ts`,
+   `/test/authorization.test.ts`, agents/data registry RPC tests).
 
 Replaced data-model functions — remaining callers (steps 1–4, candidates, final cleanup):
 
@@ -166,13 +170,16 @@ Replaced data-model functions — remaining callers (steps 1–4, candidates, fi
   HTTP listing at `data-authorization.ts:197` (grant generation, AllFromRole
   member resolution) and via `findRegistration` (typeGrantee), plus
   data-model internals/tests.
-- `DataRegistry.registrations` (step 4) — **still used**: grant generation
+- `DataRegistry.registrations` (step 4) — **still used** by grant generation
   (`data-model/src/data-authorization.ts:329`, `generateGrantsForAuthorization`
   — matches the authorization's registration/shape-tree against the registry
   set's data registrations over HTTP; live via the AA `generateDataGrants`
   path) and data-model internals (`registeredShapeTrees`,
-  `createRegistration`). The grant-generation listing work — this read plus
-  the `AgentRegistry.socialAgentRegistrations` sweep in
+  `createRegistration`). **Superseded by dedicated-registries** — the listing
+  now reads `ldp:contains`; `createRegistration`/`createDataRegistration` adds
+  no membership predicate (kept, unused in production — registrations are
+  seeded). The grant-generation listing work — this read plus the
+  `AgentRegistry.socialAgentRegistrations` sweep in
   `generateDelegatedDataGrants` (`data-authorization.ts:197`) — moved to
   `docs/plans/reorganize-authz-agent-logic.md` (step 1).
 

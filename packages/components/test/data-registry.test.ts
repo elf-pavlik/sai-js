@@ -66,7 +66,7 @@ function orgCtx(session: AuthorizationAgent): ResolvedContext {
 // ──────────────────────────
 
 describe('getDataRegistries — org context lists own data registries via /sparql-admin', () => {
-  test('hasDataRegistration listing + per-registration body; storage description stays HTTP', async () => {
+  test('ldp:contains listing + per-registration body; storage description stays HTTP', async () => {
     const requests: { url: string; init?: RequestInit }[] = []
     const sessionFetch = async (url: string, init?: RequestInit) => {
       requests.push({ url, init })
@@ -74,8 +74,8 @@ describe('getDataRegistries — org context lists own data registries via /sparq
       if (url === sparqlAdminUrl) {
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must carry the hasDataRegistration predicate
-          expect(query).toContain('hasDataRegistration')
+          // the SPARQL listing must read the server-managed ldp:contains
+          expect(query).toContain('ldp#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },

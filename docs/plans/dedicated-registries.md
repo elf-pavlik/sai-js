@@ -1,12 +1,12 @@
 # Plan: Dedicated registries — split `AgentRegistry` into `SocialAgentRegistry`, `ApplicationRegistry`, `InvitationRegistry` (containment via `ldp:contains`)
 
-> **Status:** ✅ implementation complete — decisions D1–D4 locked below; data-model,
-> authorization-agent, components, application, test-utils and fixtures updated;
-> `registry.trig` re-seeded and verified (TriG parses; 126 `ldp:contains` triples; all 17
-> registration resources contained under their kind-container; no interop membership
-> predicates remain). All package vitest suites green (utils 41, data-model 75, authz-agent
-> 73, components 35, application 7). `/test` (dagger suite) and the commit are the user's
-> step, per AGENTS.md.
+> **Status:** ✅ implementation complete (incl. the DataRegistry follow-up) — decisions
+> D1–D4 locked below; data-model, authorization-agent, components, application, test-utils
+> and fixtures updated; `registry.trig` re-seeded and verified (TriG parses; all registration
+> **and data-registration** resources contained via `ldp:contains`; no client-managed
+> membership predicates remain — incl. `interop:hasDataRegistration`). All package vitest
+> suites green (utils 41, data-model 75, authz-agent 73, components 35, application 7).
+> `/test` (dagger suite) and the commit are the user's step, per AGENTS.md.
 
 ## Motivation
 
@@ -203,6 +203,35 @@ External consumers (`Authorization.ts`, `DataRegistry.ts`, `ShareResource.ts`,
 - `findSocialAgentRegistration` / `findApplicationRegistration` /
   `findSocialAgentInvitation` list-and-scan logic is unchanged (they take a
   container IRI argument).
+- **`listDataRegistrations`** — the last remaining read on a client-managed
+  membership predicate — is **removed**: its 4 call sites (AA
+  `findDataRegistration`, `grant-generation.ts` `generateSourceDataGrants`,
+  components `DataRegistry.ts` `buildDataRegistry` + `Authorization.ts`
+  `findUserDataRegistrations`) read `listContained` directly over the
+  server-managed `ldp:contains`. The `INTEROP.hasDataRegistration`
+  **property** on `GrantData`/`DataAuthorizationData` POJOs is untouched (it
+  is a resource-body reference, not container membership).
+
+### 5a. DataRegistry containment — `ldp:contains` (follow-up item 1)
+
+The same split/containment treatment applied to the *data-registry →
+`data-registration`* membership, which was the one remaining client-managed
+container listing (see §Observations):
+
+- **Seeds** — for each of acme-rnd, acme-hr, alice-home, alice-work, bob,
+  kim-red, kim-blue, yoyo-eu, yoyo-na, test-client: member lists moved out of
+  `GRAPH <meta:<dataRegistry>>` into the **container's own graph** as
+  `ldp:contains` (type stays in the meta graph, matching grants/roles).
+- **Read** — the 4 `listDataRegistrations` call sites now call
+  `listContained` directly and the function is **removed**; call sites (AA
+  `findDataRegistration`, `generateSourceDataGrants`, components
+  `buildDataRegistry` / `findUserDataRegistrations`) otherwise unchanged.
+- **`createDataRegistration` stays** (unused in production — data
+  registrations are seeded) but already adds **no** custom predicate:
+  it only `createContainer`s the registration, so with the read switched to
+  `ldp:contains` a runtime-created registration is contained by the server,
+  consistent with the seeds. No change to the function other than verifying
+  it and updating the surrounding docs.
 
 ### 6. `packages/authorization-agent/src/authorization-agent.ts`
 
@@ -387,6 +416,12 @@ only the user runs `/test`).
   container-framing terms (no resource body carries them post-POJO-refactor);
   their removal is cleanup, verified by the full build + tests rather than
   assumed — confirm no `toDataset` path emits them.
-- DataRegistry data-instance containment (`ldp:contains` inside a data
+- **DataRegistry data-instance containment** (`ldp:contains` inside a data
   registration's own graph) is a different mechanism
   (`DataAccessorBasedStore` mirror) and is not affected.
+- **The DataRegistry listing is now `ldp:contains` too** (follow-up item 1):
+  `listDataRegistrations` was the last client-managed container read
+  (`interop:hasDataRegistration`); it is folded onto the same
+  server-managed model as the three agent registries. `createDataRegistration`
+  is **kept as-is** (still unused in production, still adds no predicate) —
+  only the listing/seeds changed.

@@ -12,7 +12,6 @@ import {
   getSocialAgentInvitation,
   getSocialAgentRegistration,
   listContained,
-  listDataRegistrations,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
@@ -34,7 +33,6 @@ export {
   getSocialAgentInvitation,
   getSocialAgentRegistration,
   listContained,
-  listDataRegistrations,
 }
 export type { SparqlTransport }
 

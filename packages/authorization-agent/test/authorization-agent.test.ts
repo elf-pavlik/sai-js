@@ -781,7 +781,7 @@ describe('findDataRegistration', () => {
     ),
   ]
 
-  test('lists the data registry via hasDataRegistration and matches the shape tree', async () => {
+  test('lists the data registry via the ldp:contains listing and matches the shape tree', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -789,7 +789,7 @@ describe('findDataRegistration', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('hasDataRegistration')
+      expect(query).toContain('ldp#contains')
       return [DATA_REG_PROJECT, DATA_REG_TASK].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))

@@ -39,7 +39,7 @@ import {
   getDataGrant as getDataGrantFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
-  listDataRegistrations,
+  listContained,
   sparqlTransportFor,
 } from './queries/org.js'
 
@@ -78,7 +78,7 @@ async function findUserDataRegistrations(
   const dataRegistrations = []
   const transport = sparqlTransportFor(ctx)
   for (const dataRegistry of ctx.registrySet.hasDataRegistry) {
-    const iris = await listDataRegistrations(transport, dataRegistry.id)
+    const iris = await listContained(transport, dataRegistry.id)
     const registrations = await Promise.all(
       iris.map((iri) => getDataRegistrationFromSparql(transport, iri))
     )

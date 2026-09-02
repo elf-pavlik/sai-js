@@ -21,7 +21,14 @@ import {
   getDataGrantIris,
   loadRegistrySet,
   loadWebIdProfile,
+  // (a2) ShareDataInstanceStructure canonical shape moved verbatim into
+  // data-model — re-exported here for source compatibility
+  // (payload-contract-alignment §2)
+  type ShareDataInstanceStructure,
 } from '@janeirodigital/interop-data-model'
+// re-export so package consumers (components services, tests) keep importing
+// it from '@janeirodigital/interop-authorization-agent'
+export type { ShareDataInstanceStructure } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
   LDP,
@@ -95,18 +102,6 @@ export interface RevokedGrant {
   dataOwner: string
   grantedBy: string
   grantee: string
-}
-
-// TODO: duplicates ShareAuthorization from api-messages (sai-impl-service)
-export type ShareDataInstanceStructure = {
-  applicationId: string
-  resource: string
-  accessMode: string[]
-  children: {
-    shapeTree: string
-    accessMode: string[]
-  }[]
-  agents: string[]
 }
 
 // TODO: adjust if registrations are not / nested in the registry
@@ -472,9 +467,11 @@ export class AuthorizationAgent {
   /**
    * Type a grantee IRI as `AgentOrRoleId` (agent via the agent registry —
    * social and application registrations — over the registry plane, else role
-   * via `getRole`).
+   * via `getRole`). Public since the payload-contract flip: activity objects
+   * carry plain-IRI parties (`authorizationGrantee`/`grantee`), whose kind is
+   * resolved here in the store — never baked into the activity.
    */
-  private async typeGrantee(iri: string): Promise<AgentOrRoleId> {
+  public async typeGrantee(iri: string): Promise<AgentOrRoleId> {
     const transport = localSparqlTransport(this.sparqlEndpoint)
     const socialIris = await listContained(transport, this.registrySet.hasSocialAgentRegistry.id)
     for (const registrationIri of socialIris) {

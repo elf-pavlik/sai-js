@@ -1,9 +1,17 @@
 import type {
   AccessNeedGroupData,
   AuthorizationRegistryData,
+  AuthorizationStructure,
   DataAuthorizationData,
   DataInstanceData,
   FinalDataAuthorizationData,
+} from '@janeirodigital/interop-data-model'
+// (a2) the AuthorizationStructure/DataAuthorizationStructure canonical shapes
+// moved verbatim into data-model — re-exported here for source compatibility
+// (payload-contract-alignment §2).
+export type {
+  AuthorizationStructure,
+  DataAuthorizationStructure,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
 import type { DataModelDependencies } from './types'
@@ -75,25 +83,6 @@ export function matchesScope(
 // api-messages `Authorization` — scope short-names and RPC field naming — to
 // this; the rules below build the NestedDataAuthorizationData)
 // ──────────────────────────
-
-/** One data authorization of an authorization (scope is the interop IRI). */
-export type DataAuthorizationStructure = {
-  accessNeed: string
-  scopeOfAuthorization: string
-  dataOwner?: string
-  hasDataRegistration?: string
-  hasDataInstance?: string[]
-}
-
-/** RPC-shaped authorization consumed by `recordAuthorizationFromStructure`. */
-export type AuthorizationStructure = {
-  grantee: string
-  agentType: string
-  hasAccessNeedGroup?: string
-  granted: boolean
-  dataAuthorizations?: DataAuthorizationStructure[]
-}
-
 /**
  * Build the nested data authorizations for a granted authorization structure:
  * the SAI rules — scope → INTEROP mapping, `dataOwner` assignment (only for

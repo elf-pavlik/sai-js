@@ -15,9 +15,11 @@ import { getRuntimeConfig } from './runtime-config'
 
 interface ActivityEvent {
   id: string
-  activityType: string
+  /** the typed activity tuple — `['Activity', '<Class>', <as:*>]` */
+  type: string[]
   target: string
-  payload?: Record<string, unknown>
+  /** as:actor — plain IRI (the registry owner the activity was written to) */
+  actor?: string
   createdAt: string
   status: 'pending' | 'done'
 }
@@ -30,8 +32,6 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * 3
 const INITIAL_BACKOFF_MS = 1_000
 const MAX_BACKOFF_MS = 30_000
-
-const APPLICATION_TYPE = 'http://www.w3.org/ns/solid/interop#Application'
 
 let controller: AbortController | null = null
 let heartbeatWatchdog: ReturnType<typeof setInterval> | null = null
@@ -49,17 +49,13 @@ function fullRefresh() {
   appStore.listSocialAgentInvitations(true)
 }
 
-/** The registry owner an activity was written to — `payload.webId` on every
- * activity (the producer's webId): a bare string on some shapes
- * (`agentRegistrationAdded`), `{ id, type }` on the rest. Phase 3 forwards
- * org-context activities onto the admin's stream keyed by the admin's webId
- * (R3 of org-admin-feature.md §3.3) — the UI must refresh only the context the
- * event belongs to.
+/** The registry owner an activity was written to — `actor` (as:actor, plain
+ * IRI) on every activity. Phase 3 forwards org-context activities onto the
+ * admin's stream keyed by the admin's webId (R3 of org-admin-feature.md
+ * §3.3) — the UI must refresh only the context the event belongs to.
  */
 function registryOwner(activity: ActivityEvent): string | undefined {
-  const webId = (activity.payload as { webId?: string | { id: string } } | undefined)?.webId
-  if (!webId) return undefined
-  return typeof webId === 'string' ? webId : webId.id
+  return activity.actor
 }
 
 /**
@@ -75,43 +71,43 @@ function handleActivity(activity: ActivityEvent) {
   // contexts already performs a full refresh (switchContext)
   const owner = registryOwner(activity)
   if (owner && appStore.currentContext() !== owner) return
-  switch (activity.activityType) {
-    case 'authorizationRecorded':
-    case 'authorizationRevoked': {
-      const grantee = activity.payload?.authorizationGrantee as
-        | { id: string; type: string[] }
-        | undefined
-      const isApplication = grantee?.type?.includes(APPLICATION_TYPE)
-      if (isApplication) appStore.listApplications(true)
-      else appStore.listSocialAgents(true)
-      break
-    }
-    case 'roleMembershipChanged':
-    case 'roleDeleted':
-      appStore.listSocialAgents(true)
-      appStore.listRoles(true)
-      break
-    case 'agentRegistrationAdded':
-      appStore.listSocialAgents(true)
-      appStore.listSocialAgentInvitations(true)
-      break
-    case 'invitationAccepted':
-      // the acceptor's workflow built the acceptor → inviter registration;
-      // refresh the context's agent list (e.g. the org's list for a
-      // peer-owned invitation accepted by an admin — admin-invitation-receive)
-      appStore.listSocialAgents(true)
-      appStore.listSocialAgentInvitations(true)
-      break
-    case 'delegatedGrantsUpdated':
-    case 'grantsRevoked':
-      appStore.listSocialAgents(true)
-      break
+  // dispatch on the type discriminant — the grantee kind is resolved in the
+  // store, so authorization done-rows refresh both lists (cheap, idempotent)
+  if (activity.type.includes('AuthorizationRecorded') || activity.type.includes('AuthorizationRevoked')) {
+    appStore.listApplications(true)
+    appStore.listSocialAgents(true)
+  } else if (
+    activity.type.includes('RoleMembershipChanged') ||
+    activity.type.includes('RoleDeleted')
+  ) {
+    appStore.listSocialAgents(true)
+    appStore.listRoles(true)
+  } else if (activity.type.includes('AgentRegistrationAdded')) {
+    appStore.listSocialAgents(true)
+    appStore.listSocialAgentInvitations(true)
+  } else if (activity.type.includes('InvitationAccepted')) {
+    // the acceptor's workflow built the acceptor → inviter registration;
+    // refresh the context's agent list (e.g. the org's list for a
+    // peer-owned invitation accepted by an admin — admin-invitation-receive)
+    appStore.listSocialAgents(true)
+    appStore.listSocialAgentInvitations(true)
+  } else if (activity.type.includes('InvitationCreated')) {
+    // step 1: the capabilityUrl is learned from the invitation resource after
+    // completion (never from an RPC or activity) — the done-row refresh does
+    // exactly that via the invitation list
+    appStore.listSocialAgentInvitations(true)
+  } else if (
+    activity.type.includes('DelegatedGrantsUpdated') ||
+    activity.type.includes('GrantsRevoked')
+  ) {
+    appStore.listSocialAgents(true)
+  } else if (
     // org-admin (Phase 1/3): the admin marker lands via the grant workflow —
     // refresh the context's agent list so toggle-admin flags stay current
-    case 'adminAuthorizationRecorded':
-    case 'adminAuthorizationRevoked':
-      appStore.listSocialAgents(true)
-      break
+    activity.type.includes('AdminAuthorizationRecorded') ||
+    activity.type.includes('AdminAuthorizationRevoked')
+  ) {
+    appStore.listSocialAgents(true)
   }
 }
 

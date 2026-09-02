@@ -1,7 +1,20 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type { ActivityData } from '@janeirodigital/interop-data-model'
+import { isActivityClass, loadDataAuthorization } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
+import {
+  AdminAuthorizationRecorded,
+  AdminAuthorizationRevoked,
+  AgentRegistrationAdded,
+  AuthorizationRecorded,
+  AuthorizationRevoked,
+  DelegatedGrantsUpdated,
+  GrantsRevoked,
+  InvitationAccepted,
+  RoleDeleted,
+  RoleMembershipChanged,
+} from '@janeirodigital/sai-api-messages'
 import {
   BadRequestHttpError,
   NotFoundHttpError,
@@ -11,13 +24,16 @@ import {
 } from '@solid/community-server'
 import type { OperationHttpHandlerInput } from '@solid/community-server'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/client'
-import type { Workflow } from '@temporalio/common'
+import * as S from 'effect/Schema'
 import { getLoggerFor } from 'global-logger-factory'
 import type { ActivityEvents } from './ActivityEvents.js'
 import type { ActivityWebhookStore } from './ActivityWebhookStore.js'
 import type { SessionManager } from './SessionManager'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
-import type { ReciprocalRegistrationInput } from './temporal/activities/reciprocal.js'
+import type {
+  AcceptInvitationInput,
+  ReciprocalRegistrationInput,
+} from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
 import { processAdminChange } from './temporal/workflows/admin.js'
 import type { AdminChangeInput } from './temporal/workflows/admin.js'
@@ -29,51 +45,26 @@ import {
   processRoleMembershipChange,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
-import {
-  acceptInvitation,
-  establishReciprocal,
-  // TODO(org-context-sparql phase 4b): imported now so re-enabling the
-  // mirror-sync fan-out below is a pure uncomment (no import edit needed)
-  syncReciprocalMirror,
-} from './temporal/workflows/reciprocal.js'
+import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
 
-// activityType → workflows + task queues (the single handler stays dumb; producers
-// write the typed change and the payload is the ready-made workflow input).
-// Most types run a single workflow; `delegatedGrantsUpdated` fans out in
-// parallel (grant regeneration + local reciprocal-mirror sync).
-// authorizationRecorded/authorizationRevoked are NOT here — they route to the
-// per-target consumer (processGranteeActivities, Phase 4.1).
-const activityWorkflows: Record<string, Array<{ workflow: Workflow; taskQueue: string }>> = {
-  roleMembershipChanged: [{ workflow: processRoleMembershipChange, taskQueue: 'create-grants' }],
-  roleDeleted: [{ workflow: processRoleDeletion, taskQueue: 'create-grants' }],
-  agentRegistrationAdded: [{ workflow: establishReciprocal, taskQueue: 'reciprocal-registration' }],
-  // the acceptor's AA runs the accept itself (POST the opaque capabilityUrl,
-  // build acceptor → inviter + reciprocal) — personal and org contexts alike
-  invitationAccepted: [{ workflow: acceptInvitation, taskQueue: 'reciprocal-registration' }],
-  delegatedGrantsUpdated: [
-    { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
-    // TODO(org-context-sparql phase 4b): re-enable mirror sync once SPARQL
-    // endpoints are per-owner. Until then mirror graphs share their names
-    // with the LIVE peer graphs in the single shared store — DROP/INSERT
-    // here would destroy the peers' actual resources (federation.md 1a):
-    // { workflow: syncReciprocalMirror, taskQueue: 'reciprocal-registration' },
-  ],
-  grantsRevoked: [{ workflow: processGrantsRevocation, taskQueue: 'create-grants' }],
-}
+/** The webhook channel (owner or admin subscription) for the current topic. */
+type ActivityChannel = NonNullable<Awaited<ReturnType<ActivityWebhookStore['findBySendTo']>>>
 
-const GRANTEE_ACTIVITY_TYPES = new Set(['authorizationRecorded', 'authorizationRevoked'])
-
-// adminAuthorizationRecorded/adminAuthorizationRevoked route to the sequential
-// orchestrator (grants → ACR rewrite → mark done, see events.md "New: admin
-// event") — the RPC has already changed the AuthorizationRegistry
-// synchronously; the workflow materializes the grants/links, rewrites the
-// derived #fullAdminAccess and only then completes the activity.
-const ADMIN_ACTIVITY_TYPES = new Set(['adminAuthorizationRecorded', 'adminAuthorizationRevoked'])
+/** Brand a plain webId as a SocialAgent ref (refs exist only in temporal inputs). */
+const socialAgentRef = (id: string): { id: string; type: string[] } => ({
+  id,
+  type: [INTEROP.SocialAgent],
+})
 
 /**
- * Receives webhook notifications from the org's Activity Registry container
+ * Receives webhook notifications from an Activity Registry container
  * subscription. On `Add` (an activity resource was PUT), fetches the activity,
- * maps `activityType` → workflow and starts it with the activity's payload.
+ * dispatches on the `type` discriminant (schema-decoded — malformed activities
+ * fail fast), and starts the matching workflow with the activity's
+ * plain-IRI/object fields. grantee activities (authorizationRecorded/
+ * authorizationRevoked) join the per-target consumer; admin activities
+ * (adminAuthorizationRecorded/adminAuthorizationRevoked) run the sequential
+ * orchestrator (grants → ACR rewrite → mark done).
  */
 export class ActivityWebhookHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -107,7 +98,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       // including grantee activities (whose branch returns 200 early below).
       // Change activities → `pending`; `activityCompleted` → load the completed
       // activity via `target` → `done` (enrichment: the completion resource is
-      // minimal, the original's activityType/payload are what the UI needs).
+      // minimal, the original's typed fields are what the UI needs).
       await this.forwardActivity(activity, session, channel.webId)
 
       // Owner vs admin (observer) channel (§3.1 of org-admin-feature.md): a
@@ -119,119 +110,235 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       const isRegistryOwner = session.registrySet.hasActivityRegistry?.id === channel.topic
       if (!isRegistryOwner) return new ResponseDescription(200)
 
-      if (GRANTEE_ACTIVITY_TYPES.has(activity.activityType)) {
-        // per-target consumer: deterministic workflowId per (webId, grantee).
-        // start-or-signal-or-restart — if a consumer is already running, signal
-        // it to wake up and drain the new activity; if it just terminated, the
-        // signal fails and we start a fresh consumer (Phase 4.1)
-        const authorizationGrantee = (
-          activity.payload as { authorizationGrantee: { id: string; type: string[] } }
-        ).authorizationGrantee
-        const workflowId = `grantee:${channel.webId}:${authorizationGrantee.id}`
-        const args: [CreateGrantsInput] = [
-          {
-            webId: { id: channel.webId, type: [INTEROP.SocialAgent] },
-            authorizationGrantee,
-          },
-        ]
-        const temporal = new Temporal()
-        await temporal.init()
-        const start = (): Promise<unknown> =>
-          temporal.client!.workflow.start(processGranteeActivities, {
-            taskQueue: 'create-grants',
-            args,
-            workflowId,
-          })
-        try {
-          await start()
-        } catch (err) {
-          if (!(err instanceof WorkflowExecutionAlreadyStartedError)) throw err
-          for (let attempt = 0; attempt < 3; attempt++) {
+      const temporal = new Temporal()
+      await temporal.init()
+      await this.dispatch(activity, channel, session, temporal)
+    }
+    return new ResponseDescription(200)
+  }
+
+  /** The grantee of a live-link DataAuthorization object (kind via the store).
+   *  404-tolerant — an intervening deny may have deleted the DA before the
+   *  webhook dispatched the granted activity. */
+  private async granteeFromDataAuthorization(
+    id: string | undefined,
+    session: AuthorizationAgent
+  ): Promise<Awaited<ReturnType<AuthorizationAgent['typeGrantee']>> | undefined> {
+    if (!id) return undefined
+    try {
+      const authorization = await loadDataAuthorization(id, session.fetch)
+      return session.typeGrantee(authorization.grantee)
+    } catch {
+      return undefined
+    }
+  }
+
+  /** Route one activity to its workflow(s) — one branch per activity class. */
+  private async dispatch(
+    activity: ActivityData,
+    channel: ActivityChannel,
+    session: AuthorizationAgent,
+    temporal: Temporal
+  ): Promise<void> {
+    const client = temporal.client!
+
+    if (isActivityClass(activity, 'InvitationAccepted')) {
+      // the acceptor's AA runs the accept itself (POST the opaque capabilityUrl,
+      // build acceptor → inviter + reciprocal) — personal and org contexts alike.
+      // The object is a urn:uuid snapshot embedded in the activity doc.
+      const decoded = S.decodeUnknownSync(InvitationAccepted)(activity)
+      const args: [AcceptInvitationInput] = [
+        {
+          accountId: channel.accountId,
+          webId: decoded.actor,
+          capabilityUrl: decoded.object.capabilityUrl,
+          label: decoded.object.prefLabel,
+          note: decoded.object.note,
+          activityId: activity.id,
+        },
+      ]
+      await client.workflow.start(acceptInvitation, {
+        taskQueue: 'reciprocal-registration',
+        args,
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'AgentRegistrationAdded')) {
+      const decoded = S.decodeUnknownSync(AgentRegistrationAdded)(activity)
+      const args: [ReciprocalRegistrationInput] = [
+        {
+          accountId: channel.accountId,
+          webId: decoded.actor,
+          peerId: decoded.object.registeredAgent,
+          registrationId: decoded.target,
+          activityId: activity.id,
+        },
+      ]
+      await client.workflow.start(establishReciprocal, {
+        taskQueue: 'reciprocal-registration',
+        args,
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (
+      isActivityClass(activity, 'AuthorizationRecorded') ||
+      isActivityClass(activity, 'AuthorizationRevoked')
+    ) {
+      // per-target consumer: deterministic workflowId per (webId, grantee).
+      // start-or-signal-or-restart — if a consumer is already running, signal
+      // it to wake up and drain the new activity; if it just terminated, the
+      // signal fails and we start a fresh consumer (Phase 4.1). The grantee is
+      // read from the object (parties ride the object; kind via the store):
+      // granted → the first live-link DataAuthorization; denied → the
+      // embedded structure snapshot (no DataAuthorization is created).
+      const decoded = isActivityClass(activity, 'AuthorizationRecorded')
+        ? S.decodeUnknownSync(AuthorizationRecorded)(activity as never)
+        : S.decodeUnknownSync(AuthorizationRevoked)(activity as never)
+      const authorizationGrantee = Array.isArray(decoded.object)
+        ? await this.granteeFromDataAuthorization(decoded.object[0], session)
+        : await session.typeGrantee((decoded.object as { grantee: string }).grantee)
+      if (!authorizationGrantee) return
+      const workflowId = `grantee:${channel.webId}:${authorizationGrantee.id}`
+      const args: [CreateGrantsInput] = [
+        { webId: socialAgentRef(channel.webId), authorizationGrantee },
+      ]
+      const start = (): Promise<unknown> =>
+        client.workflow.start(processGranteeActivities, {
+          taskQueue: 'create-grants',
+          args,
+          workflowId,
+        })
+      try {
+        await start()
+      } catch (err) {
+        if (!(err instanceof WorkflowExecutionAlreadyStartedError)) throw err
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await client.workflow.getHandle(workflowId).signal(granteeActivitiesSignal)
+            break
+          } catch {
+            // consumer closed between the failed start and the signal — restart it
             try {
-              await temporal.client!.workflow.getHandle(workflowId).signal(granteeActivitiesSignal)
+              await start()
               break
-            } catch {
-              // consumer closed between the failed start and the signal — restart it
-              try {
-                await start()
-                break
-              } catch (err2) {
-                if (!(err2 instanceof WorkflowExecutionAlreadyStartedError)) throw err2
-              }
+            } catch (err2) {
+              if (!(err2 instanceof WorkflowExecutionAlreadyStartedError)) throw err2
             }
           }
         }
-        return new ResponseDescription(200)
       }
+      return
+    }
 
-      if (ADMIN_ACTIVITY_TYPES.has(activity.activityType)) {
-        const admin = (activity.payload as { admin: { id: string; type: string[] } }).admin
-        const webId = { id: channel.webId, type: [INTEROP.SocialAgent] }
-        const temporal = new Temporal()
-        await temporal.init()
-        const args: [AdminChangeInput] = [
-          {
-            webId,
-            admin,
-            activityType: activity.activityType as
-              | 'adminAuthorizationRecorded'
-              | 'adminAuthorizationRevoked',
-            activityIri: requestBody.object,
-          },
-        ]
-        await temporal.client.workflow.start(processAdminChange, {
+    if (
+      isActivityClass(activity, 'AdminAuthorizationRecorded') ||
+      isActivityClass(activity, 'AdminAuthorizationRevoked')
+    ) {
+      const decoded = isActivityClass(activity, 'AdminAuthorizationRecorded')
+        ? S.decodeUnknownSync(AdminAuthorizationRecorded)(activity as never)
+        : S.decodeUnknownSync(AdminAuthorizationRevoked)(activity as never)
+      // the admin rides the object — a urn:uuid snapshot of the
+      // AdminAuthorization for both classes (the dispatch dereferences
+      // nothing: the RPC records/deletes the resource synchronously)
+      const admin = (decoded as { object: { grantee: string } }).object.grantee
+      const args: [AdminChangeInput] = [
+        {
+          webId: socialAgentRef(channel.webId),
+          admin: socialAgentRef(admin),
+          activityType: isActivityClass(activity, 'AdminAuthorizationRecorded')
+            ? 'adminAuthorizationRecorded'
+            : 'adminAuthorizationRevoked',
+          activityId: activity.id,
+        },
+      ]
+      await client.workflow.start(processAdminChange, {
+        taskQueue: 'create-grants',
+        args,
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'RoleMembershipChanged') || isActivityClass(activity, 'RoleDeleted')) {
+      const decoded = isActivityClass(activity, 'RoleMembershipChanged')
+        ? S.decodeUnknownSync(RoleMembershipChanged)(activity as never)
+        : S.decodeUnknownSync(RoleDeleted)(activity as never)
+      const args: [NonNullable<Parameters<typeof processRoleMembershipChange>[0]>] = [
+        {
+          webId: socialAgentRef(channel.webId),
+          roleId: { id: decoded.target, type: [INTEROP.Role] },
+          peers: decoded.object.map(socialAgentRef),
+          activityId: activity.id,
+        },
+      ]
+      await client.workflow.start(
+        isActivityClass(activity, 'RoleMembershipChanged')
+          ? processRoleMembershipChange
+          : processRoleDeletion,
+        {
           taskQueue: 'create-grants',
           args,
           workflowId: crypto.randomUUID(),
-        })
-        return new ResponseDescription(200)
-      }
-
-      const entries = activityWorkflows[activity.activityType]
-      if (entries) {
-        const temporal = new Temporal()
-        await temporal.init()
-        // agentRegistrationAdded/invitationAccepted need the accountId (the
-        // channel is per-account); every type gets the activity IRI to mark it
-        // done on success
-        const args =
-          activity.activityType === 'agentRegistrationAdded' ||
-          activity.activityType === 'invitationAccepted'
-            ? [
-                {
-                  accountId: channel.accountId,
-                  ...(activity.payload as object),
-                  activityIri: requestBody.object,
-                },
-              ]
-            : [{ ...(activity.payload as object), activityIri: requestBody.object }]
-        for (const entry of entries) {
-          await temporal.client.workflow.start(entry.workflow, {
-            taskQueue: entry.taskQueue,
-            args: args as [ReciprocalRegistrationInput],
-            workflowId: crypto.randomUUID(),
-          })
         }
-      }
+      )
+      return
     }
-    return new ResponseDescription(200)
+
+    if (isActivityClass(activity, 'DelegatedGrantsUpdated')) {
+      const decoded = S.decodeUnknownSync(DelegatedGrantsUpdated)(activity)
+      await client.workflow.start(updateDelegatedGrants, {
+        taskQueue: 'create-grants',
+        args: [
+          {
+            webId: socialAgentRef(channel.webId),
+            peerId: socialAgentRef(decoded.target),
+            activityId: activity.id,
+          },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'GrantsRevoked')) {
+      const decoded = S.decodeUnknownSync(GrantsRevoked)(activity)
+      const grantee = await session.typeGrantee(decoded.grantee)
+      await client.workflow.start(processGrantsRevocation, {
+        taskQueue: 'create-grants',
+        args: [
+          {
+            webId: socialAgentRef(channel.webId),
+            grantee,
+            dataOwner: decoded.dataOwner,
+            grants: decoded.object.map((id) => ({ id, type: [INTEROP.DataGrant] })),
+            activityId: activity.id,
+          },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
   }
 
   /**
    * The forwarding half shared by owner and admin channels — §3.1 of
    * org-admin-feature.md: emit `pending` for a change activity, or load the
    * completed activity via `target` and emit `done` for an `activityCompleted`
-   * (enrichment: the completion resource is minimal, the original's
-   * activityType/payload are what the UI needs). Keyed by the channel's
-   * `webId` — the org for owner channels, the admin for admin channels, so
-   * org-context events reach the admin's own event stream.
+   * (enrichment: the completion resource is minimal, the original's typed
+   * fields are what the UI needs). Keyed by the channel's `webId` — the org
+   * for owner channels, the admin for admin channels, so org-context events
+   * reach the admin's own event stream.
    */
   private async forwardActivity(
     activity: ActivityData,
     session: AuthorizationAgent,
     webId: string
   ): Promise<void> {
-    if (activity.activityType === 'activityCompleted') {
+    if (isActivityClass(activity, 'ActivityCompleted')) {
       try {
         const completed = await ActivityRegistry.loadActivity(activity.target, session.fetch)
         this.activityEvents.onActivityAdded(webId, { ...completed, status: 'done' })

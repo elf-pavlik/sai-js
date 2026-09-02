@@ -1,5 +1,5 @@
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import type { DelegatedGrantsUpdated } from '@janeirodigital/interop-data-model'
 import {
   BadRequestHttpError,
   NotFoundHttpError,
@@ -48,20 +48,29 @@ export class ReciprocalWebhookHandler extends OperationHttpHandler {
       const session = await this.sessionManager.getSession(channel.webId)
       const activityRegistry = session.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
+      // the reciprocal registration (the peer's reciprocal — informational;
+      // `target` is the peer). Tolerantly read: the registration may not
+      // exist yet on the first peer update.
+      let reciprocalRegistration = ''
+      try {
+        const registration = await session.findSocialAgentRegistration(channel.peerId)
+        reciprocalRegistration = registration?.reciprocalRegistration ?? ''
+      } catch {
+        // informational only — never fail the webhook
+      }
+      const activity: Omit<DelegatedGrantsUpdated, 'id'> = {
+        type: ['Activity', 'DelegatedGrantsUpdated'],
+        actor: channel.webId,
+        // the peer — the side whose reciprocal-registration Update triggered
+        // this webhook; informational only, not consumed by any workflow
+        target: channel.peerId,
+        object: reciprocalRegistration,
+        createdAt: new Date().toISOString(),
+      }
       await ActivityRegistry.createActivity(
         activityRegistry,
         { fetch: session.fetch, randomUUID: session.randomUUID },
-        {
-          activityType: 'delegatedGrantsUpdated',
-          // the peer — the side whose reciprocal-registration Update triggered
-          // this webhook; informational only, not consumed by any workflow
-          target: channel.peerId,
-          payload: {
-            webId: { id: channel.webId, type: [INTEROP.SocialAgent] },
-            peerId: { id: channel.peerId, type: [INTEROP.SocialAgent] },
-          },
-          createdAt: new Date().toISOString(),
-        }
+        activity
       )
     }
     return new ResponseDescription(200)

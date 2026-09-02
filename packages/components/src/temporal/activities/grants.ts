@@ -8,8 +8,12 @@ import {
 import {
   type AccessRequestMessage,
   type ActivityData,
+  type AdminAuthorizationRecorded,
+  type AdminAuthorizationRevoked,
   type AgentId,
   type AgentOrRoleId,
+  type AuthorizationRecorded,
+  type AuthorizationRevoked,
   type DataAuthorizationId,
   type FinalGrantData,
   type GeneratedGrants,
@@ -20,6 +24,8 @@ import {
   type SocialAgentId,
   dataGrantTemplate,
   getDataGrantIris,
+  isActivityClass,
+  loadDataAuthorization,
   loadGrant,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
@@ -37,7 +43,7 @@ export interface FindAffectedAuthorizationsInput {
   peerId: SocialAgentId
   roleId?: RoleId
   /** IRI of the activity that triggered this workflow — marked done on success */
-  activityIri?: string
+  activityId?: string
 }
 
 export interface CreateGrantsInput {
@@ -66,7 +72,7 @@ export interface ProcessRoleMembershipChangeInput {
   roleId: RoleId
   peers: SocialAgentId[]
   /** IRI of the activity that triggered this workflow — marked done on success */
-  activityIri?: string
+  activityId?: string
 }
 
 export interface CheckEquivalenceInput {
@@ -390,7 +396,7 @@ export interface ProcessGrantsRevocationInput {
   dataOwner: string
   grants: GrantId[]
   /** IRI of the activity that triggered this workflow — marked done on success */
-  activityIri?: string
+  activityId?: string
 }
 
 /**
@@ -483,6 +489,68 @@ export async function removeDataGrantsFromRegistration(
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Grantor-side grantee of an authorization/admin activity — read from the object
+// ---------------------------------------------------------------------------
+
+/**
+ * The grantee of an `authorizationRecorded`/`authorizationRevoked` or
+ * `adminAuthorizationRecorded`/`adminAuthorizationRevoked` activity, read
+ * from the `as:object` (parties ride the object). Authorizations: the first
+ * object DataAuthorization's `grantee`, its kind resolved in the store
+ * (`session.typeGrantee` — role vs social agent vs application). Admin
+ * authorizations: the object's `grantee` (always a social agent). Returns
+ * undefined when the activity is not an authorization/admin activity or its
+ * object is unresolvable.
+ */
+export async function resolveActivityGrantee(payload: {
+  activity: ActivityData
+}): Promise<AgentOrRoleId | undefined> {
+  const manager = buildSessionManager()
+  const actor = (payload.activity as { actor: string }).actor
+  const session = await manager.getSession(actor)
+  if (
+    isActivityClass(payload.activity, 'AuthorizationRecorded') ||
+    isActivityClass(payload.activity, 'AuthorizationRevoked')
+  ) {
+    const authorizationActivity = payload.activity as AuthorizationRecorded | AuthorizationRevoked
+    // granted → the first live-link DataAuthorization; denied → the embedded
+    // structure snapshot (a denied authorization creates no resource)
+    const grantee = Array.isArray(authorizationActivity.object)
+      ? await granteeFromObject(authorizationActivity.object[0], session)
+      : authorizationActivity.object.grantee
+    if (!grantee) return undefined
+    return session.typeGrantee(grantee)
+  }
+  if (
+    isActivityClass(payload.activity, 'AdminAuthorizationRecorded') ||
+    isActivityClass(payload.activity, 'AdminAuthorizationRevoked')
+  ) {
+    // both admin forms embed the AdminAuthorization snapshot — the RPC
+    // records/deletes the resource synchronously, so nothing is dereferenced
+    const adminActivity = payload.activity as AdminAuthorizationRecorded | AdminAuthorizationRevoked
+    return { id: adminActivity.object.grantee, type: [INTEROP.SocialAgent] }
+  }
+  return undefined
+}
+
+/** The grantee of a live-link DataAuthorization object (never the deny case).
+ * 404-tolerant: the DA may already be gone (a later deny deleted the grantee's
+ * authorizations) — a lost object must skip the activity, never fail the sweep. */
+async function granteeFromObject(
+  id: string | undefined,
+  session: AuthorizationAgent
+): Promise<string | undefined> {
+  if (!id) return undefined
+  try {
+    const authorization = await loadDataAuthorization(id, session.fetch)
+    return authorization.grantee
+  } catch {
+    return undefined
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-target consumer (Phase 4.1): drain + coalesce authorization activities
 // ---------------------------------------------------------------------------
 
@@ -493,7 +561,8 @@ export interface GetPendingGranteeActivitiesInput {
 
 /**
  * The pending authorizationRecorded/authorizationRevoked activities targeting
- * the given grantee in the activity registry (not yet completed).
+ * the given grantee in the activity registry (not yet completed). The grantee
+ * is read from each activity's `as:object` (parties ride the object).
  */
 export async function getPendingGranteeActivities(
   payload: GetPendingGranteeActivitiesInput
@@ -503,26 +572,35 @@ export async function getPendingGranteeActivities(
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
   const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
-  // one pass: partition completions into a completed-set, keep typed work items
+  // pass 1 — partition completions into a completed-set, keep the work items
+  // (NO grantee resolution yet: completed activities may reference deleted
+  // DataAuthorizations — e.g. a later deny removed them — and must never be
+  // dereferenced)
   const workItems: ActivityData[] = []
   const completed = new Set<string>()
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
-    if (activity.activityType === 'activityCompleted') {
+    if (isActivityClass(activity, 'ActivityCompleted')) {
       completed.add(activity.target)
       continue
     }
     if (
-      activity.activityType !== 'authorizationRecorded' &&
-      activity.activityType !== 'authorizationRevoked'
+      !isActivityClass(activity, 'AuthorizationRecorded') &&
+      !isActivityClass(activity, 'AuthorizationRevoked')
     )
       continue
-    const grantee = (activity.payload as { authorizationGrantee?: { id: string } } | undefined)
-      ?.authorizationGrantee
-    if (!grantee || grantee.id !== payload.authorizationGrantee.id) continue
     workItems.push(activity)
   }
-  return workItems.filter((activity) => !completed.has(activity.id))
+  // pass 2 — the grantee is read from each PENDING activity's `as:object`
+  // (parties ride the object); activities already completed are skipped
+  const pending: ActivityData[] = []
+  for (const activity of workItems) {
+    if (completed.has(activity.id)) continue
+    const grantee = await resolveActivityGrantee({ activity })
+    if (!grantee || grantee.id !== payload.authorizationGrantee.id) continue
+    pending.push(activity)
+  }
+  return pending
 }
 
 export interface GetPendingActivitiesInput {
@@ -546,7 +624,7 @@ export async function getPendingActivities(
   const completed = new Set<string>()
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
-    if (activity.activityType === 'activityCompleted') {
+    if (isActivityClass(activity, 'ActivityCompleted')) {
       completed.add(activity.target)
     } else {
       workItems.push(activity)
@@ -557,7 +635,8 @@ export async function getPendingActivities(
 
 export interface MarkActivitiesDoneInput {
   webId: SocialAgentId
-  activities: ActivityData[]
+  /** the activities to complete — only their ids are read */
+  activities: { id: string }[]
 }
 
 /** Mark the given activities done (one minimal completion activity each). */

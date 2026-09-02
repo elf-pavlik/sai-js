@@ -1,12 +1,14 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry, AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
+  type InvitationAccepted,
   type SocialAgentRegistrationData,
   getAdminGrantIris,
   getDataGrantIris,
   loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
-import { IRI, InvitationAccepted, SocialAgent } from '@janeirodigital/sai-api-messages'
+import { INTEROP } from '@janeirodigital/interop-utils'
+import { IRI, InvitationAcceptedMessage, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
@@ -193,23 +195,29 @@ export const addSocialAgent = async (
 export async function acceptInvitation(
   ctx: ResolvedContext,
   invitation: { capabilityUrl: string; label: string; note?: string }
-): Promise<S.Schema.Type<typeof InvitationAccepted>> {
+): Promise<S.Schema.Type<typeof InvitationAcceptedMessage>> {
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // urn:uuid snapshot — the acceptor has no owning container to mint an
+  // invitation id in; the full invitation projection embeds inline (the
+  // singly-fetched activity doc already contains the node, never dereferenced)
+  const activity: Omit<InvitationAccepted, 'id'> = {
+    type: ['Activity', 'InvitationAccepted', 'as:Accept'],
+    actor: ctx.webId,
+    target: ctx.registrySet.id,
+    object: {
+      id: `urn:uuid:${ctx.session.randomUUID()}`,
+      type: [INTEROP.SocialAgentInvitation],
+      capabilityUrl: invitation.capabilityUrl,
+      prefLabel: invitation.label,
+      note: invitation.note,
+    },
+    createdAt: new Date().toISOString(),
+  }
   await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    {
-      activityType: 'invitationAccepted',
-      target: ctx.registrySet.id,
-      payload: {
-        webId: ctx.webId,
-        capabilityUrl: invitation.capabilityUrl,
-        label: invitation.label,
-        note: invitation.note,
-      },
-      createdAt: new Date().toISOString(),
-    }
+    activity
   )
-  return InvitationAccepted.make({ accepted: true })
+  return InvitationAcceptedMessage.make({ accepted: true })
 }

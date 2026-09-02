@@ -1,8 +1,11 @@
 import type {
-  ActivityData,
   AgentId,
+  ActivityData,
   FinalGrantData,
   GrantId,
+  GrantsRevoked,
+  RoleDeleted,
+  RoleMembershipChanged,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/common'
@@ -19,8 +22,16 @@ import type { AdminWorkflowInput } from './admin.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
 // beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
-// built-ins). The value must match what producers put in `RoleId.type`.
+// built-ins). The values must match what producers put in the refs they build.
 const ROLE_TYPE = 'http://www.w3.org/ns/solid/interop#Role'
+const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
+const DATA_GRANT_TYPE = 'http://www.w3.org/ns/solid/interop#DataGrant'
+
+/** Sandbox-safe discriminant check (the data-model `isActivityClass` helper
+ * is a runtime import — not allowed here; the tuples are read as string[]). */
+function isActivityClass(activity: ActivityData, cls: string): boolean {
+  return (activity.type as readonly string[]).includes(cls)
+}
 
 const {
   findAffectedGrantees,
@@ -40,6 +51,7 @@ const {
   replaceDataGrantsOnRegistration,
   getPendingGranteeActivities,
   getPendingActivities,
+  resolveActivityGrantee,
   markActivitiesDone,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
@@ -167,10 +179,10 @@ export async function updateDelegatedGrants(
       })
     )
   )
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: payload.webId,
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }
@@ -196,10 +208,10 @@ export async function processGrantsRevocation(
     grantee: payload.grantee,
     grants: payload.grants,
   })
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: payload.webId,
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }
@@ -240,10 +252,10 @@ export async function processRoleMembershipChange(
       })
     )
   )
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: payload.webId,
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }
@@ -291,10 +303,10 @@ export async function processRoleDeletion(
       })
     )
   )
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: payload.webId,
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }
@@ -320,41 +332,58 @@ export async function reconcileActivities(payload: {
   const roleActivities: ActivityData[] = []
   for (const activity of pending) {
     if (
-      activity.activityType === 'authorizationRecorded' ||
-      activity.activityType === 'authorizationRevoked'
+      isActivityClass(activity, 'AuthorizationRecorded') ||
+      isActivityClass(activity, 'AuthorizationRevoked')
     ) {
-      const granteeId = (activity.payload as { authorizationGrantee?: { id: string } })
-        ?.authorizationGrantee?.id
-      if (!granteeId) continue
-      const group = granteeGroups.get(granteeId) ?? []
+      // parties ride the object — the grantee is resolved from the object's
+      // DataAuthorization (kind via the store)
+      const grantee = await resolveActivityGrantee({ activity })
+      if (!grantee) continue
+      const group = granteeGroups.get(grantee.id) ?? []
       group.push(activity)
-      granteeGroups.set(granteeId, group)
+      granteeGroups.set(grantee.id, group)
     } else if (
-      activity.activityType === 'roleMembershipChanged' ||
-      activity.activityType === 'roleDeleted'
+      isActivityClass(activity, 'RoleMembershipChanged') ||
+      isActivityClass(activity, 'RoleDeleted')
     ) {
       roleActivities.push(activity)
-    } else if (activity.activityType === 'delegatedGrantsUpdated') {
+    } else if (isActivityClass(activity, 'DelegatedGrantsUpdated')) {
       await executeChild(updateDelegatedGrants, {
-        args: [activity.payload as activities.FindAffectedAuthorizationsInput],
+        args: [
+          {
+            webId: payload.webId,
+            peerId: { id: activity.target, type: [SOCIAL_AGENT_TYPE] },
+            activityId: activity.id,
+          },
+        ],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
-    } else if (activity.activityType === 'grantsRevoked') {
+    } else if (isActivityClass(activity, 'GrantsRevoked')) {
+      const grantsRevoked = activity as GrantsRevoked
       await executeChild(processGrantsRevocation, {
-        args: [activity.payload as activities.ProcessGrantsRevocationInput],
+        args: [
+          {
+            webId: payload.webId,
+            grantee: { id: grantsRevoked.grantee, type: [SOCIAL_AGENT_TYPE] },
+            dataOwner: grantsRevoked.dataOwner,
+            grants: grantsRevoked.object.map((id) => ({ id, type: [DATA_GRANT_TYPE] })),
+            activityId: activity.id,
+          },
+        ],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (
-      activity.activityType === 'adminAuthorizationRecorded' ||
-      activity.activityType === 'adminAuthorizationRevoked'
+      isActivityClass(activity, 'AdminAuthorizationRecorded') ||
+      isActivityClass(activity, 'AdminAuthorizationRevoked')
     ) {
       // admin activities — same routing as the webhook handler (grants + ACR
       // rewrite, then complete the activity once BOTH succeeded; the children
       // no longer mark done themselves — see processAdminChange)
-      const admin = (activity.payload as { admin: { id: string; type: string[] } }).admin
-      const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityIri: activity.id }]
+      const admin = await resolveActivityGrantee({ activity })
+      if (!admin) continue
+      const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityId: activity.id }]
       await executeChild(
-        activity.activityType === 'adminAuthorizationRecorded'
+        isActivityClass(activity, 'AdminAuthorizationRecorded')
           ? createAdminGrants
           : revokeAdminGrants,
         { args }
@@ -364,9 +393,8 @@ export async function reconcileActivities(payload: {
     }
   }
   for (const [granteeId, group] of granteeGroups) {
-    const authorizationGrantee = (
-      group[0].payload as { authorizationGrantee: { id: string; type: string[] } }
-    ).authorizationGrantee
+    const authorizationGrantee = await resolveActivityGrantee({ activity: group[0] })
+    if (!authorizationGrantee) continue
     try {
       await executeChild(processGranteeActivities, {
         workflowId: `grantee:${payload.webId.id}:${granteeId}`,
@@ -378,14 +406,19 @@ export async function reconcileActivities(payload: {
     }
   }
   for (const activity of roleActivities) {
-    if (activity.activityType === 'roleMembershipChanged') {
-      await executeChild(processRoleMembershipChange, {
-        args: [activity.payload as activities.ProcessRoleMembershipChangeInput],
-      })
+    const roleActivity = activity as RoleMembershipChanged | RoleDeleted
+    const args: [activities.ProcessRoleMembershipChangeInput] = [
+      {
+        webId: payload.webId,
+        roleId: { id: roleActivity.target, type: [ROLE_TYPE] },
+        peers: roleActivity.object.map((id) => ({ id, type: [SOCIAL_AGENT_TYPE] })),
+        activityId: activity.id,
+      },
+    ]
+    if (isActivityClass(activity, 'RoleMembershipChanged')) {
+      await executeChild(processRoleMembershipChange, { args })
     } else {
-      await executeChild(processRoleDeletion, {
-        args: [activity.payload as activities.ProcessRoleMembershipChangeInput],
-      })
+      await executeChild(processRoleDeletion, { args })
     }
     await markActivitiesDone({ webId: payload.webId, activities: [activity] })
   }

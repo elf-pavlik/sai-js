@@ -41,16 +41,15 @@ The `AddAdmin` / `RemoveAdmin` RPC records the change and writes a **domain
 activity** to the org's Activity Registry; `ActivityWebhookHandler` routes it to
 **parallel workflows** that materialize the side effects (grants + ACR
 matchers). Shape (decided — `RemoveAdmin` has its own distinct activity, no
-`granted`-flag reuse):
+`granted`-flag reuse). Activities are **typed classes** since the
+payload-contract flip (`webId` → `actor`, parties ride the `as:object`):
 
 ```
-activityType: adminAuthorizationRecorded     (`AddAdmin`)
-            / adminAuthorizationRevoked      (`RemoveAdmin`)
-target:      the org's AuthorizationRegistry (or RegistrySet)
-payload:     {
-               webId:   { id: <org webId>, type: [interop:SocialAgent] },  // event owner
-               admin:   { id: <admin webId>, type: [interop:SocialAgent] }
-             }
+type:   ['Activity', 'AdminAuthorizationRecorded']          (`AddAdmin`)
+      / ['Activity', 'AdminAuthorizationRevoked']           (`RemoveAdmin`)
+as:actor:  the org webId (the registry owner)
+as:target: the org's AuthorizationRegistry
+as:object: <AdminAuthorization IRI>    // the admin's grantee is read from it
 ```
 
 Add vs. remove is distinguished by the `activityType` itself (mirroring the

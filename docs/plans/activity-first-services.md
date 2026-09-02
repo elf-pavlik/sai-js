@@ -1,6 +1,8 @@
 # Activity-first services — move mutation processing from `services/` to `temporal/`
 
-> **Status:** design (analysis approved; no code changes yet). Extends the
+> **Status: Foundation (the payload-contract prerequisite flip) EXECUTED — `/test`
+> 150/150 green. Steps 0–11 not started; step 0 (UI activity tracking +
+> indicator) is next.** Extends the
 > established "RPC records a domain activity → `ActivityWebhookHandler`
 > dispatches a workflow that materializes the state" model (`events.md`,
 > `workflow-temporal-decupling.md`, `org-admin-feature.md`,
@@ -26,7 +28,7 @@
 
 | Leg (view) | Producer | Where the state change happens |
 |---|---|---|
-| **send** (`invitation`, `admin-invitation-send`) | `createInvitation` RPC | **currently** a synchronous PUT in the RPC. **Step 1 changes this** to activity-first (`invitationCreated` + workflow) — the send leg is the best-documented in `docs/temporal.c4`, so it is the first move (§7). The capabilityUrl is derivable by the RPC (`invitationUrl(ctx.webId)`), so it can be returned as a pending ack without the write |
+| **send** (`invitation`, `admin-invitation-send`) | `createInvitation` RPC | **currently** a synchronous PUT in the RPC. **Step 1 changes this** to activity-first (`invitationCreated` + workflow) — the send leg is the best-documented in `docs/temporal.c4`, so it is the first move (§7). The RPC mints the invitation id via `iriForContained` and writes the activity; the **workflow generates the capabilityUrl** when it PUTs the invitation — so the capabilityUrl is unknowable before the invitation exists (no pre-PUT accept window) |
 | **accept** (`invitation`, `admin-invitation-send`, `admin-invitation-receive`) | `acceptInvitation` RPC | **activity only**: PUT `invitationAccepted` into the acceptor's Activity Registry (own or org), payload = ready-made workflow input, returns `{ accepted: true }` pending ack; the acceptor's **own** workflow (`getSession(webId)` — personal *or* org like `yoyo`) POSTs the opaque capabilityUrl, builds acceptor→inviter + reciprocal, only then `markActivitiesDone` |
 | **inviter side** (`invitation`, `admin-invitation-receive`) | `InvitationHandler` | writes `agentRegistrationAdded` **activity** → `establishReciprocal` workflow |
 
@@ -129,7 +131,7 @@ dormant until phase 4b).
 | 4d | `revokeGrants` (`Revocation.ts`) | ✅ move | owner-UI revocation into a workflow running `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + `removeGrantsFromRegistration` for the grantor's projection; introduce the missing `grantsRevoked` **producer** | `{webId, dataOwner, grants, grantee?}` | `processGrantsRevocation` today is the *grantor-side requester hop* (POST AccessRevocation to the data owner) — decide reuse vs a local-revoke orchestrator |
 | 4e | `addAdmin` / `removeAdmin` (`Admin.ts`) | ⚠️ optional | extend `createAdminGrants`/`revokeAdminGrants` to also record/delete the `AdminAuthorization`, so the RPC becomes activity-only | unchanged `{webId, admin}` | **re-decide R1**: async loses RPC-time error semantics (already-admin/non-admin; RPC last-admin guard). Middle ground: keep RPC-time *validation reads* (duplicate check, last-admin count) and move only the write; `syncAdminAcr` already enforces the guard at workflow time |
 | 4f | `createRole` (`RoleRegistry.ts`) | ➖ keep | — | — | no derived work; existing "no workflow" decision |
-| 4g | `createInvitation` (`InvitationRegistry.ts`) | ✅ **move — step 1** (best-documented in `docs/temporal.c4`) | RPC generates the id/capabilityUrl deterministically (`invitationUrl(ctx.webId)`) and writes `invitationCreated`; a `createInvitation` workflow PUTs the invitation resource with the context session, then completes | `{webId, invitationId, label, note}` — capabilityUrl derivable, returned by the RPC as the pending ack | the accept side tolerates the pre-PUT window via the existing capabilityUrl-POST retry policy (5s ×2 ×10); `InvitationHandler` unchanged; **the c4 send legs change** (updated in this step) |
+| 4g | `createInvitation` (`InvitationRegistry.ts`) | ✅ **move — step 1** (best-documented in `docs/temporal.c4`) | RPC mints the invitation id (`iriForContained` on the invitation registry) and writes `invitationCreated` (actor + label + note + `as:object` = the minted id — **no capabilityUrl**); a `createInvitation` workflow PUTs the invitation resource at the minted id with the context session, generates the capabilityUrl there, then completes | `{actor, label, note, invitationId (as:object)}` — capabilityUrl is generated in the workflow, never in the RPC/activity | **latest (payload-contract-alignment/object-embedding):** the capabilityUrl is unknowable before the workflow PUTs (the UI can't leak it early; no pre-PUT accept window); `InvitationHandler` unchanged; the c4 send legs change (updated in this step) |
 | 4h | `addSocialAgent` (`SocialAgentRegistry.ts`) | ⚠️ optional — **no RPC consumer today** (grep-verified: not wired in `ApiHandler.ts`, `effect.ts`, or the UI) | if ever wired: registration PUT into a workflow; **decide whether it also establishes the reciprocal** (manual add ≠ invited add today) | `{webId, agent webId, label, note}` | new `socialAgentAdded` activity type + reconcile branch + UI wiring if moved; **otherwise housekeeping — not a user-facing step** (§7, §9) |
 | 4i | `requestAccessUsingApplicationNeeds` (`ShareResource.ts`) | ➖ keep | — | — | single PATCH; activity+workflow overhead not justified |
 
@@ -220,14 +222,14 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 | Step | Service function (RPC) | Scope | §4 rows |
 |---|---|---|---|
 | **0. UI activity tracking + indicator** | infra — no RPC move | `ui/authorization/src/store/` (+ `events.ts`): track **accepted activities** — record `pending` → `done` per activity IRI and expose them to the views; a small indicator (applying… spinner → done check) beside the triggering control / list row. **Verified with `acceptInvitation`** (already activity-first, the most understood lifecycle): fire an accept → indicator pending → done → list refresh. **Reused in every step below** for the RPC-call ↔ activity start/complete pair. Requires the prerequisite payload-contract plan (done first — its step 3 simplifies `events.ts registryOwner` to `payload.actor`, plain IRI) | — |
-| **1. `createInvitation`** | `CreateInvitation` | **first move** — best-documented leg in `docs/temporal.c4`. RPC: generate id/capabilityUrl deterministically, write `invitationCreated`, return pending ack; workflow (`createInvitation`): PUT the invitation with the context session → complete. Update the `invitation` + `admin-invitation-send` **send legs** in c4; `/test` invitation suites become wait-for; UI: indicator + list refresh on done | 4g |
-| **2. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | full `Authorization` structure rides in the payload; workflow records via `recordAuthorizationFromStructure` as `getSession(ctx.webId)` → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile | 4a |
-| **3. `shareResource`** | `ShareResource` | `ShareDataInstanceStructure` + applicationId in the payload; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
-| **4. `updateRole`** | `UpdateRole` | payload `{webId, roleId, label?, members?}`; workflow loads the role → PATCH → computes the diff → regenerates grants → completes; `role-membership-change` c4 view + UI | 4c |
-| **5. `deleteRole`** | `DeleteRole` | workflow loads the role **first** (members must be captured before deletion), DELETEs, regenerates, completes; same c4 view + UI | 4c |
-| **6. `revokeGrants`** | `RevokeGrants` | introduce the missing `grantsRevoked` **producer**; local-revoke workflow runs `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + clears the grantor's projection; `authorization`/`revoke` UI + c4 | 4d |
-| **7. `addAdmin`** | `AddAdmin` | re-decide R1 (§9): move the `AdminAuthorization` write into the workflow (activity-only RPC) or keep RPC-time validation reads + write; `org-admin-add` c4 + toggle-admin UI | 4e |
-| **8. `removeAdmin`** | `RemoveAdmin` | same re-decision, distinct `adminAuthorizationRevoked`; the last-admin guard rides the workflow (`syncAdminAcr`); `org-admin-add` (remove) c4 + toggle-admin UI | 4e |
+| **1. `createInvitation`** | `CreateInvitation` | **first move** — best-documented leg in `docs/temporal.c4`. RPC: mint the invitation id (`iriForContained`), write `invitationCreated` (actor + label + note + `as:object` = the minted id — **no capabilityUrl**), return pending ack; workflow (`createInvitation`): PUT the invitation at the minted id with the context session, **generate the capabilityUrl there**, then complete. Update the `invitation` + `admin-invitation-send` **send legs** in c4; `/test` invitation suites become wait-for; UI: indicator + list refresh on done | 4g |
+| **2. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | RPC pre-mints the DataAuthorization id(s) (`iriForContained`); the activity's `as:object` = the minted id(s); workflow records the authorizations at those ids (`recordAuthorizationFromStructure` as `getSession(ctx.webId)`) → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile (per-grantee consumer reads `grantee` from the object — decision 1) | 4a |
+| **3. `shareResource`** | `ShareResource` | `ShareDataInstanceStructure` + applicationId ride as the flat structure fields (structure-based — followup); the authorization(s) record via a pre-minted `as:object` id; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
+| **4. `updateRole`** | `UpdateRole` | the role is the `as:object` (live link, `target` ≡ role); the **intended label/members ride in the activity** (candidate: the `object` is an urn snapshot carrying the new `members`/`prefLabel` — pin the carrier in step 4; the role's current state is read at workflow time); workflow loads the role → PATCH → derives the affected diff → regenerates → completes; `role-membership-change` c4 view + UI | 4c |
+| **5. `deleteRole`** | `DeleteRole` | `as:object` = the role (alive at write — the workflow deletes); workflow loads the role **first** (members must be captured before deletion), DELETEs, derives the diff, regenerates, completes; same c4 view + UI | 4c |
+| **6. `revokeGrants`** | `RevokeGrants` | introduce the missing `grantsRevoked` **producer**: activity = `actor`, flat `grantee`/`dataOwner` (existing terms) + `as:object` = the revoked grant IRIs (set); local-revoke workflow runs `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + clears the grantor's projection; `authorization`/`revoke` UI + c4 | 4d |
+| **7. `addAdmin`** | `AddAdmin` | activity = `actor`, `target` (AuthorizationRegistry), `as:object` = the AdminAuthorization (pre-minted — the workflow PUTs it); re-decide R1 (§9): RPC-time validation reads (already-admin) + activity-only write; `org-admin-add` c4 + toggle-admin UI | 4e |
+| **8. `removeAdmin`** | `RemoveAdmin` | same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the existing AdminAuthorization id — the workflow DELETEs); the last-admin guard rides the workflow (`syncAdminAcr`); `org-admin-add` (remove) c4 + toggle-admin UI | 4e |
 | **9. `createRole` — keep, verify** | `CreateRole` | **stays synchronous** (no derived work — "no authorizations can exist before role is created"); step = regression coverage in `/test`, no c4/UI change beyond the indicator; re-entry criterion: a workflow becomes necessary if credentials, durability, or uniform UI require it | 4f |
 | **10. `requestAccessUsingApplicationNeeds` — keep, verify** | `RequestAccess` | **stays synchronous** (single PATCH); verify-only step | 4i |
 | — (housekeeping) | `addSocialAgent` | **no RPC consumer** (grep-verified) — not a user-facing step; decide later whether to wire it (and with what reciprocal semantics) or drop it (§9) | 4h |
@@ -242,6 +244,143 @@ shares first, then roles and revocation, then the admin pair that re-decides
 R1), **each targeting exactly one service function** so each lands green
 independently; steps 9–10 are explicit verify-only keepers; step 11 closes
 the docs.
+
+### Foundation — the contract flip (first, before step 1; verifies green alone)
+
+> **✅ EXECUTED — the amended contract is landed and green (`/test` 150/150).**
+> This section is historical; the executed wire + the execution-time decisions
+> are recorded in `payload-contract-alignment.md` **Execution notes** (the
+> `as:object` carriers per class, `type`-order canonicalization, snapshot
+> `type` normalization, `typeGrantee` publication, 404-tolerant grantee
+> resolution). Steps below now build on that committed state — step 0 picks up
+> the UI half only.
+
+The committed base (`payload contract alignment`, step-1/2 of
+`payload-contract-alignment.md`) is **pre-flip**: producers still write the
+legacy `{ activityType, payload }` wire and `LegacyActivityData` is exported.
+Land the **amended** contract first (the amendments + the inventory in
+`payload-contract-alignment.md` are authoritative over its step-1–3
+sketches):
+
+1. **Wire (data-model / authorization-agent):** `ActivityRegistry.createActivity`
+   writes the typed class tuple (`type: ['Activity','<Class>', <as:*…>]`),
+   flat fields + the `as:object` forms — **no `activityType`, no `payload`**
+   (`JSON.stringify` retired); `loadActivity` frames the **single fetched
+   document** → `ActivityData` (refs back as plain IRIs); `createCompletion`
+   emits `ActivityCompleted` with `target: completedId`; `getCompletedActivityIris`
+   reads the `type` discriminant; retire `LegacyActivityData` (consumers switch
+   to `ActivityData`).
+2. **Vocab/context:** add ASV terms to the `ACTIVITYSTREAMS` vocabulary:
+   `as:target` (for `target`), `as:object`, `as:Accept`, `as:Create`, `as:Add`
+   (class terms + `as:actor` are already in the base). **No new interop field
+   predicates** — parties ride the object (amended decision).
+3. **Read path — object embed:** pinned single-doc
+   (`fetchJsonLd` + `frameDoc`); the `object` frame entry uses
+   **per-field `@embed: '@always'`** where a consumer reads the fields
+   (snapshot nodes embed from the same doc — no cross-graph read;
+   live-link objects embed by GRAPH-union only where needed —
+   `payload-contract-alignment.md` §5 exempts `as:object`); the default
+   `@embed: '@never'` yields `object: { id }` (UI/events path — it reads
+   nothing from the object).
+4. **api-messages:** object-projection Schemas (`object` typed via the
+   data-model POJO projections — pulls the step-4 derivation in), relaxed
+   `type` tuples incl. the ASV type; `InvitationAcceptedMessage` is already
+   in the base.
+5. **Handler:** dispatch on `activity.type.includes('<Class>')`, decode
+   `S.decodeUnknownSync(<class Schema>)`, build the workflow input from the
+   `object` fields (`XId` wraps stay temporal-side); `activityIri` …
+   `activityId` naming.
+6. **Renames (compiler-checked):** `activityIri` → `activityId`,
+   `webId` → `actor`, `iri` → `id` (the `queries/org.ts` surface — sparql
+   query params, `peerFetch`/`peerProxy` `targetId`, `getResource(ctx, id)`).
+7. **UI:** `ui/authorization/src/store/app.ts` must use
+   `InvitationAcceptedMessage` for the accept ack (the base does not
+   typecheck otherwise — already fixed); `events.ts` done-rows dispatch on
+   `type` and read the flat/object fields; the capabilityUrl is **learned
+   from the invitation resource after completion** (the `InvitationCreated`
+   done-row triggers `listSocialAgentInvitations` — never from an RPC or
+   activity).
+8. **Tests/docs:** `/test` invitation + org-context suites and the
+   `temporal.c4` examples to the new wire.
+
+### Contract snapshot (agreed, authoritative)
+
+- **Wire fields:** `as:actor` (owner), `as:target` (changed record/container,
+  or — for `ActivityCompleted` — the completed activity IRI; on role classes
+  `target` ≡ the role IRI), `as:object` in one of two forms, `as:*` activity
+  types beside the interop class. `createdAt` stays `interop:createdAt`;
+  `GrantsRevoked` keeps flat `grantee`/`dataOwner` (existing terms).
+- **`as:object` forms** (per class — see the amended inventory in
+  `payload-contract-alignment.md`):
+  - **live link** — id fixed at write (resource exists, or the producer
+    pre-mints it via `iriForContained` and the workflow materializes it):
+    wire = single `as:object <iri>` triple;
+  - **snapshot** — id unknown at write (`InvitationAccepted`): the producer
+    mints a `urn:uuid` node and embeds the full data-model POJO projection
+    (id = `urn:uuid:…`, `type` incl. the class IRI, …fields). A snapshot is
+    NEVER named by the real resource's IRI (foreign-type-claim rule) and its
+    `urn:uuid` is never dereferenced.
+- **Parties ride the object:** `admin`/`authorizationGrantee`/`peerId` are
+  not flat fields — consumers read them from the object (`grantee`,
+  `registeredAgent` inside the embedded/linked POJO); `roleId` ≡ `target`;
+  `peers` and the grantee kind are derived by the workflow/consumer.
+- **capabilityUrl lives in the workflow** (step 1): the activity carries no
+  capabilityUrl — it is generated when the workflow PUTs the invitation (the
+  RPC returns a pending ack echoing label/note + the minted id). No pre-PUT
+  accept window exists (the capabilityUrl is unknowable early); the accept
+  side's retry policy is therefore not needed for that window.
+- **Producer/workflow split (mint-in-service):** the service (admin's AA)
+  does registrySet discovery + id minting (`iriForContained`) + the activity
+  write; the workflow does the actual resource PUT/DELETE at the minted/
+  existing id (`If-None-Match: *`) + follow-ups + the single completion.
+  Exceptions: `InvitationAccepted` (no owning container on the acceptor side
+  → snapshot); RPC responses whose resource no longer exists synchronously
+  become **pending handles** (minted id + derived fields); guards stay
+  read-side in the RPC and are re-checked in the workflow (last-admin via
+  `syncAdminAcr`).
+- **Not adopted:** `as:result`; structure-based classes
+  (`AuthorizationRequested`/`ShareRequested`) stay flat — followup in
+  `payload-contract-alignment.md` §5.
+
+### Per-step contract checklist (every activity-first step does ALL of these)
+
+For each class a step adds:
+
+- [ ] **data-model** — `INTEROP` class term + `dataModelContext` entry; the
+  interface in `packages/data-model/src/activities.ts` per the amended
+  inventory (the class's `as:object` form) + `ActivityData` union member.
+- [ ] **api-messages** — Schema projection (object forms; `type` tuple =
+  `['Activity','<Class>', '<as:*>']`); RPC `Message`/`Procedure` suffix on
+  name collisions (`InvitationAccepted` → `InvitationAcceptedMessage`
+  precedent).
+- [ ] **Producer (mint-in-service)** — registrySet discovery + pre-mint the
+  resource id (`iriForContained`) where the workflow creates the resource;
+  write the activity (flip form — no capabilityUrl for `InvitationCreated`);
+  RPC response = pending ack/echo per the decided contract; guard reads stay,
+  workflows re-guard.
+- [ ] **Handler** — dispatch branch + schema decode + input built from the
+  `object` fields; `accountId` pass-through only for webhook/push types
+  (`agentRegistrationAdded`, `invitationAccepted`).
+- [ ] **Workflow** — PUT/DELETE at the minted/existing id; derive the
+  diff/peers/grantee-kind in the workflow from the object; generate
+  `capabilityUrl` where applicable; single completion after all branches
+  succeed (the `processAdminChange` pattern — children never mark done);
+  register in the worker bundle (`workers/main.ts`).
+- [ ] **Reconcile** — a `reconcileActivities` branch for the class (missed
+  deliveries stay pending forever otherwise).
+- [ ] **UI** — `events.ts` done-row refresh + store/view refresh + the
+  step-0 indicator.
+- [ ] **Docs** — `events.md` + `peer.md` rows; the c4 view(s) for the leg.
+- [ ] **Tests** — `/test` wait-for suite (RPC → pending → `waitFor` end-state
+  → completion in the Activity Registry); vitest for the workflow/activity
+  (the `grants.test.ts` mock pattern); reconciliation missed-delivery check.
+- [ ] **Seeds** — kv.json owner + admin channels for any new org exercising
+  the flow (yoyo owner + dan's yoyo-admin channel are pre-seeded).
+
+**Verification per step (AGENTS.md):** agent runs packages vitest + the
+monorepo build (`turbo`); `/test` suites are user-run (dagger). Both must be
+green per step; `temporal.c4` edits validate with `likec4 validate`;
+`ui/authorization` typechecks with `vue-tsc --noEmit`.
 
 ## 8. Testing
 
@@ -280,14 +419,18 @@ the docs.
    payload-contract wire flip (`webId` → `actor`, typed classes, plain-IRI
    links). Open
    sub-decisions: exact activity class shape (default `InvitationCreated` in
-   `data-model`: `{ actor: string, invitation: string, label: string,
-   note?: string }` — wire-truth plain IRIs; refs (`SocialAgentId`,
-   `SocialAgentInvitationId`) appear only in temporal inputs/builders;
-   the capabilityUrl is derivable
-   from the invitation id), RPC response (`InvitationCreatedMessage` pending
-   ack carrying the capabilityUrl), task queue (`create-grants` vs
-   `reciprocal-registration`), and how the accept side's retry policy covers
-   the pre-PUT window in tests.
+   `data-model`: `{ actor: string, label: string, note?: string, object:
+   <minted invitation id> }` + `as:Create` — wire-truth plain IRIs; refs
+   (`SocialAgentId`, `SocialAgentInvitationId`) appear only in temporal
+   inputs/builders; the invitation id is pre-minted by the RPC via
+   `iriForContained` and carried as `as:object`), RPC
+   response (`InvitationCreatedMessage` pending ack **without** the
+   capabilityUrl — it echoes label/note + the minted id; the capabilityUrl is
+   generated in the workflow and learned via the invitation resource on
+   completion), task queue (`create-grants` vs
+   `reciprocal-registration`). The pre-PUT accept window is **moot**: the
+   capabilityUrl is unknowable before the workflow creates the invitation, so
+   the accept side can never race it.
 7. **RPC response-shape contract**: pending ack vs echo, per moved method
    (constraint 1).
 8. **RPC-message ↔ POJO duplication (near-identical pairs)** — decided in

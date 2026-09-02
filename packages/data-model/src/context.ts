@@ -1,4 +1,5 @@
 import {
+  AS,
   INTEROP,
   type JsonLdContext,
   LDP,
@@ -82,11 +83,34 @@ export const dataModelContext: JsonLdContext = {
   hasActivityRegistry: iriTermDef(INTEROP, 'hasActivityRegistry'),
   callbackEndpoint: iriTermDef(INTEROP, 'hasAuthorizationCallbackEndpoint'),
 
-  // activity registry (outbox) — literals stay plain (no @id coercion)
-  activityType: { '@id': INTEROP.activityType },
-  target: iriTermDef(INTEROP, 'target'),
-  payload: { '@id': INTEROP.payload },
+  // activity registry (outbox) — payload-contract-alignment wire: typed
+  // classes + as:target/as:object links, plain-IRI/literal fields. The
+  // `as:` prefix resolves the ASV activity types in the `type` tuple
+  // (`as:Accept`, `as:Create`, `as:Add`) to compact IRIs on read; the
+  // retired `interop:activityType` / `interop:payload` terms are gone.
+  as: 'https://www.w3.org/ns/activitystreams#',
+  actor: iriTermDef(AS, 'actor'),
+  target: iriTermDef(AS, 'target'),
+  object: iriTermDef(AS, 'object'),
   createdAt: { '@id': INTEROP.createdAt },
+
+  // activity classes — rdf:type values compact to these bare terms so the
+  // typed ActivityData unions frame as `type: ['Activity', '<Class>', <as:*>]`.
+  Activity: { '@id': INTEROP.Activity },
+  InvitationAccepted: { '@id': INTEROP.InvitationAccepted },
+  InvitationCreated: { '@id': INTEROP.InvitationCreated },
+  AgentRegistrationAdded: { '@id': INTEROP.AgentRegistrationAdded },
+  AdminAuthorizationRecorded: { '@id': INTEROP.AdminAuthorizationRecorded },
+  AdminAuthorizationRevoked: { '@id': INTEROP.AdminAuthorizationRevoked },
+  AuthorizationRecorded: { '@id': INTEROP.AuthorizationRecorded },
+  AuthorizationRevoked: { '@id': INTEROP.AuthorizationRevoked },
+  RoleMembershipChanged: { '@id': INTEROP.RoleMembershipChanged },
+  RoleDeleted: { '@id': INTEROP.RoleDeleted },
+  DelegatedGrantsUpdated: { '@id': INTEROP.DelegatedGrantsUpdated },
+  GrantsRevoked: { '@id': INTEROP.GrantsRevoked },
+  AuthorizationRequested: { '@id': INTEROP.AuthorizationRequested },
+  ShareRequested: { '@id': INTEROP.ShareRequested },
+  ActivityCompleted: { '@id': INTEROP.ActivityCompleted },
 
   // interop — multi-value node references
   accessMode: iriTermDef(INTEROP, 'accessMode', { set: true }),

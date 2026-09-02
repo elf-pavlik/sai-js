@@ -175,9 +175,254 @@ export const SocialAgentInvitationList = S.Array(SocialAgentInvitation)
 /**
  * Pending acknowledgment of an accepted invitation — the acceptance itself
  * completes asynchronously via the acceptor's `invitationAccepted` workflow.
+ * `Message` suffix per the RPC naming rule (payload-contract-alignment §2):
+ * the name `InvitationAccepted` is the activity class Schema below.
  */
-export const InvitationAccepted = S.Struct({
+export const InvitationAcceptedMessage = S.Struct({
   accepted: S.Boolean,
+})
+
+// ──────────────────────────
+// Activity projections (the outbox) — payload-contract-alignment step 3
+// (amended wire). Same field sets as the data-model ActivityData union
+// (wire truth), UNBRANDED: every IRI field is plain S.String — no refs on
+// the wire, so no ActorRef (refs stay data-model XId types for temporal
+// inputs). The `as:object` forms: live-link objects are plain S.String,
+// sets are S.Array(S.String), snapshots embed their POJO projection.
+// ──────────────────────────
+
+const activityBaseFields = {
+  id: S.String,
+  /** plain IRI — the changed record/container, or the completed activity IRI */
+  target: S.String,
+  createdAt: S.String,
+}
+
+/** Unbranded projection of data-model `DataAuthorizationStructure`. */
+export const DataAuthorizationStructure = S.Struct({
+  accessNeed: S.String,
+  scopeOfAuthorization: S.String,
+  dataOwner: S.optional(S.String),
+  hasDataRegistration: S.optional(S.String),
+  hasDataInstance: S.optional(S.Array(S.String)),
+})
+
+/** Unbranded projection of data-model `AuthorizationStructure`. */
+export const AuthorizationStructure = S.Struct({
+  grantee: S.String,
+  agentType: S.String,
+  hasAccessNeedGroup: S.optional(S.String),
+  granted: S.Boolean,
+  dataAuthorizations: S.optional(S.Array(DataAuthorizationStructure)),
+})
+
+/** Unbranded projection of data-model `ShareDataInstanceStructure`. */
+export const ShareDataInstanceStructure = S.Struct({
+  applicationId: S.String,
+  resource: S.String,
+  accessMode: S.Array(S.String),
+  children: S.Array(
+    S.Struct({
+      shapeTree: S.String,
+      accessMode: S.Array(S.String),
+    })
+  ),
+  agents: S.Array(S.String),
+})
+
+/** Unbranded projection of data-model `EmbeddedSocialAgentInvitation` —
+ * the `InvitationAccepted` object (urn:uuid snapshot, never dereferenced). */
+export const EmbeddedSocialAgentInvitation = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  capabilityUrl: S.String,
+  prefLabel: S.String,
+  note: S.optional(S.String),
+})
+
+/** Unbranded projection of data-model `EmbeddedSocialAgentRegistration` —
+ * the `AgentRegistrationAdded` object (urn:uuid snapshot). */
+export const EmbeddedSocialAgentRegistration = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  registeredAgent: S.String,
+  prefLabel: S.String,
+  note: S.optional(S.String),
+})
+
+/** Acceptance of a social agent invitation (acceptor's Activity Registry). */
+export const InvitationAccepted = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(
+    S.Literal('Activity'),
+    S.Literal('InvitationAccepted'),
+    S.Literal('as:Accept')
+  ),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** urn:uuid snapshot of the invitation (opaque capabilityUrl inside) */
+  object: EmbeddedSocialAgentInvitation,
+})
+
+/** Invitation created via RPC (activity-first step 1). */
+export const InvitationCreated = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('InvitationCreated'), S.Literal('as:Create')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  label: S.String,
+  note: S.optional(S.String),
+  /** the created invitation — pre-minted id, live-but-pending link */
+  object: S.String,
+})
+
+/** Reciprocal social agent registration written by the invitation handler. */
+export const AgentRegistrationAdded = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AgentRegistrationAdded'), S.Literal('as:Add')),
+  /** as:actor — plain IRI (the session that wrote the registration) */
+  actor: S.String,
+  /** the new social agent registration — pre-minted, the workflow PUTs it */
+  target: S.String,
+  /** urn:uuid snapshot of the registration (`registeredAgent` — the peer) */
+  object: EmbeddedSocialAgentRegistration,
+})
+
+/** Unbranded projection of data-model `EmbeddedAdminAuthorization` — the
+ * `AdminAuthorizationRevoked` object (urn:uuid snapshot — the RPC deletes
+ * the resource synchronously in A, so the admin's grantee rides inside). */
+export const EmbeddedAdminAuthorization = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  grantee: S.String,
+  grantedBy: S.String,
+  scopeOfAuthorization: S.String,
+})
+
+/** Admin authorization recorded (org context). */
+export const AdminAuthorizationRecorded = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRecorded')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the AdminAuthorization — urn:uuid snapshot (the admin's grantee inside) */
+  object: EmbeddedAdminAuthorization,
+})
+
+/** Admin authorization revoked (org context). */
+export const AdminAuthorizationRevoked = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRevoked')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the AdminAuthorization — urn:uuid snapshot (the admin's grantee inside) */
+  object: EmbeddedAdminAuthorization,
+})
+
+/** Unbranded projection of data-model `EmbeddedAuthorization` — the denied
+ * `AuthorizationRecorded` object (urn:uuid snapshot of the request structure;
+ * a denied authorization creates no DataAuthorization, so `grantee` rides
+ * here). */
+export const EmbeddedAuthorization = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  grantee: S.String,
+  hasAccessNeedGroup: S.optional(S.String),
+})
+
+/** Authorization recorded — granted: the DataAuthorization live-link set;
+ * denied: the request-structure snapshot (grantee kind resolved in the store). */
+export const AuthorizationRecorded = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationRecorded')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the DataAuthorizations (live-link set) or the structure snapshot */
+  object: S.Union(S.Array(S.String), EmbeddedAuthorization),
+})
+
+/** Authorization revoked — `object` = the DataAuthorization live-link set. */
+export const AuthorizationRevoked = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationRevoked')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the DataAuthorizations — live-link set */
+  object: S.Array(S.String),
+})
+
+/** Role membership changed — `target` ≡ the role; `object` = the affected
+ * members (A-carrier set; the carrier is pinned in activity-first step 4). */
+export const RoleMembershipChanged = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('RoleMembershipChanged')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the changed role */
+  target: S.String,
+  /** the affected members — interop:hasMember IRIs */
+  object: S.Array(S.String),
+})
+
+/** Role deleted — `target` ≡ the role; `object` = the former members. */
+export const RoleDeleted = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('RoleDeleted')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the deleted role */
+  target: S.String,
+  /** former members — interop:hasMember IRIs */
+  object: S.Array(S.String),
+})
+
+/** Peer mirror grants updated (reciprocal webhook). */
+export const DelegatedGrantsUpdated = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('DelegatedGrantsUpdated')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the peer */
+  target: S.String,
+  /** the reciprocal registration — live link */
+  object: S.String,
+})
+
+/** Grants revoked (producer lands in activity-first step 6). */
+export const GrantsRevoked = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('GrantsRevoked')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  grantee: S.String,
+  dataOwner: S.String,
+  /** the revoked grant IRIs — as:object set */
+  object: S.Array(S.String),
+})
+
+/** Authorization requested via RPC (future — activity-first step 2). */
+export const AuthorizationRequested = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationRequested')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  authorization: AuthorizationStructure,
+})
+
+/** Resource sharing requested via RPC (future — activity-first step 3). */
+export const ShareRequested = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('ShareRequested')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  authorization: ShareDataInstanceStructure,
+  applicationId: S.String,
+})
+
+/** Completion marker — no own fields; `target` is the completed activity IRI. */
+export const ActivityCompleted = S.Struct({
+  ...activityBaseFields,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('ActivityCompleted')),
 })
 
 export const DataRegistry = S.Struct({
@@ -426,7 +671,7 @@ export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('Creat
 
 export class AcceptInvitation extends S.TaggedRequest<AcceptInvitation>()('AcceptInvitation', {
   failure: S.Never,
-  success: InvitationAccepted,
+  success: InvitationAcceptedMessage,
   payload: {
     capabilityUrl: S.String,
     label: S.String,
@@ -543,7 +788,7 @@ export class SaiService extends Context.Tag('SaiService')<
       label: string,
       note: string | undefined,
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof InvitationAccepted>>
+    ) => Effect.Effect<S.Schema.Type<typeof InvitationAcceptedMessage>>
     readonly shareResource: (
       authorization: S.Schema.Type<typeof ShareAuthorization>,
       context: IRI

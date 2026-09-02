@@ -52,7 +52,7 @@ export class PeerProxyError extends Error {
 export async function fetchPeerDocument(
   adminSession: AuthorizationAgent,
   orgWebId: string,
-  targetIri: string
+  targetId: string
 ): Promise<unknown> {
   let orgAA: string | undefined
   try {
@@ -70,14 +70,14 @@ export async function fetchPeerDocument(
     throw new PeerProxyError(`invalid authorization agent IRI for ${orgWebId}: ${orgAA}`)
   }
   const orgSegment = Buffer.from(orgWebId).toString('base64url')
-  const url = `${base}/.sai/proxy-admin/${orgSegment}?iri=${encodeURIComponent(targetIri)}`
+  const url = `${base}/.sai/proxy-admin/${orgSegment}?iri=${encodeURIComponent(targetId)}`
 
   const response = await adminSession.fetch(url, {
     headers: { Accept: 'application/ld+json' },
   })
   if (!response.ok) {
     throw new PeerProxyError(
-      `upstream ${response.status} for ${targetIri}: ${await response.text()}`,
+      `upstream ${response.status} for ${targetId}: ${await response.text()}`,
       response.status
     )
   }
@@ -112,12 +112,12 @@ export async function dataRegistrationContains(
  */
 export async function peerInstanceNode(
   ctx: ResolvedContext,
-  instanceIri: string,
+  instanceId: string,
   shapeTree: ShapeTreeData
 ): Promise<Record<string, unknown>> {
   return frameDataInstanceFromDoc(
-    await fetchPeerDocument(ctx.session, ctx.webId, instanceIri),
-    instanceIri,
+    await fetchPeerDocument(ctx.session, ctx.webId, instanceId),
+    instanceId,
     shapeTree
   )
 }

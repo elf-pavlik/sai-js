@@ -4,7 +4,7 @@ import {
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { type AuthorizationRecorded, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -21,20 +21,20 @@ describe('reconciliation sweep', () => {
     const acmeSession = await manager.getSession(acmeId)
 
     // acme has NO pre-seeded activity-webhook channel → CSS never delivers →
-    // the activity stays unprocessed until the sweep processes it
+    // the activity stays unprocessed until the sweep processes it. The
+    // grantee rides the object (the seeded DataAuthorization for alice).
     const registry = acmeSession.registrySet.hasActivityRegistry!
-    const activity = await ActivityRegistry.createActivity(
+    const activity: Omit<AuthorizationRecorded, 'id'> = {
+      type: ['Activity', 'AuthorizationRecorded'],
+      actor: acmeId,
+      target: acmeSession.registrySet.hasAuthorizationRegistry.id,
+      object: ['https://registry/acme/authorization/k9m4vp'],
+      createdAt: new Date().toISOString(),
+    }
+    const created = await ActivityRegistry.createActivity(
       registry,
       { fetch: acmeSession.fetch, randomUUID: acmeSession.randomUUID },
-      {
-        activityType: 'authorizationRecorded',
-        target: acmeSession.registrySet.hasAuthorizationRegistry.id,
-        payload: {
-          webId: { id: acmeId, type: [INTEROP.SocialAgent] },
-          authorizationGrantee: { id: aliceId, type: [INTEROP.SocialAgent] },
-        },
-        createdAt: new Date().toISOString(),
-      }
+      activity
     )
 
     // run the sweep (executed by workflow type name — registered on the worker)
@@ -56,7 +56,7 @@ describe('reconciliation sweep', () => {
           registry,
           acmeSession.fetch
         )
-        return completed.includes(activity.id)
+        return completed.includes(created.id)
       },
       { timeout: 30_000 }
     )

@@ -3,6 +3,8 @@ import {
   AgentRegistry,
   setRegisteredAgent,
 } from '@janeirodigital/interop-authorization-agent'
+import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -10,8 +12,8 @@ import {
   OperationHttpHandler,
 } from '@solid/community-server'
 import type {
-  CredentialsExtractor,
   OperationHttpHandlerInput,
+  CredentialsExtractor,
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
@@ -58,22 +60,27 @@ export class InvitationHandler extends OperationHttpHandler {
       )
       // write the agentRegistrationAdded activity → the main agent's webhook
       // handler starts establishReciprocal (retry policy replaces the old
-      // startDelay hack — §6.7)
+      // startDelay hack — §6.7) — urn:uuid snapshot of the registration
+      // (`registeredAgent` — the peer; same-doc embed, never dereferenced)
       const activityRegistry = sai.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
+      const activity: Omit<AgentRegistrationAdded, 'id'> = {
+        type: ['Activity', 'AgentRegistrationAdded', 'as:Add'],
+        actor: sai.webId,
+        target: socialAgentRegistration.id,
+        object: {
+          id: `urn:uuid:${sai.randomUUID()}`,
+          type: [INTEROP.SocialAgentRegistration],
+          registeredAgent: invitedId,
+          prefLabel: socialAgentInvitation.prefLabel,
+          note: socialAgentInvitation.note,
+        },
+        createdAt: new Date().toISOString(),
+      }
       await ActivityRegistry.createActivity(
         activityRegistry,
         { fetch: sai.fetch, randomUUID: sai.randomUUID },
-        {
-          activityType: 'agentRegistrationAdded',
-          target: socialAgentRegistration.id,
-          payload: {
-            webId: inviteeId,
-            peerId: invitedId,
-            registrationId: socialAgentRegistration.id,
-          },
-          createdAt: new Date().toISOString(),
-        }
+        activity
       )
     }
 

@@ -1,4 +1,8 @@
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import type {
+  AdminAuthorizationRecorded,
+  AdminAuthorizationRevoked,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
@@ -23,7 +27,7 @@ export const addAdmin = async (
   const existing = await ctx.session.findAdminAuthorization(webId, authorizationRegistry)
   if (existing) throw new Error(`Admin Authorization for ${webId} already exists`)
 
-  await ctx.session.recordAdminAuthorization(
+  const recorded = await ctx.session.recordAdminAuthorization(
     {
       grantee: webId,
       grantedBy: ctx.webId,
@@ -34,18 +38,27 @@ export const addAdmin = async (
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // the promoted admin's grantee rides a urn:uuid SNAPSHOT of the
+  // AdminAuthorization — the dispatch dereferences nothing (the RPC's
+  // synchronous record stays; step 7 materializes in the workflow and may
+  // return the object to the live-link form)
+  const activity: Omit<AdminAuthorizationRecorded, 'id'> = {
+    type: ['Activity', 'AdminAuthorizationRecorded'],
+    actor: ctx.webId,
+    target: authorizationRegistry.id,
+    object: {
+      id: `urn:uuid:${ctx.session.randomUUID()}`,
+      type: recorded.type,
+      grantee: recorded.grantee,
+      grantedBy: recorded.grantedBy,
+      scopeOfAuthorization: recorded.scopeOfAuthorization,
+    },
+    createdAt: new Date().toISOString(),
+  }
   await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    {
-      activityType: 'adminAuthorizationRecorded',
-      target: authorizationRegistry.id,
-      payload: {
-        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-        admin: { id: webId, type: [INTEROP.SocialAgent] },
-      },
-      createdAt: new Date().toISOString(),
-    }
+    activity
   )
 
   return buildSocialAgentProfile(registration, ctx, false)
@@ -74,23 +87,31 @@ export const removeAdmin = async (
   }
   if (count === 1) throw new Error('can not remove the last admin')
 
-  await ctx.session.deleteAdminAuthorization(existing.id)
-
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // the demoted admin's grantee rides a urn:uuid SNAPSHOT of the
+  // AdminAuthorization — the RPC deletes the resource synchronously below, so
+  // a live link would be unresolvable at dispatch time (step 8 moves the
+  // delete into the workflow and the object returns to the live-link form)
+  const activity: Omit<AdminAuthorizationRevoked, 'id'> = {
+    type: ['Activity', 'AdminAuthorizationRevoked'],
+    actor: ctx.webId,
+    target: authorizationRegistry.id,
+    object: {
+      id: `urn:uuid:${ctx.session.randomUUID()}`,
+      type: existing.type,
+      grantee: existing.grantee,
+      grantedBy: existing.grantedBy,
+      scopeOfAuthorization: existing.scopeOfAuthorization,
+    },
+    createdAt: new Date().toISOString(),
+  }
   await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    {
-      activityType: 'adminAuthorizationRevoked',
-      target: authorizationRegistry.id,
-      payload: {
-        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-        admin: { id: webId, type: [INTEROP.SocialAgent] },
-      },
-      createdAt: new Date().toISOString(),
-    }
+    activity
   )
+  await ctx.session.deleteAdminAuthorization(existing.id)
 
   return buildSocialAgentProfile(registration, ctx, false)
 }

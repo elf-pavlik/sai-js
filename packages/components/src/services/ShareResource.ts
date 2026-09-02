@@ -10,6 +10,7 @@ import {
   setAccessNeedGroup,
 } from '@janeirodigital/interop-authorization-agent'
 import {
+  type AuthorizationRecorded,
   type DataAuthorizationData,
   type DataInstanceData,
   DataRegistration,
@@ -113,11 +114,11 @@ async function orgContextDataInstance(
   }
 }
 
-export const getResource = async (ctx: ResolvedContext, iri: string, lang: string) => {
+export const getResource = async (ctx: ResolvedContext, id: string, lang: string) => {
   const resource = await (ctx.webId === ctx.userWebId
-    ? loadDataInstance(iri, ctx.session.fetch, undefined, lang)
-    : orgContextDataInstance(ctx, iri, lang))
-  if (!resource) throw new Error(`Resource not found: ${iri}`)
+    ? loadDataInstance(id, ctx.session.fetch, undefined, lang)
+    : orgContextDataInstance(ctx, id, lang))
+  if (!resource) throw new Error(`Resource not found: ${id}`)
   const shapeTree = await loadShapeTree(resource.shapeTreeIri!, ctx.session.fetch)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.fetch)
   // "who has access" is read via SPARQL in both contexts — personal via
@@ -173,22 +174,24 @@ export const shareResource = async (
 
   // one authorizationRecorded activity per deduped grantee → one notification,
   // one workflow per grantee (sequential PUTs — CSS SPARQL backend races on
-  // concurrent PUTs in the same container)
+  // concurrent PUTs in the same container). Parties ride the object: the
+  // recorded DataAuthorizations (live-link set) carry the grantee.
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   for (const grantee of grantees) {
+    const activity: Omit<AuthorizationRecorded, 'id'> = {
+      type: ['Activity', 'AuthorizationRecorded'],
+      actor: ctx.webId,
+      target: ctx.registrySet.hasAuthorizationRegistry.id,
+      object: recorded
+        .filter((dataAuthorization) => dataAuthorization.grantee === grantee)
+        .map((dataAuthorization) => dataAuthorization.id),
+      createdAt: new Date().toISOString(),
+    }
     await ActivityRegistry.createActivity(
       activityRegistry,
       { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-      {
-        activityType: 'authorizationRecorded',
-        target: ctx.registrySet.hasAuthorizationRegistry.id,
-        payload: {
-          webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-          authorizationGrantee: { id: grantee, type: [INTEROP.SocialAgent] },
-        },
-        createdAt: new Date().toISOString(),
-      }
+      activity
     )
   }
 

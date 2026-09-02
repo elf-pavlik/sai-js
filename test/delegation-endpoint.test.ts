@@ -1,6 +1,6 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { getDataGrantIris, type GrantsRevoked } from '@janeirodigital/interop-data-model'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
 import { ACL, INTEROP, LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
@@ -11,7 +11,6 @@ const bobId = 'https://id/bob'
 const aliceId = 'https://id/alice'
 const acmeId = 'https://id/acme'
 const testClient = 'https://data/test-client/public/id'
-const APPLICATION_TYPE = 'http://www.w3.org/ns/solid/interop#Application'
 const grantRegistry = 'https://registry/acme/grant/'
 // seeded in environments/data/registry.trig
 const seededGrantCount = 10
@@ -171,23 +170,19 @@ describe('DelegationRevocationRequesterHop', () => {
     // activity-webhook channel starts processGrantsRevocation
     const activityRegistry = aliceSession.registrySet.hasActivityRegistry
     if (!activityRegistry) throw new Error('activity registry not found')
+    const grantsRevokedActivity: Omit<GrantsRevoked, 'id'> = {
+      type: ['Activity', 'GrantsRevoked'],
+      actor: aliceId,
+      target: aliceId,
+      grantee: testClient,
+      dataOwner: acmeId,
+      object: [aliceGrant, aliceChildGrant],
+      createdAt: new Date().toISOString(),
+    }
     await ActivityRegistry.createActivity(
       activityRegistry,
       { fetch: aliceSession.fetch, randomUUID: aliceSession.randomUUID },
-      {
-        activityType: 'grantsRevoked',
-        target: aliceId,
-        payload: {
-          webId: { id: aliceId, type: [INTEROP.SocialAgent] },
-          grantee: { id: testClient, type: [APPLICATION_TYPE] },
-          dataOwner: acmeId,
-          grants: [
-            { id: aliceGrant, type: [INTEROP.DataGrant] },
-            { id: aliceChildGrant, type: [INTEROP.DataGrant] },
-          ],
-        },
-        createdAt: new Date().toISOString(),
-      }
+      grantsRevokedActivity
     )
 
     // await the requester-hop workflow to completion FIRST — a failing test
@@ -203,7 +198,7 @@ describe('DelegationRevocationRequesterHop', () => {
         const all = await ActivityRegistry.getActivityIris(registry, aliceSession.fetch)
         for (const iri of all) {
           const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
-          if (activity.activityType === 'grantsRevoked' && completed.includes(activity.id)) {
+          if (activity.type.includes('GrantsRevoked') && completed.includes(activity.id)) {
             return true
           }
         }

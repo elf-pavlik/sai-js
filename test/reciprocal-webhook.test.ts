@@ -61,7 +61,7 @@ describe('reciprocal webhook', () => {
         for (const iri of iris) {
           const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
           if (
-            activity.activityType === 'delegatedGrantsUpdated' &&
+            activity.type.includes('DelegatedGrantsUpdated') &&
             completed.includes(activity.id)
           ) {
             return true
@@ -92,14 +92,14 @@ describe('reciprocal webhook', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'delegatedGrantsUpdated' &&
+        message.activity?.type?.includes('DelegatedGrantsUpdated') &&
         message.activity.status === 'pending',
       { close: false }
     )
     expect(pending).toBeDefined()
     expect(pending?.activity.target).toBe('https://id/bob')
 
-    // … and the completion Add → `done`, enriched with the original payload
+    // … and the completion Add → `done`, enriched with the original typed activity
     const done = await awaitEvent(
       stream,
       (message) =>
@@ -108,6 +108,6 @@ describe('reciprocal webhook', () => {
         message.activity.status === 'done'
     )
     expect(done).toBeDefined()
-    expect(done?.activity.payload.peerId.id).toBe('https://id/bob')
+    expect(done?.activity.target).toBe('https://id/bob')
   })
 })

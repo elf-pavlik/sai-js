@@ -1,4 +1,4 @@
-import type { ActivityData, AgentId, SocialAgentId } from '@janeirodigital/interop-data-model'
+import type { AgentId, SocialAgentId } from '@janeirodigital/interop-data-model'
 import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as adminActivities from '../activities/admin.js'
 import type * as grantsActivities from '../activities/grants.js'
@@ -26,7 +26,7 @@ export interface AdminWorkflowInput {
   /** the admin webId (typed SocialAgent) */
   admin: AgentId
   /** IRI of the activity that triggered this workflow — completed by the orchestrator / grantee consumer once the ACR rewrite also succeeded */
-  activityIri?: string
+  activityId?: string
 }
 
 /** Input of the sequential orchestrator the webhook handler starts (phase 4). */
@@ -88,7 +88,7 @@ export async function revokeAdminGrants(payload: AdminWorkflowInput): Promise<vo
  */
 export async function syncAdminAcr(payload: {
   webId: SocialAgentId
-  activityIri?: string
+  activityId?: string
 }): Promise<void> {
   await syncAdminAcrActivity({ webId: payload.webId })
 }
@@ -109,10 +109,10 @@ export async function processAdminChange(payload: AdminChangeInput): Promise<voi
     }
   )
   await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: payload.webId,
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }

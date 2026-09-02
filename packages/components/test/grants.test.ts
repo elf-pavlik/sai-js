@@ -46,7 +46,7 @@ vi.mock('fetch-sparql-endpoint', () => ({
   },
 }))
 
-import { findAffectedGrantees, findRoleUsage } from '../src/temporal/activities/grants.js'
+import { findAffectedGrantees, findRoleUsage, resolveActivityGrantee } from '../src/temporal/activities/grants.js'
 
 // ──────────────────────────
 // Fixtures
@@ -290,5 +290,51 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
     const grantees = await findAffectedGrantees(affectedPayload(ROLE_ID))
 
     expect(grantees).toEqual([{ id: GRANTEE_A, type: [INTEROP.SocialAgent] }])
+  })
+})
+
+// ──────────────────────────
+// resolveActivityGrantee — the grantee rides the object (parties ride the
+// object; payload-contract-alignment). Denied authorizations create no
+// DataAuthorization — the producer embeds a urn:uuid structure snapshot, and
+// the grantee is read from it (no deref). This pins the deny dispatch (the
+// authorization.test.ts regression).
+// ──────────────────────────
+
+describe('resolveActivityGrantee — object-carried grantee', () => {
+  test('denied authorization: grantee from the embedded structure snapshot', async () => {
+    const GRANTEE = 'https://bob.example/#id'
+    sessionMock.setSession(fakeSession())
+
+    sparqlMock.handlers.bindings = (query) => {
+      expect(query).toContain('SELECT DISTINCT ?child')
+      if (query.includes(SOCIAL_AGENT_REGISTRY)) {
+        return [{ child: { termType: 'NamedNode', value: GRANTEE } }]
+      }
+      // application + role registries empty
+      return []
+    }
+    sparqlMock.handlers.triples = (query) => {
+      if (query.includes(GRANTEE)) return registrationGraph(GRANTEE)
+      throw new Error(`unexpected CONSTRUCT: ${query}`)
+    }
+
+    const activity = {
+      id: 'https://registry/alice/activity/deny',
+      type: ['Activity', 'AuthorizationRecorded'],
+      target: AUTHZ_REGISTRY,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      actor: ALICE,
+      object: {
+        id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
+        type: [INTEROP.AuthorizationStructure],
+        grantee: GRANTEE,
+        hasAccessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
+      },
+    }
+
+    const grantee = await resolveActivityGrantee({ activity })
+
+    expect(grantee).toEqual({ id: GRANTEE, type: [INTEROP.SocialAgent] })
   })
 })

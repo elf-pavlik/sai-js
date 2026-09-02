@@ -1,4 +1,3 @@
-import type { ActivityData } from '@janeirodigital/interop-data-model'
 import { proxyActivities } from '@temporalio/workflow'
 import type * as activities from '../activities/reciprocal.js'
 import type * as grantsActivities from '../activities/grants.js'
@@ -57,10 +56,10 @@ export async function establishReciprocal(
   //   webId: { id: payload.webId, type: [SOCIAL_AGENT_TYPE] },
   //   peerId: { id: payload.peerId, type: [SOCIAL_AGENT_TYPE] },
   // })
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: { id: payload.webId, type: [SOCIAL_AGENT_TYPE] },
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }
@@ -83,10 +82,10 @@ export async function acceptInvitation(
     peerId: inviterWebId,
     registrationId,
   })
-  if (payload.activityIri) {
+  if (payload.activityId) {
     await markActivitiesDone({
       webId: { id: payload.webId, type: [SOCIAL_AGENT_TYPE] },
-      activities: [{ id: payload.activityIri }] as ActivityData[],
+      activities: [{ id: payload.activityId }],
     })
   }
 }

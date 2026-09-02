@@ -1,11 +1,15 @@
 import {
   type ActivityData,
   type ActivityRegistryData,
+  type EmbeddedAdminAuthorization,
+  type EmbeddedAuthorization,
+  type EmbeddedSocialAgentInvitation,
+  type EmbeddedSocialAgentRegistration,
   dataModelContext,
+  isActivityClass,
 } from '@janeirodigital/interop-data-model'
 import type { DataModelDependencies } from './types'
 import {
-  INTEROP,
   LDP,
   type WhatwgFetch,
   fetchJsonLd,
@@ -27,8 +31,10 @@ export async function getActivityIris(
 /**
  * PUT a new activity resource into the Activity Registry — same pattern as
  * grants and data authorizations: `iriForContained` + PUT with
- * `If-None-Match: *` (expanded JSON-LD). The `payload` is stored as a JSON
- * string literal.
+ * `If-None-Match: *` (expanded JSON-LD). The typed class tuple
+ * (`type: ['Activity', '<Class>', <as:*>]`) and the flat plain-IRI/literal
+ * fields + the `as:object` forms serialize directly — no `activityType`,
+ * no JSON-string `payload`.
  */
 export async function createActivity(
   data: ActivityRegistryData,
@@ -36,25 +42,198 @@ export async function createActivity(
   activity: Omit<ActivityData, 'id'>
 ): Promise<ActivityData> {
   const iri = iriForContained(data, deps.randomUUID)
-  const doc = withContext(dataModelContext, {
-    ...activity,
-    id: iri,
-    type: [INTEROP.Activity],
-    payload: JSON.stringify(activity.payload),
-  })
+  const doc = withContext(dataModelContext, { ...activity, id: iri })
   await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
-  return { ...activity, id: iri }
+  return { ...activity, id: iri } as ActivityData
 }
 
-/** Read an activity resource from the Activity Registry. */
+// ──────────────────────────
+// Frame + normalization helpers
+// ──────────────────────────
+
+/**
+ * Frame an activity as a single document (`fetchJsonLd` + `frameDoc` with
+ * `object: { '@embed': '@always' }` — the pinned single-doc read). A
+ * snapshot object embeds from the same document (no cross-graph read); a
+ * live-link object is not in the document and stays a plain-IRI string (the
+ * framer never dereferences absent nodes). Every other field frames with the
+ * default `@embed: '@never'` — plain IRIs/literals only.
+ */
+async function frameActivity(id: string, fetch: WhatwgFetch): Promise<Record<string, unknown>> {
+  return frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id, {
+    object: { '@embed': '@always' },
+  })
+}
+
+function asString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const node = value as { id?: unknown; '@id'?: unknown }
+    if (typeof node.id === 'string') return node.id
+    if (typeof node['@id'] === 'string') return node['@id']
+  }
+  return ''
+}
+
+/** Normalize a framed (possibly scalar-or-array) node value to a string. */
+function asStringArray(value: unknown): string[] {
+  if (value === undefined || value === null) return []
+  return (Array.isArray(value) ? value : [value]).map(asString)
+}
+
+/** The ASV activity types ride the `type` tuple beside the interop class. */
+const ASV_ACTIVITY_TYPES = new Set(['as:Accept', 'as:Create', 'as:Add', 'as:Update'])
+
+/**
+ * The activity class — the `type` tuple element that is neither the generic
+ * `Activity` nor an ASV type. JSON-LD `@type` is an UNORDERED set (the
+ * SPARQL store may frame it back in any order), so the class is found by set
+ * membership, never by position.
+ */
+function activityClass(type: string[]): string {
+  return type.find((t) => t !== 'Activity' && !ASV_ACTIVITY_TYPES.has(t)) ?? 'Activity'
+}
+
+/** Read an activity resource from the Activity Registry into an ActivityData
+ * (discriminated on the framed `type`). Refs come back as plain IRIs
+ * (storage law); snapshot objects embed their POJO projection. The returned
+ * `type` tuple is canonicalized to `['Activity', '<Class>', <as:*>]` — the
+ * write order — regardless of the order the store returned it in. */
 export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<ActivityData> {
-  const node = (await frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id)) as any
-  return {
-    id: id,
-    activityType: node.activityType,
-    target: node.target,
-    payload: node.payload ? JSON.parse(node.payload) : undefined,
-    createdAt: node.createdAt,
+  const node = await frameActivity(id, fetch)
+  const type = asStringArray(node.type)
+  const cls = activityClass(type)
+  const canonicalType = ['Activity', cls, ...type.filter((t) => ASV_ACTIVITY_TYPES.has(t))]
+  const base = {
+    id,
+    target: asString(node.target),
+    createdAt: asString(node.createdAt),
+  }
+  const actor = asString(node.actor)
+  switch (cls) {
+    case 'InvitationAccepted':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'InvitationAccepted', 'as:Accept'],
+        actor,
+        // the urn:uuid snapshot — fields normalized (a single rdf:type
+        // frames as a scalar string; the embedded POJOs type it as string[])
+        object: {
+          id: asString((node.object as EmbeddedSocialAgentInvitation)?.id),
+          type: asStringArray((node.object as EmbeddedSocialAgentInvitation)?.type),
+          capabilityUrl: asString((node.object as EmbeddedSocialAgentInvitation)?.capabilityUrl),
+          prefLabel: asString((node.object as EmbeddedSocialAgentInvitation)?.prefLabel),
+          note:
+            (node.object as EmbeddedSocialAgentInvitation)?.note === undefined
+              ? undefined
+              : asString((node.object as EmbeddedSocialAgentInvitation)?.note),
+        },
+      }
+    case 'InvitationCreated':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'InvitationCreated', 'as:Create'],
+        actor,
+        label: asString(node.label),
+        note: node.note === undefined ? undefined : asString(node.note),
+        object: asString(node.object),
+      }
+    case 'AgentRegistrationAdded':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'AgentRegistrationAdded', 'as:Add'],
+        actor,
+        object: {
+          id: asString((node.object as EmbeddedSocialAgentRegistration)?.id),
+          type: asStringArray((node.object as EmbeddedSocialAgentRegistration)?.type),
+          registeredAgent: asString(
+            (node.object as EmbeddedSocialAgentRegistration)?.registeredAgent
+          ),
+          prefLabel: asString((node.object as EmbeddedSocialAgentRegistration)?.prefLabel),
+          note:
+            (node.object as EmbeddedSocialAgentRegistration)?.note === undefined
+              ? undefined
+              : asString((node.object as EmbeddedSocialAgentRegistration)?.note),
+        },
+      }
+    case 'AdminAuthorizationRecorded':
+    case 'AdminAuthorizationRevoked':
+      return {
+        ...base,
+        type: canonicalType as
+          | ['Activity', 'AdminAuthorizationRecorded']
+          | ['Activity', 'AdminAuthorizationRevoked'],
+        actor,
+        object: {
+          id: asString((node.object as EmbeddedAdminAuthorization)?.id),
+          type: asStringArray((node.object as EmbeddedAdminAuthorization)?.type),
+          grantee: asString((node.object as EmbeddedAdminAuthorization)?.grantee),
+          grantedBy: asString((node.object as EmbeddedAdminAuthorization)?.grantedBy),
+          scopeOfAuthorization: asString(
+            (node.object as EmbeddedAdminAuthorization)?.scopeOfAuthorization
+          ),
+        },
+      }
+    case 'AuthorizationRecorded':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'AuthorizationRecorded'],
+        actor,
+        // granted: live-link set; denied: the embedded structure snapshot
+        object: Array.isArray(node.object)
+          ? asStringArray(node.object)
+          : typeof node.object === 'string'
+            ? [node.object]
+            : {
+                id: asString((node.object as EmbeddedAuthorization)?.id),
+                type: asStringArray((node.object as EmbeddedAuthorization)?.type),
+                grantee: asString((node.object as EmbeddedAuthorization)?.grantee),
+                hasAccessNeedGroup: (node.object as EmbeddedAuthorization)?.hasAccessNeedGroup
+                  ? asString((node.object as EmbeddedAuthorization)?.hasAccessNeedGroup)
+                  : undefined,
+              },
+      }
+    case 'AuthorizationRevoked':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'AuthorizationRevoked'],
+        actor,
+        object: asStringArray(node.object),
+      }
+    case 'RoleMembershipChanged':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'RoleMembershipChanged'],
+        actor,
+        object: asStringArray(node.object),
+      }
+    case 'RoleDeleted':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'RoleDeleted'],
+        actor,
+        object: asStringArray(node.object),
+      }
+    case 'DelegatedGrantsUpdated':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'DelegatedGrantsUpdated'],
+        actor,
+        object: asString(node.object),
+      }
+    case 'GrantsRevoked':
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'GrantsRevoked'],
+        actor,
+        grantee: asString(node.grantee),
+        dataOwner: asString(node.dataOwner),
+        object: asStringArray(node.object),
+      }
+    case 'ActivityCompleted':
+      return { ...base, type: canonicalType as ['Activity', 'ActivityCompleted'] }
+    default:
+      throw new Error(`unknown activity class: ${JSON.stringify(type)}`)
   }
 }
 
@@ -68,14 +247,13 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
 export async function createCompletion(
   data: ActivityRegistryData,
   deps: DataModelDependencies,
-  completedIri: string
+  completedId: string
 ): Promise<void> {
   const iri = iriForContained(data, deps.randomUUID)
   const doc = withContext(dataModelContext, {
     id: iri,
-    type: [INTEROP.Activity],
-    activityType: 'activityCompleted',
-    target: completedIri,
+    type: ['Activity', 'ActivityCompleted'],
+    target: completedId,
     createdAt: new Date().toISOString(),
   })
   await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
@@ -83,9 +261,9 @@ export async function createCompletion(
 
 /**
  * IRIs of all completed activities — the `target`s of every `activityCompleted`
- * activity in the registry. Completions are terminal and never reference each
- * other, so no transitive closure is needed. (One load per activity; used by the
- * pending filters and by tests.)
+ * activity in the registry (the `type` discriminant). Completions are terminal
+ * and never reference each other, so no transitive closure is needed. (One
+ * load per activity; used by the pending filters and by tests.)
  */
 export async function getCompletedActivityIris(
   data: ActivityRegistryData,
@@ -95,7 +273,7 @@ export async function getCompletedActivityIris(
   const completed: string[] = []
   for (const iri of iris) {
     const activity = await loadActivity(iri, fetch)
-    if (activity.activityType === 'activityCompleted') completed.push(activity.target)
+    if (isActivityClass(activity, 'ActivityCompleted')) completed.push(activity.target)
   }
   return completed
 }

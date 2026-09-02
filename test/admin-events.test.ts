@@ -62,10 +62,9 @@ async function rpcCall<T>(payload: unknown, cookie: string): Promise<T> {
   return result.value as T
 }
 
-/** The registry owner an activity belongs to — the forwarding payload's webId. */
-function activityOwner(activity: { payload?: { webId?: string | { id: string } } }): string {
-  const webId = activity.payload?.webId
-  return typeof webId === 'string' ? webId : webId!.id
+/** The registry owner an activity belongs to — its actor (as:actor, plain IRI). */
+function activityOwner(activity: { actor?: string }): string | undefined {
+  return activity.actor
 }
 
 describe('org context — admin event forwarding (phase 3)', () => {
@@ -86,7 +85,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRecorded' &&
+        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -101,7 +100,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
         message.activity.status === 'done'
     )
     expect(done).toBeDefined()
-    expect(done!.activity.payload.admin.id).toBe(bobId)
+    expect(done!.activity.actor).toBe(yoyoId)
 
     // demote bob again — the distinct adminAuthorizationRevoked activity flows
     // through the same channel (distinct shape, no granted-flag reuse)
@@ -116,11 +115,11 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream2,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRevoked' &&
+        message.activity?.type?.includes('AdminAuthorizationRevoked') &&
         message.activity.status === 'done'
     )
     expect(revoked).toBeDefined()
-    expect(revoked!.activity.payload.admin.id).toBe(bobId)
+    expect(revoked!.activity.actor).toBe(yoyoId)
   })
 
   test('org-context role activities are forwarded to the admin stream (type-general)', async () => {
@@ -149,7 +148,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'roleMembershipChanged' &&
+        message.activity?.type?.includes('RoleMembershipChanged') &&
         message.activity.status === 'done'
     )
     expect(done).toBeDefined()
@@ -176,7 +175,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'roleDeleted' &&
+        message.activity?.type?.includes('RoleDeleted') &&
         message.activity.status === 'done' &&
         message.activity.target === role.id
     )
@@ -201,13 +200,13 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'delegatedGrantsUpdated' &&
+        message.activity?.type?.includes('DelegatedGrantsUpdated') &&
         message.activity.status === 'pending',
       { close: false }
     )
     expect(pending).toBeDefined()
-    expect(activityOwner(pending!.activity)).toBe(bobId)
-    expect(pending!.activity.payload.peerId.id).toBe(yoyoId)
+    expect(pending!.activity.actor).toBe(bobId)
+    expect(pending!.activity.target).toBe(yoyoId)
 
     const done = await awaitEvent(
       stream,
@@ -313,7 +312,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRecorded' &&
+        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -347,7 +346,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRecorded' &&
+        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -383,7 +382,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRecorded' &&
+        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -407,7 +406,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream2,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.activityType === 'adminAuthorizationRevoked' &&
+        message.activity?.type?.includes('AdminAuthorizationRevoked') &&
         message.activity.status === 'pending',
       { close: false }
     )

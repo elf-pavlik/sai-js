@@ -38,16 +38,16 @@ export function isJsonLdContentType(contentType: string): boolean {
  */
 export async function fetchPeerResource(
   orgSession: AuthorizationAgent,
-  targetIri: string
+  targetId: string
 ): Promise<Response> {
   let target: URL
   try {
-    target = new URL(targetIri)
+    target = new URL(targetId)
   } catch {
-    throw new PeerFetchError(`target must be an absolute http(s) IRI: ${targetIri}`)
+    throw new PeerFetchError(`target must be an absolute http(s) IRI: ${targetId}`)
   }
   if (target.protocol !== 'http:' && target.protocol !== 'https:') {
-    throw new PeerFetchError(`target must be an absolute http(s) IRI: ${targetIri}`)
+    throw new PeerFetchError(`target must be an absolute http(s) IRI: ${targetId}`)
   }
   return orgSession.fetch(target.href, { headers: { Accept: 'application/ld+json' } })
 }

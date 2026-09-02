@@ -1,6 +1,10 @@
 import { ActivityRegistry, RoleRegistry } from '@janeirodigital/interop-authorization-agent'
-import { type RoleData, loadRole } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import {
+  type RoleData,
+  type RoleDeleted,
+  type RoleMembershipChanged,
+  loadRole,
+} from '@janeirodigital/interop-data-model'
 import { IRI, Role } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
@@ -60,22 +64,20 @@ export const updateRole = async (
   if (affected.length) {
     const activityRegistry = ctx.registrySet.hasActivityRegistry
     if (!activityRegistry) throw new Error('activity registry not found in registry set')
+    // `target` ≡ the role (live link); the affected members ride the object
+    // as a plain-IRI set (A-carrier — steps 4–5 move the diff derivation into
+    // the workflow and pin the carrier)
+    const activity: Omit<RoleMembershipChanged, 'id'> = {
+      type: ['Activity', 'RoleMembershipChanged'],
+      actor: ctx.webId,
+      target: id,
+      object: affected,
+      createdAt: new Date().toISOString(),
+    }
     await ActivityRegistry.createActivity(
       activityRegistry,
       { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-      {
-        activityType: 'roleMembershipChanged',
-        target: id,
-        payload: {
-          webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-          roleId: { id, type: [INTEROP.Role] },
-          peers: affected.map((member) => ({
-            id: member,
-            type: [INTEROP.SocialAgent],
-          })),
-        },
-        createdAt: new Date().toISOString(),
-      }
+      activity
     )
   }
   return Role.make({ id, label, members: [...members] })
@@ -89,22 +91,18 @@ export const deleteRole = async (
   await RoleRegistry.deleteRole(ctx.registrySet.hasRoleRegistry, ctx.session.fetch, id)
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // `target` ≡ the role; `object` = the former members (plain-IRI set —
+  // unresolvable after deletion, the service read the role before deleting)
+  const activity: Omit<RoleDeleted, 'id'> = {
+    type: ['Activity', 'RoleDeleted'],
+    actor: ctx.webId,
+    target: id,
+    object: role.members,
+    createdAt: new Date().toISOString(),
+  }
   await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    {
-      activityType: 'roleDeleted',
-      target: id,
-      payload: {
-        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-        roleId: { id, type: [INTEROP.Role] },
-        // former members — unresolvable after deletion (the service read the role before deleting)
-        peers: role.members.map((member) => ({
-          id: member,
-          type: [INTEROP.SocialAgent],
-        })),
-      },
-      createdAt: new Date().toISOString(),
-    }
+    activity
   )
 }

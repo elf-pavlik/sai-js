@@ -41,7 +41,7 @@ export interface AdminActivityInput {
   /** the admin webId (typed SocialAgent) */
   admin: AgentId
   /** IRI of the activity that triggered this workflow — marked done on success */
-  activityIri?: string
+  activityId?: string
 }
 
 export interface AdminGrantsData {

@@ -46,8 +46,17 @@ export { documentLoader }
  * framing algorithm produces `@type: @id`-compacted plain IRI strings
  * instead of embedding full child graphs. This also resolves @reverse
  * relationships automatically.
+ *
+ * `overrides` replaces the default `@embed: '@never'` entry for selected
+ * keys — e.g. `{ object: { '@embed': '@always' } }` for activity reads,
+ * where in-document snapshot nodes embed while out-of-document live-link
+ * nodes stay plain-IRI strings (no dereference).
  */
-export function buildFrame(context: JsonLdContext, iri: string): Record<string, unknown> {
+export function buildFrame(
+  context: JsonLdContext,
+  iri: string,
+  overrides: Record<string, Record<string, unknown>> = {}
+): Record<string, unknown> {
   const frame: Record<string, unknown> = {
     '@context': context,
     '@id': iri,
@@ -55,7 +64,7 @@ export function buildFrame(context: JsonLdContext, iri: string): Record<string, 
   for (const [key, val] of Object.entries(context)) {
     if (key === 'id' || key === 'type' || key === '@version') continue
     if (typeof val === 'object' && val !== null) {
-      frame[key] = { '@embed': '@never', '@omitDefault': true }
+      frame[key] = overrides[key] ?? { '@embed': '@never', '@omitDefault': true }
     }
   }
   return frame
@@ -87,9 +96,12 @@ export async function frameDataset(
 export async function frameDoc(
   doc: unknown,
   context: JsonLdContext,
-  iri: string
+  iri: string,
+  overrides: Record<string, Record<string, unknown>> = {}
 ): Promise<Record<string, unknown>> {
-  const framed = await jsonld.frame(doc, buildFrame(context, iri) as any, { documentLoader })
+  const framed = await jsonld.frame(doc, buildFrame(context, iri, overrides) as any, {
+    documentLoader,
+  })
   if (!(framed as any).id && !(framed as any)['@id']) {
     throw new Error(`Node ${iri} not found in framed output`)
   }

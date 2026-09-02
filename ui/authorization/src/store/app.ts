@@ -7,7 +7,7 @@ import type {
   AuthorizationData,
   DataInstanceList,
   DataRegistryList,
-  InvitationAccepted,
+  InvitationAcceptedMessage,
   Resource,
   Role,
   RoleList,
@@ -213,7 +213,7 @@ export const useAppStore = defineStore('app', () => {
     capabilityUrl: string,
     label: string,
     note?: string
-  ): Promise<S.Schema.Type<typeof InvitationAccepted>> {
+  ): Promise<S.Schema.Type<typeof InvitationAcceptedMessage>> {
     // pending acknowledgment — the acceptance completes via the acceptor's
     // `invitationAccepted` workflow; the list refresh picks the new agent up
     const result = await effect.acceptInvitation(

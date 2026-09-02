@@ -1,7 +1,14 @@
 # Payload contract alignment — `data-model` POJOs ⇄ activities ⇄ RPC messages
 
-> **Status:** design (extracted from `activity-first-services.md` §6.10 / step 0 —
-> the **prerequisite** that plan executes against). Aligns the currently
+> **Status: EXECUTED — steps 1–3 landed (amended wire), `/test` suite green (150/150).**
+> The plan below remains the authoritative design record; the **Execution notes**
+> section at the end records what was implemented (and where it deviates from
+> the step sketches/inventory). What remains: step 4 (optional POJO-derived
+> message hardening — build-green only, decide in review) and the per-class
+> carriers re-pinned by later `activity-first-services.md` steps.
+>
+> Extracted from `activity-first-services.md` §6.10 / step 0 — the
+> **prerequisite** that plan executes against. Aligns the currently
 > ad-hoc definitions (POJOs / RPC messages / activities / refs) into one
 > hierarchy anchored in `data-model`.
 > Adopts three decided changes to the Activity Registry model:
@@ -83,6 +90,51 @@ effect-free and must not import `api-messages`. ⇒ the canonical shapes live in
   `hasDataGrant`, `hasSocialAgentRegistration`, …); `interop:payload`
   retired. Enrichment vs context-growth trade taken in favor of queryable
   RDF.
+- **Object embedding for activity objects (amendment — decided on the
+  invitation example, see Inventory).** A class's primary object may ride as
+  `as:object` (ActivityStreams) instead of flat fields, in one of two forms:
+  - **live link** — the object's id is fixed at write time (the resource exists, or the producer pre-mints it via `iriForContained` and the workflow materializes it later — `InvitationCreated`): the
+    wire carries `as:object <object-iri>` as a single triple (storage law —
+    no ref object, no embedded types); readers that need the POJO embed it
+    via `@embed: '@always'` on the `object` frame entry, GRAPH-unioning the
+    object's named graph (§5 re-scoped to the `object` field only);
+  - **snapshot** — the id is unknown at write (`InvitationAccepted` — the
+    acceptor has no owning container to mint in): the producer
+    mints a `urn:uuid` node and embeds the full data-model POJO projection
+    (id = `urn:uuid:…`, `type` incl. the class IRI, …fields) inline in the
+    activity graph. The singly-fetched activity document already contains
+    the node, so the **pinned single-doc read applies unchanged**:
+    `@embed: '@always'` on `object` returns the full node, `@never` (the
+    default) returns `object: { id }`. The `urn:uuid` is **never dereferenced**
+    — a stable in-graph identity (same convention as notification ids). A
+    snapshot is named by a minted urn, **not** the real resource's IRI:
+    embedding the resource's own id + `rdf:type` inside the activity graph
+    would duplicate the linked node's type claim (foreign-type pollution —
+    the read-path mechanism above). The `type` array may carry the ASV
+    activity type alongside the class (`as:Accept`, `as:Create`, … — new
+    ActivityStreams terms).
+- **No new field predicates — parties ride the object (amendment).** The
+  duplicate-`@id` rule (one predicate IRI per context term) plus the ASV
+  pivot make every previously-flat party/role field either ride inside the
+  embedded object or reuse an existing term: `grantee`/`dataOwner`
+  (`GrantsRevoked`) reuse the existing interop terms; `admin`,
+  `authorizationGrantee`, `peerId` are **not flat fields** — consumers read
+  them from the object (`grantee`, `registeredAgent` inside the embedded or
+  linked POJO); `roleId` ≡ `target`; `peers` and the grantee kind are
+  derived by the workflow/consumer from the object. The interop field
+  predicates invented in the initial flat attempt (`admin`,
+  `authorizationGrantee`, `hasPeerAgent`, `hasPeer`, `hasRole`, `hasGrant`,
+  `hasInvitation`, `hasSocialAgentRegistration`) are **retired**. The only
+  additions are standard ActivityStreams terms (`as:target`, `as:object`,
+  `as:Accept`, `as:Create`, `as:Add`, …).
+- **Structure-based classes stay flat (decided — followup).**
+  `AuthorizationRequested`/`ShareRequested` keep their flat
+  `authorization: <structure>` field: embedding the structures would need
+  structure-field terms (`accessNeed`, `agentType`, `granted`,
+  `applicationId`, `resource`, `children`, `agents`, …) — the structures'
+  own serialization vocabulary, unrelated to the activity context.
+  **Followup (see §5):** evaluate other approaches when activity-first
+  steps 2–3 land.
 - **`actor` = `as:actor` (decided).** The activity's owner field is named
   `actor` (ActivityStreams) and maps to `as:actor` — verified the generic
   `webId` predicate is used **nowhere else** (no `WebId` term in
@@ -197,6 +249,12 @@ export type ActivityData =
   | ActivityCompleted
 ```
 
+> **Note (latest amendment):** the step-1 sketch above shows the *initial*
+> flat shapes — the Object-embedding amendment and the inventory below are
+> the current wire truth (`as:object` forms per class, no new field
+> predicates). The union itself is unchanged; only per-class field sets
+> follow the amendment.
+
 **Step-1 green:** strictly additive — vocab terms, context entries, new types;
 `ActivityData` is not yet switched (old `{ activityType, payload }` shape
 stays until step 3). Checkpoint: build + package vitest green.
@@ -221,6 +279,13 @@ only).
 ### Step 3 — THE FLIP — activities become typed classes
 
 The single wire-format change, all together (producers can't half-migrate):
+> **⚠️ Superseded shape note (latest amendment):** this step-3 sketch
+> describes the **initial flat** wire (flat plain-IRI fields + invented
+> interop field predicates). The Object-embedding amendment and the
+> inventory below are the **current wire truth**: `as:target`/`as:object`/
+> `as:*` types, `as:object` live-link/snapshot forms, no new field
+> predicates. Implement the amended shape (flip mechanics + naming unchanged;
+> field sets per the inventory), not this sketch.
 - **Producers** (`acceptInvitation`, `InvitationHandler`, `Admin.ts`,
   `Authorization.ts`, `ShareResource.ts`, `RoleRegistry.ts`,
   `ReciprocalWebhookHandler`, future step-1 `createInvitation`) emit the new
@@ -293,29 +358,30 @@ Design decisions). Read nuance: framing may embed a referenced node's types
 wherever the input dataset contains the node — activity reads fetch single
 docs / `GRAPH <iri>` and return plain IRIs; only cross-graph/SPARQL-dataset
 reads could re-embed, and that stays internal.
-`SocialAgentRegistrationId = AgentRegistrationId`.
+`SocialAgentId`, `AgentId` refs appear only in temporal inputs/builders.
+
+**Object-embedding scope (amendment — latest):** the flat rows below are the
+**target** design — the `as:object` forms per class (see the §2 decision); only
+`AuthorizationRequested`/`ShareRequested` stay flat (structure-based, followup
+in §5).
 
 | Class (`type[1]`) | Flat interface fields (data-model, `activities.ts` — wire truth) | producer | consumer (workflow / input) |
 |---|---|---|---|
-| `InvitationAccepted` | `actor: string; capabilityUrl: string†; label: string; note?: string` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` |
-| `InvitationCreated` *(new — activity-first step 1)* | `actor: string; invitation: string; label: string; note?: string` | `createInvitation` RPC | `createInvitation` workflow (new) |
-| `AgentRegistrationAdded` | `actor: string; peerId: string; registration: string` | `InvitationHandler` | `establishReciprocal` / `ReciprocalRegistrationInput` |
-| `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; admin: string*` | `Admin.ts` `addAdmin`/`removeAdmin` | `processAdminChange` / `AdminChangeInput` |
-| `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; authorizationGrantee: string` (kind resolved in the store — `getGrantees`) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` |
-| `RoleMembershipChanged` / `RoleDeleted` | `actor: string; roleId: string; peers: string[]` | `RoleRegistry.ts` `updateRole`/`deleteRole` | `processRoleMembershipChange` / `processRoleDeletion` / `ProcessRoleMembershipChangeInput` |
-| `DelegatedGrantsUpdated` | `actor: string; peerId: string` | `ReciprocalWebhookHandler` | `updateDelegatedGrants` / `FindAffectedAuthorizationsInput` |
-| `GrantsRevoked` | `actor: string; grantee: string; dataOwner: string; grants: string[]` | `Revocation.ts` `revokeGrants` *(producer lands in activity-first step 6)* | `processGrantsRevocation` / `ProcessGrantsRevocationInput` |
+| `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `prefLabel`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` (handler maps `object.capabilityUrl`/`prefLabel`/`note`) |
+| `InvitationCreated` *(new — activity-first step 1)* | `actor: string; label: string; note?: string; object: <minted invitation IRI>` (pre-minted by the RPC via `iriForContained` — the resource is PUT later by the workflow, so the link is live-but-pending; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id, generates the capabilityUrl, then completes |
+| `AgentRegistrationAdded` | `actor: string; target: <pre-minted registration IRI>; object: urn snapshot of `SocialAgentRegistrationData` (`registeredAgent` — the peer, `prefLabel`, `note`)` | `InvitationHandler` (mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `target` from the object, then discovers the reciprocal |
+| `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
+| `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <DataAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` — reads `grantee` from the object |
+| `RoleMembershipChanged` / `RoleDeleted` | `actor: string; target: <role IRI>` (the object is the same IRI — live link, the role is alive at write; the workflow loads its members, applies the change / deletes, and derives the affected diff itself — `peers` and `roleId` are not activity fields) | `RoleRegistry.ts` `updateRole`/`deleteRole` (activity only — the role write moves to the workflow) | `processRoleMembershipChange` / `processRoleDeletion` |
+| `DelegatedGrantsUpdated` | `actor: string; target: <the peer>; object: <reciprocal registration IRI>` (`peerId` derivable — `registeredAgent` inside) | `ReciprocalWebhookHandler` | `updateDelegatedGrants` / `FindAffectedAuthorizationsInput` |
+| `GrantsRevoked` | `actor: string; grantee: string; dataOwner: string; object: [<grant IRIs>]` (`as:object` set — the revoked grants; `grantee`/`dataOwner` reuse the existing interop terms) | `Revocation.ts` `revokeGrants` *(producer lands in activity-first step 6)* | `processGrantsRevocation` / `ProcessGrantsRevocationInput` |
 | `ActivityCompleted` | **no own fields** — `target: string` (plain IRI — the completed activity IRI; its type is found by reading the target, not embedded in the completion) | `markActivitiesDone` / `ActivityRegistry.createCompletion` | forwarding only |
-| `AuthorizationRequested` *(new — activity-first step 2)* | `actor: string; authorization: AuthorizationStructure‡` | `authorizeApp` RPC | `processAuthorizationRecorded` (new) |
-| `ShareRequested` *(new — activity-first step 3)* | `actor: string; authorization: ShareDataInstanceStructure‡; applicationId: string` | `shareResource` RPC | `processShareRequested` (new) |
+| `AuthorizationRequested` *(new — activity-first step 2)* | `actor: string; target: <AuthorizationRegistry>; authorization: AuthorizationStructure‡` (flat — structure-based, followup) | `authorizeApp` RPC | `processAuthorizationRecorded` (new) |
+| `ShareRequested` *(new — activity-first step 3)* | `actor: string; target: <data registry>; authorization: ShareDataInstanceStructure‡; applicationId: string` (flat — structure-based, followup) | `shareResource` RPC | `processShareRequested` (new) |
 
 † `capabilityUrl` is deliberately the one protocol-opaque plain string
 (`federation.md`) — the acceptor must not parse it and never learns the
 invitation id, so no ref object is possible. `label`/`note` are literals.
-
-* `admin` is a SocialAgent in today's domain (org-admin-feature §3.6 seed);
-plain IRI on the wire; the temporal input wraps it (`AdminChangeInput.admin`
-→ `AgentId`) — widen only if app admins ever exist.
 
 ‡ **Decided — (a2): move the structures verbatim into `data-model`; refs stay
 internal.** `AuthorizationStructure`/`DataAuthorizationStructure` live in
@@ -365,16 +431,93 @@ first.
 - Merging the interface categories into one type (they are different
   projections: framing records / UI messages / activity records).
 - Renaming RDF-faithful POJO fields (`prefLabel`…) to UI names.
-- **Multi-graph read-embedding — deferred (explored, not adopted).** Returning
-  `{ id, type }` refs from `loadActivity` by framing/querying across named
-  graphs (each resource in its own `GRAPH <iri>`, name == resource IRI) is
-  viable and plane-consistent, but adds per-read cross-graph queries and
-  yields only best-effort `type` (agent identities — `actor`/`peerId`/
-  `grantee` — lack `rdf:type` in their own graphs today, incl. remote peers)
-  and nondeterministic read shapes if the dataset differs per caller. The
-  pinned single-doc read (step 3) keeps this plan's surface small; revisit
-  the idea on its own if read plane consistency demands it.
+- **Structure-based classes stay flat + followup (decided).**
+  `AuthorizationRequested`/`ShareRequested` keep `authorization:
+  <structure>` as a flat field (see §2 decision) — embedding the structures
+  would need their own serialization vocabulary (`accessNeed`, `agentType`,
+  `granted`, `applicationId`, `resource`, `children`, `agents`, …).
+  **Followup (eval when activity-first steps 2–3 land):** other approaches
+  for the structure payload — a dedicated structure vocab/context, a
+  snapshot-embed with `urn:uuid` (the object-embedding pattern), reusing the
+  RPC shape as-is, or an `as:object`-style link to a stored description.
+- **Multi-graph read-embedding — deferred, except `as:object` (explored,
+  amended).** Returning `{ id, type }` refs from `loadActivity` by
+  framing/querying across named graphs (each resource in its own
+  `GRAPH <iri>`, name == resource IRI) is viable and plane-consistent, but
+  adds per-read cross-graph queries and yields only best-effort `type`
+  (agent identities — `actor`/`peerId`/`grantee` — lack `rdf:type` in their
+  own graphs today, incl. remote peers) and nondeterministic read shapes if
+  the dataset differs per caller. **Amendment (object-embedding decision):**
+  the `as:object` field is exempted — live-link objects embed by
+  GRAPH-unioning the object's named graph (the object IS a stored typed
+  resource, so the embed is deterministic), snapshot objects embed within
+  the single fetched document (no cross-graph read at all). All other fields,
+  and the general cross-graph read, stay deferred; revisit the idea on its
+  own if read plane consistency demands it.
 - Keeping `interop:activityType` / `interop:payload` on the wire (retired by
   step 3; note the deviation from the spec vocabulary — this registry is
   internal, extended freely).
 - Any RPC/response-shape change of `activity-first-services.md`.
+## Execution notes (committed — `payload contract alignment`, then the flip)
+
+Steps 1–2 shipped in the committed base; **step 3 (THE FLIP) with the amended
+`as:object` shape landed on top** and the wire is now typed classes end-to-end
+(`LegacyActivityData` deleted; `/test` 150/150 green). The amendments + the
+inventory were implemented as written, **with these execution-time
+decisions** (authoritative over the step sketches where they differ):
+
+1. **`type` order is unordered** — JSON-LD `@type` is a set; the SPARQL store
+   frames it back in any order. `loadActivity` finds the class by set
+   membership (`activityClass` — excludes `Activity` and the `as:*` terms) and
+   **canonicalizes** to `['Activity', '<Class>', <as:*>]`, so every consumer
+   (handler decode, pending filters, reconcile, events bus, UI) sees the
+   canonical tuple and the Schema `S.Tuple` decodes hold.
+2. **Snapshot `type` frames as a scalar for a single rdf:type** —
+   `loadActivity` normalizes embedded-object `type` scalar→`string[]` when
+   building the `Embedded*` POJOs (the schemas require arrays).
+3. **`adminAuthorizationRecorded`/`adminAuthorizationRevoked` object = urn:uuid
+   SNAPSHOT of the AdminAuthorization (grantee inside)**, not the live link —
+   the RPC records/deletes the resource synchronously (R1), so dispatch never
+   dereferences (a live link would 404 for the revoked case). Monitor:
+   `activity-first-services.md` steps 7–8 re-pin the form when the workflow
+   materializes/deletes.
+4. **`AuthorizationRecorded.object` (granted) = the DataAuthorization live-link
+   SET** (one activity per deduped grantee — share writes several); **(denied)
+   = an `EmbeddedAuthorization` urn:uuid snapshot** of the request structure —
+   `granted:false` creates no DataAuthorization, so the grantee rides the
+   snapshot. The deny path's long-term home is `AuthorizationRevoked` (see
+   `events.md` / `authorization-revoked.md`).
+5. **`RoleMembershipChanged`/`RoleDeleted` object = the affected/former member
+   plain-IRI SET** while the RPCs still PATCH/DELETE synchronously — the
+   inventory's live-link role-object form assumes the workflow derives the
+   diff (steps 4–5). `target` ≡ the role throughout.
+6. **`typeGrantee` made public** on `AuthorizationAgent` — the store-side
+   grantee-kind resolution (roleg/social/application) used by the handler and
+   the grantee-from-object resolution.
+7. **Grantee-from-object resolution is 404-tolerant** and only touches
+   **pending** activities — completed activities may legally reference deleted
+   DataAuthorizations (a later deny removes them) and are never dereferenced.
+8. New dev-verb: `grants.test.ts`/`activity-registry.test.ts` vitest pin the
+   deny resolution, snapshot normalization, canonicalization and the
+   unordered-type behavior.
+9. **Structure types — the term-gap trap (observed, affects the §2/§5
+   followup).** `AuthorizationStructure`/`DataAuthorizationStructure`/
+   `ShareDataInstanceStructure` fields (`agentType`, `granted`, `accessNeed`,
+   `scopeOfAuthorization`, `applicationId`, `resource`, `children`, `agents`,
+   …) have NO `dataModelContext` terms. JSON-LD expansion **silently drops
+   unknown keys on write** — observed in the deny snapshot: `agentType` and
+   `granted` vanished from the framed object (only term-covered fields
+   survived). A worked around it by trimming the deny snapshot to
+   term-covered fields (`grantee`, `hasAccessNeedGroup`) + the
+   `INTEROP.AuthorizationStructure` vocab term (deny's kind resolves via the
+   store and `granted:false` is implied by the snapshot's existence).
+   **Future iteration (steps 2–3, `AuthorizationRequested`/`ShareRequested`,
+   or the §5 followup) must account for this:** ANY structure-on-the-wire
+   form — the flat `authorization: <structure>` field OR a snapshot-embed
+   (the nested node's keys need terms too) — requires either a dedicated
+   structure field vocabulary/context (the plan's candidate #1), expanded-form
+   writes with full-IRI keys, or the link-to-stored-description candidate —
+   otherwise fields silently drop. Also: the `AuthorizationStructure` term and
+   `EmbeddedAuthorization` may be superseded if the deny path lands its
+   long-term home as `AuthorizationRevoked` (`events.md` /
+   `authorization-revoked.md`) — re-check before steps 2–3 harden the shapes.

@@ -219,15 +219,15 @@ export const listDataInstances = async (
     for (const dataGrant of dataGrants) {
       if (dataGrant.hasDataRegistration !== registrationId) continue
       if (ctx.webId === ctx.userWebId) {
-        for await (const instanceIri of dataInstanceIrisForGrant(
+        for await (const instanceId of dataInstanceIrisForGrant(
           dataGrant,
           transport,
           ctx.session.fetch
         )) {
-          if (seenInstances.has(instanceIri)) continue
-          seenInstances.add(instanceIri)
+          if (seenInstances.has(instanceId)) continue
+          seenInstances.add(instanceId)
           const dataInstance = await loadDataInstance(
-            instanceIri,
+            instanceId,
             ctx.session.fetch,
             dataGrant.registeredShapeTree,
             descriptionsLang
@@ -244,13 +244,13 @@ export const listDataInstances = async (
         // (403); the org's server fetches peer docs with the org's session
         // via /proxy-admin. Shape trees are public (admin-session fetch).
         const shapeTree = await loadShapeTree(dataGrant.registeredShapeTree, ctx.session.fetch)
-        for await (const instanceIri of peerInstanceIris(ctx, dataGrant)) {
-          if (seenInstances.has(instanceIri)) continue
-          seenInstances.add(instanceIri)
-          const node = await peerInstanceNode(ctx, instanceIri, shapeTree)
+        for await (const instanceId of peerInstanceIris(ctx, dataGrant)) {
+          if (seenInstances.has(instanceId)) continue
+          seenInstances.add(instanceId)
+          const node = await peerInstanceNode(ctx, instanceId, shapeTree)
           dataInstances.push(
             DataInstance.make({
-              id: IRI.make(instanceIri),
+              id: IRI.make(instanceId),
               label: labelFromNode(node),
             })
           )

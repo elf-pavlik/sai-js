@@ -12,10 +12,13 @@ export const INTEROP = createVocabulary(
   'AccessRevocation',
   'accessNecessity',
   'Activity',
+  'ActivityCompleted',
   'ActivityRegistry',
-  'activityType',
   'AdminAuthorization',
+  'AdminAuthorizationRecorded',
+  'AdminAuthorizationRevoked',
   'AdminGrant',
+  'AgentRegistrationAdded',
   'All',
   'AllFromAgent',
   'AllFromRegistry',
@@ -23,7 +26,11 @@ export const INTEROP = createVocabulary(
   'Application',
   'ApplicationRegistration',
   'ApplicationRegistry',
+  'AuthorizationRecorded',
   'AuthorizationRegistry',
+  'AuthorizationRequested',
+  'AuthorizationRevoked',
+  'AuthorizationStructure',
   'createdAt',
   'creatorAccessMode',
   'DataAuthorization',
@@ -31,10 +38,12 @@ export const INTEROP = createVocabulary(
   'dataOwner',
   'DataRegistration',
   'DataRegistry',
+  'DelegatedGrantsUpdated',
   'delegationOfGrant',
   'grantedBy',
   'grantee',
   'GrantRegistry',
+  'GrantsRevoked',
   'hasAccessAuthorization',
   'hasAccessDescriptionSet',
   'hasAccessNeed',
@@ -64,8 +73,9 @@ export const INTEROP = createVocabulary(
   'inheritsFromAuthorization',
   'inheritsFromGrant',
   'inheritsFromNeed',
+  'InvitationAccepted',
+  'InvitationCreated',
   'InvitationRegistry',
-  'payload',
   'pushService',
   'Read',
   'reciprocalRegistration',
@@ -76,12 +86,15 @@ export const INTEROP = createVocabulary(
   'registeredWith',
   'RegistrySet',
   'Role',
+  'RoleDeleted',
+  'RoleMembershipChanged',
   'RoleRegistry',
   'satisfiesAccessNeed',
   'scopeOfAdminGrant',
   'scopeOfAuthorization',
   'scopeOfGrant',
   'SelectedFromRegistry',
+  'ShareRequested',
   'SocialAgent',
   'SocialAgentInvitation',
   'SocialAgentRegistration',
@@ -173,4 +186,18 @@ export const OIDC = createVocabulary('http://www.w3.org/ns/solid/oidc#', 'client
 
 export const SPACE = createVocabulary('http://www.w3.org/ns/pim/space#', 'Storage')
 
-export const AS = createVocabulary('https://www.w3.org/ns/activitystreams#', 'object', 'Update')
+export const AS = createVocabulary(
+  'https://www.w3.org/ns/activitystreams#',
+  // payload-contract-alignment: activities are typed RDF classes — `actor`
+  // (the registry owner, plain IRI on the wire), the as:target/as:object
+  // wire fields, and the ASV activity types carried beside the interop class
+  // in the `type` tuple (`['Activity', '<Class>', 'as:Accept']` — spelled as
+  // compact IRIs via the `as:` prefix in dataModelContext).
+  'actor',
+  'object',
+  'target',
+  'Accept',
+  'Create',
+  'Add',
+  'Update'
+)

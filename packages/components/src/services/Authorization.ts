@@ -12,6 +12,7 @@ import {
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
+  type AuthorizationRecorded,
   type GrantData,
   ShapeTree,
   type SocialAgentRegistrationData,
@@ -313,21 +314,30 @@ export const recordAuthorization = async (
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // parties ride the object: the grantee is read from the recorded
+  // DataAuthorizations (kind resolved in the store), never a flat field. A
+  // denied authorization creates NO DataAuthorization (`recordAuthorizationFromStructure`
+  // returns [] for granted:false) — the request structure rides as a urn:uuid
+  // snapshot carrying `grantee` (there is nothing to link).
+  const activity: Omit<AuthorizationRecorded, 'id'> = {
+    type: ['Activity', 'AuthorizationRecorded'],
+    actor: ctx.webId,
+    target: ctx.registrySet.hasAuthorizationRegistry.id,
+    object:
+      recorded.length > 0
+        ? recorded.map((dataAuthorization) => dataAuthorization.id)
+        : {
+            id: `urn:uuid:${ctx.session.randomUUID()}`,
+            type: [INTEROP.AuthorizationStructure],
+            grantee: authorization.grantee,
+            hasAccessNeedGroup: authorization.accessNeedGroup,
+          },
+    createdAt: new Date().toISOString(),
+  }
   await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    {
-      activityType: 'authorizationRecorded',
-      target: ctx.registrySet.hasAuthorizationRegistry.id,
-      payload: {
-        webId: { id: ctx.webId, type: [INTEROP.SocialAgent] },
-        authorizationGrantee: {
-          id: authorization.grantee,
-          type: [authorization.agentType],
-        },
-      },
-      createdAt: new Date().toISOString(),
-    }
+    activity
   )
   return response
 }

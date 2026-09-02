@@ -156,15 +156,25 @@ export async function waitFor<T>(
  * A pending activity means a webhook-triggered workflow is still mid-flight;
  * workflows mark their activity done only on completion (`markActivitiesDone`).
  */
-async function pendingActivitiesFor(session: AuthorizationAgent): Promise<ActivityData[]> {
+async function pendingActivitiesFor(session: AuthorizationAgent): Promise<ActivityData[] | undefined> {
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
-  const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
+  let iris: string[]
+  try {
+    iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
+  } catch {
+    // transient 500 on the container listing — the known CSS SPARQL-backend
+    // concurrent-write corruption (duplicate dcterms:modified on a child;
+    // util.ts comment above). Signal "unreadable — not settled": the caller
+    // keeps polling instead of counting this as a clean poll (which would let
+    // the next test/write race this round's in-flight completion tail).
+    return undefined
+  }
   const completed = new Set<string>()
   const workItems: ActivityData[] = []
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
-    if (activity.activityType === 'activityCompleted') {
+    if (activity.type.includes('ActivityCompleted')) {
       completed.add(activity.target)
     } else {
       workItems.push(activity)
@@ -197,9 +207,12 @@ export async function waitForQuiescence(
   let settled = 0
   while (Date.now() < deadline) {
     const pending = await Promise.all(
-      sessions.map(async ([, session]) => (await pendingActivitiesFor(session)).length)
+      sessions.map(async ([, session]) => (await pendingActivitiesFor(session))?.length)
     )
-    const total = pending.reduce((sum, count) => sum + count, 0)
+    // an unreadable registry (transient container-listing 500) counts as NOT
+    // settled — keep polling; only two consecutive clean zero-pending reads settle
+    const unreadable = pending.some((count) => count === undefined)
+    const total = unreadable ? -1 : pending.reduce((sum, count) => sum + (count ?? 0), 0)
     if (total === 0) {
       settled += 1
       if (settled >= settle) return
@@ -238,29 +251,30 @@ export async function awaitGrantCompletion(
 }
 
 /**
- * Wait until an activity of `activityType` in the session's Activity Registry
- * has a completion referencing it (the producer's workflow marked it done).
+ * Wait until an activity of class `cls` (the `type[1]` class term, e.g.
+ * `'AgentRegistrationAdded'`) in the session's Activity Registry has a
+ * completion referencing it (the producer's workflow marked it done).
  */
-async function waitForActivityCompletion(
-  session: AuthorizationAgent,
-  activityType: string
-): Promise<void> {
+async function waitForActivityCompletion(session: AuthorizationAgent, cls: string): Promise<void> {
   const registry = session.registrySet.hasActivityRegistry!
   await waitFor(
     async () => {
-      const completed = await ActivityRegistry.getCompletedActivityIris(registry, session.fetch)
-      if (!completed.length) return false
-      const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
-      for (const iri of iris) {
-        const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
-        if (
-          activity.activityType === activityType &&
-          completed.includes(activity.id)
-        ) {
-          return true
+      try {
+        const completed = await ActivityRegistry.getCompletedActivityIris(registry, session.fetch)
+        if (!completed.length) return false
+        const iris = await ActivityRegistry.getActivityIris(registry, session.fetch)
+        for (const iri of iris) {
+          const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
+          if (activity.type.includes(cls) && completed.includes(activity.id)) {
+            return true
+          }
         }
+        return false
+      } catch {
+        // transient 500 on the container listing / completion read (the CSS
+        // SPARQL-backend concurrent-write corruption) — keep polling
+        return false
       }
-      return false
     },
     { timeout: 30_000 }
   )
@@ -274,7 +288,7 @@ async function waitForActivityCompletion(
 export async function waitForAgentRegistrationAddedCompletion(
   session: AuthorizationAgent
 ): Promise<void> {
-  return waitForActivityCompletion(session, 'agentRegistrationAdded')
+  return waitForActivityCompletion(session, 'AgentRegistrationAdded')
 }
 
 /**
@@ -285,7 +299,7 @@ export async function waitForAgentRegistrationAddedCompletion(
 export async function waitForInvitationAcceptedCompletion(
   session: AuthorizationAgent
 ): Promise<void> {
-  return waitForActivityCompletion(session, 'invitationAccepted')
+  return waitForActivityCompletion(session, 'InvitationAccepted')
 }
 
 // ---------------------------------------------------------------------------

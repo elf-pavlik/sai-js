@@ -356,7 +356,7 @@ views {
     }
     YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
-          change activity → pending, completion → done (enriched with activityType + payload)
+          change activity → pending, completion → done (enriched with the typed activity)
         '''
     }
     Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
@@ -667,10 +667,17 @@ views {
           {
             "@context": ["in reality payload uses Expanded JSON-LD"],
             "id": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
-            "type": ["Activity"],
-            "activityType": "invitationAccepted",
-            "target": "https://registry/kim/",
-            "payload": "{\"webId\":\"https://id/kim\",\"capabilityUrl\":\"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f\",\"label\":\"Dan\",\"note\":\"Beep boop\"}"
+            "type": ["Activity", "InvitationAccepted", "as:Accept"],
+            "as:actor": "https://id/kim",
+            "as:target": "https://registry/kim/",
+            "as:object": {
+              "id": "urn:uuid:13c5b1e4-2f90-4a3e-9d81-0f6a4c6b33e2",
+              "type": ["SocialAgentInvitation"],
+              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+              "prefLabel": "Dan",
+              "note": "Beep boop"
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
           }
           ```
           ---
@@ -889,10 +896,17 @@ views {
           {
             "@context": ["in reality payload uses Expanded JSON-LD"],
             "id": "https://registry/dan/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
-            "type": ["Activity"],
-            "activityType": "agentRegistrationAdded",
-            "target": "https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
-            "payload": "{\"webId\":\"https://id/dan\",\"peerId\":\"https://id/kim\",\"registrationId\":\"https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/\"}"
+            "type": ["Activity", "AgentRegistrationAdded", "as:Add"],
+            "as:actor": "https://id/dan",
+            "as:target": "https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "as:object": {
+              "id": "urn:uuid:7c4f8a90-23d1-4b6e-a5c3-0f9d8e2a1b7c",
+              "type": ["SocialAgentRegistration"],
+              "registeredAgent": "https://id/kim",
+              "prefLabel": "Kim",
+              "note": "Beep boop"
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
           }
           ```
           ---

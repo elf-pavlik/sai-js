@@ -7,6 +7,7 @@ import type {
   AuthorizationData,
   DataInstanceList,
   DataRegistryList,
+  InvitationAccepted,
   Resource,
   Role,
   RoleList,
@@ -212,15 +213,17 @@ export const useAppStore = defineStore('app', () => {
     capabilityUrl: string,
     label: string,
     note?: string
-  ): Promise<S.Schema.Type<typeof SocialAgent>> {
-    const socialAgent = await effect.acceptInvitation(
+  ): Promise<S.Schema.Type<typeof InvitationAccepted>> {
+    // pending acknowledgment — the acceptance completes via the acceptor's
+    // `invitationAccepted` workflow; the list refresh picks the new agent up
+    const result = await effect.acceptInvitation(
       capabilityUrl,
       label,
       note,
       currentContext()
     )
     listSocialAgents(true)
-    return socialAgent
+    return result
   }
 
   /** Promote/demote an agent in the current (org) context — §2.6 toggle-admin. */

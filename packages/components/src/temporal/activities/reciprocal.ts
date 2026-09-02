@@ -1,5 +1,6 @@
 import type { SocialAgentId } from '@janeirodigital/interop-data-model'
 import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
+import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'
@@ -28,6 +29,54 @@ export interface ReciprocalWebhookInput {
   webId: string
   peerId: string
   topic: string
+}
+
+export interface AcceptInvitationInput {
+  accountId: string
+  webId: string
+  capabilityUrl: string
+  label: string
+  note?: string
+  /** IRI of the activity that triggered this workflow — marked done on success */
+  activityIri?: string
+}
+
+export interface AcceptInvitationOutput {
+  inviterWebId: string
+  registrationId: string
+}
+
+/**
+ * The acceptor side of the common accept protocol (org-context-improvements
+ * plan): POSTs the **opaque** capabilityUrl as the acceptor — its own AA
+ * session, personal or org — so the inviter's AA creates *its* registration of
+ * the acceptor and returns the inviter's webId (the only place the inviter's
+ * identity is learned). Then creates the acceptor's registration of the
+ * inviter (find-first — idempotent under workflow retries). The reciprocal
+ * discovery is left to the workflow's `reciprocalRegistration` activity.
+ */
+export async function invitationAcceptance(
+  payload: AcceptInvitationInput
+): Promise<AcceptInvitationOutput> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId)
+  const response = await session.fetch(payload.capabilityUrl, { method: 'POST' })
+  if (!response.ok) throw new Error(`accepting capability url failed: ${response.status}`)
+  const inviterWebId = (await response.text()).trim()
+  if (!inviterWebId) throw new Error('can not accept invitation without webid')
+
+  let registration = await session.findSocialAgentRegistration(inviterWebId)
+  if (!registration) {
+    registration = await AgentRegistry.addSocialAgentRegistration(
+      session.registrySet.hasSocialAgentRegistry,
+      { fetch: session.fetch, randomUUID: session.randomUUID },
+      { agent: payload.webId, client: session.agentId },
+      inviterWebId,
+      payload.label,
+      payload.note
+    )
+  }
+  return { inviterWebId, registrationId: registration.id }
 }
 
 export async function reciprocalRegistration(

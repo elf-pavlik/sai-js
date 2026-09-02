@@ -71,8 +71,8 @@ async function create() {
     router.push({ name: 'social-agent-list', query: { invitation: invitation.id } })
   } else {
     if (!capabilityUrl.value) return
-    const agent = await appStore.acceptInvitation(capabilityUrl.value, label.value, note.value)
-    router.push({ name: 'social-agent-list', query: { agent: agent.id } })
+    await appStore.acceptInvitation(capabilityUrl.value, label.value, note.value)
+    router.push({ name: 'social-agent-list' })
   }
 }
 </script>

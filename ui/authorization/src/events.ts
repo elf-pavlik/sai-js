@@ -95,6 +95,13 @@ function handleActivity(activity: ActivityEvent) {
       appStore.listSocialAgents(true)
       appStore.listSocialAgentInvitations(true)
       break
+    case 'invitationAccepted':
+      // the acceptor's workflow built the acceptor → inviter registration;
+      // refresh the context's agent list (e.g. the org's list for a
+      // peer-owned invitation accepted by an admin — admin-invitation-receive)
+      appStore.listSocialAgents(true)
+      appStore.listSocialAgentInvitations(true)
+      break
     case 'delegatedGrantsUpdated':
     case 'grantsRevoked':
       appStore.listSocialAgents(true)

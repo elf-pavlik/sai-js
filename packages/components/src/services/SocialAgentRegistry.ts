@@ -1,12 +1,12 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
+import { ActivityRegistry, AgentRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
   type SocialAgentRegistrationData,
   getAdminGrantIris,
   getDataGrantIris,
   loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
-import { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
+import { IRI, InvitationAccepted, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
@@ -181,37 +181,35 @@ export const addSocialAgent = async (
   return buildSocialAgentProfile(registration, ctx)
 }
 
+/**
+ * Record the acceptance and let the acceptor's own workflow perform the
+ * cross-AA legs — the capabilityUrl is opaque here (org-context-improvements
+ * plan: “activity-first, both contexts”). The `invitationAccepted` activity
+ * lands in the acceptor's Activity Registry (own for personal, the org's for
+ * admin context); `ActivityWebhookHandler` dispatches the acceptor's
+ * `acceptInvitation` workflow, which POSTs the opaque capabilityUrl as the
+ * acceptor and builds the acceptor → inviter registration.
+ */
 export async function acceptInvitation(
   ctx: ResolvedContext,
   invitation: { capabilityUrl: string; label: string; note?: string }
-): Promise<S.Schema.Type<typeof SocialAgent>> {
-  // discover who issued the invitation
-  const response = await ctx.session.fetch(invitation.capabilityUrl, {
-    method: 'POST',
-  })
-  if (!response.ok) throw new Error('fetching capability url failed')
-  const webId = (await response.text()).trim()
-  // TODO: validate with regex
-  if (!webId) throw new Error('can not accept invitation without webid')
-  // check if agent already has registration
-  let socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, webId)
-  if (!socialAgentRegistration) {
-    // create new social agent registration
-    socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
-      ctx.registrySet.hasSocialAgentRegistry,
-      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-      { agent: ctx.webId, client: ctx.session.agentId },
-      webId,
-      invitation.label,
-      invitation.note
-    )
-  }
-  // discover and add reciprocal
-  if (!socialAgentRegistration.reciprocalRegistration) {
-    ctx.session.discoverAndUpdateReciprocal(socialAgentRegistration)
-  }
-
-  // currently api-handler creates job for reciprocal registration
-
-  return buildSocialAgentProfile(socialAgentRegistration, ctx)
+): Promise<S.Schema.Type<typeof InvitationAccepted>> {
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      activityType: 'invitationAccepted',
+      target: ctx.registrySet.id,
+      payload: {
+        webId: ctx.webId,
+        capabilityUrl: invitation.capabilityUrl,
+        label: invitation.label,
+        note: invitation.note,
+      },
+      createdAt: new Date().toISOString(),
+    }
+  )
+  return InvitationAccepted.make({ accepted: true })
 }

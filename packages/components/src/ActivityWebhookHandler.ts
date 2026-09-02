@@ -30,6 +30,7 @@ import {
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
 import {
+  acceptInvitation,
   establishReciprocal,
   // TODO(org-context-sparql phase 4b): imported now so re-enabling the
   // mirror-sync fan-out below is a pure uncomment (no import edit needed)
@@ -46,6 +47,9 @@ const activityWorkflows: Record<string, Array<{ workflow: Workflow; taskQueue: s
   roleMembershipChanged: [{ workflow: processRoleMembershipChange, taskQueue: 'create-grants' }],
   roleDeleted: [{ workflow: processRoleDeletion, taskQueue: 'create-grants' }],
   agentRegistrationAdded: [{ workflow: establishReciprocal, taskQueue: 'reciprocal-registration' }],
+  // the acceptor's AA runs the accept itself (POST the opaque capabilityUrl,
+  // build acceptor → inviter + reciprocal) — personal and org contexts alike
+  invitationAccepted: [{ workflow: acceptInvitation, taskQueue: 'reciprocal-registration' }],
   delegatedGrantsUpdated: [
     { workflow: updateDelegatedGrants, taskQueue: 'create-grants' },
     // TODO(org-context-sparql phase 4b): re-enable mirror sync once SPARQL
@@ -187,10 +191,12 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       if (entries) {
         const temporal = new Temporal()
         await temporal.init()
-        // agentRegistrationAdded needs the accountId (the channel is per-account);
-        // every type gets the activity IRI to mark it done on success
+        // agentRegistrationAdded/invitationAccepted need the accountId (the
+        // channel is per-account); every type gets the activity IRI to mark it
+        // done on success
         const args =
-          activity.activityType === 'agentRegistrationAdded'
+          activity.activityType === 'agentRegistrationAdded' ||
+          activity.activityType === 'invitationAccepted'
             ? [
                 {
                   accountId: channel.accountId,

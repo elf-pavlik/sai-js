@@ -238,12 +238,12 @@ export async function awaitGrantCompletion(
 }
 
 /**
- * The inviter-side tail of the invitation accept flow: establishReciprocal
- * marked the agentRegistrationAdded activity done — a completion activity
- * referencing it exists in the session's Activity Registry.
+ * Wait until an activity of `activityType` in the session's Activity Registry
+ * has a completion referencing it (the producer's workflow marked it done).
  */
-export async function waitForAgentRegistrationAddedCompletion(
-  session: AuthorizationAgent
+async function waitForActivityCompletion(
+  session: AuthorizationAgent,
+  activityType: string
 ): Promise<void> {
   const registry = session.registrySet.hasActivityRegistry!
   await waitFor(
@@ -254,7 +254,7 @@ export async function waitForAgentRegistrationAddedCompletion(
       for (const iri of iris) {
         const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
         if (
-          activity.activityType === 'agentRegistrationAdded' &&
+          activity.activityType === activityType &&
           completed.includes(activity.id)
         ) {
           return true
@@ -264,6 +264,28 @@ export async function waitForAgentRegistrationAddedCompletion(
     },
     { timeout: 30_000 }
   )
+}
+
+/**
+ * The inviter-side tail of an invitation accept: establishReciprocal marked
+ * the agentRegistrationAdded activity done — a completion activity
+ * referencing it exists in the session's Activity Registry.
+ */
+export async function waitForAgentRegistrationAddedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'agentRegistrationAdded')
+}
+
+/**
+ * The acceptor-side tail of an invitation accept: the acceptInvitation
+ * workflow marked the invitationAccepted activity done — a completion
+ * activity referencing it exists in the session's Activity Registry.
+ */
+export async function waitForInvitationAcceptedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'invitationAccepted')
 }
 
 // ---------------------------------------------------------------------------

@@ -164,6 +164,7 @@ services:
           *postgres-env,
           *vapid-env,
           *idp-env,
+          *sparql-env,
           *certs-env,
           *temporal-env,
           *origin-env,

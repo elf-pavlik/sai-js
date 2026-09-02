@@ -1,7 +1,7 @@
 # LikeC4 conventions — `docs/temporal.c4`
 
 Conventions established while working on the invitation views (`invitation`,
-`admin-invitation`) and the discovery views. Follow these for any dynamic view.
+`admin-invitation-send`, `admin-invitation-receive`) and the discovery views. Follow these for any dynamic view.
 
 ## Dynamic views & steps
 

@@ -470,7 +470,7 @@ views {
     title: 'Invitation - Dan to Kim'
 
     include Kim, Dan
-    include Kim.AUI, Kim.UAS, Kim.Registry, Dan.UAS, Dan.Registry, Dan.ActivityWebhookHandler, Dan.Temporal, Dan.Worker, Dan.AUI
+    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, Dan.Worker, Dan.Registry, Dan.Temporal, Dan.ActivityWebhookHandler, Dan.UAS, Dan.AUI
 
     style Dan {
       color: sky
@@ -602,6 +602,24 @@ views {
           >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f`
         '''
     }
+    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
     Kim.AUI -> Kim.UAS 'POST (RPC) acceptInvitation' {
         notes'''
           #### POST (RPC) acceptInvitation
@@ -631,9 +649,128 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Dan.UAS 'POST capabilityUrl' {
+    Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
-          #### POST capabilityUrl
+          #### PUT invitationAccepted activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PUT https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+            "type": ["Activity"],
+            "activityType": "invitationAccepted",
+            "target": "https://registry/kim/",
+            "payload": "{\"webId\":\"https://id/kim\",\"capabilityUrl\":\"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f\",\"label\":\"Dan\",\"note\":\"Beep boop\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Kim.UAS -> Kim.AUI 'OK (pending)' {
+          notes'''
+            #### OK (pending)
+            >[!NOTE]
+            >invitation.test.ts > personal
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "accepted": true
+              }
+            }
+            ```
+          '''
+      }
+      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >invitation.test.ts > personal
+
+            >[!IMPORTANT]
+            > Auth: Capability URL
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
+              "type": "Add",
+              "object": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+              "target": "https://registry/kim/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start acceptInvitation workflow' {
+        notes'''
+          #### start acceptInvitation workflow
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "label": "Dan",
+            "note": "Beep boop",
+            "activityIri": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Temporal -> Kim.Worker '(workflow) run acceptInvitation' {
+        notes'''
+          #### (workflow) run acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "label": "Dan",
+            "note": "Beep boop",
+            "activityIri": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Worker -> Dan.UAS '(activity) POST capabilityUrl' {
+        notes'''
+          #### (activity) POST capabilityUrl
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -655,13 +792,6 @@ views {
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `dan`
 
-          ```http
-          POST http://sparql/sparql
-          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
-          Content-Type: application/sparql-query
-          Accept: application/ld+json
-          ```
-
           ```sparql
           PREFIX interop: <https://www.w3.org/ns/solid/interop#>
 
@@ -676,23 +806,6 @@ views {
             }
           }
           ```
-          ---
-
-          ```http
-          HTTP/1.1 200 OK
-          Content-Type: application/ld+json
-          ```
-
-          ```json
-          {
-            "@context": ["in reality payload uses Expanded JSON-LD"],
-            "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
-            "type": ["SocialAgentInvitation"],
-            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "Kim",
-            "note": "Some note"
-          }
-          ```
         '''
     }
     Dan.UAS -> Dan.Registry 'create Social Agent Registration [Agent]' {
@@ -703,9 +816,6 @@ views {
 
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `dan`
-
-          >[!TIP]
-          >Peer WebId from Solid OIDC token in POST to capabilityUrl
 
           ```http
           PUT https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/
@@ -726,6 +836,38 @@ views {
 
           ```http
           HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Dan.UAS -> Dan.Registry 'update Social Agent Invitation [Agent]' {
+        notes'''
+          #### update Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          ```http
+          PUT https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "Kim",
+            "note": "Some note",
+            "registeredAgent": "https://id/kim"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
           ```
         '''
     }
@@ -760,34 +902,47 @@ views {
           ```
         '''
     }
-    Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
-        notes'''
-          #### notify Add activity (subscription webhook) [Activity]
-          >[!NOTE]
-          >invitation.test.ts > personal
+    parallel {
+      Dan.UAS -> Kim.Worker 'WebId' {
+          notes'''
+            #### WebId
+            >[!NOTE]
+            >invitation.test.ts > personal
 
-          >[!IMPORTANT]
-          > Auth: Capability URL
+            ```http
+            HTTP/1.1 200 OK
+            Content-Type: text/plain
+            ```
 
-          ```http
-          POST https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a
-          Content-Type: application/ld+json
-          ```
+            ```text
+            https://id/dan
+            ```
+          '''
+      }
+      Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >invitation.test.ts > personal
 
-          ```json
-          {
-            "@context": [
-              "https://www.w3.org/ns/activitystreams",
-              "https://www.w3.org/ns/solid/notifications-context/v1"
-            ],
-            "id": "urn:uuid:27043339-c070-41ea-a987-8d8f445b3a4c",
-            "type": "Add",
-            "object": "https://registry/dan/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
-            "target": "https://registry/dan/activity/",
-            "published": "2026-09-01T01:50:31.328Z"
-          }
-          ```
-        '''
+            >[!IMPORTANT]
+            > Auth: Capability URL
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+              "type": "Add",
+              "object": "https://registry/dan/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+              "target": "https://registry/dan/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
     }
     Dan.ActivityWebhookHandler -> Dan.Temporal 'start establishReciprocal workflow' {
         notes'''
@@ -809,60 +964,9 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'update Social Agent Invitation [Agent]' {
+    Kim.Worker -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
-          #### update Social Agent Invitation [Agent]
-          >[!NOTE]
-          >invitation.test.ts > personal
-
-          >[!IMPORTANT]
-          > Auth: Solid OIDC access token as `dan`
-
-          >[!TIP]
-          >add `registeredAgent`
-
-          ```http
-          PUT https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
-          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
-          ```
-
-          ```json
-          {
-            "@context": ["in reality payload uses Expanded JSON-LD"],
-            "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
-            "type": ["SocialAgentInvitation"],
-            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "Kim",
-            "note": "Some note",
-            "registeredAgent": "https://id/kim"
-          }
-          ```
-          ---
-
-          ```http
-          HTTP/1.1 200 OK
-          ```
-        '''
-    }
-    Dan.UAS -> Kim.UAS 'WebId' {
-        notes'''
-          #### WebId
-          >[!NOTE]
-          >invitation.test.ts > personal
-
-          ```http
-          HTTP/1.1 200 OK
-          Content-Type: text/plain
-          ```
-
-          ```text
-          https://id/dan
-          ```
-        '''
-    }
-    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
-        notes'''
-          #### create Social Agent Registration [Agent]
+          #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -870,8 +974,7 @@ views {
           > Auth: Solid OIDC access token as `kim`
 
           >[!TIP]
-          >Peer WebId from response after POST to capabilityUrl
-
+          > WebId from the capabilityUrl response
 
           ```http
           PUT https://registry/kim/agent/dc5d0381-3b43-4e69-887e-c720a9793452/
@@ -895,10 +998,10 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'discover reciprocal registration [Agent]' {
+    Kim.Worker -> Dan.UAS '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
-          #### discover reciprocal registration [Agent]
+          #### (activity) discover reciprocal registration [Agent]
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -920,9 +1023,9 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'update reciprocal registration [Agent]' {
+    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
-          #### update reciprocal registration [Agent]
+          #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -949,24 +1052,47 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.AUI 'OK' {
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
-          #### OK
+          #### (activity) create activityCompleted [Activity]
           >[!NOTE]
           >invitation.test.ts > personal
 
           ```http
-          HTTP/1.1 200 OK
+          PUT https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d
           ```
 
           ```json
           {
-            "_tag": "Success",
-            "value": {
-              "id": "https://id/dan",
-              "label": "Dan",
-              "note": "Beep boop"
-            }
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d",
+            "target": "https://registry/kim/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
           }
           ```
         '''
@@ -976,8 +1102,7 @@ views {
           #### (workflow) run establishReciprocal
           >[!NOTE]
           >invitation.test.ts > personal
-        '''
-        notes'''
+
           >[!TIP]
           >gRPC
 
@@ -992,7 +1117,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Dan.Registry '(activity) discover reciprocal registration [Agent]' {
+    Dan.Worker -> Kim.UAS '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -1069,22 +1194,6 @@ views {
             "sendTo": "https://auth/.sai/reciprocal-webhook/37048cbb-9cd7-4a20-b040-ff9e7925fe0c"
           }
           ```
-          ---
-
-          ```http
-          HTTP/1.1 201 Created
-          Content-Type: application/ld+json
-          ```
-
-          ```json
-          {
-            "@context": "https://www.w3.org/ns/solid/notification/v1",
-            "id": "https://registry/.notifications/WebhookChannel2023/df9d9e3c-ba4b-4f7b-8e3c-eef0854406b3",
-            "type": "WebhookChannel2023",
-            "topic": "https://registry/kim/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
-            "sender": "https://id/kim"
-          }
-          ```
         '''
     }
     Dan.Worker -> Dan.Registry '(activity) create activityCompleted [Activity]' {
@@ -1117,18 +1226,13 @@ views {
           >[!IMPORTANT]
           > Auth: Capability URL
 
-          ```http
-          POST https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a
-          Content-Type: application/ld+json
-          ```
-
           ```json
           {
             "@context": [
               "https://www.w3.org/ns/activitystreams",
               "https://www.w3.org/ns/solid/notifications-context/v1"
             ],
-            "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+            "id": "urn:uuid:6b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d0e",
             "type": "Add",
             "object": "https://registry/dan/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444",
             "target": "https://registry/dan/activity/",
@@ -1137,9 +1241,18 @@ views {
           ```
         '''
     }
+    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+        notes'''
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f","activityType":"invitationAccepted","target":"https://registry/kim/","payload":{"webId":"https://id/kim","capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f","label":"Dan","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
     Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
         notes'''
-          #### forward done event (NDJSON)
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -1150,11 +1263,11 @@ views {
     }
   }
 
-  dynamic view admin-invitation {
+  dynamic view admin-invitation-send {
     title: 'Invitation — Dan as YoYo admin to Kim'
 
     include Kim, YoYo, Dan
-    include Kim.AUI, Kim.UAS, Kim.Registry, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker, Dan.UAS, Dan.ActivityWebhookHandler, Dan.AUI
+    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
 
     style YoYo {
       color: green
@@ -1313,6 +1426,25 @@ views {
           >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f`
         '''
     }
+    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
     Kim.AUI -> Kim.UAS 'POST (RPC) acceptInvitation' {
         notes'''
           #### POST (RPC) acceptInvitation
@@ -1342,9 +1474,126 @@ views {
           ```
         '''
     }
-    Kim.UAS -> YoYo.UAS 'POST capabilityUrl' {
+Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
-          #### POST capabilityUrl
+          #### PUT invitationAccepted activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PUT https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+            "type": ["Activity"],
+            "activityType": "invitationAccepted",
+            "target": "https://registry/kim/",
+            "payload": "{\"webId\":\"https://id/kim\",\"capabilityUrl\":\"https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f\",\"label\":\"YoYo\",\"note\":\"Beep boop\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.AUI 'OK (pending)' {
+        notes'''
+          #### OK (pending)
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "accepted": true
+            }
+          }
+          ```
+        '''
+    }
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
+            "type": "Add",
+            "object": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+            "target": "https://registry/kim/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start acceptInvitation workflow' {
+        notes'''
+          #### start acceptInvitation workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+            "label": "YoYo",
+            "note": "Beep boop",
+            "activityIri": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Temporal -> Kim.Worker '(workflow) run acceptInvitation' {
+        notes'''
+          #### (workflow) run acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+            "label": "YoYo",
+            "note": "Beep boop",
+            "activityIri": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Worker -> YoYo.UAS '(activity) POST capabilityUrl' {
+        notes'''
+          #### (activity) POST capabilityUrl
           >[!NOTE]
           >invitation.test.ts > admin
 
@@ -1366,13 +1615,6 @@ views {
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `yoyo`
 
-          ```http
-          POST http://sparql/sparql
-          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
-          Content-Type: application/sparql-query
-          Accept: application/ld+json
-          ```
-
           ```sparql
           PREFIX interop: <https://www.w3.org/ns/solid/interop#>
 
@@ -1387,23 +1629,6 @@ views {
             }
           }
           ```
-          ---
-
-          ```http
-          HTTP/1.1 200 OK
-          Content-Type: application/ld+json
-          ```
-
-          ```json
-          {
-            "@context": ["in reality payload uses Expanded JSON-LD"],
-            "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
-            "type": ["SocialAgentInvitation"],
-            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
-            "prefLabel": "Kim",
-            "note": "Some note"
-          }
-          ```
         '''
     }
     YoYo.UAS -> YoYo.Registry 'create Social Agent Registration [Agent]' {
@@ -1414,9 +1639,6 @@ views {
 
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `yoyo`
-
-          >[!TIP]
-          >Peer WebId from Solid OIDC token in POST to capabilityUrl
 
           ```http
           PUT https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/
@@ -1471,56 +1693,6 @@ views {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
-        notes'''
-          #### notify Add activity (subscription webhook) [Activity]
-          >[!NOTE]
-          >invitation.test.ts > admin
-
-          >[!IMPORTANT]
-          > Auth: Capability URL
-
-          ```http
-          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
-          Content-Type: application/ld+json
-          ```
-
-          ```json
-          {
-            "@context": [
-              "https://www.w3.org/ns/activitystreams",
-              "https://www.w3.org/ns/solid/notifications-context/v1"
-            ],
-            "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
-            "type": "Add",
-            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
-            "target": "https://registry/yoyo/activity/",
-            "published": "2026-09-01T01:50:31.328Z"
-          }
-          ```
-        '''
-    }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start establishReciprocal workflow' {
-        notes'''
-          #### start establishReciprocal workflow
-          >[!NOTE]
-          >invitation.test.ts > admin
-        '''
-        notes'''
-          >[!TIP]
-          >gRPC
-
-          ```json
-          {
-            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
-            "webId": "https://id/yoyo",
-            "peerId": "https://id/kim",
-            "registrationId": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
-            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
-          }
-          ```
-        '''
-    }
     YoYo.UAS -> YoYo.Registry 'update Social Agent Invitation [Agent]' {
         notes'''
           #### update Social Agent Invitation [Agent]
@@ -1553,7 +1725,7 @@ views {
           ```
         '''
     }
-    YoYo.UAS -> Kim.UAS 'WebId' {
+    YoYo.UAS -> Kim.Worker 'WebId' {
         notes'''
           #### WebId
           >[!NOTE]
@@ -1569,9 +1741,87 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
-          #### create Social Agent Registration [Agent]
+          #### notify Add activity (admin channel — forward only) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start establishReciprocal workflow' {
+        notes'''
+          #### start establishReciprocal workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+            "webId": "https://id/yoyo",
+            "peerId": "https://id/kim",
+            "registrationId": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
+        notes'''
+          #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
           >invitation.test.ts > admin
 
@@ -1600,10 +1850,10 @@ views {
           ```
         '''
     }
-    Kim.UAS -> YoYo.UAS 'discover reciprocal registration' {
+    Kim.Worker -> YoYo.UAS '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
-          #### discover reciprocal registration [Agent]
+          #### (activity) discover reciprocal registration [Agent]
           >[!NOTE]
           >invitation.test.ts > admin
 
@@ -1625,9 +1875,9 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'update reciprocal registration [Agent]' {
+    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
-          #### update reciprocal registration [Agent]
+          #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
           >invitation.test.ts > admin
 
@@ -1654,24 +1904,47 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.AUI 'OK' {
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
-          #### OK
+          #### (activity) create activityCompleted [Activity]
           >[!NOTE]
           >invitation.test.ts > admin
 
           ```http
-          HTTP/1.1 200 OK
+          PUT https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d
           ```
 
           ```json
           {
-            "_tag": "Success",
-            "value": {
-              "id": "https://id/yoyo",
-              "label": "YoYo",
-              "note": "Beep boop"
-            }
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f"
+          }
+          ```
+        '''
+    }
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/kim/activity/7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d",
+            "target": "https://registry/kim/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
           }
           ```
         '''
@@ -1681,8 +1954,7 @@ views {
           #### (workflow) run establishReciprocal
           >[!NOTE]
           >invitation.test.ts > admin
-        '''
-        notes'''
+
           >[!TIP]
           >gRPC
 
@@ -1774,22 +2046,6 @@ views {
             "sendTo": "https://auth/.sai/reciprocal-webhook/9dbd8733-5624-4949-9966-00faf6cb936d"
           }
           ```
-          ---
-
-          ```http
-          HTTP/1.1 201 Created
-          Content-Type: application/ld+json
-          ```
-
-          ```json
-          {
-            "@context": "https://www.w3.org/ns/solid/notification/v1",
-            "id": "https://registry/.notifications/WebhookChannel2023/f39bafa5-7a13-4fde-beb9-ad804573998c",
-            "type": "WebhookChannel2023",
-            "topic": "https://registry/kim/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/",
-            "sender": "https://id/kim"
-          }
-          ```
         '''
     }
     YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
@@ -1821,11 +2077,6 @@ views {
 
           >[!IMPORTANT]
           > Auth: Capability URL
-
-          ```http
-          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
-          Content-Type: application/ld+json
-          ```
 
           ```json
           {
@@ -1878,6 +2129,894 @@ views {
 
           ```json
           {"type":"activity","activity":{"id":"https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95","activityType":"agentRegistrationAdded","target":"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/","payload":{"webId":"https://id/yoyo","peerId":"https://id/kim","registrationId":"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
+    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+        notes'''
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f","activityType":"invitationAccepted","target":"https://registry/kim/","payload":{"webId":"https://id/kim","capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f","label":"YoYo","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
+  }
+
+  dynamic view admin-invitation-receive {
+    title: 'Invitation - Kim to YoYo, accepted by Dan (YoYo admin)'
+
+    include Kim, YoYo, Dan
+    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
+
+    style YoYo {
+      color: green
+    }
+
+    style Dan {
+      color: indigo
+    }
+
+    style Kim {
+      color: sky
+    }
+
+    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Kim.AUI -> Kim.UAS 'POST (RPC) createInvitation' {
+        notes'''
+          #### POST (RPC) createInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "CreateInvitation",
+                "label": "YoYo",
+                "note": "Some note",
+                "context": "https://id/kim"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'PUT invitation resource [Agent]' {
+        notes'''
+          #### PUT invitation resource [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          >the capabilityUrl is opaque outside Kim's AA
+
+          ```http
+          PUT https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "YoYo",
+            "note": "Some note"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.AUI 'OK' {
+        notes'''
+          #### OK
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "id": "https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+              "label": "YoYo",
+              "note": "Some note"
+            }
+          }
+          ```
+        '''
+    }
+    Kim.AUI -> Dan.AUI 'pass link out of band' {
+        notes'''
+          #### pass link out of band
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f`
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'POST (RPC) acceptInvitation' {
+        notes'''
+          #### POST (RPC) acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AcceptInvitation",
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+                "label": "Kim",
+                "note": "Beep boop",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+        navigateTo org-registry-set-discovery
+        notes'''
+          #### discover org registry set
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [org-registry-set-discovery](../org-registry-set-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://registry/yoyo/>;
+                rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PUT invitationAccepted activity [Activity]' {
+        notes'''
+          #### PUT invitationAccepted activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          >[!TIP]
+          >Dan's UAS records the acceptance — the opaque capabilityUrl rides in the payload
+
+          ```http
+          PUT https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "type": ["Activity"],
+            "activityType": "invitationAccepted",
+            "target": "https://registry/yoyo/",
+            "payload": "{\"webId\":\"https://id/yoyo\",\"capabilityUrl\":\"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f\",\"label\":\"Kim\",\"note\":\"Beep boop\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Dan.UAS -> Dan.AUI 'OK (pending)' {
+        notes'''
+          #### OK (pending)
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "accepted": true
+            }
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+        notes'''
+          #### notify Add activity (admin channel — forward only) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:4247fcbc-153e-4a4a-9fa9-0f5eb1fe7de3",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start acceptInvitation workflow' {
+        notes'''
+          #### start acceptInvitation workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+            "webId": "https://id/yoyo",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "label": "Kim",
+            "note": "Beep boop",
+            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.Temporal -> YoYo.Worker '(workflow) run acceptInvitation' {
+        notes'''
+          #### (workflow) run acceptInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+            "webId": "https://id/yoyo",
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "label": "Kim",
+            "note": "Beep boop",
+            "activityIri": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.Worker -> Kim.UAS '(activity) POST capabilityUrl' {
+        notes'''
+          #### (activity) POST capabilityUrl
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          POST https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'fetch Social Agent Invitation [Agent]' {
+        notes'''
+          #### fetch Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```sparql
+          PREFIX interop: <https://www.w3.org/ns/solid/interop#>
+
+          CONSTRUCT {
+            ?s ?p ?o
+          } WHERE {
+            GRAPH ?g {
+              ?invitation
+                interop:hasCapabilityUrl
+                  <https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f> .
+              ?s ?p ?o
+            }
+          }
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
+        notes'''
+          #### create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PUT https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/yoyo",
+            "prefLabel": "YoYo",
+            "note": "Some note"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+        notes'''
+          #### PUT agentRegistrationAdded activity [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PUT https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+            "type": ["Activity"],
+            "activityType": "agentRegistrationAdded",
+            "target": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "payload": "{\"webId\":\"https://id/kim\",\"peerId\":\"https://id/yoyo\",\"registrationId\":\"https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/\"}"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'update Social Agent Invitation [Agent]' {
+        notes'''
+          #### update Social Agent Invitation [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PUT https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "type": ["SocialAgentInvitation"],
+            "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+            "prefLabel": "YoYo",
+            "note": "Some note",
+            "registeredAgent": "https://id/yoyo"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Kim.UAS -> YoYo.Worker 'WebId' {
+        notes'''
+          #### WebId
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: text/plain
+          ```
+
+          ```text
+          https://id/kim
+          ```
+        '''
+    }
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0caaa56a-7322-41de-9abb-83a5831837d6",
+            "type": "Add",
+            "object": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+            "target": "https://registry/kim/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start establishReciprocal workflow' {
+        notes'''
+          #### start establishReciprocal workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "peerId": "https://id/yoyo",
+            "registrationId": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "activityIri": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) create Social Agent Registration [Agent]' {
+        notes'''
+          #### (activity) create Social Agent Registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          PUT https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/kim",
+            "prefLabel": "Kim",
+            "note": "Beep boop"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    YoYo.Worker -> Kim.UAS '(activity) discover reciprocal registration' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### (activity) discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/kim>;
+                anchor="https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          PATCH https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          PUT https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+        notes'''
+          #### notify Add activity (admin channel — forward only) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```http
+          POST https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0ea41141-1b0a-45c0-b875-f14ce2dc1c09",
+            "type": "Add",
+            "object": "https://registry/yoyo/activity/d9e09e50-067a-4577-bbb7-6ccf9fa44eb4",
+            "target": "https://registry/yoyo/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
+        notes'''
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95","activityType":"invitationAccepted","target":"https://registry/yoyo/","payload":{"webId":"https://id/yoyo","capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f","label":"Kim","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          ```
+        '''
+    }
+    Kim.Temporal -> Kim.Worker '(workflow) run establishReciprocal' {
+        notes'''
+          #### (workflow) run establishReciprocal
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          {
+            "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+            "webId": "https://id/kim",
+            "peerId": "https://id/yoyo",
+            "registrationId": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "activityIri": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
+    }
+    Kim.Worker -> YoYo.UAS '(activity) discover reciprocal registration' {
+        navigateTo social-agent-registration-discovery
+        notes'''
+          #### (activity) discover reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          [social-agent-registration-discovery](../social-agent-registration-discovery/?dynamic=sequence)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://id/yoyo>;
+                anchor="https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/";
+                rel="http://www.w3.org/ns/solid/interop#registeredAgent"
+          ```
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) update reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          PATCH https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/sparql-update
+          ```
+
+          ```sparql
+          INSERT DATA {
+            <https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/>
+              <https://www.w3.org/ns/solid/interop#reciprocalRegistration>
+                <https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/> .
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Kim.Worker -> YoYo.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/37048cbb-9cd7-4a20-b040-ff9e7925fe0c"
+          }
+          ```
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```http
+          PUT https://registry/kim/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444",
+            "type": ["Activity"],
+            "activityType": "activityCompleted",
+            "target": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169"
+          }
+          ```
+        '''
+    }
+    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:6b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d0e",
+            "type": "Add",
+            "object": "https://registry/kim/activity/4e6f8dcd-95f1-4c85-8100-f79d39da6444",
+            "target": "https://registry/kim/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+
+    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+        notes'''
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```json
+          {"type":"activity","activity":{"id":"https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169","activityType":"agentRegistrationAdded","target":"https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/","payload":{"webId":"https://id/kim","peerId":"https://id/yoyo","registrationId":"https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
           ```
         '''
     }

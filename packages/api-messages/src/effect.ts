@@ -172,6 +172,14 @@ export const SocialAgentInvitation = S.Struct({
 
 export const SocialAgentInvitationList = S.Array(SocialAgentInvitation)
 
+/**
+ * Pending acknowledgment of an accepted invitation — the acceptance itself
+ * completes asynchronously via the acceptor's `invitationAccepted` workflow.
+ */
+export const InvitationAccepted = S.Struct({
+  accepted: S.Boolean,
+})
+
 export const DataRegistry = S.Struct({
   id: IRI,
   label: S.String,
@@ -418,7 +426,7 @@ export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('Creat
 
 export class AcceptInvitation extends S.TaggedRequest<AcceptInvitation>()('AcceptInvitation', {
   failure: S.Never,
-  success: SocialAgent,
+  success: InvitationAccepted,
   payload: {
     capabilityUrl: S.String,
     label: S.String,
@@ -535,7 +543,7 @@ export class SaiService extends Context.Tag('SaiService')<
       label: string,
       note: string | undefined,
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
+    ) => Effect.Effect<S.Schema.Type<typeof InvitationAccepted>>
     readonly shareResource: (
       authorization: S.Schema.Type<typeof ShareAuthorization>,
       context: IRI

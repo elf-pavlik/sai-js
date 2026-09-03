@@ -23,6 +23,7 @@ import { IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
+import type { ActivityEvent } from '@/events'
 import { useCoreStore } from './core'
 
 export const useAppStore = defineStore('app', () => {
@@ -59,6 +60,90 @@ export const useAppStore = defineStore('app', () => {
    * (admin flag + label, §2.2/§2.6 of org-admin-feature.md).
    */
   const contexts = ref<{ webId: string; label: string }[]>([])
+
+  // ──────────────────────────
+  // Activity tracker + snackbar (activity-first-services step 0) — record
+  // every stream activity pending → done; claims bind a user-triggered
+  // action to its activity (step 1: create matches the echoed pre-minted
+  // invitation id — the activity's as:object); the app-shell snackbar
+  // mirrors the latest claim — spinner + yellow while pending, ✓ + light
+  // green on done, auto-hidden 5s after completion.
+  // ──────────────────────────
+
+  /** a claim — what to expect, bound to a stream event when it arrives */
+  interface ActivityClaim {
+    context: string
+    type: string
+    /** match anchor — e.g. the create-ack's echoed invitation id (as:object) */
+    object?: string
+    /** bound once the matching stream event arrived */
+    activityId?: string
+    status: 'pending' | 'done'
+  }
+
+  const streamActivities = reactive<Record<string, ActivityEvent>>({})
+  const claims: ActivityClaim[] = []
+  const activitySnackbar = reactive({
+    visible: false,
+    /** mirrors the claim's status — pending: spinner, done: ✓ */
+    status: 'pending' as 'pending' | 'done',
+    claim: null as ActivityClaim | null,
+  })
+
+  function scheduleSnackbarHide() {
+    // only the done state auto-hides; pending stays until the workflow finishes
+    window.setTimeout(() => {
+      if (!activitySnackbar.visible) return
+      activitySnackbar.visible = false
+      activitySnackbar.claim = null
+    }, 5_000)
+  }
+
+  /** Bind (or refresh) a claim against the recorded events — the done event
+   *  replaces the pending entry (same activity id), so an already-bound claim
+   *  re-reads the CURRENT entry and flips to done even when both events
+   *  arrived before the claim was registered (webhook beats the RPC ack). */
+  function bindClaim(claim: ActivityClaim) {
+    const found = claim.activityId
+      ? streamActivities[claim.activityId]
+      : Object.values(streamActivities).find(
+          (a) =>
+            a.actor === claim.context &&
+            a.type.includes(claim.type) &&
+            (claim.object === undefined || a.object === claim.object)
+        )
+    if (!found) return
+    claim.activityId = found.id
+    const event = streamActivities[found.id]
+    if (event.status === 'done') {
+      claim.status = 'done'
+      if (activitySnackbar.claim === claim) {
+        activitySnackbar.status = 'done'
+        scheduleSnackbarHide()
+      }
+    }
+  }
+
+  /** Feed a stream event into the tracker (events.ts — every pending + done). */
+  function recordActivity(activity: ActivityEvent) {
+    streamActivities[activity.id] = activity
+    for (const claim of claims) bindClaim(claim)
+  }
+
+  /** Claim a user-triggered action's activity and surface it in the
+   *  app-shell snackbar. The claim matches the stream event by context +
+   *  class + optional as:object; bindClaim sweeps events that already
+   *  arrived, so the snackbar state is correct even if the workflow
+   *  completed before the RPC ack resolved. */
+  function claimActivity(expected: { context: string; type: string; object?: string }) {
+    const claim = reactive<ActivityClaim>({ ...expected, status: 'pending' })
+    claims.push(claim)
+    bindClaim(claim)
+    activitySnackbar.claim = claim
+    activitySnackbar.status = claim.status
+    activitySnackbar.visible = true
+    return claim
+  }
 
   async function listSocialAgents(force = false) {
     if (!socialAgentList.value.length || force) {
@@ -206,8 +291,12 @@ export const useAppStore = defineStore('app', () => {
   ): Promise<S.Schema.Type<typeof InvitationCreatedMessage>> {
     // activity-first (step 1): the invitation resource is PUT by the
     // createInvitation workflow later — no optimistic push; the InvitationCreated
-    // done-row (events.ts) refreshes the list, bringing the new invitation in
-    return effect.createInvitation(label, note, currentContext())
+    // done-row (events.ts) refreshes the list. The snackbar claims the activity
+    // by the echoed pre-minted id (the activity's as:object) — pending spinner
+    // → done ✓ (step 0).
+    const result = await effect.createInvitation(label, note, currentContext())
+    claimActivity({ context: currentContext(), type: 'InvitationCreated', object: result.id })
+    return result
   }
 
   async function acceptInvitation(
@@ -249,6 +338,9 @@ export const useAppStore = defineStore('app', () => {
     dataRegistryList,
     shareAuthorizationConfirmation,
     invitationList,
+    activitySnackbar,
+    recordActivity,
+    claimActivity,
     setContext,
     switchContext,
     currentContext,

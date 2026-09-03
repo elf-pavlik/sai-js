@@ -23,10 +23,37 @@
       />
     </v-app-bar>
     <router-view />
+
+    <!-- activity indicator (step 0): the latest claimed activity — spinner +
+         yellow while pending, ✓ + light green on done, auto-hides 5s after
+         completion (the store schedules the hide; timeout=-1 keeps pending
+         visible until the workflow finishes) -->
+    <v-snackbar
+      v-model="appStore.activitySnackbar.visible"
+      :color="appStore.activitySnackbar.status === 'pending' ? 'amber-lighten-3' : 'light-green-lighten-3'"
+      :timeout="-1"
+      location="top"
+    >
+      <div class="d-flex align-center">
+        <v-progress-circular
+          v-if="appStore.activitySnackbar.status === 'pending'"
+          indeterminate
+          size="18"
+          width="2"
+          class="mr-2"
+        />
+        <span
+          v-else
+          class="mr-2"
+        >✓</span>
+        <span>{{ activityLabel }}</span>
+      </div>
+    </v-snackbar>
   </v-app>
 </template>
 
 <script lang="ts" setup>
+import { ACTIVITY_LABELS } from '@/activityLabels'
 import { useAppStore } from '@/store/app'
 import { useCoreStore } from '@/store/core'
 import { useFluent } from 'fluent-vue'
@@ -49,6 +76,14 @@ const contextItems = computed(() => [
 const currentContext = computed({
   get: () => appStore.context ?? coreStore.userId,
   set: (webId: string) => void appStore.switchContext(webId),
+})
+
+/** the snackbar label for the claimed activity class (map + class-name fallback) */
+const activityLabel = computed(() => {
+  const claim = appStore.activitySnackbar.claim
+  if (!claim) return ''
+  const key = ACTIVITY_LABELS[claim.type]
+  return key ? $t(key) : claim.type
 })
 
 // prime the switcher list once the user is known (personal-context discovery)

@@ -1,0 +1,11 @@
+/**
+ * Activity class → fluent message key — the label map for the activity
+ * indicator (step 0 of activity-first-services.md). One row per class the UI
+ * claims: each step that adds an activity-first RPC adds its row here (the
+ * "add their row to stay exhaustive" rule, like events.ts dispatch rows).
+ * Fallback is the class name itself, so a missing row is visible in dev.
+ */
+export const ACTIVITY_LABELS: Record<string, string> = {
+  InvitationCreated: 'create-invitation',
+  InvitationAccepted: 'accept-invitation',
+}

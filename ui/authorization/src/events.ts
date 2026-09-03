@@ -13,13 +13,16 @@ import { getRuntimeConfig } from './runtime-config'
  *   server never replays missed events — docs/plans/refactor-ui.md §5)
  */
 
-interface ActivityEvent {
+export interface ActivityEvent {
   id: string
   /** the typed activity tuple — `['Activity', '<Class>', <as:*>]` */
   type: string[]
   target: string
   /** as:actor — plain IRI (the registry owner the activity was written to) */
   actor?: string
+  /** as:object — live-link IRI / snapshot POJO (the matching anchor for the
+   *  step-1 create claim — the echoed pre-minted invitation id) */
+  object?: unknown
   createdAt: string
   status: 'pending' | 'done'
 }
@@ -64,8 +67,11 @@ function registryOwner(activity: ActivityEvent): string | undefined {
  * (optional "applying changes…" indicator, out of scope).
  */
 function handleActivity(activity: ActivityEvent) {
-  if (activity.status !== 'done') return
   const appStore = useAppStore()
+  // track every activity (pending → done) — the step-0 tracker; claims bind
+  // a user-triggered action to its activity (create: the echoed as:object id)
+  appStore.recordActivity(activity)
+  if (activity.status !== 'done') return
   // org-context events arrive on the admin's stream for every org the user
   // administers — refresh only the context that owns the activity; switching
   // contexts already performs a full refresh (switchContext)

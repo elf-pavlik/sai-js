@@ -4,6 +4,7 @@ import type {
   FinalGrantData,
   GrantId,
   GrantsRevoked,
+  InvitationCreated,
   RoleDeleted,
   RoleMembershipChanged,
   SocialAgentId,
@@ -19,12 +20,14 @@ import {
 import type * as activities from '../activities/grants.js'
 import { createAdminGrants, revokeAdminGrants, syncAdminAcr } from './admin.js'
 import type { AdminWorkflowInput } from './admin.js'
+import { createInvitation } from './invitation.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
 // beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
 // built-ins). The values must match what producers put in the refs they build.
 const ROLE_TYPE = 'http://www.w3.org/ns/solid/interop#Role'
 const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
+const SOCIAL_AGENT_INVITATION_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgentInvitation'
 const DATA_GRANT_TYPE = 'http://www.w3.org/ns/solid/interop#DataGrant'
 
 /** Sandbox-safe discriminant check (the data-model `isActivityClass` helper
@@ -389,6 +392,25 @@ export async function reconcileActivities(payload: {
         { args }
       )
       await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'InvitationCreated')) {
+      // step 1 — same routing as the webhook handler: the workflow PUTs the
+      // invitation at the pre-minted id (find-first — a reconcile re-run
+      // after a handler crash sees the existing invitation and only marks
+      // the activity done)
+      const decoded = activity as InvitationCreated
+      await executeChild(createInvitation, {
+        args: [
+          payload.webId.id,
+          {
+            id: decoded.object,
+            type: [SOCIAL_AGENT_INVITATION_TYPE],
+            prefLabel: decoded.label,
+            note: decoded.note,
+          },
+          { id: activity.id, type: decoded.type },
+        ],
+      })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }
   }

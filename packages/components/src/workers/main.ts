@@ -4,6 +4,7 @@ import { NativeConnection, Worker } from '@temporalio/worker'
 import * as adminActivities from '../temporal/activities/admin.js'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
+import * as invitationActivities from '../temporal/activities/invitation.js'
 import * as reciprocalActivities from '../temporal/activities/reciprocal.js'
 
 async function connectWithRetry() {
@@ -46,9 +47,10 @@ async function run() {
       workflowsPath: fileURLToPath(
         new URL('../temporal/workflows/create-grants.js', import.meta.url)
       ),
-      // grants + org-admin activities — the combined workflow module calls
-      // names from both (the admin workflows also use markActivitiesDone)
-      activities: { ...grantsActivities, ...adminActivities },
+      // grants + org-admin + activity-first invitation activities — the
+      // combined workflow module calls names from all three (the admin
+      // workflows also use markActivitiesDone)
+      activities: { ...grantsActivities, ...adminActivities, ...invitationActivities },
     })
 
     // Run all workers simultaneously

@@ -182,6 +182,23 @@ export const InvitationAcceptedMessage = S.Struct({
   accepted: S.Boolean,
 })
 
+/**
+ * Pending acknowledgment of an invitation creation (activity-first step 1) —
+ * the RPC only writes the `invitationCreated` activity; the `createInvitation`
+ * workflow PUTs the invitation resource at the echoed `id` and generates the
+ * `capabilityUrl` there, so the ack deliberately carries neither. Echoed
+ * `label`/`note` + the pre-minted id give the UI a pending handle for the
+ * step-0 indicator; the capabilityUrl is learned from the invitation resource
+ * after completion (never from an RPC or activity).
+ */
+export const InvitationCreatedMessage = S.Struct({
+  accepted: S.Boolean,
+  /** the pre-minted invitation IRI the workflow will PUT at */
+  id: IRI,
+  label: S.String,
+  note: S.optional(S.String),
+})
+
 // ──────────────────────────
 // Activity projections (the outbox) — payload-contract-alignment step 3
 // (amended wire). Same field sets as the data-model ActivityData union
@@ -661,7 +678,7 @@ export class RequestAccessUsingApplicationNeeds extends S.TaggedRequest<RequestA
 
 export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('CreateInvitation', {
   failure: S.Never,
-  success: SocialAgentInvitation,
+  success: InvitationCreatedMessage,
   payload: {
     label: S.String,
     note: S.optional(S.String),
@@ -782,7 +799,7 @@ export class SaiService extends Context.Tag('SaiService')<
       label: string,
       note: string | undefined,
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof SocialAgentInvitation>>
+    ) => Effect.Effect<S.Schema.Type<typeof InvitationCreatedMessage>>
     readonly acceptInvitation: (
       capabilityUrl: string,
       label: string,

@@ -1,8 +1,8 @@
-import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
-import type { SocialAgentInvitationData } from '@janeirodigital/interop-data-model'
-import { IRI, SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import type { InvitationCreated, SocialAgentInvitationData } from '@janeirodigital/interop-data-model'
+import { IRI, InvitationCreatedMessage, SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
+import { iriForContained } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
-import { invitationUrl } from '../util/uriTemplates.js'
 import type { ResolvedContext } from './Context.js'
 import {
   getSocialAgentInvitation as getInvitationFromSparql,
@@ -37,17 +37,39 @@ export async function getSocialAgentInvitations(ctx: ResolvedContext) {
   return invitations
 }
 
+/**
+ * Activity-first (step 1 of activity-first-services.md): the RPC only mints
+ * the invitation id (`iriForContained`) and writes the `invitationCreated`
+ * activity — the `createInvitation` workflow PUTs the invitation resource at
+ * the minted id and generates the capabilityUrl there (unknowable before the
+ * workflow runs, so the pending ack echoes only label/note + the minted id).
+ */
 export async function createInvitation(
   ctx: ResolvedContext,
   base: { label: string; note?: string }
-): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
-  const id = invitationUrl(ctx.webId)
-  const socialAgentInvitation = await AgentRegistry.addSocialAgentInvitation(
-    ctx.registrySet.hasInvitationRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    id,
-    base.label,
-    base.note
-  )
-  return buildSocialAgentInvitation(socialAgentInvitation)
+): Promise<S.Schema.Type<typeof InvitationCreatedMessage>> {
+  const invitationRegistry = ctx.registrySet.hasInvitationRegistry
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  const invitationId = iriForContained(invitationRegistry, ctx.session.randomUUID)
+  const activity: Omit<InvitationCreated, 'id'> = {
+    type: ['Activity', 'InvitationCreated', 'as:Create'],
+    actor: ctx.webId,
+    target: invitationRegistry.id,
+    label: base.label,
+    note: base.note,
+    /** live-but-pending link — the workflow PUTs the invitation at this id */
+    object: invitationId,
+    createdAt: new Date().toISOString(),
+  }
+  await ActivityRegistry.createActivity(activityRegistry, {
+    fetch: ctx.session.fetch,
+    randomUUID: ctx.session.randomUUID,
+  }, activity)
+  return InvitationCreatedMessage.make({
+    accepted: true,
+    id: IRI.make(invitationId),
+    label: base.label,
+    note: base.note,
+  })
 }

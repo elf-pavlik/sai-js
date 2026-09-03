@@ -83,6 +83,18 @@ export type InvitationCreated = ActivityBase & {
   object: string
 }
 
+/**
+ * Ref to the triggering `invitationCreated` activity — id + class tuple
+ * (the XId pattern for temporal inputs; refs stay TS-level, never on the
+ * wire — the completed activity's type is still read from the resource).
+ * Carried by the `createInvitation` workflow so the completion it writes is
+ * traceable without dereferencing (activity-first step 1).
+ */
+export type InvitationCreatedId = {
+  id: string
+  type: InvitationCreated['type']
+}
+
 /** Reciprocal social agent registration written by the invitation handler. */
 export type AgentRegistrationAdded = ActivityBase & {
   type: ['Activity', 'AgentRegistrationAdded', 'as:Add']

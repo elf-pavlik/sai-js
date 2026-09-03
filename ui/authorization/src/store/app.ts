@@ -8,13 +8,13 @@ import type {
   DataInstanceList,
   DataRegistryList,
   InvitationAcceptedMessage,
+  InvitationCreatedMessage,
   Resource,
   Role,
   RoleList,
   ShareAuthorization,
   ShareAuthorizationConfirmation,
   SocialAgent,
-  SocialAgentInvitation,
   SocialAgentInvitationList,
   SocialAgentList,
   UnregisteredApplication,
@@ -203,10 +203,11 @@ export const useAppStore = defineStore('app', () => {
   async function createInvitation(
     label: string,
     note?: string
-  ): Promise<S.Schema.Type<typeof SocialAgentInvitation>> {
-    const socialAgentInvitation = await effect.createInvitation(label, note, currentContext())
-    invitationList.value.push(socialAgentInvitation)
-    return socialAgentInvitation
+  ): Promise<S.Schema.Type<typeof InvitationCreatedMessage>> {
+    // activity-first (step 1): the invitation resource is PUT by the
+    // createInvitation workflow later — no optimistic push; the InvitationCreated
+    // done-row (events.ts) refreshes the list, bringing the new invitation in
+    return effect.createInvitation(label, note, currentContext())
   }
 
   async function acceptInvitation(

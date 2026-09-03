@@ -302,6 +302,18 @@ export async function waitForInvitationAcceptedCompletion(
   return waitForActivityCompletion(session, 'InvitationAccepted')
 }
 
+/**
+ * The send-leg tail of an invitation creation (activity-first step 1): the
+ * createInvitation workflow PUT the invitation and marked the
+ * invitationCreated activity done — a completion referencing it exists in
+ * the session's Activity Registry.
+ */
+export async function waitForInvitationCreatedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'InvitationCreated')
+}
+
 // ---------------------------------------------------------------------------
 // UI events stream (/.sai/events) — the NDJSON stream from refactor-ui.md
 // ---------------------------------------------------------------------------

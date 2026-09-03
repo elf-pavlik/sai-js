@@ -18,8 +18,8 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
   consumer per (webId, grantee));
 - **one workflow per type** (`activityWorkflows` map): `roleMembershipChanged`,
   `roleDeleted`, `agentRegistrationAdded`, `invitationAccepted`,
-  `delegatedGrantsUpdated`, `grantsRevoked` → matching Temporal workflow on
-  its task queue;
+  `invitationCreated`, `delegatedGrantsUpdated`, `grantsRevoked` → matching
+  Temporal workflow on its task queue;
 - completions (`activityCompleted`) never dispatch, only forward.
 
 ## Existing activity types
@@ -31,6 +31,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 | `roleMembershipChanged` / `roleDeleted` | `services/RoleRegistry.ts` | `processRoleMembershipChange` / `processRoleDeletion` |
 | `agentRegistrationAdded` | `InvitationHandler.ts` | `establishReciprocal` |
 | `invitationAccepted` | `acceptInvitation` service (acceptor's Activity Registry — own or org) | `acceptInvitation` (acceptor's workflow) |
+| `invitationCreated` | `createInvitation` RPC (activity-only — step 1; the workflow PUTs the invitation and generates the capabilityUrl there) | `createInvitation` (workflow, `create-grants` queue) |
 | `delegatedGrantsUpdated` | `ReciprocalWebhookHandler.ts` | `updateDelegatedGrants` |
 | `grantsRevoked` | revocation boundary (`revoke-delegation-chain.md`) | `processGrantsRevocation` |
 | `activityCompleted` | Temporal completions | — (forwarding only) |

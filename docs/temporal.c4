@@ -527,9 +527,9 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'PUT invitation resource [Agent]' {
+    Dan.UAS -> Dan.Registry 'PUT invitationCreated activity [Activity]' {
         notes'''
-          #### PUT invitation resource [Agent]
+          #### PUT invitationCreated activity [Activity]
           >[!NOTE]
           >invitation.test.ts > personal
 
@@ -537,17 +537,150 @@ views {
           > Auth: Solid OIDC access token as `dan`
 
           >[!TIP]
-          > `https://auth/.sai/invitations/{base64url(webId)}.{uuid}`
+          > activity-first (step 1): the RPC only mints the invitation id (`iriForContained`)
+          > and writes the activity — **no capabilityUrl** here (the workflow generates it)
 
           ```http
-          PUT https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          PUT https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e
           Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
 
           ```json
           {
             "@context": ["in reality payload uses Expanded JSON-LD"],
-            "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "id": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
+            "type": ["Activity", "InvitationCreated", "as:Create"],
+            "as:actor": "https://id/dan",
+            "as:target": "https://registry/dan/invitation/",
+            "label": "Kim",
+            "note": "Some note",
+            "as:object": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Dan.UAS -> Dan.AUI 'OK (pending)' {
+          notes'''
+            #### OK (pending)
+            >[!NOTE]
+            >invitation.test.ts > personal
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "accepted": true,
+                "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+                "label": "Kim",
+                "note": "Some note"
+              }
+            }
+            ```
+            ### Checks
+
+            #### Compare with request
+            * `label`
+            * `note`
+
+            #### String matching
+            * `id` - `https://registry/dan/invitation`
+            * no `capabilityUrl` in the response
+          '''
+      }
+      Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >invitation.test.ts > personal
+
+            >[!IMPORTANT]
+            > Auth: Capability URL
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:0aa56a9c-55b2-4c31-b7da-26d0ad4f8e2b",
+              "type": "Add",
+              "object": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
+              "target": "https://registry/dan/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    Dan.ActivityWebhookHandler -> Dan.Temporal 'start createInvitation workflow' {
+        notes'''
+          #### start createInvitation workflow
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          [
+            "https://id/dan",
+            {
+              "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+              "type": ["SocialAgentInvitation"],
+              "prefLabel": "Kim",
+              "note": "Some note"
+            },
+            {
+              "id": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
+              "type": ["Activity", "InvitationCreated", "as:Create"]
+            }
+          ]
+          ```
+        '''
+    }
+    Dan.Temporal -> Dan.Worker '(workflow) run createInvitation' {
+        notes'''
+          #### (workflow) run createInvitation
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          >gRPC
+        '''
+    }
+    Dan.Worker -> Dan.Registry 'PUT invitation resource [Agent]' {
+        notes'''
+          #### (activity) PUT invitation resource [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
+          >[!TIP]
+          > the activity-first workflow PUTs the invitation at the minted id
+          > and generates the capabilityUrl here (unknowable before this run)
+
+          ```http
+          PUT https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
             "prefLabel": "Kim",
@@ -561,35 +694,66 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.AUI 'OK' {
+    Dan.Worker -> Dan.Registry 'PUT activityCompleted [Activity]' {
         notes'''
-          #### OK
+          #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
           >invitation.test.ts > personal
 
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `dan`
+
           ```http
-          HTTP/1.1 200 OK
+          PUT https://registry/dan/activity/b3c8e0f1-6d4a-4e9b-a2f5-8c1d7e0a9b3f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
 
           ```json
           {
-            "_tag": "Success",
-            "value": {
-              "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
-              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-              "label": "Kim",
-              "note": "Some note"
-            }
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/dan/activity/b3c8e0f1-6d4a-4e9b-a2f5-8c1d7e0a9b3f",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
           }
           ```
-          ### Checks
+          ---
 
-          #### Compare with request
-          * `label`
-          * `note`
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > personal
 
-          #### String matching
-          * `capabilityUrl` - `https://auth/.sai/invitations`
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:7d12f0a3-1c8e-4b5a-9d67-e2f4b0a8c5d3",
+            "type": "Add",
+            "object": "https://registry/dan/activity/b3c8e0f1-6d4a-4e9b-a2f5-8c1d7e0a9b3f",
+            "target": "https://registry/dan/activity/",
+            "published": "2026-09-01T01:50:33.328Z"
+          }
+          ```
+        '''
+    }
+    Dan.ActivityWebhookHandler -> Dan.AUI 'done' {
+        notes'''
+          #### done
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!TIP]
+          > the UI learns the capabilityUrl from the invitation resource when
+          > the `InvitationCreated` done-row refreshes the invitation list
         '''
     }
     Dan.AUI -> Kim.AUI 'pass link out of band' {
@@ -599,7 +763,12 @@ views {
           >invitation.test.ts > personal
 
           >[!TIP]
-          >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f`
+          > the capabilityUrl is learned from the invitation resource AFTER the
+          > `createInvitation` workflow completed (never from the RPC/activity)
+
+          ```text
+          https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f
+          ```
         '''
     }
     Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
@@ -1365,9 +1534,9 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT invitation resource [Agent]' {
+    Dan.UAS -> YoYo.Registry 'PUT invitationCreated activity [Activity]' {
         notes'''
-          #### PUT invitation resource [Agent]
+          #### PUT invitationCreated activity [Activity]
           >[!NOTE]
           >invitation.test.ts > admin
 
@@ -1375,17 +1544,140 @@ views {
           > Auth: Solid OIDC access token as `dan`
 
           >[!TIP]
-          > `https://auth/.sai/invitations/{base64url(webId)}.{uuid}`
+          > activity-first (step 1): the RPC writes the activity to the ORG's
+          > Activity Registry (actor = the org) and returns a pending ack
 
           ```http
-          PUT https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b
+          PUT https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
           Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
 
           ```json
           {
             "@context": ["in reality payload uses Expanded JSON-LD"],
-            "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "InvitationCreated", "as:Create"],
+            "as:actor": "https://id/yoyo",
+            "as:target": "https://registry/yoyo/invitation/",
+            "label": "Kim",
+            "note": "Some note",
+            "as:object": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Dan.UAS -> Dan.AUI 'OK (pending)' {
+          notes'''
+            #### OK (pending)
+            >[!NOTE]
+            >invitation.test.ts > admin
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "accepted": true,
+                "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+                "label": "Kim",
+                "note": "Some note"
+              }
+            }
+            ```
+            ### Checks
+
+            #### Compare with request
+            * `label`
+            * `note`
+
+            #### String matching
+            * `id` - `https://registry/yoyo/invitation`
+            * no `capabilityUrl` in the response
+          '''
+      }
+      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >invitation.test.ts > admin
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "target": "https://registry/yoyo/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start createInvitation workflow' {
+        notes'''
+          #### start createInvitation workflow
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          ```json
+          [
+            "https://id/yoyo",
+            {
+              "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+              "type": ["SocialAgentInvitation"],
+              "prefLabel": "Kim",
+              "note": "Some note"
+            },
+            {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "InvitationCreated", "as:Create"]
+            }
+          ]
+          ```
+        '''
+    }
+    YoYo.Temporal -> YoYo.Worker '(workflow) run createInvitation' {
+        notes'''
+          #### (workflow) run createInvitation
+          >[!NOTE]
+          >invitation.test.ts > admin
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry 'PUT invitation resource [Agent]' {
+        notes'''
+          #### (activity) PUT invitation resource [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > the workflow runs as the org and generates the capabilityUrl here
+
+          ```http
+          PUT https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
             "prefLabel": "Kim",
@@ -1399,35 +1691,48 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.AUI 'OK' {
+    YoYo.Worker -> YoYo.Registry 'PUT activityCompleted [Activity]' {
         notes'''
-          #### OK
+          #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
           >invitation.test.ts > admin
 
           ```http
-          HTTP/1.1 200 OK
+          PUT https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
 
           ```json
           {
-            "_tag": "Success",
-            "value": {
-              "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
-              "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
-              "label": "Kim",
-              "note": "Some note"
-            }
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
           }
           ```
-          ### Checks
+          ---
 
-          #### Compare with request
-          * `label`
-          * `note`
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >invitation.test.ts > admin
+        '''
+    }
+    YoYo.ActivityWebhookHandler -> Dan.AUI 'done' {
+        notes'''
+          #### done
+          >[!NOTE]
+          >invitation.test.ts > admin
 
-          #### String matching
-          * `capabilityUrl` - `https://auth/.sai/invitations`
+          >[!TIP]
+          > the org-context done-row reaches the admin's own events stream
         '''
     }
     Dan.AUI -> Kim.AUI 'pass link out of band' {
@@ -1437,7 +1742,12 @@ views {
           >invitation.test.ts > admin
 
           >[!TIP]
-          >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f`
+          > the capabilityUrl is learned from the invitation resource AFTER the
+          > `createInvitation` workflow completed (never from the RPC/activity)
+
+          ```text
+          https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f
+          ```
         '''
     }
     Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {

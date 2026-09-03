@@ -341,11 +341,13 @@ suites updated in-step and green.
 For the near-identical pairs — `Role`/`RoleData`,
 `SocialAgentInvitation`/`SocialAgentInvitationData`,
 `RecordedDataAuthorization`/`DataAuthorizationData` — derive the message
-schema/type from the POJO (`Pick`/field-map, `prefLabel` → `label`) so a POJO
-field change fails the message build at compile time. The `X.make()` mappers
-in services stay the translation seam. **Not renaming data-model fields** —
-framing is RDF-faithful (`prefLabel` etc.). Decide in review; orthogonal to
-steps 1–3.
+schema/type from the POJO (`Pick`/field-map) so a POJO field change fails the
+message build at compile time. The `X.make()` mappers in services stay the
+translation seam. (The `prefLabel` → `label` rename is now historical — the
+label unification landed: `label` is the single term for `skos:prefLabel` in
+the model, on the wire and in the messages, so the seam no longer renames.)
+**Not renaming data-model fields for UI** — framing is RDF-faithful. Decide in
+review; orthogonal to steps 1–3.
 
 ## Activity inventory (step-1 target — one interface per class)
 
@@ -367,9 +369,9 @@ in §5).
 
 | Class (`type[1]`) | Flat interface fields (data-model, `activities.ts` — wire truth) | producer | consumer (workflow / input) |
 |---|---|---|---|
-| `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `prefLabel`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` (handler maps `object.capabilityUrl`/`prefLabel`/`note`) |
+| `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `label`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` (handler maps `object.capabilityUrl`/`label`/`note`) |
 | `InvitationCreated` *(new — activity-first step 1)* | `actor: string; label: string; note?: string; object: <minted invitation IRI>` (pre-minted by the RPC via `iriForContained` — the resource is PUT later by the workflow, so the link is live-but-pending; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id, generates the capabilityUrl, then completes |
-| `AgentRegistrationAdded` | `actor: string; target: <pre-minted registration IRI>; object: urn snapshot of `SocialAgentRegistrationData` (`registeredAgent` — the peer, `prefLabel`, `note`)` | `InvitationHandler` (mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `target` from the object, then discovers the reciprocal |
+| `AgentRegistrationAdded` | `actor: string; target: <pre-minted registration IRI>; object: urn snapshot of `SocialAgentRegistrationData` (`registeredAgent` — the peer, `label`, `note`)` | `InvitationHandler` (mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `target` from the object, then discovers the reciprocal |
 | `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
 | `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <DataAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` — reads `grantee` from the object |
 | `RoleMembershipChanged` / `RoleDeleted` | `actor: string; target: <role IRI>` (the object is the same IRI — live link, the role is alive at write; the workflow loads its members, applies the change / deletes, and derives the affected diff itself — `peers` and `roleId` are not activity fields) | `RoleRegistry.ts` `updateRole`/`deleteRole` (activity only — the role write moves to the workflow) | `processRoleMembershipChange` / `processRoleDeletion` |
@@ -430,7 +432,11 @@ first.
 - Moving `effect` into `data-model` (kept effect-free).
 - Merging the interface categories into one type (they are different
   projections: framing records / UI messages / activity records).
-- Renaming RDF-faithful POJO fields (`prefLabel`…) to UI names.
+- Renaming RDF-faithful POJO fields to UI names, e.g. `label` → a UI label
+  key. (The `prefLabel` → `label` unification is **executed**: `label` is the
+  single term for `skos:prefLabel` — data-model, wire, messages; stray
+  `rdfs:label` migrated to `skos:prefLabel`, see the sparql.md graph-scoping
+  note for the read plane.)
 - **Structure-based classes stay flat + followup (decided).**
   `AuthorizationRequested`/`ShareRequested` keep `authorization:
   <structure>` as a flat field (see §2 decision) — embedding the structures

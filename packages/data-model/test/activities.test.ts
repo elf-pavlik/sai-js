@@ -35,7 +35,7 @@ describe('ActivityData typed union', () => {
       createdAt: string
       type: ['Activity', 'InvitationAccepted', 'as:Accept']
       actor: string
-      object: { id: string; type: string[]; capabilityUrl: string; prefLabel: string; note?: string }
+      object: { id: string; type: string[]; capabilityUrl: string; label: string; note?: string }
     }>()
     // live link (InvitationCreated) — the object is the pre-minted invitation IRI
     expectTypeOf<InvitationCreated>().toMatchTypeOf<{
@@ -89,7 +89,7 @@ describe('dataModelContext activity terms', () => {
     expect(node.object).toMatchObject({
       id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
       capabilityUrl: 'https://alice.example/invitations/abc',
-      prefLabel: 'Dan',
+      label: 'Dan',
     })
   })
 

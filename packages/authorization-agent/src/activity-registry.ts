@@ -122,7 +122,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           id: asString((node.object as EmbeddedSocialAgentInvitation)?.id),
           type: asStringArray((node.object as EmbeddedSocialAgentInvitation)?.type),
           capabilityUrl: asString((node.object as EmbeddedSocialAgentInvitation)?.capabilityUrl),
-          prefLabel: asString((node.object as EmbeddedSocialAgentInvitation)?.prefLabel),
+          label: asString((node.object as EmbeddedSocialAgentInvitation)?.label),
           note:
             (node.object as EmbeddedSocialAgentInvitation)?.note === undefined
               ? undefined
@@ -149,7 +149,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           registeredAgent: asString(
             (node.object as EmbeddedSocialAgentRegistration)?.registeredAgent
           ),
-          prefLabel: asString((node.object as EmbeddedSocialAgentRegistration)?.prefLabel),
+          label: asString((node.object as EmbeddedSocialAgentRegistration)?.label),
           note:
             (node.object as EmbeddedSocialAgentRegistration)?.note === undefined
               ? undefined

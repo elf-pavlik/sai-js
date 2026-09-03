@@ -17,7 +17,7 @@ describe('SocialAgentInvitation framing', () => {
       type: [INTEROP.SocialAgentInvitation],
       capabilityUrl:
         'https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f',
-      prefLabel: 'Bob',
+      label: 'Bob',
       note: 'What about Bob?',
       registeredAgent: undefined,
     })

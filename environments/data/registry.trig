@@ -2540,7 +2540,7 @@ GRAPH <meta:https://data/alice-work/sx86hi/k3pqsb> {
 GRAPH <https://data/alice-work/sx86hi/k3pqsb> {
   <https://data/alice-work/sx86hi/k3pqsb>
     a pm:Project ;
-    rdfs:label "Project A" ;
+    skos:prefLabel "Project A" ;
     pm:hasTask 
       <https://data/alice-work/btze4a/y48odn>,
       <https://data/alice-work/btze4a/jvdl8x>,
@@ -2555,7 +2555,7 @@ GRAPH <meta:https://data/alice-work/sx86hi/doznys> {
 GRAPH <https://data/alice-work/sx86hi/doznys> {
   <https://data/alice-work/sx86hi/doznys>
     a pm:Project ;
-    rdfs:label "Project B" ;
+    skos:prefLabel "Project B" ;
     pm:hasTask 
       <https://data/alice-work/btze4a/n5sz83> . # new not created yet
 }
@@ -2574,7 +2574,7 @@ GRAPH <meta:https://data/alice-work/btze4a/y48odn> {
 GRAPH <https://data/alice-work/btze4a/y48odn> {
   <https://data/alice-work/btze4a/y48odn>
     a pm:Task ;
-    rdfs:label "Task 1" .
+    skos:prefLabel "Task 1" .
 }
 
 GRAPH <meta:https://data/alice-work/btze4a/jvdl8x> {
@@ -2585,7 +2585,7 @@ GRAPH <meta:https://data/alice-work/btze4a/jvdl8x> {
 GRAPH <https://data/alice-work/btze4a/jvdl8x> {
   <https://data/alice-work/btze4a/jvdl8x>
     a pm:Task ;
-    rdfs:label "Task 2" .
+    skos:prefLabel "Task 2" .
 }
 
 GRAPH <meta:https://data/alice-work/btze4a/m2k7wp> {
@@ -2596,7 +2596,7 @@ GRAPH <meta:https://data/alice-work/btze4a/m2k7wp> {
 GRAPH <https://data/alice-work/btze4a/m2k7wp> {
   <https://data/alice-work/btze4a/m2k7wp>
     a pm:Task ;
-    rdfs:label "Task 3" .
+    skos:prefLabel "Task 3" .
 }
 
 GRAPH <meta:https://data/alice-home/> {
@@ -2640,7 +2640,7 @@ GRAPH <meta:https://data/alice-home/x1n3cm/n8k3wp> {
 GRAPH <https://data/alice-home/x1n3cm/n8k3wp> {
   <https://data/alice-home/x1n3cm/n8k3wp>
     a pm:Project ;
-    rdfs:label "Neon" ;
+    skos:prefLabel "Neon" ;
     pm:hasTask 
       <https://data/alice-home/pm1oxz/r2v5nq>,
       <https://data/alice-home/pm1oxz/w8x3kp> .
@@ -2654,7 +2654,7 @@ GRAPH <meta:https://data/alice-home/x1n3cm/q5m9vx> {
 GRAPH <https://data/alice-home/x1n3cm/q5m9vx> {
   <https://data/alice-home/x1n3cm/q5m9vx>
     a pm:Project ;
-    rdfs:label "Glitch" ;
+    skos:prefLabel "Glitch" ;
     pm:hasTask 
       <https://data/alice-home/pm1oxz/t6k2jr>,
       <https://data/alice-home/pm1oxz/b9n4wl>,
@@ -2669,7 +2669,7 @@ GRAPH <meta:https://data/alice-home/x1n3cm/j4t7lm> {
 GRAPH <https://data/alice-home/x1n3cm/j4t7lm> {
   <https://data/alice-home/x1n3cm/j4t7lm>
     a pm:Project ;
-    rdfs:label "Pulse" ;
+    skos:prefLabel "Pulse" ;
     pm:hasTask 
       <https://data/alice-home/pm1oxz/h5w8vn>,
       <https://data/alice-home/pm1oxz/d2k6qt> .
@@ -2695,7 +2695,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/r2v5nq> {
 GRAPH <https://data/alice-home/pm1oxz/r2v5nq> {
   <https://data/alice-home/pm1oxz/r2v5nq>
     a pm:Task ;
-    rdfs:label "R1" .
+    skos:prefLabel "R1" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/w8x3kp> {
@@ -2706,7 +2706,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/w8x3kp> {
 GRAPH <https://data/alice-home/pm1oxz/w8x3kp> {
   <https://data/alice-home/pm1oxz/w8x3kp>
     a pm:Task ;
-    rdfs:label "W2" .
+    skos:prefLabel "W2" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/t6k2jr> {
@@ -2717,7 +2717,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/t6k2jr> {
 GRAPH <https://data/alice-home/pm1oxz/t6k2jr> {
   <https://data/alice-home/pm1oxz/t6k2jr>
     a pm:Task ;
-    rdfs:label "T3" .
+    skos:prefLabel "T3" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/b9n4wl> {
@@ -2728,7 +2728,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/b9n4wl> {
 GRAPH <https://data/alice-home/pm1oxz/b9n4wl> {
   <https://data/alice-home/pm1oxz/b9n4wl>
     a pm:Task ;
-    rdfs:label "B4" .
+    skos:prefLabel "B4" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/m3p7xz> {
@@ -2739,7 +2739,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/m3p7xz> {
 GRAPH <https://data/alice-home/pm1oxz/m3p7xz> {
   <https://data/alice-home/pm1oxz/m3p7xz>
     a pm:Task ;
-    rdfs:label "M5" .
+    skos:prefLabel "M5" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/h5w8vn> {
@@ -2750,7 +2750,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/h5w8vn> {
 GRAPH <https://data/alice-home/pm1oxz/h5w8vn> {
   <https://data/alice-home/pm1oxz/h5w8vn>
     a pm:Task ;
-    rdfs:label "H6" .
+    skos:prefLabel "H6" .
 }
 
 GRAPH <meta:https://data/alice-home/pm1oxz/d2k6qt> {
@@ -2761,7 +2761,7 @@ GRAPH <meta:https://data/alice-home/pm1oxz/d2k6qt> {
 GRAPH <https://data/alice-home/pm1oxz/d2k6qt> {
   <https://data/alice-home/pm1oxz/d2k6qt>
     a pm:Task ;
-    rdfs:label "D7" .
+    skos:prefLabel "D7" .
 }
 
 GRAPH <meta:https://data/bob/> {
@@ -2818,7 +2818,7 @@ GRAPH <meta:https://data/bob/avn9hv/n3onkx> {
 GRAPH <https://data/bob/avn9hv/n3onkx> {
   <https://data/bob/avn9hv/n3onkx>
     a pm:Project ;
-    rdfs:label "Neon" ;
+    skos:prefLabel "Neon" ;
     pm:hasTask 
       <https://data/bob/x6hx8e/k9m2np>,
       <https://data/bob/x6hx8e/v7x4qz> .
@@ -2832,7 +2832,7 @@ GRAPH <meta:https://data/bob/avn9hv/gl1tch> {
 GRAPH <https://data/bob/avn9hv/gl1tch> {
   <https://data/bob/avn9hv/gl1tch>
     a pm:Project ;
-    rdfs:label "Glitch" ;
+    skos:prefLabel "Glitch" ;
     pm:hasTask 
       <https://data/bob/x6hx8e/j3w8rt>,
       <https://data/bob/x6hx8e/f5p1ly> .
@@ -2855,7 +2855,7 @@ GRAPH <meta:https://data/bob/x6hx8e/k9m2np> {
 GRAPH <https://data/bob/x6hx8e/k9m2np> {
   <https://data/bob/x6hx8e/k9m2np>
     a pm:Task ;
-    rdfs:label "A1" .
+    skos:prefLabel "A1" .
 }
 
 GRAPH <meta:https://data/bob/x6hx8e/v7x4qz> {
@@ -2866,7 +2866,7 @@ GRAPH <meta:https://data/bob/x6hx8e/v7x4qz> {
 GRAPH <https://data/bob/x6hx8e/v7x4qz> {
   <https://data/bob/x6hx8e/v7x4qz>
     a pm:Task ;
-    rdfs:label "B2" .
+    skos:prefLabel "B2" .
 }
 
 GRAPH <meta:https://data/bob/x6hx8e/j3w8rt> {
@@ -2877,7 +2877,7 @@ GRAPH <meta:https://data/bob/x6hx8e/j3w8rt> {
 GRAPH <https://data/bob/x6hx8e/j3w8rt> {
   <https://data/bob/x6hx8e/j3w8rt>
     a pm:Task ;
-    rdfs:label "C3" .
+    skos:prefLabel "C3" .
 }
 
 GRAPH <meta:https://data/bob/x6hx8e/f5p1ly> {
@@ -2888,7 +2888,7 @@ GRAPH <meta:https://data/bob/x6hx8e/f5p1ly> {
 GRAPH <https://data/bob/x6hx8e/f5p1ly> {
   <https://data/bob/x6hx8e/f5p1ly>
     a pm:Task ;
-    rdfs:label "D4" .
+    skos:prefLabel "D4" .
 }
 
 GRAPH <meta:https://data/acme-rnd/> {
@@ -2924,7 +2924,7 @@ GRAPH <meta:https://data/acme-rnd/reb39k/pbh2yw> {
 GRAPH <https://data/acme-rnd/reb39k/pbh2yw> {
   <https://data/acme-rnd/reb39k/pbh2yw>
     a pm:Project ;
-    rdfs:label "Project X" ;
+    skos:prefLabel "Project X" ;
     pm:hasTask 
       <https://data/acme-rnd/x0md9s/n7k3zm>,
       <https://data/acme-rnd/x0md9s/q9r4vx> .
@@ -2938,7 +2938,7 @@ GRAPH <meta:https://data/acme-rnd/reb39k/z8w2pl> {
 GRAPH <https://data/acme-rnd/reb39k/z8w2pl> {
   <https://data/acme-rnd/reb39k/z8w2pl>
     a pm:Project ;
-    rdfs:label "Matrix" ;
+    skos:prefLabel "Matrix" ;
     pm:hasTask 
       <https://data/acme-rnd/x0md9s/m5t7jy>,
       <https://data/acme-rnd/x0md9s/b3x9kq> .
@@ -2974,7 +2974,7 @@ GRAPH <meta:https://data/acme-rnd/x0md9s/n7k3zm> {
 GRAPH <https://data/acme-rnd/x0md9s/n7k3zm> {
   <https://data/acme-rnd/x0md9s/n7k3zm>
     a pm:Task ;
-    rdfs:label "Z1" .
+    skos:prefLabel "Z1" .
 }
 
 GRAPH <meta:https://data/acme-rnd/x0md9s/q9r4vx> {
@@ -2985,7 +2985,7 @@ GRAPH <meta:https://data/acme-rnd/x0md9s/q9r4vx> {
 GRAPH <https://data/acme-rnd/x0md9s/q9r4vx> {
   <https://data/acme-rnd/x0md9s/q9r4vx>
     a pm:Task ;
-    rdfs:label "Z2" .
+    skos:prefLabel "Z2" .
 }
 
 GRAPH <meta:https://data/acme-rnd/x0md9s/m5t7jy> {
@@ -2996,7 +2996,7 @@ GRAPH <meta:https://data/acme-rnd/x0md9s/m5t7jy> {
 GRAPH <https://data/acme-rnd/x0md9s/m5t7jy> {
   <https://data/acme-rnd/x0md9s/m5t7jy>
     a pm:Task ;
-    rdfs:label "M1" .
+    skos:prefLabel "M1" .
 }
 
 GRAPH <meta:https://data/acme-rnd/x0md9s/b3x9kq> {
@@ -3007,7 +3007,7 @@ GRAPH <meta:https://data/acme-rnd/x0md9s/b3x9kq> {
 GRAPH <https://data/acme-rnd/x0md9s/b3x9kq> {
   <https://data/acme-rnd/x0md9s/b3x9kq>
     a pm:Task ;
-    rdfs:label "M2" .
+    skos:prefLabel "M2" .
 }
 
 GRAPH <meta:https://data/acme-hr/> {
@@ -3044,7 +3044,7 @@ GRAPH <meta:https://data/acme-hr/p7t9km/w8z5jl> {
 GRAPH <https://data/acme-hr/p7t9km/w8z5jl> {
   <https://data/acme-hr/p7t9km/w8z5jl>
     a pm:Project ;
-    rdfs:label "Cypher" ;
+    skos:prefLabel "Cypher" ;
     pm:hasTask 
       <https://data/acme-hr/v4n2qx/h3k9mn>,
       <https://data/acme-hr/v4n2qx/t5p7wq> .
@@ -3058,7 +3058,7 @@ GRAPH <meta:https://data/acme-hr/p7t9km/x2y7vr> {
 GRAPH <https://data/acme-hr/p7t9km/x2y7vr> {
   <https://data/acme-hr/p7t9km/x2y7vr>
     a pm:Project ;
-    rdfs:label "Phantom" ;
+    skos:prefLabel "Phantom" ;
     pm:hasTask 
       <https://data/acme-hr/v4n2qx/j6m8rt>,
       <https://data/acme-hr/v4n2qx/b4n1kx> .
@@ -3087,7 +3087,7 @@ GRAPH <meta:https://data/acme-hr/v4n2qx/h3k9mn> {
 GRAPH <https://data/acme-hr/v4n2qx/h3k9mn> {
   <https://data/acme-hr/v4n2qx/h3k9mn>
     a pm:Task ;
-    rdfs:label "H1" .
+    skos:prefLabel "H1" .
 }
 
 GRAPH <meta:https://data/acme-hr/v4n2qx/t5p7wq> {
@@ -3098,7 +3098,7 @@ GRAPH <meta:https://data/acme-hr/v4n2qx/t5p7wq> {
 GRAPH <https://data/acme-hr/v4n2qx/t5p7wq> {
   <https://data/acme-hr/v4n2qx/t5p7wq>
     a pm:Task ;
-    rdfs:label "T2" .
+    skos:prefLabel "T2" .
 }
 
 GRAPH <meta:https://data/acme-hr/v4n2qx/j6m8rt> {
@@ -3109,7 +3109,7 @@ GRAPH <meta:https://data/acme-hr/v4n2qx/j6m8rt> {
 GRAPH <https://data/acme-hr/v4n2qx/j6m8rt> {
   <https://data/acme-hr/v4n2qx/j6m8rt>
     a pm:Task ;
-    rdfs:label "J3" .
+    skos:prefLabel "J3" .
 }
 
 GRAPH <meta:https://data/acme-hr/v4n2qx/b4n1kx> {
@@ -3120,7 +3120,7 @@ GRAPH <meta:https://data/acme-hr/v4n2qx/b4n1kx> {
 GRAPH <https://data/acme-hr/v4n2qx/b4n1kx> {
   <https://data/acme-hr/v4n2qx/b4n1kx>
     a pm:Task ;
-    rdfs:label "B4" .
+    skos:prefLabel "B4" .
 }
 
 GRAPH <meta:https://data/kim-red/> {
@@ -3158,7 +3158,7 @@ GRAPH <meta:https://data/kim-red/n8w3qp/x9z7bl> {
 GRAPH <https://data/kim-red/n8w3qp/x9z7bl> {
   <https://data/kim-red/n8w3qp/x9z7bl>
     a pm:Project ;
-    rdfs:label "Pulse" ;
+    skos:prefLabel "Pulse" ;
     pm:hasTask 
       <https://data/kim-red/t6k9mx/r3v8nm>,
       <https://data/kim-red/t6k9mx/w5x2kq> .
@@ -3172,7 +3172,7 @@ GRAPH <meta:https://data/kim-red/n8w3qp/y4m2vn> {
 GRAPH <https://data/kim-red/n8w3qp/y4m2vn> {
   <https://data/kim-red/n8w3qp/y4m2vn>
     a pm:Project ;
-    rdfs:label "Viper" ;
+    skos:prefLabel "Viper" ;
     pm:hasTask 
       <https://data/kim-red/t6k9mx/j7m3pt>,
       <https://data/kim-red/t6k9mx/b9n5lx>,
@@ -3187,7 +3187,7 @@ GRAPH <meta:https://data/kim-red/n8w3qp/k1p5jr> {
 GRAPH <https://data/kim-red/n8w3qp/k1p5jr> {
   <https://data/kim-red/n8w3qp/k1p5jr>
     a pm:Project ;
-    rdfs:label "Raven" ;
+    skos:prefLabel "Raven" ;
     pm:hasTask 
       <https://data/kim-red/t6k9mx/h4p7vz>,
       <https://data/kim-red/t6k9mx/d6t3jm> .
@@ -3219,7 +3219,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/r3v8nm> {
 GRAPH <https://data/kim-red/t6k9mx/r3v8nm> {
   <https://data/kim-red/t6k9mx/r3v8nm>
     a pm:Task ;
-    rdfs:label "R1" .
+    skos:prefLabel "R1" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/w5x2kq> {
@@ -3230,7 +3230,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/w5x2kq> {
 GRAPH <https://data/kim-red/t6k9mx/w5x2kq> {
   <https://data/kim-red/t6k9mx/w5x2kq>
     a pm:Task ;
-    rdfs:label "W2" .
+    skos:prefLabel "W2" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/j7m3pt> {
@@ -3241,7 +3241,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/j7m3pt> {
 GRAPH <https://data/kim-red/t6k9mx/j7m3pt> {
   <https://data/kim-red/t6k9mx/j7m3pt>
     a pm:Task ;
-    rdfs:label "J3" .
+    skos:prefLabel "J3" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/b9n5lx> {
@@ -3252,7 +3252,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/b9n5lx> {
 GRAPH <https://data/kim-red/t6k9mx/b9n5lx> {
   <https://data/kim-red/t6k9mx/b9n5lx>
     a pm:Task ;
-    rdfs:label "B4" .
+    skos:prefLabel "B4" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/f2k8wr> {
@@ -3263,7 +3263,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/f2k8wr> {
 GRAPH <https://data/kim-red/t6k9mx/f2k8wr> {
   <https://data/kim-red/t6k9mx/f2k8wr>
     a pm:Task ;
-    rdfs:label "F5" .
+    skos:prefLabel "F5" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/h4p7vz> {
@@ -3274,7 +3274,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/h4p7vz> {
 GRAPH <https://data/kim-red/t6k9mx/h4p7vz> {
   <https://data/kim-red/t6k9mx/h4p7vz>
     a pm:Task ;
-    rdfs:label "H6" .
+    skos:prefLabel "H6" .
 }
 
 GRAPH <meta:https://data/kim-red/t6k9mx/d6t3jm> {
@@ -3285,7 +3285,7 @@ GRAPH <meta:https://data/kim-red/t6k9mx/d6t3jm> {
 GRAPH <https://data/kim-red/t6k9mx/d6t3jm> {
   <https://data/kim-red/t6k9mx/d6t3jm>
     a pm:Task ;
-    rdfs:label "D7" .
+    skos:prefLabel "D7" .
 }
 
 GRAPH <meta:https://data/kim-blue/> {
@@ -3322,7 +3322,7 @@ GRAPH <meta:https://data/kim-blue/p3m8kz/w9n4qx> {
 GRAPH <https://data/kim-blue/p3m8kz/w9n4qx> {
   <https://data/kim-blue/p3m8kz/w9n4qx>
     a pm:Project ;
-    rdfs:label "Cipher" ;
+    skos:prefLabel "Cipher" ;
     pm:hasTask 
       <https://data/kim-blue/r7v2nw/m3p9jt>,
       <https://data/kim-blue/r7v2nw/x5l7kr>,
@@ -3337,7 +3337,7 @@ GRAPH <meta:https://data/kim-blue/p3m8kz/t2k6lm> {
 GRAPH <https://data/kim-blue/p3m8kz/t2k6lm> {
   <https://data/kim-blue/p3m8kz/t2k6lm>
     a pm:Project ;
-    rdfs:label "Drift" ;
+    skos:prefLabel "Drift" ;
     pm:hasTask 
       <https://data/kim-blue/r7v2nw/h4w9px>,
       <https://data/kim-blue/r7v2nw/k1n6vq> .
@@ -3367,7 +3367,7 @@ GRAPH <meta:https://data/kim-blue/r7v2nw/m3p9jt> {
 GRAPH <https://data/kim-blue/r7v2nw/m3p9jt> {
   <https://data/kim-blue/r7v2nw/m3p9jt>
     a pm:Task ;
-    rdfs:label "M1" .
+    skos:prefLabel "M1" .
 }
 
 GRAPH <meta:https://data/kim-blue/r7v2nw/x5l7kr> {
@@ -3378,7 +3378,7 @@ GRAPH <meta:https://data/kim-blue/r7v2nw/x5l7kr> {
 GRAPH <https://data/kim-blue/r7v2nw/x5l7kr> {
   <https://data/kim-blue/r7v2nw/x5l7kr>
     a pm:Task ;
-    rdfs:label "X2" .
+    skos:prefLabel "X2" .
 }
 
 GRAPH <meta:https://data/kim-blue/r7v2nw/b8v2nm> {
@@ -3389,7 +3389,7 @@ GRAPH <meta:https://data/kim-blue/r7v2nw/b8v2nm> {
 GRAPH <https://data/kim-blue/r7v2nw/b8v2nm> {
   <https://data/kim-blue/r7v2nw/b8v2nm>
     a pm:Task ;
-    rdfs:label "B3" .
+    skos:prefLabel "B3" .
 }
 
 GRAPH <meta:https://data/kim-blue/r7v2nw/h4w9px> {
@@ -3400,7 +3400,7 @@ GRAPH <meta:https://data/kim-blue/r7v2nw/h4w9px> {
 GRAPH <https://data/kim-blue/r7v2nw/h4w9px> {
   <https://data/kim-blue/r7v2nw/h4w9px>
     a pm:Task ;
-    rdfs:label "H4" .
+    skos:prefLabel "H4" .
 }
 
 GRAPH <meta:https://data/kim-blue/r7v2nw/k1n6vq> {
@@ -3411,7 +3411,7 @@ GRAPH <meta:https://data/kim-blue/r7v2nw/k1n6vq> {
 GRAPH <https://data/kim-blue/r7v2nw/k1n6vq> {
   <https://data/kim-blue/r7v2nw/k1n6vq>
     a pm:Task ;
-    rdfs:label "K5" .
+    skos:prefLabel "K5" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/> {
@@ -3449,7 +3449,7 @@ GRAPH <meta:https://data/yoyo-eu/w4n9kx/x8v2lm> {
 GRAPH <https://data/yoyo-eu/w4n9kx/x8v2lm> {
   <https://data/yoyo-eu/w4n9kx/x8v2lm>
     a pm:Project ;
-    rdfs:label "Vortex" ;
+    skos:prefLabel "Vortex" ;
     pm:hasTask 
       <https://data/yoyo-eu/m7p3qt/r9w5vx>,
       <https://data/yoyo-eu/m7p3qt/n2k8jq> .
@@ -3463,7 +3463,7 @@ GRAPH <meta:https://data/yoyo-eu/w4n9kx/j5k7wr> {
 GRAPH <https://data/yoyo-eu/w4n9kx/j5k7wr> {
   <https://data/yoyo-eu/w4n9kx/j5k7wr>
     a pm:Project ;
-    rdfs:label "Blade" ;
+    skos:prefLabel "Blade" ;
     pm:hasTask 
       <https://data/yoyo-eu/m7p3qt/h6p3lm>,
       <https://data/yoyo-eu/m7p3qt/x4v9kr>,
@@ -3478,7 +3478,7 @@ GRAPH <meta:https://data/yoyo-eu/w4n9kx/b3p9nz> {
 GRAPH <https://data/yoyo-eu/w4n9kx/b3p9nz> {
   <https://data/yoyo-eu/w4n9kx/b3p9nz>
     a pm:Project ;
-    rdfs:label "Neon" ;
+    skos:prefLabel "Neon" ;
     pm:hasTask 
       <https://data/yoyo-eu/m7p3qt/j8m4vx>,
       <https://data/yoyo-eu/m7p3qt/t5w2nz> .
@@ -3510,7 +3510,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/r9w5vx> {
 GRAPH <https://data/yoyo-eu/m7p3qt/r9w5vx> {
   <https://data/yoyo-eu/m7p3qt/r9w5vx>
     a pm:Task ;
-    rdfs:label "R1" .
+    skos:prefLabel "R1" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/n2k8jq> {
@@ -3521,7 +3521,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/n2k8jq> {
 GRAPH <https://data/yoyo-eu/m7p3qt/n2k8jq> {
   <https://data/yoyo-eu/m7p3qt/n2k8jq>
     a pm:Task ;
-    rdfs:label "N2" .
+    skos:prefLabel "N2" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/h6p3lm> {
@@ -3532,7 +3532,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/h6p3lm> {
 GRAPH <https://data/yoyo-eu/m7p3qt/h6p3lm> {
   <https://data/yoyo-eu/m7p3qt/h6p3lm>
     a pm:Task ;
-    rdfs:label "H3" .
+    skos:prefLabel "H3" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/x4v9kr> {
@@ -3543,7 +3543,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/x4v9kr> {
 GRAPH <https://data/yoyo-eu/m7p3qt/x4v9kr> {
   <https://data/yoyo-eu/m7p3qt/x4v9kr>
     a pm:Task ;
-    rdfs:label "X4" .
+    skos:prefLabel "X4" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/w2n5bx> {
@@ -3554,7 +3554,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/w2n5bx> {
 GRAPH <https://data/yoyo-eu/m7p3qt/w2n5bx> {
   <https://data/yoyo-eu/m7p3qt/w2n5bx>
     a pm:Task ;
-    rdfs:label "W5" .
+    skos:prefLabel "W5" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/j8m4vx> {
@@ -3565,7 +3565,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/j8m4vx> {
 GRAPH <https://data/yoyo-eu/m7p3qt/j8m4vx> {
   <https://data/yoyo-eu/m7p3qt/j8m4vx>
     a pm:Task ;
-    rdfs:label "J6" .
+    skos:prefLabel "J6" .
 }
 
 GRAPH <meta:https://data/yoyo-eu/m7p3qt/t5w2nz> {
@@ -3576,7 +3576,7 @@ GRAPH <meta:https://data/yoyo-eu/m7p3qt/t5w2nz> {
 GRAPH <https://data/yoyo-eu/m7p3qt/t5w2nz> {
   <https://data/yoyo-eu/m7p3qt/t5w2nz>
     a pm:Task ;
-    rdfs:label "T7" .
+    skos:prefLabel "T7" .
 }
 
 GRAPH <meta:https://data/yoyo-na/> {
@@ -3613,7 +3613,7 @@ GRAPH <meta:https://data/yoyo-na/k9m4wx/q7p2lm> {
 GRAPH <https://data/yoyo-na/k9m4wx/q7p2lm> {
   <https://data/yoyo-na/k9m4wx/q7p2lm>
     a pm:Project ;
-    rdfs:label "Ghost" ;
+    skos:prefLabel "Ghost" ;
     pm:hasTask 
       <https://data/yoyo-na/p3n7vz/m8w5jq>,
       <https://data/yoyo-na/p3n7vz/r4k9vx>,
@@ -3628,7 +3628,7 @@ GRAPH <meta:https://data/yoyo-na/k9m4wx/w5x8kr> {
 GRAPH <https://data/yoyo-na/k9m4wx/w5x8kr> {
   <https://data/yoyo-na/k9m4wx/w5x8kr>
     a pm:Project ;
-    rdfs:label "Cipher" ;
+    skos:prefLabel "Cipher" ;
     pm:hasTask 
       <https://data/yoyo-na/p3n7vz/j9m3bx>,
       <https://data/yoyo-na/p3n7vz/n5w2kr> .
@@ -3658,7 +3658,7 @@ GRAPH <meta:https://data/yoyo-na/p3n7vz/m8w5jq> {
 GRAPH <https://data/yoyo-na/p3n7vz/m8w5jq> {
   <https://data/yoyo-na/p3n7vz/m8w5jq>
     a pm:Task ;
-    rdfs:label "M1" .
+    skos:prefLabel "M1" .
 }
 
 GRAPH <meta:https://data/yoyo-na/p3n7vz/r4k9vx> {
@@ -3669,7 +3669,7 @@ GRAPH <meta:https://data/yoyo-na/p3n7vz/r4k9vx> {
 GRAPH <https://data/yoyo-na/p3n7vz/r4k9vx> {
   <https://data/yoyo-na/p3n7vz/r4k9vx>
     a pm:Task ;
-    rdfs:label "R2" .
+    skos:prefLabel "R2" .
 }
 
 GRAPH <meta:https://data/yoyo-na/p3n7vz/h2n6lm> {
@@ -3680,7 +3680,7 @@ GRAPH <meta:https://data/yoyo-na/p3n7vz/h2n6lm> {
 GRAPH <https://data/yoyo-na/p3n7vz/h2n6lm> {
   <https://data/yoyo-na/p3n7vz/h2n6lm>
     a pm:Task ;
-    rdfs:label "H3" .
+    skos:prefLabel "H3" .
 }
 
 GRAPH <meta:https://data/yoyo-na/p3n7vz/j9m3bx> {
@@ -3691,7 +3691,7 @@ GRAPH <meta:https://data/yoyo-na/p3n7vz/j9m3bx> {
 GRAPH <https://data/yoyo-na/p3n7vz/j9m3bx> {
   <https://data/yoyo-na/p3n7vz/j9m3bx>
     a pm:Task ;
-    rdfs:label "J4" .
+    skos:prefLabel "J4" .
 }
 
 GRAPH <meta:https://data/yoyo-na/p3n7vz/n5w2kr> {
@@ -3702,7 +3702,7 @@ GRAPH <meta:https://data/yoyo-na/p3n7vz/n5w2kr> {
 GRAPH <https://data/yoyo-na/p3n7vz/n5w2kr> {
   <https://data/yoyo-na/p3n7vz/n5w2kr>
     a pm:Task ;
-    rdfs:label "N5" .
+    skos:prefLabel "N5" .
 }
 
 GRAPH <meta:https://data/test-client/> {
@@ -3882,7 +3882,7 @@ GRAPH <https://data/shapetrees/trees/Project> {
     a st:ShapeTree ;
     st:expectsType st:Resource ;
     st:shape solidshapes:Project ;
-    st:describesInstance rdfs:label ;
+    st:describesInstance skos:prefLabel ;
     st:references
       uuid:54b5e4f6-c6b5-4c9a-b885-cbf69d08370d ,
       uuid:86d54925-eeb5-4360-bca4-d53009bae8c7 ,
@@ -3933,7 +3933,7 @@ GRAPH <https://data/shapetrees/trees/Task> {
     a st:ShapeTree ;
     st:expectsType st:Resource ;
     st:shape solidshapes:Task ;
-    st:describesInstance rdfs:label .
+    st:describesInstance skos:prefLabel .
 
   shapetrees:desc-en\#Task
     st:inDescriptionSet shapetrees:desc-en ;
@@ -3967,7 +3967,7 @@ GRAPH <https://data/shapetrees/trees/File> {
     a st:ShapeTree ;
     st:expectsType st:NonRDFResource ;
     st:shape solidshapes:File ;
-    st:describesInstance rdfs:label .
+    st:describesInstance skos:prefLabel .
 
   shapetrees:desc-en\#File
     st:inDescriptionSet shapetrees:desc-en ;
@@ -4001,7 +4001,7 @@ GRAPH <https://data/shapetrees/trees/Image> {
     a st:ShapeTree ;
     st:expectsType st:NonRDFResource ;
     st:shape solidshapes:Image ;
-    st:describesInstance rdfs:label .
+    st:describesInstance skos:prefLabel .
 
   shapetrees:desc-en\#Image
     st:inDescriptionSet shapetrees:desc-en ;
@@ -4132,35 +4132,35 @@ GRAPH <https://data/shapetrees/trees/desc-pl> {
 
 GRAPH <https://id/acme> {
   <https://id/acme>
-      rdfs:label "ACME";
+      skos:prefLabel "ACME";
       solid:oidcIssuer <https://auth/>;
       interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hY21l> .
 }
 
 GRAPH <https://id/alice> {
   <https://id/alice>
-      rdfs:label "Alice";
+      skos:prefLabel "Alice";
       solid:oidcIssuer <https://auth/>;
       interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ> .
 }
 
 GRAPH <https://id/bob> {
   <https://id/bob>
-      rdfs:label "Bob";
+      skos:prefLabel "Bob";
       solid:oidcIssuer <https://auth/>;
       interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9ib2I> .
 }
 
 GRAPH <https://id/kim> {
   <https://id/kim>
-      rdfs:label "Kim";
+      skos:prefLabel "Kim";
       solid:oidcIssuer <https://auth/>;
       interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC9raW0> .
 }
 
 GRAPH <https://id/yoyo> {
   <https://id/yoyo>
-      rdfs:label "Yoyo";
+      skos:prefLabel "Yoyo";
       solid:oidcIssuer <https://auth/>;
       interop:hasAuthorizationAgent <https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv> .
 }

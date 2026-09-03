@@ -19,7 +19,7 @@ describe('SocialAgentRegistration framing', () => {
       registeredAgent: 'https://id/alice',
       hasDataGrant: ['https://registry/acme/grant/g4yhtm'],
       hasAdminGrant: [],
-      prefLabel: 'Alice',
+      label: 'Alice',
       note: 'Chasing white rabits.',
       hasAccessNeedGroup: undefined,
       reciprocalRegistration: 'https://registry/alice/social-agent/cp9g7p/',

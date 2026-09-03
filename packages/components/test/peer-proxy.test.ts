@@ -587,7 +587,7 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
       'https://yoyo.example/registrations/peer'
     )
     expect(registration.registeredAgent).toBe('https://peer.example/profile/card#me')
-    expect(registration.prefLabel).toBe('Peer')
+    expect(registration.label).toBe('Peer')
   })
 
   test('non-ok sparql-admin response surfaces as an error with the status', async () => {

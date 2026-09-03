@@ -55,7 +55,7 @@ export class InvitationHandler extends OperationHttpHandler {
         { fetch: sai.fetch, randomUUID: sai.randomUUID },
         { agent: sai.webId, client: sai.agentId },
         invitedId,
-        socialAgentInvitation.prefLabel,
+        socialAgentInvitation.label,
         socialAgentInvitation.note
       )
       // write the agentRegistrationAdded activity → the main agent's webhook
@@ -72,7 +72,7 @@ export class InvitationHandler extends OperationHttpHandler {
           id: `urn:uuid:${sai.randomUUID()}`,
           type: [INTEROP.SocialAgentRegistration],
           registeredAgent: invitedId,
-          prefLabel: socialAgentInvitation.prefLabel,
+          label: socialAgentInvitation.label,
           note: socialAgentInvitation.note,
         },
         createdAt: new Date().toISOString(),

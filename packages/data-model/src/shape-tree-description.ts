@@ -15,7 +15,7 @@ export type ShapeTreeDescriptionId = {
 /** Plain JSON representation of a shape tree description resource. */
 export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
   // TODO: handle missing labels
-  prefLabel: string
+  label: string
   definition?: string
 }
 
@@ -33,7 +33,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDes
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    prefLabel: framedValue(node.prefLabel)!,
+    label: framedValue(node.label)!,
     definition: framedValue(node.definition),
   }
 }

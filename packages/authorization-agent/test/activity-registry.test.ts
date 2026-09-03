@@ -51,7 +51,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
         '@id': 'urn:uuid:00000000-0000-0000-0000-000000000000',
         '@type': ['SocialAgentInvitation'],
         capabilityUrl: 'https://auth/.sai/invitations/abc',
-        prefLabel: 'Dan',
+        label: 'Dan',
       },
       createdAt: '2024-01-01T00:00:00.000Z',
     }
@@ -60,7 +60,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       mockFetch(doc)
     )
     expect(activity.type).toEqual(['Activity', 'InvitationAccepted', 'as:Accept'])
-    expect((activity as { object: { prefLabel: string } }).object.prefLabel).toBe('Dan')
+    expect((activity as { object: { label: string } }).object.label).toBe('Dan')
   })
 
   test('recognizes the completion class in any order', async () => {

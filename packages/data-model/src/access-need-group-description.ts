@@ -28,7 +28,7 @@ export async function fromJsonLd(
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    prefLabel: framedValue(node.prefLabel)!,
+    label: framedValue(node.label)!,
     definition: framedValue(node.definition),
     hasAccessNeedGroup: node.hasAccessNeedGroup!,
   }

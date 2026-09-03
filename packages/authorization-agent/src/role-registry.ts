@@ -38,7 +38,7 @@ export async function createRole(
   members: string[]
 ): Promise<RoleData> {
   const iri = iriForContained(data, deps.randomUUID)
-  const role: RoleData = { id: iri, prefLabel: label, members, type: [INTEROP.Role] }
+  const role: RoleData = { id: iri, label: label, members, type: [INTEROP.Role] }
   await putRole(role, deps.fetch)
   return role
 }
@@ -50,7 +50,7 @@ export async function updateRole(
   label: string,
   members: string[]
 ): Promise<RoleData> {
-  const role: RoleData = { id: roleId, prefLabel: label, members, type: [INTEROP.Role] }
+  const role: RoleData = { id: roleId, label: label, members, type: [INTEROP.Role] }
   await putRole(role, fetch)
   return role
 }

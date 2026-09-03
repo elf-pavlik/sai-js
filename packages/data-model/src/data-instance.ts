@@ -53,8 +53,9 @@ function dataInstanceContext(shapeTree: ShapeTreeData): JsonLdContext {
   if (shapeTree.describesInstance) {
     context.label = { '@id': shapeTree.describesInstance }
   } else {
-    // the shared context maps `label` to rdfs:label; without describesInstance
-    // the term must not pick up stray rdfs:label values on instance documents
+    // the shared context maps `label` to skos:prefLabel; without
+    // describesInstance the term must not pick up stray prefLabel values on
+    // instance documents
     delete context.label
   }
   context.fileName = { '@id': 'http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName' }

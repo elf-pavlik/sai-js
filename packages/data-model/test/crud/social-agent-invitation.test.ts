@@ -10,7 +10,7 @@ describe('build', () => {
 
   const data = {
     capabilityUrl: 'https://auth.alice.example/some-secret-url',
-    prefLabel: 'Yori',
+    label: 'Yori',
     note: 'A cage fighter',
     type: [INTEROP.SocialAgentInvitation],
   }
@@ -18,7 +18,7 @@ describe('build', () => {
   test('getters', async () => {
     const socialAgentInvitation = { id: snippetIri, ...data }
     expect(socialAgentInvitation.capabilityUrl).toBe(data.capabilityUrl)
-    expect(socialAgentInvitation.prefLabel).toBe(data.prefLabel)
+    expect(socialAgentInvitation.label).toBe(data.label)
     expect(socialAgentInvitation.note).toBe(data.note)
   })
 

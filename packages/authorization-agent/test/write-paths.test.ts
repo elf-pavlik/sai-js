@@ -27,7 +27,7 @@ describe('role write path', () => {
   const roleData = {
     id: iri,
     type: [INTEROP.Role],
-    prefLabel: 'Test Role',
+    label: 'Test Role',
     members: ['https://id/bob'],
   }
 
@@ -67,7 +67,7 @@ describe('social-agent-invitation write path', () => {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
     capabilityUrl: 'https://auth/.sai/invitations/some-secret',
-    prefLabel: 'Bob',
+    label: 'Bob',
     note: 'What about Bob?',
   }
 

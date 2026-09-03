@@ -14,7 +14,7 @@ export type SocialAgentInvitationId = {
 
 export type SocialAgentInvitationData = SocialAgentInvitationId & {
   capabilityUrl: string
-  prefLabel: string
+  label: string
   note?: string
   registeredAgent?: string
 }
@@ -39,7 +39,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentI
     id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
     capabilityUrl: node.capabilityUrl ?? '',
-    prefLabel: node.prefLabel ?? '',
+    label: node.label ?? '',
     // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
     note: node.note ?? undefined,
     registeredAgent: node.registeredAgent ?? undefined,

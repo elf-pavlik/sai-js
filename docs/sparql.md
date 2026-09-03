@@ -80,6 +80,31 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
 
 ## Hygiene
 
+- **Graph scoping — authoritative reads are self-graph reads.** Every
+  resource's document body lives in its own named graph
+  (`GRAPH <iri>`, name == resource IRI); `meta:` graphs hold mirror metadata.
+  The **activity registry is the exception to the clean-graph rule**: an
+  activity's `as:object` may embed a projection of a real resource
+  (payload-contract-alignment — real-id embedding: `{ id, type, label,
+  note }` at the pre-minted invitation IRI), which puts the embedded node's
+  `rdf:type` and properties **inside the activity's named graph** — one
+  graph, two subjects. Classification/iteration queries that match by
+  `rdf:type` across the dataset must therefore scope to the subject's own
+  graph, or they return embedded (non-authoritative) claims:
+
+  ```sparql
+  SELECT ?s WHERE {
+    GRAPH ?g { ?s a interop:SomeClass . }
+    FILTER(?g = ?s)   # authoritative: only the resource's own graph
+  }
+  ```
+
+  Without the filter, a store-wide class query finds the invitation's type
+  asserted from an activity graph **before** the workflow materializes the
+  resource (phantom), and would keep matching it forever if the workflow
+  never completes. Convention: any new type-matching query carries the
+  `?g = ?s` guard; add it to affected queries as the need is identified.
+
 - `const transport = sparqlTransportFor(ctx)` is **hoisted out of loops** in
   `getSocialAgents` (AgentRegistry), `getDescriptions` (Authorization) and
   `dataGrantIndexForAgent` / `getReciprocalGrantsSparql` / `listDataInstances`

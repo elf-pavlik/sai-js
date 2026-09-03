@@ -174,7 +174,7 @@ describe('org context — owner identity (2.4)', () => {
     const yoyoSession = await manager.getSession(yoyoId)
     const found = await yoyoSession.findRole(role.id)
     expect(found).toBeDefined()
-    expect(found!.prefLabel).toBe('YoYo Ops')
+    expect(found!.label).toBe('YoYo Ops')
   })
 })
 

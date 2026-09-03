@@ -13,7 +13,7 @@ const dataGrantIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63a
 const data = {
   registeredAgent: 'https://different.iri/',
   hasDataGrant: [dataGrantIri],
-  prefLabel: 'Someone',
+  label: 'Someone',
   type: [INTEROP.SocialAgentRegistration],
 }
 

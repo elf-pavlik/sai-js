@@ -15,7 +15,7 @@ describe('Role framing', () => {
     expect(role).toEqual({
       id: ROLE_IRI,
       type: [INTEROP.Role],
-      prefLabel: 'Corps',
+      label: 'Corps',
       members: ['https://id/acme'],
     })
   })

@@ -153,7 +153,7 @@ export async function addSocialAgentRegistration(
   deps: DataModelDependencies,
   creator: AgentAndClient,
   registeredAgent: string,
-  prefLabel: string,
+  label: string,
   note?: string
 ): Promise<SocialAgentRegistrationData> {
   const existing = await findSocialAgentRegistration(data, deps.fetch, registeredAgent)
@@ -165,7 +165,7 @@ export async function addSocialAgentRegistration(
     id: iri,
     type: [INTEROP.SocialAgentRegistration],
     registeredAgent,
-    prefLabel,
+    label,
     note,
     hasDataGrant: [],
     hasAdminGrant: [],
@@ -184,7 +184,7 @@ export async function addSocialAgentInvitation(
   data: InvitationRegistryData,
   deps: DataModelDependencies,
   capabilityUrl: string,
-  prefLabel: string,
+  label: string,
   note?: string
 ): Promise<SocialAgentInvitationData> {
   const existing = await findSocialAgentInvitation(data, deps.fetch, capabilityUrl)
@@ -196,7 +196,7 @@ export async function addSocialAgentInvitation(
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
     capabilityUrl,
-    prefLabel,
+    label,
     note,
   }
   await putSocialAgentInvitation(invitation, deps.fetch)

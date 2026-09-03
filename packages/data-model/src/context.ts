@@ -4,7 +4,6 @@ import {
   type JsonLdContext,
   LDP,
   OIDC,
-  RDFS,
   SHAPETREES,
   SKOS,
   SOLID,
@@ -23,7 +22,7 @@ const NFO = createVocabulary(
  * namespaces instead of hand-written IRI strings (single source of truth).
  *
  * `@reverse` terms and literal terms (no coercion) stay explicit object
- * literals, e.g. `label: { '@id': RDFS.label }`.
+ * literals, e.g. `label: { '@id': SKOS.prefLabel }`.
  */
 const iriTermDef = (
   ns: any,
@@ -148,11 +147,11 @@ export const dataModelContext: JsonLdContext = {
   // literals (xsd:language) on the description sets
   descriptionLanguages: { '@id': SHAPETREES.usesLanguage, '@container': '@set' },
 
-  // skos / rdfs — literals
-  prefLabel: { '@id': SKOS.prefLabel },
+  // skos — literals (the unified `label` term: `skos:prefLabel` everywhere,
+  // the `prefLabel` key no longer exists — one term, no compaction ambiguity)
+  label: { '@id': SKOS.prefLabel },
   definition: { '@id': SKOS.definition },
   note: { '@id': SKOS.note },
-  label: { '@id': RDFS.label },
 
   // solid / oidc
   oidcIssuer: iriTermDef(SOLID, 'oidcIssuer'),

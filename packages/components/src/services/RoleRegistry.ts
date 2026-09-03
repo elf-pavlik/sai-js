@@ -27,7 +27,7 @@ export const getRoles = async (ctx: ResolvedContext) => {
   return registrations.map((registration) =>
     Role.make({
       id: IRI.make(registration.id),
-      label: registration.prefLabel,
+      label: registration.label,
       members: registration.members.map((m) => IRI.make(m)),
     })
   )

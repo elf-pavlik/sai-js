@@ -12,7 +12,7 @@ export type RoleId = {
 }
 
 export type RoleData = RoleId & {
-  prefLabel: string
+  label: string
   members: string[]
 }
 
@@ -25,7 +25,7 @@ export type RoleData = RoleId & {
  *
  * The document can be in expanded, compacted, or flattened form.
  * Uses jsonld.frame with the shared data model context: `members` is coerced
- * to a string array via @type: @id + @container: @set, `prefLabel` to a plain
+ * to a string array via @type: @id + @container: @set, `label` to a plain
  * string, and the rdf:type (from framing) to a string array.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
@@ -33,7 +33,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
   return {
     id: id,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    prefLabel: node.prefLabel ?? '',
+    label: node.label ?? '',
     members: node.members ?? [],
   }
 }

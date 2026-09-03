@@ -421,9 +421,9 @@ describe('protected resources (scope inherited, modes all)', () => {
         const containerId = getRegistration(id)
         const newId = `${containerId}h5wpnt`
         const body = `
-          PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+          PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
           <${newId}>
-            rdfs:label "New task" .
+            skos:prefLabel "New task" .
         `
         const prematurePutResponse = await session.authFetch(newId, {
           method: 'PUT',

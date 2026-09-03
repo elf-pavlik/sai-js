@@ -154,7 +154,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           accountId: channel.accountId,
           webId: channel.webId,
           capabilityUrl: decoded.object.capabilityUrl,
-          label: decoded.object.prefLabel,
+          label: decoded.object.label,
           note: decoded.object.note,
           activityId: activity.id,
         },
@@ -182,7 +182,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           {
             id: decoded.object,
             type: [INTEROP.SocialAgentInvitation],
-            prefLabel: decoded.label,
+            label: decoded.label,
             note: decoded.note,
           },
           // the triggering activity as a typed ref — traceable completion

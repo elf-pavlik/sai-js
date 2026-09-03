@@ -405,7 +405,7 @@ export async function reconcileActivities(payload: {
           {
             id: decoded.object,
             type: [SOCIAL_AGENT_INVITATION_TYPE],
-            prefLabel: decoded.label,
+            label: decoded.label,
             note: decoded.note,
           },
           { id: activity.id, type: decoded.type },

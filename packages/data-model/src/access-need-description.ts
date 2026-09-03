@@ -25,7 +25,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedDe
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    prefLabel: framedValue(node.prefLabel)!,
+    label: framedValue(node.label)!,
     definition: framedValue(node.definition),
     // `hasAccessNeed` is @set in the shared context — unwrap the single value
     hasAccessNeed: (node.hasAccessNeed ?? [])[0]!,

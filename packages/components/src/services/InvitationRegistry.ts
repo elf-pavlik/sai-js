@@ -14,7 +14,7 @@ function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitation
   return SocialAgentInvitation.make({
     id: IRI.make(socialAgentInvitation.id),
     capabilityUrl: socialAgentInvitation.capabilityUrl,
-    label: socialAgentInvitation.prefLabel,
+    label: socialAgentInvitation.label,
     note: socialAgentInvitation.note,
   })
 }

@@ -253,7 +253,7 @@ export const EmbeddedSocialAgentInvitation = S.Struct({
   id: S.String,
   type: S.Array(S.String),
   capabilityUrl: S.String,
-  prefLabel: S.String,
+  label: S.String,
   note: S.optional(S.String),
 })
 
@@ -263,7 +263,7 @@ export const EmbeddedSocialAgentRegistration = S.Struct({
   id: S.String,
   type: S.Array(S.String),
   registeredAgent: S.String,
-  prefLabel: S.String,
+  label: S.String,
   note: S.optional(S.String),
 })
 

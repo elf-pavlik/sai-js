@@ -16,7 +16,7 @@ describe('ShapeTreeDescription framing', () => {
     expect(description).toEqual({
       id: DESCRIPTION_IRI,
       type: [SHAPETREES.Description],
-      prefLabel: 'Projects',
+      label: 'Projects',
       definition: undefined,
     })
   })

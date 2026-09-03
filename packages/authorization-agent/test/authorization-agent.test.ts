@@ -890,7 +890,7 @@ describe('findSocialAgentInvitation', () => {
       id: INVITE_2,
       type: [INTEROP.SocialAgentInvitation],
       capabilityUrl: CAPABILITY_2,
-      prefLabel: 'Invite 2',
+      label: 'Invite 2',
       note: undefined,
       registeredAgent: undefined,
     })
@@ -989,7 +989,7 @@ describe('reciprocal discovery session methods', () => {
     id: 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c',
     type: [INTEROP.SocialAgentRegistration],
     registeredAgent: 'https://acme.example/#corp',
-    prefLabel: 'ACME',
+    label: 'ACME',
     hasDataGrant: [],
     hasAdminGrant: [],
   }

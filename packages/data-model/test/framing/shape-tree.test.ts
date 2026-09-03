@@ -8,7 +8,7 @@ const TREE_IRI = 'https://data/shapetrees/trees/Project'
 const TREE_GRAPH = 'https://data/shapetrees/trees/Project'
 
 // Graph <https://data/shapetrees/trees/Project> in registry.trig:
-// ShapeTree with expectsType, shape, describesInstance (rdfs:label), three
+// ShapeTree with expectsType, shape, describesInstance (skos:prefLabel), three
 // references (hasShapeTree/viaPredicate nodes) and the description sets
 // carrying usesLanguage. The read path frames the node-level properties and
 // extracts references + descriptionLanguages from the expanded document; the
@@ -28,7 +28,7 @@ describe('ShapeTree framing', () => {
       id: TREE_IRI,
       type: [SHAPETREES.ShapeTree],
       shape: 'https://data/shapetrees/shapes/Project',
-      describesInstance: 'http://www.w3.org/2000/01/rdf-schema#label',
+      describesInstance: 'http://www.w3.org/2004/02/skos/core#prefLabel',
       expectsType: SHAPETREES.Resource,
       descriptionLanguages: ['en', 'es', 'pl'],
       references: [

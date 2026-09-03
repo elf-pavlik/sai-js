@@ -133,7 +133,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(body.id)
     expect(role).toBeDefined()
-    expect(role!.prefLabel).toBe('Test Role')
+    expect(role!.label).toBe('Test Role')
     expect(role!.members).toEqual([])
   })
 
@@ -174,7 +174,7 @@ describe('role-based access', () => {
     const session = await manager.getSession(aliceId)
     const role = await session.findRole(chumsRoleId)
     expect(role).toBeDefined()
-    expect(role!.prefLabel).toBe('Chums')
+    expect(role!.label).toBe('Chums')
     expect(role!.members).toEqual([bobId])
   })
 
@@ -253,7 +253,7 @@ describe('role-based access', () => {
             _tag: 'UpdateRole',
             context: bobId,
             id: whizRoleId,
-            label: initialRole?.prefLabel ?? 'Whiz',
+            label: initialRole?.label ?? 'Whiz',
             members: [...initialMembers, danId],
           }),
           bobCookie

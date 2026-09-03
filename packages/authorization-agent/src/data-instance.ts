@@ -26,7 +26,7 @@ export async function computeChildren(
       const description = await ShapeTree.getDescription(childTree, lang, fetch)
       return {
         count: ((node[reference.viaPredicate.value] as string[] | undefined) ?? []).length,
-        shapeTree: { id: reference.shapeTree, label: description?.prefLabel },
+        shapeTree: { id: reference.shapeTree, label: description?.label },
       }
     })
   )

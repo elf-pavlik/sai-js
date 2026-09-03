@@ -20,7 +20,7 @@ export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   hasDataGrant?: string[]
   /** AdminGrant IRIs (R1 admin marker) — captured from framing on read */
   hasAdminGrant?: string[]
-  prefLabel: string
+  label: string
   note?: string
   hasAccessNeedGroup?: string
   /** IRI of the peer's reciprocal registration — loaded lazily, see the AA `loadReciprocalRegistration` */
@@ -57,7 +57,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
     registeredAgent: node.registeredAgent,
     hasDataGrant: node.hasDataGrant ?? [],
     hasAdminGrant: node.hasAdminGrant ?? [],
-    prefLabel: node.prefLabel ?? '',
+    label: node.label ?? '',
     // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
     note: node.note ?? undefined,
     hasAccessNeedGroup: node.hasAccessNeedGroup ?? undefined,
@@ -79,7 +79,7 @@ export async function loadSocialAgentRegistration(
 export function toDataset(data: SocialAgentRegistrationData): Store {
   const store = registrationToDataset(data)
   const node = DataFactory.namedNode(data.id)
-  store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.prefLabel)))
+  store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.label)))
   if (data.note) {
     store.add(DataFactory.quad(node, SKOS.terms.note, DataFactory.literal(data.note)))
   }

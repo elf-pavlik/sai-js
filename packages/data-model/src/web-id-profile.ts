@@ -32,7 +32,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfile
   return {
     id: node.id ?? node['@id'],
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    // rdfs:label — literal
+    // skos:prefLabel — literal
     label: framedValue(node.label),
     // node reference — @type: '@id' coerced
     oidcIssuer: node.oidcIssuer ?? undefined,

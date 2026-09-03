@@ -43,7 +43,7 @@ describe('descriptions', () => {
     const need = await accessNeed(snippetIri, deps.fetch)
     const description = await AccessNeed.getDescription(need, lang, deps.fetch)
     expect(description).toBeDefined()
-    expect(description?.prefLabel).toBe(
+    expect(description?.label).toBe(
       'Access to Projects is essential for Projectron to perform its core function of Project Management'
     )
   })

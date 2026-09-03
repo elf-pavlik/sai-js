@@ -84,12 +84,12 @@ function capabilityUrlOf(put: PutRecord): string {
   return (capabilityUrl[0]['@id'] ?? capabilityUrl[0]['@value']) as string
 }
 
-function prefLabelOf(put: PutRecord): string {
+function labelOf(put: PutRecord): string {
   const node = put.body
-  const prefLabel = node[0]['http://www.w3.org/2004/02/skos/core#prefLabel'] as {
+  const label = node[0]['http://www.w3.org/2004/02/skos/core#prefLabel'] as {
     '@value': string
   }[]
-  return prefLabel[0]['@value'] as string
+  return label[0]['@value'] as string
 }
 
 // ──────────────────────────
@@ -103,7 +103,7 @@ describe('createSocialAgentInvitation (activity-first step 1)', () => {
     await createSocialAgentInvitation(OWNER, {
       id: INVITATION_ID,
       type: [INTEROP.SocialAgentInvitation],
-      prefLabel: 'Bob',
+      label: 'Bob',
       note: 'Some note',
     })
 
@@ -114,7 +114,7 @@ describe('createSocialAgentInvitation (activity-first step 1)', () => {
     // `type` expands to @type (context: type → @type)
     expect(put.body[0]['@id']).toBe(INVITATION_ID)
     expect(put.body[0]['@type']).toContain(INTEROP.SocialAgentInvitation)
-    expect(prefLabelOf(put)).toBe('Bob')
+    expect(labelOf(put)).toBe('Bob')
     // the capabilityUrl is generated here in the workflow (never the RPC) —
     // the opaque `.sai/invitations/{base64url(webId)}.{uuid}` link
     expect(capabilityUrlOf(put)).toMatch(/^.*\.sai\/invitations\/.+\./)
@@ -126,7 +126,7 @@ describe('createSocialAgentInvitation (activity-first step 1)', () => {
     await createSocialAgentInvitation(OWNER, {
       id: INVITATION_ID,
       type: [INTEROP.SocialAgentInvitation],
-      prefLabel: 'Bob',
+      label: 'Bob',
       note: 'Some note',
     })
 

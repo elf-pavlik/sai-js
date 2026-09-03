@@ -12,6 +12,6 @@ export type AccessDescriptionId = {
 /** Plain JSON representation of an access description (need or group). */
 export type AccessDescriptionData = AccessDescriptionId & {
   // TODO handle missing labels
-  prefLabel: string
+  label: string
   definition?: string
 }

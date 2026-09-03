@@ -130,7 +130,7 @@ export const getResource = async (ctx: ResolvedContext, id: string, lang: string
     label: resource.label,
     shapeTree: {
       id: IRI.make(resource.shapeTreeIri!),
-      label: shapeTreeDescription?.prefLabel,
+      label: shapeTreeDescription?.label,
     },
     accessGrantedTo: accessGrantedTo.map((agent) => IRI.make(agent)),
     children: resource.children.map((child) => ({

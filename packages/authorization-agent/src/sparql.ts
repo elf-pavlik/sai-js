@@ -147,7 +147,7 @@ export async function getSocialAgentRegistration(
     registeredAgent: node.registeredAgent as string,
     hasDataGrant: (node.hasDataGrant as string[]) ?? [],
     hasAdminGrant: (node.hasAdminGrant as string[]) ?? [],
-    prefLabel: (node.prefLabel as string) ?? '',
+    label: (node.label as string) ?? '',
     note: (node.note as string | undefined) ?? undefined,
     hasAccessNeedGroup: (node.hasAccessNeedGroup as string | undefined) ?? undefined,
     reciprocalRegistration: (node.reciprocalRegistration as string | undefined) ?? undefined,
@@ -314,7 +314,7 @@ export async function getRole(
   return {
     id: iri,
     type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    prefLabel: node.prefLabel ?? '',
+    label: node.label ?? '',
     members: node.members ?? [],
   }
 }

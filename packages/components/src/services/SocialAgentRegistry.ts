@@ -102,7 +102,7 @@ export const buildSocialAgentProfile = async (
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
   return SocialAgent.make({
     id: IRI.make(registration.registeredAgent),
-    label: registration.prefLabel,
+    label: registration.label,
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
@@ -209,7 +209,7 @@ export async function acceptInvitation(
       id: `urn:uuid:${ctx.session.randomUUID()}`,
       type: [INTEROP.SocialAgentInvitation],
       capabilityUrl: invitation.capabilityUrl,
-      prefLabel: invitation.label,
+      label: invitation.label,
       note: invitation.note,
     },
     createdAt: new Date().toISOString(),

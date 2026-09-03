@@ -10,7 +10,7 @@ const GRANT_IRI = 'https://registry/acme/grant/p9m2vr'
  * Framing regression guards for the shared-context refactor:
  * - `@omitDefault: true` on every frame property (no `null` noise for
  *   framed-but-absent properties)
- * - `prefLabel` (skos) and `label` (rdfs) compact to their own keys even when
+ * - `label` (skos) and `label` (rdfs) compact to their own keys even when
  *   both IRIs appear in the same document (term-name collision guard)
  */
 describe('framing regressions', () => {
@@ -24,7 +24,7 @@ describe('framing regressions', () => {
     expect(Object.values(framed).some((value) => value === null)).toBe(false)
   })
 
-  test('prefLabel (skos) and label (rdfs) compact to their own keys', async () => {
+  test('the unified label term — skos:prefLabel compacts to `label`, stray rdfs:label drops', async () => {
     const doc = [
       {
         '@id': 'https://example.test/#node',
@@ -34,7 +34,9 @@ describe('framing regressions', () => {
       },
     ]
     const framed = (await frameDoc(doc, dataModelContext, 'https://example.test/#node')) as any
-    expect(framed.prefLabel).toBe('pref')
-    expect(framed.label).toBe('label')
+    // skos:prefLabel frames to the single `label` key (context: label → SKOS.prefLabel)
+    expect(framed.label).toBe('pref')
+    // rdfs:label has no term anymore — it must not be picked up by `label`
+    expect(framed.prefLabel).toBeUndefined()
   })
 })

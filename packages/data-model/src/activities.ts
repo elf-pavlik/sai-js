@@ -36,13 +36,13 @@ type ActivityBase = {
 /**
  * Embedded SocialAgentInvitation snapshot (the `InvitationAccepted` object —
  * minted `urn:uuid` node: `type` incl. `interop:SocialAgentInvitation`,
- * the opaque `capabilityUrl`, `prefLabel`, `note`). Never dereferenced.
+ * the opaque `capabilityUrl`, `label`, `note`). Never dereferenced.
  */
 export type EmbeddedSocialAgentInvitation = {
   id: string
   type: string[]
   capabilityUrl: string
-  prefLabel: string
+  label: string
   note?: string
 }
 
@@ -50,13 +50,13 @@ export type EmbeddedSocialAgentInvitation = {
  * Embedded SocialAgentRegistration snapshot (the `AgentRegistrationAdded`
  * object — minted `urn:uuid` node: `type` incl.
  * `interop:SocialAgentRegistration`, `registeredAgent` — the peer,
- * `prefLabel`, `note`). Never dereferenced.
+ * `label`, `note`). Never dereferenced.
  */
 export type EmbeddedSocialAgentRegistration = {
   id: string
   type: string[]
   registeredAgent: string
-  prefLabel: string
+  label: string
   note?: string
 }
 

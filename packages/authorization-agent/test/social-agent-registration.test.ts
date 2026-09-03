@@ -37,7 +37,7 @@ describe('build', () => {
   test('should have expected fields', async () => {
     const socialAgentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
     expect(socialAgentRegistration.registeredAgent).toBe('https://acme.example/#corp')
-    expect(socialAgentRegistration.prefLabel).toBe('ACME')
+    expect(socialAgentRegistration.label).toBe('ACME')
     expect(socialAgentRegistration.note).toBe('A company making well known gadgets')
   })
 

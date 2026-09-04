@@ -1,19 +1,8 @@
 import { putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
-import type { SocialAgentInvitationData } from '@janeirodigital/interop-data-model'
+import type { CreateInvitationPojo } from '@janeirodigital/interop-data-model'
 import { loadSocialAgentInvitation } from '@janeirodigital/interop-data-model'
 import { buildSessionManager } from '../../builders/sessionManager.js'
 import { invitationUrl } from '../../util/uriTemplates.js'
-
-/**
- * The invitation-to-be — the stored `SocialAgentInvitationData` POJO minus
- * the two fields this workflow must not receive: `capabilityUrl` (generated
- * here, in the activity — the workflow/RPC must never know it early) and
- * `registeredAgent` (accept-time only, never set at creation).
- */
-export type CreateInvitationPojo = Omit<
-  SocialAgentInvitationData,
-  'capabilityUrl' | 'registeredAgent'
->
 
 /**
  * The activity-first createInvitation leg (step 1): PUT the invitation at the

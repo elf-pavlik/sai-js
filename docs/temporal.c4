@@ -551,10 +551,12 @@ views {
             "id": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
             "type": ["Activity", "InvitationCreated", "as:Create"],
             "as:actor": "https://id/dan",
-            "as:target": "https://registry/dan/invitation/",
-            "label": "Kim",
-            "note": "Some note",
-            "as:object": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+            "as:object": {
+              "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+              "type": ["SocialAgentInvitation"],
+              "label": "Kim",
+              "note": "Some note"
+            },
             "interop:createdAt": "2024-01-01T10:00:00.000Z"
           }
           ```
@@ -638,7 +640,7 @@ views {
             {
               "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
               "type": ["SocialAgentInvitation"],
-              "prefLabel": "Kim",
+              "label": "Kim",
               "note": "Some note"
             },
             {
@@ -683,7 +685,7 @@ views {
             "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note"
           }
           ```
@@ -754,6 +756,28 @@ views {
           >[!TIP]
           > the UI learns the capabilityUrl from the invitation resource when
           > the `InvitationCreated` done-row refreshes the invitation list
+
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/dan/activity/9a1e7d30-2c8b-4f6a-b5d4-1e0f3a7c8d9e",
+              "type": ["Activity", "InvitationCreated", "as:Create"],
+              "actor": "https://id/dan",
+              "object": {
+                "id": "https://registry/dan/invitation/fecf02b7-8932-4d94-a437-290b3cf24a3f",
+                "type": ["SocialAgentInvitation"],
+                "label": "Kim",
+                "note": "Some note"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
         '''
     }
     Dan.AUI -> Kim.AUI 'pass link out of band' {
@@ -843,7 +867,7 @@ views {
               "id": "urn:uuid:13c5b1e4-2f90-4a3e-9d81-0f6a4c6b33e2",
               "type": ["SocialAgentInvitation"],
               "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-              "prefLabel": "Dan",
+              "label": "Dan",
               "note": "Beep boop"
             },
             "interop:createdAt": "2024-01-01T10:00:00.000Z"
@@ -1004,7 +1028,7 @@ views {
             "id": "https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/kim",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note"
           }
           ```
@@ -1035,7 +1059,7 @@ views {
             "id": "https://registry/dan/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note",
             "registeredAgent": "https://id/kim"
           }
@@ -1072,7 +1096,7 @@ views {
               "id": "urn:uuid:7c4f8a90-23d1-4b6e-a5c3-0f9d8e2a1b7c",
               "type": ["SocialAgentRegistration"],
               "registeredAgent": "https://id/kim",
-              "prefLabel": "Kim",
+              "label": "Kim",
               "note": "Beep boop"
             },
             "interop:createdAt": "2024-01-01T10:00:00.000Z"
@@ -1170,7 +1194,7 @@ views {
             "id": "https://registry/kim/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/dan",
-            "prefLabel": "Dan",
+            "label": "Dan",
             "note": "Beep boop"
           }
           ```
@@ -1427,8 +1451,28 @@ views {
           >[!NOTE]
           >invitation.test.ts > personal
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f","type":["Activity","InvitationAccepted","as:Accept"],"actor":"https://id/kim","target":"https://registry/kim/","object":{"id":"urn:uuid:13c5b1e4-2f90-4a3e-9d81-0f6a4c6b33e2","type":["SocialAgentInvitation"],"capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f","prefLabel":"Dan","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+              "type": ["Activity", "InvitationAccepted", "as:Accept"],
+              "actor": "https://id/kim",
+              "target": "https://registry/kim/",
+              "object": {
+                "id": "urn:uuid:13c5b1e4-2f90-4a3e-9d81-0f6a4c6b33e2",
+                "type": ["SocialAgentInvitation"],
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9kYW4.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+                "label": "Dan",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }
@@ -1437,8 +1481,28 @@ views {
           >[!NOTE]
           >invitation.test.ts > personal
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/dan/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169","type":["Activity","AgentRegistrationAdded","as:Add"],"actor":"https://id/dan","target":"https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/","object":{"id":"urn:uuid:7c4f8a90-23d1-4b6e-a5c3-0f9d8e2a1b7c","type":["SocialAgentRegistration"],"registeredAgent":"https://id/kim","prefLabel":"Kim","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/dan/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+              "type": ["Activity", "AgentRegistrationAdded", "as:Add"],
+              "actor": "https://id/dan",
+              "target": "https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+              "object": {
+                "id": "urn:uuid:7c4f8a90-23d1-4b6e-a5c3-0f9d8e2a1b7c",
+                "type": ["SocialAgentRegistration"],
+                "registeredAgent": "https://id/kim",
+                "label": "Kim",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }
@@ -1556,10 +1620,12 @@ views {
             "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
             "type": ["Activity", "InvitationCreated", "as:Create"],
             "as:actor": "https://id/yoyo",
-            "as:target": "https://registry/yoyo/invitation/",
-            "label": "Kim",
-            "note": "Some note",
-            "as:object": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+            "as:object": {
+              "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+              "type": ["SocialAgentInvitation"],
+              "label": "Kim",
+              "note": "Some note"
+            },
             "interop:createdAt": "2024-01-01T10:00:00.000Z"
           }
           ```
@@ -1637,7 +1703,7 @@ views {
             {
               "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
               "type": ["SocialAgentInvitation"],
-              "prefLabel": "Kim",
+              "label": "Kim",
               "note": "Some note"
             },
             {
@@ -1678,7 +1744,7 @@ views {
             "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note"
           }
           ```
@@ -1731,6 +1797,28 @@ views {
 
           >[!TIP]
           > the org-context done-row reaches the admin's own events stream
+
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "InvitationCreated", "as:Create"],
+              "actor": "https://id/yoyo",
+              "object": {
+                "id": "https://registry/yoyo/invitation/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
+                "type": ["SocialAgentInvitation"],
+                "label": "Kim",
+                "note": "Some note"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
         '''
     }
     Dan.AUI -> Kim.AUI 'pass link out of band' {
@@ -1821,7 +1909,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
               "id": "urn:uuid:23e7a2d8-1b4c-4f6e-9d3a-8c2b5e7a4f1d",
               "type": ["SocialAgentInvitation"],
               "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
-              "prefLabel": "YoYo",
+              "label": "YoYo",
               "note": "Beep boop"
             },
             "interop:createdAt": "2026-09-01T01:50:31.328Z"
@@ -1980,7 +2068,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/kim",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note"
           }
           ```
@@ -2016,7 +2104,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
               "id": "urn:uuid:4b8a6c2e-9f1d-4a3c-b7e5-0d6f8a2c4e1b",
               "type": ["SocialAgentRegistration"],
               "registeredAgent": "https://id/kim",
-              "prefLabel": "Kim",
+              "label": "Kim",
               "note": "Beep boop"
             },
             "interop:createdAt": "2026-09-01T01:50:31.328Z"
@@ -2049,7 +2137,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/yoyo/agent/a9a00485-cdb7-4db8-b3af-a8f8dc55fd0b",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Some note",
             "registeredAgent": "https://id/kim"
           }
@@ -2175,7 +2263,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/kim/agent/a1e86de1-78fd-4bd1-adef-3e5b7fe72f1b/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/yoyo",
-            "prefLabel": "YoYo",
+            "label": "YoYo",
             "note": "Beep boop"
           }
           ```
@@ -2461,8 +2549,28 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           >[!NOTE]
           >invitation.test.ts > admin
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95","type":["Activity","AgentRegistrationAdded","as:Add"],"actor":"https://id/yoyo","target":"https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/","object":{"id":"urn:uuid:4b8a6c2e-9f1d-4a3c-b7e5-0d6f8a2c4e1b","type":["SocialAgentRegistration"],"registeredAgent":"https://id/kim","prefLabel":"Kim","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+              "type": ["Activity", "AgentRegistrationAdded", "as:Add"],
+              "actor": "https://id/yoyo",
+              "target": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+              "object": {
+                "id": "urn:uuid:4b8a6c2e-9f1d-4a3c-b7e5-0d6f8a2c4e1b",
+                "type": ["SocialAgentRegistration"],
+                "registeredAgent": "https://id/kim",
+                "label": "Kim",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }
@@ -2471,8 +2579,28 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           >[!NOTE]
           >invitation.test.ts > admin
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f","type":["Activity","InvitationAccepted","as:Accept"],"actor":"https://id/kim","target":"https://registry/kim/","object":{"id":"urn:uuid:23e7a2d8-1b4c-4f6e-9d3a-8c2b5e7a4f1d","type":["SocialAgentInvitation"],"capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f","prefLabel":"YoYo","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/kim/activity/3f0e2d1c-9a8b-4c7d-8e6f-5a4b3c2d1e0f",
+              "type": ["Activity", "InvitationAccepted", "as:Accept"],
+              "actor": "https://id/kim",
+              "target": "https://registry/kim/",
+              "object": {
+                "id": "urn:uuid:23e7a2d8-1b4c-4f6e-9d3a-8c2b5e7a4f1d",
+                "type": ["SocialAgentInvitation"],
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC95b3lv.b5ad0d73-fdb6-4375-b439-a7988b87d47f",
+                "label": "YoYo",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }
@@ -2566,7 +2694,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "YoYo",
+            "label": "YoYo",
             "note": "Some note"
           }
           ```
@@ -2710,7 +2838,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
               "id": "urn:uuid:5a9c3e71-8b2d-4f0a-9e6c-3d7b1f4a2c5e",
               "type": ["SocialAgentInvitation"],
               "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-              "prefLabel": "Kim",
+              "label": "Kim",
               "note": "Beep boop"
             },
             "interop:createdAt": "2026-09-01T01:50:31.328Z"
@@ -2903,7 +3031,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/yoyo",
-            "prefLabel": "YoYo",
+            "label": "YoYo",
             "note": "Some note"
           }
           ```
@@ -2939,7 +3067,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
               "id": "urn:uuid:9c2d5f7a-3e8b-4f1c-9a6d-2b7e4c0f8a3d",
               "type": ["SocialAgentRegistration"],
               "registeredAgent": "https://id/yoyo",
-              "prefLabel": "YoYo",
+              "label": "YoYo",
               "note": "Beep boop"
             },
             "interop:createdAt": "2026-09-01T01:50:31.328Z"
@@ -2972,7 +3100,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/kim/agent/fecf02b7-8932-4d94-a437-290b3cf24a3f",
             "type": ["SocialAgentInvitation"],
             "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
-            "prefLabel": "YoYo",
+            "label": "YoYo",
             "note": "Some note",
             "registeredAgent": "https://id/yoyo"
           }
@@ -3064,7 +3192,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             "id": "https://registry/yoyo/agent/dc5d0381-3b43-4e69-887e-c720a9793452/",
             "type": ["SocialAgentRegistration"],
             "registeredAgent": "https://id/kim",
-            "prefLabel": "Kim",
+            "label": "Kim",
             "note": "Beep boop"
           }
           ```
@@ -3207,8 +3335,28 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           >[!NOTE]
           >invitation.test.ts > admin
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95","type":["Activity","InvitationAccepted","as:Accept"],"actor":"https://id/yoyo","target":"https://registry/yoyo/","object":{"id":"urn:uuid:5a9c3e71-8b2d-4f0a-9e6c-3d7b1f4a2c5e","type":["SocialAgentInvitation"],"capabilityUrl":"https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f","prefLabel":"Kim","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/yoyo/activity/7033804c-311f-44dc-9ebe-bae33d99fe95",
+              "type": ["Activity", "InvitationAccepted", "as:Accept"],
+              "actor": "https://id/yoyo",
+              "target": "https://registry/yoyo/",
+              "object": {
+                "id": "urn:uuid:5a9c3e71-8b2d-4f0a-9e6c-3d7b1f4a2c5e",
+                "type": ["SocialAgentInvitation"],
+                "capabilityUrl": "https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f",
+                "label": "Kim",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }
@@ -3361,8 +3509,28 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           >[!NOTE]
           >invitation.test.ts > admin
 
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
           ```json
-          {"type":"activity","activity":{"id":"https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169","type":["Activity","AgentRegistrationAdded","as:Add"],"actor":"https://id/kim","target":"https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/","object":{"id":"urn:uuid:9c2d5f7a-3e8b-4f1c-9a6d-2b7e4c0f8a3d","type":["SocialAgentRegistration"],"registeredAgent":"https://id/yoyo","prefLabel":"YoYo","note":"Beep boop"},"createdAt":"2026-09-01T01:50:31.328Z","status":"done"}}
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/kim/activity/5ae50c87-c43f-4ada-8257-f51bfc62d169",
+              "type": ["Activity", "AgentRegistrationAdded", "as:Add"],
+              "actor": "https://id/kim",
+              "target": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+              "object": {
+                "id": "urn:uuid:9c2d5f7a-3e8b-4f1c-9a6d-2b7e4c0f8a3d",
+                "type": ["SocialAgentRegistration"],
+                "registeredAgent": "https://id/yoyo",
+                "label": "YoYo",
+                "note": "Beep boop"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
           ```
         '''
     }

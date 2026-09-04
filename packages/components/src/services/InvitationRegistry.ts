@@ -1,7 +1,11 @@
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import type { InvitationCreated, SocialAgentInvitationData } from '@janeirodigital/interop-data-model'
+import type {
+  CreateInvitationPojo,
+  InvitationCreated,
+  SocialAgentInvitationData,
+} from '@janeirodigital/interop-data-model'
 import { IRI, InvitationCreatedMessage, SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
-import { iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
@@ -52,14 +56,20 @@ export async function createInvitation(
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   const invitationId = iriForContained(invitationRegistry, ctx.session.randomUUID)
+  // the invitation-to-be — full POJO projection minus capabilityUrl (the
+  // workflow generates it) at the pre-minted id
+  const object: CreateInvitationPojo = {
+    id: invitationId,
+    type: [INTEROP.SocialAgentInvitation],
+    label: base.label,
+    note: base.note,
+  }
   const activity: Omit<InvitationCreated, 'id'> = {
     type: ['Activity', 'InvitationCreated', 'as:Create'],
     actor: ctx.webId,
-    target: invitationRegistry.id,
-    label: base.label,
-    note: base.note,
-    /** live-but-pending link — the workflow PUTs the invitation at this id */
-    object: invitationId,
+    // no target — the changed record's id rides object.id (the embedded
+    // invitation-to-be); the changed container is not consumed
+    object,
     createdAt: new Date().toISOString(),
   }
   await ActivityRegistry.createActivity(activityRegistry, {

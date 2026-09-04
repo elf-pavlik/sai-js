@@ -92,12 +92,30 @@ effect-free and must not import `api-messages`. ⇒ the canonical shapes live in
   RDF.
 - **Object embedding for activity objects (amendment — decided on the
   invitation example, see Inventory).** A class's primary object may ride as
-  `as:object` (ActivityStreams) instead of flat fields, in one of two forms:
-  - **live link** — the object's id is fixed at write time (the resource exists, or the producer pre-mints it via `iriForContained` and the workflow materializes it later — `InvitationCreated`): the
-    wire carries `as:object <object-iri>` as a single triple (storage law —
-    no ref object, no embedded types); readers that need the POJO embed it
-    via `@embed: '@always'` on the `object` frame entry, GRAPH-unioning the
-    object's named graph (§5 re-scoped to the `object` field only);
+  `as:object` (ActivityStreams) instead of flat fields, in one of **three**
+  forms:
+  - **live link** — the object's id is fixed at write time and the resource
+    EXISTS (so it can be dereferenced later): the wire carries
+    `as:object <object-iri>` as a single triple (storage law — no ref
+    object, no embedded types); readers that need the POJO embed it via
+    `@embed: '@always'` on the `object` frame entry, GRAPH-unioning the
+    object's named graph (§5 re-scoped to the `object` field only).
+  - **real-id embedded projection (the InvitationCreated form — landed,
+    see inventory)** — the object's id is pre-minted at write time
+    (`iriForContained`) and the WORKFLOW materializes the resource later, so
+    dereferencing at dispatch would 404; the fields the workflow needs are
+    known at write. The producer embeds the **full data-model POJO projection
+    at the REAL pre-minted id, `type` included** (`InvitationCreated.object` =
+    `CreateInvitationPojo` — the stored POJO minus the fields the workflow
+    must generate/receive: `capabilityUrl`, `registeredAgent`). The embedded
+    node's `rdf:type` claim in the activity graph is kept out of
+    authoritative reads by the **self-graph read convention**
+    (`docs/sparql.md`: classification queries filter `GRAPH ?g` …
+    `FILTER(?g = ?s)`) — the write-path rule "never embed type at a real
+    id" is superseded by that read-side filter (decided with step 1). The
+    workflow input is the decoded object **verbatim** — the handler passes it
+    through; the shared pojo type (`CreateInvitationPojo`) is the single
+    source in `data-model`.
   - **snapshot** — the id is unknown at write (`InvitationAccepted` — the
     acceptor has no owning container to mint in): the producer
     mints a `urn:uuid` node and embeds the full data-model POJO projection
@@ -106,13 +124,9 @@ effect-free and must not import `api-messages`. ⇒ the canonical shapes live in
     the node, so the **pinned single-doc read applies unchanged**:
     `@embed: '@always'` on `object` returns the full node, `@never` (the
     default) returns `object: { id }`. The `urn:uuid` is **never dereferenced**
-    — a stable in-graph identity (same convention as notification ids). A
-    snapshot is named by a minted urn, **not** the real resource's IRI:
-    embedding the resource's own id + `rdf:type` inside the activity graph
-    would duplicate the linked node's type claim (foreign-type pollution —
-    the read-path mechanism above). The `type` array may carry the ASV
-    activity type alongside the class (`as:Accept`, `as:Create`, … — new
-    ActivityStreams terms).
+    — a stable in-graph identity (same convention as notification ids). The
+    `type` array may carry the ASV activity type alongside the class
+    (`as:Accept`, `as:Create`, … — new ActivityStreams terms).
 - **No new field predicates — parties ride the object (amendment).** The
   duplicate-`@id` rule (one predicate IRI per context term) plus the ASV
   pivot make every previously-flat party/role field either ride inside the
@@ -362,6 +376,18 @@ docs / `GRAPH <iri>` and return plain IRIs; only cross-graph/SPARQL-dataset
 reads could re-embed, and that stays internal.
 `SocialAgentId`, `AgentId` refs appear only in temporal inputs/builders.
 
+**`target` rule (InvitationCreated precedent — landed):** a class whose
+changed-record id rides `object.id` (the real-id embedded form) DROPS
+`target`; a class whose `target` is a delivered value (a registration id to
+PUT at, a role/peer dispatch anchor) or the completion target keeps it.
+Removed: `InvitationCreated` (step 1). Scheduled removals with their
+re-pins: `AuthorizationRecorded`/`Revoked` (steps 2–3),
+`RoleMembershipChanged`/`RoleDeleted` (steps 4–5),
+`AdminAuthorizationRecorded`/`Revoked` (steps 7–8). Kept:
+`AgentRegistrationAdded` (consumed as `registrationId` — re-pin candidate
+would remove it), `DelegatedGrantsUpdated` (consumed as `peerId`),
+`ActivityCompleted` (the completion machinery's payload).
+
 **Object-embedding scope (amendment — latest):** the flat rows below are the
 **target** design — the `as:object` forms per class (see the §2 decision); only
 `AuthorizationRequested`/`ShareRequested` stay flat (structure-based, followup
@@ -370,11 +396,14 @@ in §5).
 | Class (`type[1]`) | Flat interface fields (data-model, `activities.ts` — wire truth) | producer | consumer (workflow / input) |
 |---|---|---|---|
 | `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `label`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` (handler maps `object.capabilityUrl`/`label`/`note`) |
-| `InvitationCreated` *(new — activity-first step 1)* | `actor: string; label: string; note?: string; object: <minted invitation IRI>` (pre-minted by the RPC via `iriForContained` — the resource is PUT later by the workflow, so the link is live-but-pending; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id, generates the capabilityUrl, then completes |
+| `InvitationCreated` *(new — activity-first step 1)* | `actor: string; object: CreateInvitationPojo` — the invitation-to-be at the REAL pre-minted id: `{ id, type: [SocialAgentInvitation], label, note? }` (embedded projection with `type` — the sparql.md self-graph read rule keeps activity-graph type claims out of authoritative queries; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id (the passed object), generates the capabilityUrl, then completes |
 | `AgentRegistrationAdded` | `actor: string; target: <pre-minted registration IRI>; object: urn snapshot of `SocialAgentRegistrationData` (`registeredAgent` — the peer, `label`, `note`)` | `InvitationHandler` (mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `target` from the object, then discovers the reciprocal |
 | `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
+**Re-pin (steps 7–8, InvitationCreated form):** once the workflow materializes/deletes the AdminAuthorization, the object becomes the **real-id embedded projection** (`{ id, type: [AdminAuthorization], grantee, grantedBy, scopeOfAuthorization }` at the pre-minted/existing id) — dispatch must not dereference a not-yet-PUT (Recorded) or already-deleted (Revoked) resource; the handler/consumer reads `grantee` from the embedded projection (today the RPC records/deletes synchronously and the object is an urn snapshot — execution notes). **`target` is REMOVED with that re-pin** (steps 7–8) — nothing consumes the container and the id rides `object.id` (InvitationCreated precedent). |
 | `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <DataAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` — reads `grantee` from the object |
+**Re-pin (steps 2–3, InvitationCreated form):** when the workflow records the authorization at the pre-minted id, the object becomes the **real-id embedded projection of the DataAuthorization-to-be** (`{ id, type: [DataAuthorization], grantee, … }`) — the grantee resolves from the embedded fields, never by dereferencing (the live-link set + 404-tolerant `granteeFromDataAuthorization` is the current synchronous-RPC fallback, execution notes). One activity per deduped grantee — share writes several. Denied stays an urn snapshot (execution notes) until its long-term home in `AuthorizationRevoked`. **`target` is REMOVED with that re-pin** (steps 2–3) — nothing consumes the container (grantee rides the object) and the id rides `object.id`. |
 | `RoleMembershipChanged` / `RoleDeleted` | `actor: string; target: <role IRI>` (the object is the same IRI — live link, the role is alive at write; the workflow loads its members, applies the change / deletes, and derives the affected diff itself — `peers` and `roleId` are not activity fields) | `RoleRegistry.ts` `updateRole`/`deleteRole` (activity only — the role write moves to the workflow) | `processRoleMembershipChange` / `processRoleDeletion` |
+**Carrier re-pin (step 4, InvitationCreated form):** the role's *intended* `label`/`members` (the change) ride the object as a **real-id embedded projection of the role-to-be** (`{ id: target, type: [Role], label, members }`) — the workflow PATCHes the role from the object and derives the diff; the role's current state is still read at workflow time for the before-image (`deleteRole` needs `members` before deleting). **`target` is REMOVED with that re-pin** (steps 4–5) — the embedded `object.id` ≡ the role, so `roleId` reads `object.id` (today `target` ≡ role and is consumed as the dispatch anchor).
 | `DelegatedGrantsUpdated` | `actor: string; target: <the peer>; object: <reciprocal registration IRI>` (`peerId` derivable — `registeredAgent` inside) | `ReciprocalWebhookHandler` | `updateDelegatedGrants` / `FindAffectedAuthorizationsInput` |
 | `GrantsRevoked` | `actor: string; grantee: string; dataOwner: string; object: [<grant IRIs>]` (`as:object` set — the revoked grants; `grantee`/`dataOwner` reuse the existing interop terms) | `Revocation.ts` `revokeGrants` *(producer lands in activity-first step 6)* | `processGrantsRevocation` / `ProcessGrantsRevocationInput` |
 | `ActivityCompleted` | **no own fields** — `target: string` (plain IRI — the completed activity IRI; its type is found by reading the target, not embedded in the completion) | `markActivitiesDone` / `ActivityRegistry.createCompletion` | forwarding only |
@@ -399,10 +428,25 @@ reference fields" (a1) is rejected: it would reify internal refs into a
 SPARQL-queried registry). Ref-ification of structure fields can happen in TS
 later if a consumer needs it; never on the wire.
 
-**Adding a new activity class (the compile-time rule):** its interface goes
-into the `ActivityData` union in `data-model` (plus vocab term + context
-entry) — a producer can then only emit a typed activity; the handler,
-`reconcileActivities` and `events.ts` each add their row to stay exhaustive.
+**Adding a new activity class (the compile-time rule — extended with the
+step-1 conventions):** its interface goes into the `ActivityData` union in
+`data-model` (plus vocab term + context entry) — a producer can then only
+emit a typed activity; the handler, `reconcileActivities` and `events.ts`
+each add their row to stay exhaustive. For a workflow-materialized class
+(pre-minted resource the workflow PUTs), the step-1 additions are:
+
+- the **shared object pojo** in `data-model` next to the class (the
+  `CreateInvitationPojo` pattern: the stored `*Data` minus the fields the
+  workflow generates/receives), typed as the class's `object`;
+- the **activity ref** (`InvitationCreatedId` pattern: `{ id, type }` — the
+  XId convention) carried by the workflow's completion;
+- **multi-param workflow/activity signatures** (`<class>(webId, object,
+  activity-ref)` / activity `(webId, object)`) — the activity ref never
+  rides the activity's own args;
+- the handler passes the **decoded object verbatim** as the workflow input
+  (mutability spread for `type` where the schema decodes readonly);
+- the **`ACTIVITY_LABELS` row** in `ui/authorization/src/activityLabels.ts`
+  (the step-0 indicator label map).
 
 ## 3. What this unblocks
 

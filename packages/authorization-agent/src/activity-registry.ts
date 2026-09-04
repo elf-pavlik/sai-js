@@ -1,6 +1,7 @@
 import {
   type ActivityData,
   type ActivityRegistryData,
+  type CreateInvitationPojo,
   type EmbeddedAdminAuthorization,
   type EmbeddedAuthorization,
   type EmbeddedSocialAgentInvitation,
@@ -131,12 +132,22 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
       }
     case 'InvitationCreated':
       return {
-        ...base,
+        id,
+        createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'InvitationCreated', 'as:Create'],
         actor,
-        label: asString(node.label),
-        note: node.note === undefined ? undefined : asString(node.note),
-        object: asString(node.object),
+        // the invitation-to-be — fields normalized (a single rdf:type frames
+        // as a scalar string; the embedded pojo types it as string[]). No
+        // target — object.id is the changed record; the container is unused.
+        object: {
+          id: asString((node.object as CreateInvitationPojo)?.id),
+          type: asStringArray((node.object as CreateInvitationPojo)?.type),
+          label: asString((node.object as CreateInvitationPojo)?.label),
+          note:
+            (node.object as CreateInvitationPojo)?.note === undefined
+              ? undefined
+              : asString((node.object as CreateInvitationPojo)?.note),
+        },
       }
     case 'AgentRegistrationAdded':
       return {

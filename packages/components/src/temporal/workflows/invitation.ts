@@ -1,5 +1,5 @@
 import { proxyActivities } from '@temporalio/workflow'
-import type { InvitationCreatedId } from '@janeirodigital/interop-data-model'
+import type { CreateInvitationPojo, InvitationCreatedId } from '@janeirodigital/interop-data-model'
 import type * as invitationActivities from '../activities/invitation.js'
 import type * as grantsActivities from '../activities/grants.js'
 
@@ -28,7 +28,7 @@ const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
  */
 export async function createInvitation(
   webId: string,
-  invitation: invitationActivities.CreateInvitationPojo,
+  invitation: CreateInvitationPojo,
   activity: InvitationCreatedId
 ): Promise<void> {
   await createSocialAgentInvitation(webId, invitation)

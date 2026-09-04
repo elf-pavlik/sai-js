@@ -133,4 +133,38 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       (activity as { object: { grantee: string } }).object.grantee
     ).toBe('https://data/test-client/public/id')
   })
+
+  test('embeds the InvitationCreated object — the invitation-to-be POJO with type normalized', async () => {
+    const doc = {
+      '@context': dataModelContext,
+      '@id': 'https://registry/dan/activity/create',
+      '@type': ['Activity', 'InvitationCreated', 'as:Create'],
+      actor: 'https://id/dan',
+      // no target — the invitation id rides the embedded object
+      // (a single rdf:type frames as a scalar — normalized back to string[])
+      object: {
+        '@id': 'https://registry/dan/invitation/abc',
+        '@type': 'http://www.w3.org/ns/solid/interop#SocialAgentInvitation',
+        label: 'Kim',
+        note: 'Some note',
+      },
+      createdAt: '2024-01-01T00:00:00.000Z',
+    }
+    const activity = await ActivityRegistry.loadActivity(
+      'https://registry/dan/activity/create',
+      mockFetch(doc)
+    )
+    expect(activity.type).toEqual(['Activity', 'InvitationCreated', 'as:Create'])
+    expect(activity.object).toEqual({
+      id: 'https://registry/dan/invitation/abc',
+      type: ['http://www.w3.org/ns/solid/interop#SocialAgentInvitation'],
+      label: 'Kim',
+      note: 'Some note',
+    })
+    // no flat activity-level label/note leaked from the old shape
+    expect((activity as Record<string, unknown>).label).toBeUndefined()
+    expect((activity as Record<string, unknown>).note).toBeUndefined()
+    // no target — dropped with the embedded object form
+    expect((activity as Record<string, unknown>).target).toBeUndefined()
+  })
 })

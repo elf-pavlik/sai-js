@@ -7,6 +7,7 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessRequestMessage,
+  type ActivityCompleted,
   type ActivityData,
   type AdminAuthorizationRecorded,
   type AdminAuthorizationRevoked,
@@ -581,7 +582,7 @@ export async function getPendingGranteeActivities(
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
     if (isActivityClass(activity, 'ActivityCompleted')) {
-      completed.add(activity.target)
+      completed.add((activity as ActivityCompleted).target)
       continue
     }
     if (
@@ -625,7 +626,7 @@ export async function getPendingActivities(
   for (const iri of iris) {
     const activity = await ActivityRegistry.loadActivity(iri, session.fetch)
     if (isActivityClass(activity, 'ActivityCompleted')) {
-      completed.add(activity.target)
+      completed.add((activity as ActivityCompleted).target)
     } else {
       workItems.push(activity)
     }

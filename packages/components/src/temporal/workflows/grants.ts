@@ -1,6 +1,7 @@
 import type {
   AgentId,
   ActivityData,
+  DelegatedGrantsUpdated,
   FinalGrantData,
   GrantId,
   GrantsRevoked,
@@ -27,7 +28,6 @@ import { createInvitation } from './invitation.js'
 // built-ins). The values must match what producers put in the refs they build.
 const ROLE_TYPE = 'http://www.w3.org/ns/solid/interop#Role'
 const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
-const SOCIAL_AGENT_INVITATION_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgentInvitation'
 const DATA_GRANT_TYPE = 'http://www.w3.org/ns/solid/interop#DataGrant'
 
 /** Sandbox-safe discriminant check (the data-model `isActivityClass` helper
@@ -351,11 +351,12 @@ export async function reconcileActivities(payload: {
     ) {
       roleActivities.push(activity)
     } else if (isActivityClass(activity, 'DelegatedGrantsUpdated')) {
+      const decoded = activity as DelegatedGrantsUpdated
       await executeChild(updateDelegatedGrants, {
         args: [
           {
             webId: payload.webId,
-            peerId: { id: activity.target, type: [SOCIAL_AGENT_TYPE] },
+            peerId: { id: decoded.target, type: [SOCIAL_AGENT_TYPE] },
             activityId: activity.id,
           },
         ],
@@ -400,16 +401,7 @@ export async function reconcileActivities(payload: {
       // the activity done)
       const decoded = activity as InvitationCreated
       await executeChild(createInvitation, {
-        args: [
-          payload.webId.id,
-          {
-            id: decoded.object,
-            type: [SOCIAL_AGENT_INVITATION_TYPE],
-            label: decoded.label,
-            note: decoded.note,
-          },
-          { id: activity.id, type: decoded.type },
-        ],
+        args: [payload.webId.id, decoded.object, { id: activity.id, type: decoded.type }],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }

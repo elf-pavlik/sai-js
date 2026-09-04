@@ -17,7 +17,9 @@ export interface ActivityEvent {
   id: string
   /** the typed activity tuple — `['Activity', '<Class>', <as:*>]` */
   type: string[]
-  target: string
+  /** as:target — absent on classes whose changed-record id rides the embedded
+   *  object (`InvitationCreated` + re-pins); present elsewhere */
+  target?: string
   /** as:actor — plain IRI (the registry owner the activity was written to) */
   actor?: string
   /** as:object — live-link IRI / snapshot POJO (the matching anchor for the

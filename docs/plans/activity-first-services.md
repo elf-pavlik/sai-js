@@ -31,7 +31,17 @@
 > deletions, deleteAuthorizations, DELETEs the role (`deleteRoleFromRegistry`,
 > find-first 404-tolerant), derives the affected set from the embedded
 > members, regenerates, completes.
-> **Next:** step 4 `revokeGrants`.
+> **Latest (step 5 — `addAdmin`, R1 re-decision):** admin promotion is
+> activity-first — `AdminAuthorizationRecorded` re-pinned (`target` dropped,
+> `object` = the AdminAuthorization-to-be at the PRE-MINTED id, real-id
+> embedded); the RPC keeps the validation reads (registered + already-admin)
+> and writes the activity + returns `AdminAuthorizationRecordedMessage`
+> (pre-minted id + `activityId`); the `addAdmin` workflow PUTs the resource
+> at the pre-minted id (`recordAdminAuthorizationAtId`, find-first
+> If-None-Match idempotent), materializes grants + the ACR rewrite, and only
+> then completes (children never mark done).
+> **Next:** step 6 `removeAdmin` (its R1 half — the DELETE + last-admin guard
+> move the same way).
 > Packages vitest + build + vue-tsc green (agent-run); `/test` suites
 > (roles/invitation) pending user run.
 > Extends the
@@ -118,9 +128,17 @@ AuthorizationAgent; no org session is minted in RPCs**).
   `agentRegistrationAdded` (real-id embedded object) only; the workflow PUTs
   the registration at `object.id` + discovers the reciprocal (completion via
   the `AgentRegistrationAddedId` ref).
-- `addAdmin` / `removeAdmin` (`Admin.ts`) — activity + `processAdminChange`
-  (`createAdminGrants`/`revokeAdminGrants`/`syncAdminAcr`), **but** the RPC
-  still synchronously writes/deletes the `AdminAuthorization` (R1 decision).
+- `addAdmin` (`Admin.ts`) — **step 5 (R1 re-decision)**: the RPC keeps the
+  validation reads (registered + already-admin) and pre-mints the
+  AdminAuthorization id, then writes `adminAuthorizationRecorded` (`target`
+  dropped — object = the AdminAuthorization-to-be at the pre-minted id,
+  real-id embedded projection) + returns a pending ack (pre-minted id +
+  `activityId`); the `addAdmin` workflow PUTs the resource there
+  (`recordAdminAuthorizationAtId`, find-first idempotent), materializes
+  `createAdminGrants` + `syncAdminAcr`, then completes.
+- `removeAdmin` (`Admin.ts`) — activity + `processAdminChange`
+  (`revokeAdminGrants`/`syncAdminAcr`), **but** the RPC still synchronously
+  deletes the `AdminAuthorization` (R1 half re-decided in step 6).
 - `ReciprocalWebhookHandler` — writes `delegatedGrantsUpdated` → `updateDelegatedGrants`.
 
 ### 2.2 Partial — RPC mutates synchronously, then activity → workflow does derived work
@@ -283,7 +301,7 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 | **2. `updateRole`** | `UpdateRole` | **✅ EXECUTED** — the role's *intended* change rides `as:object` as a **real-id embedded projection of the role-to-be** (`{ id, type: [Role], label, members }` — the InvitationCreated form; **`target` removed**, `roleId` reads `object.id`, `as:Update`); the RPC keeps a read-side existence guard + writes the activity + returns a pending ack (echoes the role-to-be + `activityId`); the `updateRole` workflow PATCHes the role (`updateRoleInRegistry` — find-first idempotent) → derives the affected diff from the before-image → regenerates → completes; `role-membership-change` c4 view + UI (claim + done-row) | 4c |
 | **3. `deleteRole`** | `DeleteRole` | **✅ EXECUTED** — `as:object` = the role-to-be-deleted as a **real-id embedded projection** (the full `RoleData`, alive at write; **`target` removed**, `roleId` reads `object.id`); the RPC keeps a read-side guard (existence, yields the snapshot) + writes the activity + returns a pending ack (`RoleDeletedMessage` = deleted role id + `activityId`); the `deleteRole` workflow scans usage **before** the deletions, deleteAuthorizations, DELETEs the role (`deleteRoleFromRegistry` — find-first, 404-tolerant, idempotent under retries), derives the affected set from the **embedded members** (the retry backstop — unrecoverable from the store after the role + its role-grantee authorizations are gone), regenerates, completes; same c4 view + UI (claim + done-row) | 4c |
 | **4. `revokeGrants`** | `RevokeGrants` | introduce the missing `grantsRevoked` **producer**: activity = `actor`, flat `grantee`/`dataOwner` (existing terms) + `as:object` = the revoked grant IRIs (set); local-revoke workflow runs `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + clears the grantor's projection; `authorization`/`revoke` UI + c4 | 4d |
-| **5. `addAdmin`** | `AddAdmin` | activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** (pre-minted — the workflow PUTs it; **`target` removed** — nothing consumes the registry container); re-decide R1 (§9): RPC-time validation reads (already-admin) + activity-only write; `org-admin-add` c4 + toggle-admin UI | 4e |
+| **5. `addAdmin`** | `AddAdmin` | **✅ EXECUTED** — activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** at the PRE-MINTED id (**`target` removed** — nothing consumes the registry container); **R1 re-decided (§9)**: the RPC keeps the validation reads (registered + already-admin) + pre-mints the id + writes the activity + returns `AdminAuthorizationRecordedMessage` (pre-minted id + `activityId`); the `addAdmin` workflow PUTs the AdminAuthorization at the pre-minted id (`recordAdminAuthorizationAtId` — find-first idempotent), materializes grants + the ACR rewrite, then completes; `org-admin-add` c4 + toggle-admin UI (claim + done-row) | 4e |
 | **6. `removeAdmin`** | `RemoveAdmin` | same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the existing AdminAuthorization as a **real-id embedded projection** — the workflow DELETEs; **`target` removed**); the last-admin guard rides the workflow (`syncAdminAcr`); `org-admin-add` (remove) c4 + toggle-admin UI | 4e |
 | **7. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | **moved to the end (POJO-first reorder)** — structure-based: the object fields (`AuthorizationStructure`) have NO `dataModelContext` terms (execution note 9 in `payload-contract-alignment.md` — expansion silently drops unknown keys), so the carrier needs the structure-vocab decision first. Then: RPC pre-mints the DataAuthorization id(s) (`iriForContained`); the activity's `as:object` = the **real-id embedded projection** of the DataAuthorization-to-be (the InvitationCreated form; **`target` removed** — nothing consumes it, the id rides `object.id`); workflow records the authorizations at those ids (`recordAuthorizationFromStructure` as `getSession(ctx.webId)`) → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile (per-grantee consumer reads `grantee` from the object — decision 1) | 4a |
 | **8. `shareResource`** | `ShareResource` | **moved to the end** — structure-based (same term gap as step 7). `ShareDataInstanceStructure` + applicationId ride as the flat structure fields (structure-based — followup); the authorization(s) record via a pre-minted `as:object` id; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
@@ -404,7 +422,9 @@ sketches):
   (**step 3 landed** — the role-to-be-deleted rides `object.id`; the embedded
   members are the retry backstop once the role is gone). Scheduled with their
   re-pins:
-  `AdminAuthorizationRecorded`/`Revoked` (steps 4–5),
+  `AdminAuthorizationRecorded` (**step 5 landed** — the AA-to-be at the
+  pre-minted id rides `object.id`),
+  `AdminAuthorizationRevoked` (step 6),
   `AuthorizationRecorded`/`Revoked` (steps 7–8). Kept for
   the classes whose `target` is a delivered dispatch value
   (`DelegatedGrantsUpdated` — the peer) or the completion target
@@ -536,7 +556,11 @@ green per step; `temporal.c4` edits validate with `likec4 validate`;
 2. **`revokeGrants` orchestrator**: reuse/extend `processGrantsRevocation`
    (requester-hop shape) or a new local-revoke workflow (4d).
 3. **R1 re-decision**: synchronous `AdminAuthorization` write + RPC-time error
-   semantics vs activity-only with async errors (4e) — re-decided in steps 5–6.
+   semantics vs activity-only with async errors (4e) — **re-decided in step 5
+   (addAdmin)**: the RPC keeps the VALIDATION reads (registered +
+   already-admin duplicate check — RPC-time error semantics preserved for
+   those) and pre-mints the id; the write moves to the workflow, which also
+   re-guards via `syncAdminAcr`. The removeAdmin half re-decides in step 6.
 4. **`addSocialAgent`**: no RPC consumer today — wire it later (and decide
    whether it establishes the reciprocal) or drop it (4h).
 5. **Keepers stay synchronous (decided)**: `createRole` and

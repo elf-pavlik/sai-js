@@ -238,6 +238,23 @@ export const RoleDeletedMessage = S.Struct({
   activityId: IRI,
 })
 
+/**
+ * Pending acknowledgment of an admin promotion (activity-first step 5 — R1
+ * re-decision: validation reads stay in the RPC, the write moves to the
+ * workflow) — the RPC pre-mints the AdminAuthorization id and writes the
+ * `adminAuthorizationRecorded` activity (object = the AdminAuthorization-to-be,
+ * real-id embedded projection at that id); the `addAdmin` workflow PUTs the
+ * resource there, then grants + ACR rewrite, then completes. The ack echoes
+ * the pre-minted id (pending handle) + the triggering activity id (the
+ * uniform UI claim anchor).
+ */
+export const AdminAuthorizationRecordedMessage = S.Struct({
+  /** the pre-minted AdminAuthorization IRI the workflow will PUT at */
+  id: IRI,
+  /** the triggering `adminAuthorizationRecorded` activity's IRI */
+  activityId: IRI,
+})
+
 // ──────────────────────────
 // Activity projections (the outbox) — payload-contract-alignment step 3
 // (amended wire). Same field sets as the data-model ActivityData union
@@ -357,8 +374,9 @@ export const AgentRegistrationAdded = S.Struct({
 })
 
 /** Unbranded projection of data-model `EmbeddedAdminAuthorization` — the
- * `AdminAuthorizationRevoked` object (urn:uuid snapshot — the RPC deletes
- * the resource synchronously in A, so the admin's grantee rides inside). */
+ * shared wire shape: the recorded object (real-id embedded projection at the
+ * pre-minted id, step 5) and the revoked object (urn:uuid snapshot — the
+ * RPC deletes the resource synchronously until step 6). */
 export const EmbeddedAdminAuthorization = S.Struct({
   id: S.String,
   type: S.Array(S.String),
@@ -367,17 +385,22 @@ export const EmbeddedAdminAuthorization = S.Struct({
   scopeOfAuthorization: S.String,
 })
 
-/** Admin authorization recorded (org context). */
+/** Admin authorization recorded (org context, activity-first step 5) —
+ * `target` dropped; the AdminAuthorization-to-be rides `object` as a real-id
+ * embedded projection at the pre-minted id. */
 export const AdminAuthorizationRecorded = S.Struct({
-  ...activityBaseFields,
+  id: S.String,
+  /** no `target` — the changed record's id rides `object.id` (the embedded
+   *  AdminAuthorization-to-be); the changed container is not consumed */
+  createdAt: S.String,
   type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRecorded')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the AdminAuthorization — urn:uuid snapshot (the admin's grantee inside) */
+  /** the AdminAuthorization-to-be — real-id embedded projection */
   object: EmbeddedAdminAuthorization,
 })
 
-/** Admin authorization revoked (org context). */
+/** Admin authorization revoked (org context — unchanged until step 6). */
 export const AdminAuthorizationRevoked = S.Struct({
   ...activityBaseFields,
   type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRevoked')),
@@ -795,7 +818,7 @@ export class RevokeGrants extends S.TaggedRequest<RevokeGrants>()('RevokeGrants'
 
 export class AddAdmin extends S.TaggedRequest<AddAdmin>()('AddAdmin', {
   failure: S.Never,
-  success: SocialAgent,
+  success: AdminAuthorizationRecordedMessage,
   payload: { webId: IRI, context: IRI },
 }) {}
 
@@ -889,7 +912,9 @@ export class SaiService extends Context.Tag('SaiService')<
       grants: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
     ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
-    readonly addAdmin: (webId: IRI, context: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgent>>
+    readonly addAdmin: (webId: IRI, context: IRI) => Effect.Effect<
+      S.Schema.Type<typeof AdminAuthorizationRecordedMessage>
+    >
     readonly removeAdmin: (webId: IRI, context: IRI) => Effect.Effect<
       S.Schema.Type<typeof SocialAgent>
     >

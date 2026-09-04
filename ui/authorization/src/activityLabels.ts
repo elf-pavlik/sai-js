@@ -10,4 +10,5 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   InvitationAccepted: 'accept-invitation',
   RoleMembershipChanged: 'update-role',
   RoleDeleted: 'delete-role',
+  AdminAuthorizationRecorded: 'add-admin',
 }

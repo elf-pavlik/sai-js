@@ -1,6 +1,7 @@
 import type {
   AgentId,
   ActivityData,
+  AdminAuthorizationRecorded,
   DelegatedGrantsUpdated,
   FinalGrantData,
   GrantId,
@@ -22,7 +23,7 @@ import {
   setHandler,
 } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
-import { createAdminGrants, revokeAdminGrants, syncAdminAcr } from './admin.js'
+import { createAdminGrants, processAdminAuthorizationRecorded, revokeAdminGrants, syncAdminAcr } from './admin.js'
 import type { AdminWorkflowInput } from './admin.js'
 import { createInvitation } from './invitation.js'
 
@@ -392,22 +393,23 @@ export async function reconcileActivities(payload: {
         ],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
-    } else if (
-      isActivityClass(activity, 'AdminAuthorizationRecorded') ||
-      isActivityClass(activity, 'AdminAuthorizationRevoked')
-    ) {
-      // admin activities — same routing as the webhook handler (grants + ACR
-      // rewrite, then complete the activity once BOTH succeeded; the children
-      // no longer mark done themselves — see processAdminChange)
+    } else if (isActivityClass(activity, 'AdminAuthorizationRecorded')) {
+      // step 5 — the workflow PUTs the AdminAuthorization at the pre-minted
+      // id, materializes grants + the ACR rewrite, then completes
+      // (self-completing; the outer markActivitiesDone is the accepted
+      // duplicate for a reconcile re-run)
+      const recorded = activity as AdminAuthorizationRecorded
+      await executeChild(processAdminAuthorizationRecorded, {
+        args: [payload.webId, recorded.object, { id: activity.id, type: [...recorded.type] }],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'AdminAuthorizationRevoked')) {
+      // step 6 leg — unchanged: grants + ACR orchestrated here, children
+      // never mark done themselves (see processAdminChange)
       const admin = await resolveActivityGrantee({ activity })
       if (!admin) continue
       const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityId: activity.id }]
-      await executeChild(
-        isActivityClass(activity, 'AdminAuthorizationRecorded')
-          ? createAdminGrants
-          : revokeAdminGrants,
-        { args }
-      )
+      await executeChild(revokeAdminGrants, { args })
       await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'InvitationCreated')) {

@@ -2,19 +2,22 @@ import { replaceAdminGrantLinks } from '@janeirodigital/interop-authorization-ag
 import type {
   AdminAuthorizationData,
   AgentId,
+  EmbeddedAdminAuthorization,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
-import { dataGrantTemplate, dataModelContext, loadGrant } from '@janeirodigital/interop-data-model'
+import { AdminAuthorization, dataGrantTemplate, dataModelContext, loadGrant } from '@janeirodigital/interop-data-model'
 import {
   ACL,
   INTEROP,
   LDP,
   discoverAuthorizationAgent,
   expandedJsonLd,
+  fetchJsonLd,
   getAcl,
   iriForContained,
   linkedIrisJsonLd,
   parseTurtle,
+  putJsonLd,
   serializeTurtle,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -47,6 +50,36 @@ export interface AdminActivityInput {
 export interface AdminGrantsData {
   registrySetGrant: AdminGrantData
   dataRegistryGrants: AdminGrantData[]
+}
+
+/**
+ * The activity-first addAdmin leg (step 5): PUT the AdminAuthorization at the
+ * PRE-MINTED id with the context's own session. Find-first by the STABLE
+ * pre-minted id — idempotent under retries/reconcile: a re-run after a crash
+ * sees the resource already materialized and skips (the `If-None-Match: *`
+ * PUT would 412 on the second attempt). The grantee rides the embedded
+ * object; the type is the constant AdminAuthorization class.
+ */
+export async function recordAdminAuthorizationAtId(payload: {
+  webId: SocialAgentId
+  authorization: EmbeddedAdminAuthorization
+}): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const existing = await fetchJsonLd(payload.authorization.id, session.fetch).catch(
+    (): undefined => undefined
+  )
+  if (existing) return
+  const data: AdminAuthorizationData = {
+    id: payload.authorization.id,
+    type: [INTEROP.AdminAuthorization],
+    grantee: payload.authorization.grantee,
+    grantedBy: payload.authorization.grantedBy,
+    scopeOfAuthorization: payload.authorization.scopeOfAuthorization,
+  }
+  await putJsonLd(payload.authorization.id, session.fetch, AdminAuthorization.toJsonLd(data), {
+    'If-None-Match': '*',
+  })
 }
 
 const acp = {

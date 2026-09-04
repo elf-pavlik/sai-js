@@ -37,31 +37,36 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 | `grantsRevoked` | revocation boundary (`revoke-delegation-chain.md`) | `processGrantsRevocation` |
 | `activityCompleted` | Temporal completions | — (forwarding only) |
 
-## New: admin event (org-admin Phase 1)
+## New: admin event (org-admin Phase 1 + activity-first step 5)
 
-The `AddAdmin` / `RemoveAdmin` RPC records the change and writes a **domain
-activity** to the org's Activity Registry; `ActivityWebhookHandler` routes it to
-**parallel workflows** that materialize the side effects (grants + ACR
-matchers). Shape (decided — `RemoveAdmin` has its own distinct activity, no
-`granted`-flag reuse). Activities are **typed classes** since the
-payload-contract flip (`webId` → `actor`, parties ride the `as:object`):
+The `AddAdmin` / `RemoveAdmin` RPC writes a **domain activity** to the org's
+Activity Registry; `ActivityWebhookHandler` routes it to workflows that
+materialize the side effects (AdminAuthorization write/delete, grants + ACR
+matchers). `AddAdmin` is **activity-first (step 5 — R1 re-decision)**: the RPC
+keeps the validation reads and pre-mints the AdminAuthorization id; the
+`addAdmin` workflow PUTs the resource, then grants + ACR. `RemoveAdmin` still
+records/deletes synchronously until step 6. Activities are **typed classes**
+(the payload-contract flip: `webId` → `actor`, parties ride the `as:object`):
 
 ```
-type:   ['Activity', 'AdminAuthorizationRecorded']          (`AddAdmin`)
-      / ['Activity', 'AdminAuthorizationRevoked']           (`RemoveAdmin`)
+type:   ['Activity', 'AdminAuthorizationRecorded']          (`AddAdmin` — step 5)
+      / ['Activity', 'AdminAuthorizationRevoked']           (`RemoveAdmin` — until step 6)
 as:actor:  the org webId (the registry owner)
-as:target: the org's AuthorizationRegistry
-as:object: <AdminAuthorization IRI>    // the admin's grantee is read from it
+as:target: (recorded: dropped — step 5; revoked: the org's AuthorizationRegistry)
+as:object: (recorded: the AA-to-be at the PRE-MINTED id, real-id embedded;
+            revoked: the AA as a urn:uuid snapshot) — the admin's grantee
+            is read from it in both forms
 ```
 
 Add vs. remove is distinguished by the `activityType` itself (mirroring the
 `authorizationRecorded` / `authorizationRevoked` pair).
 
 - **Producer:** `AddAdmin`/`RemoveAdmin` RPC service (`services/Admin.ts`):
-  the RPC changes the org's AuthorizationRegistry **synchronously** — create
-  the `AdminAuthorization` on add, delete it on revoke (mirroring
-  `recordAuthorization` / `deleteRole`; error on already-admin / non-admin) —
-  then writes the activity via `ActivityRegistry.createActivity`.
+  add — validation reads (registered + already-admin) + pre-mint the
+  AdminAuthorization id + write the activity only (the workflow PUTs the
+  resource at the pre-minted id); revoke (until step 6) — delete the
+  `AdminAuthorization` synchronously (last-admin guard), then write the
+  activity.
 - **Handler:** a new branch in `ActivityWebhookHandler` (parallel to
   `GRANTEE_ACTIVITY_TYPES` / `activityWorkflows`). The **trigger is the shared
   activity pair**; add and remove are distinguished by `activityType`

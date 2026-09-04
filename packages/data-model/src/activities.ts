@@ -158,25 +158,33 @@ export type AgentRegistrationAddedId = {
   type: AgentRegistrationAdded['type']
 }
 
-/** Admin authorization recorded (org context). */
-export type AdminAuthorizationRecorded = ActivityBase & {
+/** Admin authorization recorded (org context — activity-first step 5).
+ * `target` dropped: the changed record's id rides `object.id`. The object
+ * is a real-id embedded projection of the AdminAuthorization-to-be at the
+ * PRE-MINTED id — the `addAdmin` workflow PUTs the resource there, then
+ * grants + ACR rewrite, then completes (R1 re-decision: validation reads
+ * stay in the RPC, the write moves to the workflow). */
+export type AdminAuthorizationRecorded = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'AdminAuthorizationRecorded']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
-  /** the AuthorizationRegistry */
-  target: string
-  /** urn:uuid snapshot of the AdminAuthorization (the admin's `grantee`
-   *  inside) — the dispatch dereferences nothing (step 7 moves the
-   *  materialization into the workflow and may return to the live-link form) */
+  /** the AdminAuthorization-to-be — real-id embedded projection at the
+   *  pre-minted id (never dereferenced — the workflow materializes it) */
   object: EmbeddedAdminAuthorization
 }
 
+/** Typed activity ref for the `addAdmin` workflow's completion — the XId
+ * pattern for temporal inputs (refs stay TS-level, never on the wire). */
+export type AdminAuthorizationRecordedId = {
+  id: string
+  type: AdminAuthorizationRecorded['type']
+}
+
 /**
- * Embedded AdminAuthorization snapshot (the `AdminAuthorizationRevoked`
- * object — minted `urn:uuid` node). The demoted admin's grantee rides here
- * because in A the RPC deletes the AdminAuthorization synchronously — the
- * live-link form (used by `AdminAuthorizationRecorded`) would be unresolvable
- * at dispatch time (step 8 moves the delete into the workflow).
+ * Embedded AdminAuthorization — the full wire shape shared by the recorded
+ * (real-id embedded projection at the pre-minted id, step 5) and revoked
+ * (urn:uuid snapshot — the RPC deletes the resource synchronously until
+ * step 6) objects. The admin's `grantee` rides inside either way.
  */
 export type EmbeddedAdminAuthorization = {
   id: string

@@ -296,9 +296,9 @@ views {
   }
 
   dynamic view org-admin-add {
-    title: 'Add org admin'
+    title: 'Add org admin — Dan promotes Bob in YoYo'
 
-    include Dan, YoYo
+    include Dan, YoYo, Bob
     include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
 
     style YoYo {
@@ -309,64 +309,415 @@ views {
       color: indigo
     }
 
+    style Bob {
+      color: sky
+    }
+
+    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
     Dan.AUI -> Dan.UAS 'POST (RPC) AddAdmin — { webId: bob, context: yoyo }' {
         navigateTo org-registry-set-discovery
         notes'''
-          uses cookie session with User Authorization Server
-          resolves the org context — admin gate (hasAdminGrant) → registry set — then operates on the org's registries as the authorized admin
+          #### POST (RPC) AddAdmin - { webId: bob, context: yoyo }
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          >[!TIP]
+          > resolves the org context — admin gate (hasAdminGrant) → registry
+          > set — then operates on the org's registries as the authorized admin
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AddAdmin",
+                "webId": "https://id/bob",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
         '''
     }
-    Dan.UAS -> YoYo.UAS 'HEAD authorization agent id' {
+    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+        navigateTo org-registry-set-discovery
         notes'''
-          with credentials — learns the org's registry set location
+          #### discover org registry set
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          [org-registry-set-discovery](../org-registry-set-discovery/?dynamic=sequence)
+
+          >[!TIP]
+          > the admin-only `Link: <registrySet>; rel="interop:hasRegistrySet"`
+          > header on the org's authorization agent (AgentIdHandler) — the
+          > admin gate (hasAdminGrant) decides whether it is served
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://registry/yoyo/>;
+                rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"
+          ```
         '''
     }
-    YoYo.UAS -> Dan.UAS 'OK with Link - interop:hasRegistrySet'
-    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]'
-    Dan.UAS -> YoYo.Registry 'record AdminAuthorization [Authorization]' {
+    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
         notes'''
-          idempotent — errors when already exists
+          #### find Social Agent Registration [Agent]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > guard read — the promoted agent must already be registered
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRecorded activity [Activity]'
-    Dan.UAS -> Dan.AUI 'OK — admin flag in payload'
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]'
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminChange workflow'
+    Dan.UAS -> YoYo.Registry 'pre-mint AdminAuthorization id (validation reads)' {
+        notes'''
+          #### pre-mint AdminAuthorization id (validation reads)
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > step 5 (R1 re-decision): the registered + already-admin checks
+          > stay RPC-side (error on duplicate); the resource id is PRE-MINTED
+          > via `iriForContained` — no synchronous record, the workflow PUTs
+          > the AdminAuthorization there later
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRecorded activity [Activity]' {
+        notes'''
+          #### PUT adminAuthorizationRecorded activity [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > no synchronous record — `as:object` = the AA-to-be at the
+          > PRE-MINTED id (real-id embedded projection: grantee, grantedBy,
+          > scopeOfAuthorization); `target` dropped — the id rides object.id
+
+          ```http
+          PUT https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "AdminAuthorizationRecorded"],
+            "as:actor": "https://id/yoyo",
+            "as:object": {
+              "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+              "type": ["AdminAuthorization"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/yoyo",
+              "scopeOfAuthorization": "interop:All"
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Dan.UAS -> Dan.AUI 'OK (pending) — pre-minted AA id + activityId' {
+          notes'''
+            #### OK (pending) - pre-minted AA id + activityId
+            >[!NOTE]
+            >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                "activityId": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c"
+              }
+            }
+            ```
+            ### Checks
+
+            #### String matching
+            * `id` - `https://registry/yoyo/authorization`
+            * `activityId` - `https://registry/yoyo/activity`
+            * no AdminAuthorization resource yet — the workflow PUTs it
+          '''
+      }
+      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+          notes'''
+            #### notify Add activity (owner channel - dispatch) [Activity]
+            >[!NOTE]
+            >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "target": "https://registry/yoyo/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationRecorded workflow' {
+        notes'''
+          #### start processAdminAuthorizationRecorded workflow
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          >gRPC
+
+          >[!TIP]
+          > the decoded object passes verbatim (the workflow's data arg); the
+          > triggering activity rides as a typed ref — traceable completion
+
+          ```json
+          [
+            "https://id/yoyo",
+            {
+              "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+              "type": ["AdminAuthorization"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/yoyo",
+              "scopeOfAuthorization": "interop:All"
+            },
+            {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "AdminAuthorizationRecorded"]
+            }
+          ]
+          ```
+        '''
+    }
     YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
-    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminChange'
+    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationRecorded' {
+        notes'''
+          #### (workflow) run processAdminAuthorizationRecorded
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) PUT AdminAuthorization [Authorization]' {
+        notes'''
+          #### (activity) PUT AdminAuthorization [Authorization]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > `recordAdminAuthorizationAtId`: at the PRE-MINTED id — find-first
+          > idempotent (a retry sees the resource already materialized and
+          > skips; the `If-None-Match: *` PUT would 412 on the second attempt)
+
+          ```http
+          PUT https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+            "type": ["AdminAuthorization"],
+            "grantee": "https://id/bob",
+            "grantedBy": "https://id/yoyo",
+            "scopeOfAuthorization": "interop:All"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
     YoYo.Worker -> YoYo.Registry '(child workflow) createAdminGrants [Grant]' {
         notes'''
-          store RegistrySet-scoped + per data registry AdminGrants, each with ACR
+          #### (child workflow) createAdminGrants [Grant]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > store RegistrySet-scoped + per data registry AdminGrants, each
+          > with its own ACR
         '''
     }
     YoYo.Worker -> YoYo.Registry '(activity) replace hasAdminGrant link [Agent]' {
         notes'''
-          single PATCH — one Update on the org's registration of the admin
+          #### (activity) replace hasAdminGrant link [Agent]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > single PATCH — one Update on the org's registration of the admin
+          > (the admin marker; data registries are reached through the RegistrySet)
+
+          ```http
+          PATCH https://registry/yoyo/social-agent/z3k7wm/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/social-agent/z3k7wm/",
+            "type": ["SocialAgentRegistration"],
+            "interop:hasAdminGrant": [
+              "https://registry/yoyo/grant/a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+            ]
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 204 No Content
+          ```
         '''
     }
     YoYo.Worker -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
         notes'''
-          ACP resource — not a sub registry
+          #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > ACP resource — not a sub registry; derived rewrite from the
+          > current admin list (the AuthorizationRegistry is the source of
+          > truth; last-admin guard inside the activity)
         '''
     }
     YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
-          only after grants AND ACR rewrite succeeded — single completion
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > only after grants AND ACR rewrite succeeded — single completion
+          > (children never mark done — the createAdminGrants-masks-syncAdminAcr
+          > hazard)
+
+          ```http
+          PUT https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
         '''
     }
     YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
-          change activity → pending, completion → done (enriched with the typed activity)
+          #### notify Add activity (admin channel - forward only) [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > the change activity → pending, the completion → done (enriched
+          > with the typed activity — the UI reads the embedded object)
         '''
     }
     Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
         notes'''
-          /.sai/events NDJSON stream
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "AdminAuthorizationRecorded"],
+              "actor": "https://id/yoyo",
+              "object": {
+                "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                "type": ["AdminAuthorization"],
+                "grantee": "https://id/bob",
+                "grantedBy": "https://id/yoyo",
+                "scopeOfAuthorization": "interop:All"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
         '''
     }
     Dan.AUI -> Dan.UAS 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
         notes'''
-          triggered by the done event — reload the org context agent list
+          #### POST (RPC) ListSocialAgents (context: yoyo) - refresh
+          >[!NOTE]
+          >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
+
+          >[!TIP]
+          > triggered by the done event — reload the org context agent list
         '''
     }
     Dan.UAS -> YoYo.Registry 'list social agents with admin flag [Agent]'

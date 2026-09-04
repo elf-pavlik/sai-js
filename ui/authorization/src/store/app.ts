@@ -360,9 +360,21 @@ export const useAppStore = defineStore('app', () => {
 
   /** Promote/demote an agent in the current (org) context — §2.6 toggle-admin. */
   async function toggleAdmin(webId: string, admin: boolean): Promise<void> {
-    if (admin) await effect.addAdmin(webId, currentContext())
-    else await effect.removeAdmin(webId, currentContext())
-    listSocialAgents(true)
+    if (admin) {
+      // activity-first (step 5): the AdminAuthorization is PUT by the addAdmin
+      // workflow later (the ack echoes the pre-minted id + activityId) — the
+      // AdminAuthorizationRecorded done-row (events.ts) refreshes the agent
+      // list; the snackbar claims the activity by the ack-echoed activityId
+      const result = await effect.addAdmin(webId, currentContext())
+      claimActivity({
+        context: currentContext(),
+        type: 'AdminAuthorizationRecorded',
+        activityId: result.activityId,
+      })
+    } else {
+      await effect.removeAdmin(webId, currentContext())
+      listSocialAgents(true)
+    }
   }
 
   return {

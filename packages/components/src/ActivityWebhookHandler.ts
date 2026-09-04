@@ -43,6 +43,7 @@ import {
   processRoleMembershipChange,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
+import { processAdminAuthorizationRecorded } from './temporal/workflows/admin.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
 import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
 
@@ -255,28 +256,42 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       isActivityClass(activity, 'AdminAuthorizationRecorded') ||
       isActivityClass(activity, 'AdminAuthorizationRevoked')
     ) {
-      const decoded = isActivityClass(activity, 'AdminAuthorizationRecorded')
-        ? S.decodeUnknownSync(AdminAuthorizationRecorded)(activity as never)
-        : S.decodeUnknownSync(AdminAuthorizationRevoked)(activity as never)
-      // the admin rides the object — a urn:uuid snapshot of the
-      // AdminAuthorization for both classes (the dispatch dereferences
-      // nothing: the RPC records/deletes the resource synchronously)
-      const admin = (decoded as { object: { grantee: string } }).object.grantee
-      const args: [AdminChangeInput] = [
-        {
-          webId: socialAgentRef(channel.webId),
-          admin: socialAgentRef(admin),
-          activityType: isActivityClass(activity, 'AdminAuthorizationRecorded')
-            ? 'adminAuthorizationRecorded'
-            : 'adminAuthorizationRevoked',
-          activityId: activity.id,
-        },
-      ]
-      await client.workflow.start(processAdminChange, {
-        taskQueue: 'create-grants',
-        args,
-        workflowId: crypto.randomUUID(),
-      })
+      if (isActivityClass(activity, 'AdminAuthorizationRecorded')) {
+        // step 5 — the object IS the AdminAuthorization-to-be (real-id
+        // embedded projection at the PRE-MINTED id); the decoded object
+        // passes verbatim into the workflow input (the schema decodes
+        // arrays as readonly — spread to mutable)
+        const decoded = S.decodeUnknownSync(AdminAuthorizationRecorded)(activity as never)
+        await client.workflow.start(processAdminAuthorizationRecorded, {
+          taskQueue: 'create-grants',
+          args: [
+            socialAgentRef(channel.webId),
+            { ...decoded.object, type: [...decoded.object.type] },
+            // the triggering activity as a typed ref — traceable completion
+            { id: activity.id, type: [...decoded.type] },
+          ],
+          workflowId: crypto.randomUUID(),
+        })
+      } else {
+        // step 6 leg — unchanged: the admin rides the urn:uuid snapshot
+        // (the RPC still deletes the resource synchronously); the
+        // processAdminChange orchestrator completes after grants + ACR
+        const decoded = S.decodeUnknownSync(AdminAuthorizationRevoked)(activity as never)
+        const admin = (decoded as { object: { grantee: string } }).object.grantee
+        const args: [AdminChangeInput] = [
+          {
+            webId: socialAgentRef(channel.webId),
+            admin: socialAgentRef(admin),
+            activityType: 'adminAuthorizationRevoked',
+            activityId: activity.id,
+          },
+        ]
+        await client.workflow.start(processAdminChange, {
+          taskQueue: 'create-grants',
+          args,
+          workflowId: crypto.randomUUID(),
+        })
+      }
       return
     }
 

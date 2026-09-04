@@ -1,4 +1,9 @@
-import type { AgentId, SocialAgentId } from '@janeirodigital/interop-data-model'
+import type {
+  AgentId,
+  AdminAuthorizationRecordedId,
+  EmbeddedAdminAuthorization,
+  SocialAgentId,
+} from '@janeirodigital/interop-data-model'
 import { executeChild, proxyActivities } from '@temporalio/workflow'
 import type * as adminActivities from '../activities/admin.js'
 import type * as grantsActivities from '../activities/grants.js'
@@ -10,10 +15,16 @@ const {
   replaceAdminGrantLink,
   findAdminGrants,
   deleteAdminGrants,
+  recordAdminAuthorizationAtId,
   syncAdminAcr: syncAdminAcrActivity,
 } = proxyActivities<typeof adminActivities>({
   startToCloseTimeout: '1 minute',
 })
+
+// NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
+// beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
+// built-ins). The value must match what producers put in `webId.type`.
+const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
 
 const { markActivitiesDone } = proxyActivities<Pick<typeof grantsActivities, 'markActivitiesDone'>>(
   {
@@ -115,4 +126,26 @@ export async function processAdminChange(payload: AdminChangeInput): Promise<voi
       activities: [{ id: payload.activityId }],
     })
   }
+}
+
+/**
+ * The activity-first addAdmin leg (step 5): the RPC wrote only the activity
+ * (object = the AdminAuthorization-to-be at the PRE-MINTED id) — this
+ * workflow PUTs the AdminAuthorization there (find-first idempotent), then
+ * materializes the admin grants and the ACR rewrite, and only when BOTH
+ * succeeded marks the activity done (children never mark done — the
+ * createAdminGrants-masks-syncAdminAcr hazard). The triggering activity
+ * rides as a typed ref for a traceable completion.
+ */
+export async function processAdminAuthorizationRecorded(
+  webId: SocialAgentId,
+  authorization: EmbeddedAdminAuthorization,
+  activity: AdminAuthorizationRecordedId
+): Promise<void> {
+  await recordAdminAuthorizationAtId({ webId, authorization })
+  await executeChild(createAdminGrants, {
+    args: [{ webId, admin: { id: authorization.grantee, type: [SOCIAL_AGENT_TYPE] } }],
+  })
+  await executeChild(syncAdminAcr, { args: [{ webId }] })
+  await markActivitiesDone({ webId, activities: [activity] })
 }

@@ -72,14 +72,17 @@ describe('org context — admin event forwarding (phase 3)', () => {
     // listen first — the server never replays
     const stream = await openEventsStream(danCookie)
 
-    // promote bob (the RPC records the AdminAuthorization synchronously; the
-    // grant/ACR workflows run from the activity — dan's admin channel must
-    // forward the whole lifecycle to his stream)
+    // promote bob (activity-first step 5 — the RPC pre-mints the
+    // AdminAuthorization id + writes the activity only; the workflow PUTs
+    // the resource, runs grants/ACR; dan's admin channel must forward the
+    // whole lifecycle to his stream)
     const promoted = await rpcCall<{ id: string }>(
       rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(promoted.id).toBe(bobId)
+    // pending ack: the pre-minted AdminAuthorization id + the activity id
+    // (the uniform UI claim anchor)
+    expect(promoted.activityId).toEqual(expect.any(String))
 
     const pending = await awaitEvent(
       stream,
@@ -198,7 +201,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(promoted.id).toBe(bobId)
+    expect(promoted.activityId).toEqual(expect.any(String))
 
     const pending = await awaitEvent(
       stream,
@@ -310,7 +313,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(promoted.id).toBe(bobId)
+    expect(promoted.activityId).toEqual(expect.any(String))
 
     const pending = await awaitEvent(
       stream,

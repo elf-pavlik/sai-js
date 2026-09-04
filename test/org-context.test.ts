@@ -195,13 +195,14 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
       bobCookie
     )
 
-    // Dan (admin of YoYo) promotes Bob — the RPC records the AdminAuthorization
-    // synchronously; the hasAdminGrant marker lands via the workflow
-    const promoted = await rpcCall<{ id: string; admin: boolean }>(
+    // Dan (admin of YoYo) promotes Bob — activity-first (step 5): the RPC
+    // pre-mints the AdminAuthorization id + writes the activity only; the
+    // hasAdminGrant marker lands via the workflow
+    const promoted = await rpcCall<{ id: string; activityId: string }>(
       rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(promoted.id).toBe(bobId)
+    expect(promoted.activityId).toEqual(expect.any(String))
     await waitFor(async () => (await orgContextAdminFlag(bobId, danCookie)) === true, {
       timeout: 20_000,
     })

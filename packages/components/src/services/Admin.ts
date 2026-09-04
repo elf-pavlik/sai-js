@@ -3,23 +3,27 @@ import type {
   AdminAuthorizationRecorded,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
-import type { IRI, SocialAgent } from '@janeirodigital/sai-api-messages'
+import { AdminAuthorizationRecordedMessage, IRI } from '@janeirodigital/sai-api-messages'
+import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import type { SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { buildSocialAgentProfile, findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
 
 /**
- * Promote a registered social agent to org admin: record an
- * `AdminAuthorization` in the context's AuthorizationRegistry, then write the
- * `adminAuthorizationRecorded` activity which drives the grant/ACR workflows.
- * Runs on the signed-in user's AA — the owner identity (`ctx.webId`) is the
- * context (the org), the admin's UAS authenticates the writes.
+ * Promote a registered social agent to org admin (activity-first step 5 — R1
+ * re-decision): the RPC keeps the VALIDATION reads (registered + not-already-
+ * admin) and pre-mints the AdminAuthorization id, then writes the
+ * `adminAuthorizationRecorded` activity (object = the AdminAuthorization-to-be,
+ * real-id embedded projection at that id — `target` dropped). The `addAdmin`
+ * workflow PUTs the resource at the pre-minted id, materializes the admin
+ * grants + ACR rewrite, then completes. Runs on the signed-in user's AA — the
+ * owner identity (`ctx.webId`) is the context (the org).
  */
 export const addAdmin = async (
   ctx: ResolvedContext,
   webId: S.Schema.Type<typeof IRI>
-): Promise<S.Schema.Type<typeof SocialAgent>> => {
+): Promise<S.Schema.Type<typeof AdminAuthorizationRecordedMessage>> => {
   const registration = await findSocialAgentRegistrationInContext(ctx, webId)
   if (!registration) throw new Error(`Social Agent Registration for ${webId} not found`)
 
@@ -27,41 +31,35 @@ export const addAdmin = async (
   const existing = await ctx.session.findAdminAuthorization(webId, authorizationRegistry)
   if (existing) throw new Error(`Admin Authorization for ${webId} already exists`)
 
-  const recorded = await ctx.session.recordAdminAuthorization(
-    {
+  // pre-mint the AdminAuthorization id — the workflow PUTs the resource there
+  // (the same minting the AA's recordAdminAuthorization would do)
+  const authorizationId = iriForContained(authorizationRegistry, ctx.session.randomUUID)
+
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  const activity: Omit<AdminAuthorizationRecorded, 'id'> = {
+    type: ['Activity', 'AdminAuthorizationRecorded'],
+    actor: ctx.webId,
+    object: {
+      id: authorizationId,
+      type: [INTEROP.AdminAuthorization],
       grantee: webId,
       grantedBy: ctx.webId,
       scopeOfAuthorization: INTEROP.All,
     },
-    authorizationRegistry
-  )
-
-  const activityRegistry = ctx.registrySet.hasActivityRegistry
-  if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  // the promoted admin's grantee rides a urn:uuid SNAPSHOT of the
-  // AdminAuthorization — the dispatch dereferences nothing (the RPC's
-  // synchronous record stays; step 7 materializes in the workflow and may
-  // return the object to the live-link form)
-  const activity: Omit<AdminAuthorizationRecorded, 'id'> = {
-    type: ['Activity', 'AdminAuthorizationRecorded'],
-    actor: ctx.webId,
-    target: authorizationRegistry.id,
-    object: {
-      id: `urn:uuid:${ctx.session.randomUUID()}`,
-      type: recorded.type,
-      grantee: recorded.grantee,
-      grantedBy: recorded.grantedBy,
-      scopeOfAuthorization: recorded.scopeOfAuthorization,
-    },
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(
+  const created = await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     activity
   )
-
-  return buildSocialAgentProfile(registration, ctx, false)
+  // pending ack — echoes the pre-minted AdminAuthorization id (pending
+  // handle) + the triggering activity id (the uniform UI claim anchor)
+  return AdminAuthorizationRecordedMessage.make({
+    id: IRI.make(authorizationId),
+    activityId: IRI.make(created.id),
+  })
 }
 
 /**

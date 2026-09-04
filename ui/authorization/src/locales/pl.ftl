@@ -61,6 +61,7 @@ create-invitation = Zaproś
 accept-invitation = Przyjmij zaproszenie
 update-role = Zaktualizuj rolę
 delete-role = Usuń rolę
+add-admin = Dodaj administratora
 
 invitation-link-input =
   .label = Link z zaproszeniem

@@ -167,12 +167,29 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     case 'AdminAuthorizationRecorded':
+      // target dropped (step 5) — the AdminAuthorization-to-be (real-id
+      // embedded projection at the pre-minted id) rides the object; the
+      // addAdmin workflow PUTs the resource at object.id
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'AdminAuthorizationRecorded'],
+        actor,
+        object: {
+          id: asString((node.object as EmbeddedAdminAuthorization)?.id),
+          type: asStringArray((node.object as EmbeddedAdminAuthorization)?.type),
+          grantee: asString((node.object as EmbeddedAdminAuthorization)?.grantee),
+          grantedBy: asString((node.object as EmbeddedAdminAuthorization)?.grantedBy),
+          scopeOfAuthorization: asString(
+            (node.object as EmbeddedAdminAuthorization)?.scopeOfAuthorization
+          ),
+        },
+      }
     case 'AdminAuthorizationRevoked':
+      // unchanged until step 6 — target kept; the urn:uuid snapshot object
       return {
         ...base,
-        type: canonicalType as
-          | ['Activity', 'AdminAuthorizationRecorded']
-          | ['Activity', 'AdminAuthorizationRevoked'],
+        type: canonicalType as ['Activity', 'AdminAuthorizationRevoked'],
         actor,
         object: {
           id: asString((node.object as EmbeddedAdminAuthorization)?.id),

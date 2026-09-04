@@ -6,6 +6,7 @@ import {
   type EmbeddedAuthorization,
   type EmbeddedSocialAgentInvitation,
   type EmbeddedSocialAgentRegistration,
+  type RoleData,
   dataModelContext,
   isActivityClass,
 } from '@janeirodigital/interop-data-model'
@@ -210,11 +211,19 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         object: asStringArray(node.object),
       }
     case 'RoleMembershipChanged':
+      // target dropped (step 2) — the role-to-be (real-id embedded
+      // projection) rides the object; the workflow PATCHes the role to it
       return {
-        ...base,
-        type: canonicalType as ['Activity', 'RoleMembershipChanged'],
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'RoleMembershipChanged', 'as:Update'],
         actor,
-        object: asStringArray(node.object),
+        object: {
+          id: asString((node.object as RoleData)?.id),
+          type: asStringArray((node.object as RoleData)?.type),
+          label: asString((node.object as RoleData)?.label),
+          members: asStringArray((node.object as RoleData)?.members),
+        },
       }
     case 'RoleDeleted':
       return {

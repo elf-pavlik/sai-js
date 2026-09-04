@@ -105,6 +105,16 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
   never completes. Convention: any new type-matching query carries the
   `?g = ?s` guard; add it to affected queries as the need is identified.
 
+  **Identified need — `findRolesWithMember` gained the guard (activity-first
+  step 2).** The `roleMembershipChanged` producer embeds the role-to-be at
+  the REAL role IRI, so the activity graph carries the projection's claims
+  (`interop:hasMember`, `rdf:type`, `skos:prefLabel`) for the role — a
+  second subject in the activity's graph. The membership SELECT matched
+  `GRAPH ?g` across the dataset, so a PREVIOUS activity (activities are
+  immutable) kept asserting an old member — the deny path in the updateRole
+  workflow regenerated a removed member's grants. Fixed with the same
+  `FILTER(?g = ?role)` self-graph guard.
+
 - `const transport = sparqlTransportFor(ctx)` is **hoisted out of loops** in
   `getSocialAgents` (AgentRegistry), `getDescriptions` (Authorization) and
   `dataGrantIndexForAgent` / `getReciprocalGrantsSparql` / `listDataInstances`

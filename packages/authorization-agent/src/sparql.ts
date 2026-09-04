@@ -279,6 +279,12 @@ export async function getDataAuthorization(
  * in each role's own graph, so the result is scoped to this registry set's
  * roles (the store is shared across owners). The roles listing would be N
  * graph reads, so this is deliberately a new query, not pure reuse.
+ * The `FILTER(?g = ?role)` self-graph guard is the authoritative-read
+ * convention (docs/sparql.md — graph scoping): WITHOUT it, a real-id
+ * embedded projection inside an activity graph (step 2 — the role-to-be on
+ * `roleMembershipChanged`) asserts the membership from the activity's graph
+ * and keeps matching forever (activities are immutable) — a phantom
+ * membership the deny path would act on.
  */
 export async function findRolesWithMember(
   transport: SparqlTransport,
@@ -291,6 +297,7 @@ export async function findRolesWithMember(
   UNION
   { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
   { GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> } }
+  FILTER(?g = ?role)
 }`
   )
   return bindings.map((binding) => binding.role.value)

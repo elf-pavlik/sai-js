@@ -314,6 +314,18 @@ export async function waitForInvitationCreatedCompletion(
   return waitForActivityCompletion(session, 'InvitationCreated')
 }
 
+/**
+ * The updateRole tail (activity-first step 2): the updateRole workflow
+ * PATCHed the role to the intended state and marked the
+ * roleMembershipChanged activity done — a completion referencing it exists
+ * in the session's Activity Registry.
+ */
+export async function waitForRoleMembershipChangedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'RoleMembershipChanged')
+}
+
 // ---------------------------------------------------------------------------
 // UI events stream (/.sai/events) — the NDJSON stream from refactor-ui.md
 // ---------------------------------------------------------------------------

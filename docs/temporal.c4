@@ -3623,63 +3623,356 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
   }
 
   dynamic view role-membership-change {
-    title: 'Role membership change'
+    title: 'Role membership change — Alice updates the Chums role'
 
-    include Alice, App
+    include Alice
     include Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker
 
     style Alice {
       color: green
     }
 
+    Alice.AUI -> Alice.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
     Alice.AUI -> Alice.UAS 'POST (RPC) updateRole' {
         notes'''
-          uses cookie session with User Authorization Server
-          role id, label and full members list
+          #### POST (RPC) updateRole
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > activity-first (step 2): the RPC only writes the activity — the
+          > role is PATCHed by the workflow; a read-side existence guard stays
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "UpdateRole",
+                "id": "https://registry/alice/role/xcoq3l",
+                "label": "Chums",
+                "members": ["https://id/bob"],
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
         '''
     }
-    Alice.UAS -> Alice.Registry 'update role, diff members [Role]' {
-        notes'''
-          affected members = before.symmetricDifference(after)
-        '''
-    }
-    Alice.Registry -> Alice.UAS 'Role'
     Alice.UAS -> Alice.Registry 'PUT roleMembershipChanged activity [Activity]' {
         notes'''
-          only when members changed — peers = affected members
+          #### PUT roleMembershipChanged activity [Activity]
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > `target` dropped — the changed role's id rides `object.id` (the
+          > role-to-be, real-id embedded projection); `as:Update`
+
+          ```http
+          PUT https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "RoleMembershipChanged", "as:Update"],
+            "as:actor": "https://id/alice",
+            "as:object": {
+              "id": "https://registry/alice/role/xcoq3l",
+              "type": ["Role"],
+              "label": "Chums",
+              "members": ["https://id/bob"]
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
         '''
     }
-    Alice.UAS -> Alice.AUI 'OK'
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start processRoleMembershipChange workflow'
-    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
-    Alice.Temporal -> Alice.Worker '(workflow) run processRoleMembershipChange'
+    parallel {
+      Alice.Registry -> Alice.UAS 'pending ack (role-to-be + activityId)' {
+          notes'''
+            #### pending ack (role-to-be + activityId)
+            >[!NOTE]
+            >roles.test.ts > update role chums remove kim add bob
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "id": "https://registry/alice/role/xcoq3l",
+                "label": "Chums",
+                "members": ["https://id/bob"],
+                "activityId": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c"
+              }
+            }
+            ```
+            ### Checks
+
+            #### Compare with request
+            * `label`
+            * `members`
+
+            #### String matching
+            * `id` - `https://registry/alice/role`
+            * `activityId` - `https://registry/alice/activity`
+            * no synchronous PATCH — the role is updated by the workflow
+          '''
+      }
+      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >roles.test.ts > update role chums remove kim add bob
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "target": "https://registry/alice/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start processRoleMembershipChange workflow' {
+        notes'''
+          #### start processRoleMembershipChange workflow
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!TIP]
+          >gRPC
+
+          >[!TIP]
+          > the decoded object passes verbatim (the workflow's data arg); the
+          > triggering activity rides as a typed ref — traceable completion
+
+          ```json
+          [
+            "https://id/alice",
+            {
+              "id": "https://registry/alice/role/xcoq3l",
+              "type": ["Role"],
+              "label": "Chums",
+              "members": ["https://id/bob"]
+            },
+            {
+              "id": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "RoleMembershipChanged", "as:Update"]
+            }
+          ]
+          ```
+        '''
+    }
+    Alice.Temporal -> Alice.Worker '(workflow) run processRoleMembershipChange' {
+        notes'''
+          #### (workflow) run processRoleMembershipChange
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+        '''
+    }
+    Alice.Worker -> Alice.Registry '(activity) load role before-image + PUT role [Role]' {
+        notes'''
+          #### (activity) load role before-image + PUT role [Role]
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > `updateRoleInRegistry`: find-first by the stable role id
+          > (idempotent under retries/reconcile); the affected diff (old vs
+          > new members) is derived from the before-image
+
+          ```http
+          PUT https://registry/alice/role/xcoq3l
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/role/xcoq3l",
+            "type": ["Role"],
+            "label": "Chums",
+            "members": ["https://id/bob"]
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
     Alice.Worker -> Alice.Registry 'find role usage [Authorization]' {
         notes'''
-          usedAsGrantee + dataOwner authorizations of the role
+          #### find role usage [Authorization]
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!TIP]
+          > registry-plane SPARQL scan (docs/sparql.md): usedAsGrantee +
+          > dataOwner authorizations of the role
         '''
     }
     parallel {
       Alice.Worker -> Alice.Temporal '(child workflows) start create grants for each affected agent' {
           notes'''
-            affected = peers (role used as grantee) + grantees of dataOwner authorizations
+            #### (child workflows) start create grants for each affected agent
+            >[!NOTE]
+            >roles.test.ts > update role chums remove kim add bob
+
+            >[!TIP]
+            > affected = changed members (role used as grantee) + grantees of
+            > dataOwner authorizations
           '''
       }
       Alice.Temporal -> Alice.Worker 'run createGrantsForAgent'
-      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
+      Alice.Worker -> Alice.Registry '(activity) replace grants + registration [Grant]' {
           notes'''
-            members removed → no authorizations → registration cleared
-          '''
-      }
-      Alice.Registry -> Alice.Worker 'OK'
-      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]' {
-          notes'''
-            Update notification — grant present/absent
+            #### (activity) replace grants + registration [Grant]
+            >[!NOTE]
+            >roles.test.ts > update role chums remove kim add bob
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `alice`
+
+            >[!TIP]
+            > members removed → no authorizations → registration cleared
+            > (the deny path); members added → authorizations → grants stored
+
+            ```http
+            PATCH https://registry/alice/social-agent/cp9g7p/
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+
+            ```json
+            {
+              "@context": ["in reality payload uses Expanded JSON-LD"],
+              "id": "https://registry/alice/social-agent/cp9g7p/",
+              "type": ["SocialAgentRegistration"],
+              "interop:hasDataGrant": []
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 204 No Content
+            ```
           '''
       }
       Alice.Registry -> Alice.Worker 'OK'
     }
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.Worker -> Alice.Registry 'PUT activityCompleted [Activity]' {
+        notes'''
+          #### (activity) PUT activityCompleted [Activity]
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          ```http
+          PUT https://registry/alice/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+        '''
+    }
+    Alice.ActivityWebhookHandler -> Alice.AUI 'done' {
+        notes'''
+          #### done
+          >[!NOTE]
+          >roles.test.ts > update role chums remove kim add bob
+
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/alice/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "RoleMembershipChanged", "as:Update"],
+              "actor": "https://id/alice",
+              "object": {
+                "id": "https://registry/alice/role/xcoq3l",
+                "type": ["Role"],
+                "label": "Chums",
+                "members": ["https://id/bob"]
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
+        '''
+    }
   }
 
   dynamic view share-resource-get-data {

@@ -3,6 +3,7 @@ import type { RoleUsage } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
   AgentRegistry,
+  RoleRegistry,
   replaceDataGrants,
 } from '@janeirodigital/interop-authorization-agent'
 import {
@@ -22,12 +23,14 @@ import {
   type GrantId,
   type IncomingGrantData,
   type RoleId,
+  type RoleData,
   type SocialAgentId,
   dataGrantTemplate,
   getDataGrantIris,
   isActivityClass,
   loadDataAuthorization,
   loadGrant,
+  loadRole,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 import {
@@ -130,6 +133,35 @@ export async function getGrantees(payload: {
   const session = await manager.getSession(payload.webId.id)
   // role → members routing lives in the AA session method (relocated Phase 4)
   return session.getGrantees(payload.grantee)
+}
+
+// ---------------------------------------------------------------------------
+// Role update (activity-first step 2 — the updateRole move)
+// ---------------------------------------------------------------------------
+
+/**
+ * PATCH the role to its intended state with the context's own session — the
+ * activity-first updateRole leg. Find-first by the STABLE role id: the role
+ * is loaded first (the before-image the workflow derives the affected diff
+ * from) and the write is a full-resource PUT (`RoleRegistry.updateRole`), so
+ * a re-run after a crash or a reconcile re-delivery just re-writes the same
+ * state. Returns the role's members before the update.
+ */
+export async function updateRoleInRegistry(payload: {
+  webId: SocialAgentId
+  role: RoleData
+}): Promise<string[]> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const before = await loadRole(payload.role.id, session.fetch)
+  await RoleRegistry.updateRole(
+    session.registrySet.hasRoleRegistry,
+    session.fetch,
+    payload.role.id,
+    payload.role.label,
+    payload.role.members
+  )
+  return before.members
 }
 
 // ---------------------------------------------------------------------------

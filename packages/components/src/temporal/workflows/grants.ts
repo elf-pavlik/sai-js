@@ -6,8 +6,10 @@ import type {
   GrantId,
   GrantsRevoked,
   InvitationCreated,
+  RoleData,
   RoleDeleted,
   RoleMembershipChanged,
+  RoleMembershipChangedId,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/common'
@@ -55,6 +57,7 @@ const {
   getPendingGranteeActivities,
   getPendingActivities,
   resolveActivityGrantee,
+  updateRoleInRegistry,
   markActivitiesDone,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
@@ -220,9 +223,22 @@ export async function processGrantsRevocation(
 }
 
 export async function processRoleMembershipChange(
-  payload: activities.ProcessRoleMembershipChangeInput
+  webId: SocialAgentId,
+  role: RoleData,
+  activity: RoleMembershipChangedId
 ): Promise<void> {
-  const usage = await findRoleUsage({ webId: payload.webId, roleId: payload.roleId })
+  // activity-first step 2: the RPC wrote only the intended change (the
+  // role-to-be as the activity's real-id embedded object) — this workflow
+  // PATCHes the role to that state, derives the affected diff from the
+  // before-image the activity loaded, regenerates and completes. Idempotent:
+  // a re-run sees the role already equal to the intended state → empty diff.
+  const beforeMembers = new Set(await updateRoleInRegistry({ webId, role }))
+  const afterMembers = new Set(role.members)
+  const changed = [
+    ...[...beforeMembers].filter((member) => !afterMembers.has(member)),
+    ...[...afterMembers].filter((member) => !beforeMembers.has(member)),
+  ]
+  const usage = await findRoleUsage({ webId, roleId: { id: role.id, type: role.type } })
   const affected: AgentId[] = []
   const seen = new Set<string>()
   const add = (agent: AgentId) => {
@@ -230,14 +246,14 @@ export async function processRoleMembershipChange(
     seen.add(agent.id)
     affected.push(agent)
   }
-  // role used as grantee → changed members' received grants changed
+  // role used as grantee → the changed members' received grants changed
   if (usage.usedAsGrantee) {
-    for (const peer of payload.peers) add(peer)
+    for (const member of changed) add({ id: member, type: [SOCIAL_AGENT_TYPE] })
   }
   // role used as dataOwner → the *grantees of those authorizations* are affected
   for (const grantee of usage.affectedGrantees) {
     if (grantee.type.includes(ROLE_TYPE)) {
-      const members = await getGrantees({ webId: payload.webId, grantee })
+      const members = await getGrantees({ webId, grantee })
       for (const member of members) add(member)
     } else {
       add(grantee as AgentId)
@@ -248,19 +264,15 @@ export async function processRoleMembershipChange(
       executeChild(createGrantsForAgent, {
         args: [
           {
-            webId: payload.webId,
+            webId,
             grantee,
           },
         ],
       })
     )
   )
-  if (payload.activityId) {
-    await markActivitiesDone({
-      webId: payload.webId,
-      activities: [{ id: payload.activityId }],
-    })
-  }
+  // single completion after all branches succeed (children never mark done)
+  await markActivitiesDone({ webId, activities: [activity] })
 }
 
 export async function processRoleDeletion(
@@ -420,21 +432,34 @@ export async function reconcileActivities(payload: {
     }
   }
   for (const activity of roleActivities) {
-    const roleActivity = activity as RoleMembershipChanged | RoleDeleted
-    const args: [activities.ProcessRoleMembershipChangeInput] = [
-      {
-        webId: payload.webId,
-        roleId: { id: roleActivity.target, type: [ROLE_TYPE] },
-        peers: roleActivity.object.map((id) => ({ id, type: [SOCIAL_AGENT_TYPE] })),
-        activityId: activity.id,
-      },
-    ]
     if (isActivityClass(activity, 'RoleMembershipChanged')) {
-      await executeChild(processRoleMembershipChange, { args })
+      // step 2 — the RPC wrote only the intended change (object = the
+      // role-to-be, real-id embedded); the workflow PATCHes the role to it,
+      // derives the diff, regenerates and completes
+      const roleActivity = activity as RoleMembershipChanged
+      await executeChild(processRoleMembershipChange, {
+        args: [
+          payload.webId,
+          roleActivity.object,
+          { id: activity.id, type: [...roleActivity.type] },
+        ],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else {
+      // RoleDeleted (legacy until deleteRole moves): target ≡ the role;
+      // peers ride the object as a plain-IRI set (A-carrier)
+      const roleActivity = activity as RoleDeleted
+      const args: [activities.ProcessRoleMembershipChangeInput] = [
+        {
+          webId: payload.webId,
+          roleId: { id: roleActivity.target, type: [ROLE_TYPE] },
+          peers: roleActivity.object.map((id) => ({ id, type: [SOCIAL_AGENT_TYPE] })),
+          activityId: activity.id,
+        },
+      ]
       await executeChild(processRoleDeletion, { args })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     }
-    await markActivitiesDone({ webId: payload.webId, activities: [activity] })
   }
 }
 

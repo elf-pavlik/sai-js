@@ -6,7 +6,12 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import { getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { beforeEach, describe, expect, test } from 'vitest'
-import { awaitGrantCompletion, dataGrants, waitForQuiescence } from './util'
+import {
+  awaitGrantCompletion,
+  dataGrants,
+  waitForQuiescence,
+  waitForRoleMembershipChangedCompletion,
+} from './util'
 
 const rpcEndpoint = 'https://auth/.sai/api'
 
@@ -169,9 +174,15 @@ describe('role-based access', () => {
     )
     expect(body.label).toBe('Chums')
     expect(body.members).toEqual([bobId])
+    // activity-first (step 2): the ack echoes the role-to-be (pending
+    // handle) + the triggering activity id (the uniform UI claim anchor);
+    // the PATCH + grant regeneration run in the updateRole workflow
+    expect(body.activityId).toEqual(expect.any(String))
 
     const manager = buildSessionManager()
     const session = await manager.getSession(aliceId)
+    // wait-for end state: the workflow PATCHes the role, then completes
+    await waitForRoleMembershipChangedCompletion(session)
     const role = await session.findRole(chumsRoleId)
     expect(role).toBeDefined()
     expect(role!.label).toBe('Chums')
@@ -194,6 +205,10 @@ describe('role-based access', () => {
         aliceCookie
       )
     )
+    // activity-first (step 2): wait for the workflow completion (the
+    // registration Update arrives mid-chain — this makes the end-state read
+    // deterministic)
+    await waitForRoleMembershipChangedCompletion(aliceSession)
     await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, true)
 
     await awaitGrantChange(aliceSession, kimId, () =>
@@ -208,6 +223,7 @@ describe('role-based access', () => {
         aliceCookie
       )
     )
+    await waitForRoleMembershipChangedCompletion(aliceSession)
     await verifyAccessGrant(kimId, aliceId, aliceId, projectShapeTree, false)
   })
 

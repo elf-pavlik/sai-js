@@ -281,27 +281,45 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
     }
 
     if (isActivityClass(activity, 'RoleMembershipChanged') || isActivityClass(activity, 'RoleDeleted')) {
-      const decoded = isActivityClass(activity, 'RoleMembershipChanged')
-        ? S.decodeUnknownSync(RoleMembershipChanged)(activity as never)
-        : S.decodeUnknownSync(RoleDeleted)(activity as never)
-      const args: [NonNullable<Parameters<typeof processRoleMembershipChange>[0]>] = [
-        {
-          webId: socialAgentRef(channel.webId),
-          roleId: { id: decoded.target, type: [INTEROP.Role] },
-          peers: decoded.object.map(socialAgentRef),
-          activityId: activity.id,
-        },
-      ]
-      await client.workflow.start(
-        isActivityClass(activity, 'RoleMembershipChanged')
-          ? processRoleMembershipChange
-          : processRoleDeletion,
-        {
+      if (isActivityClass(activity, 'RoleMembershipChanged')) {
+        // step 2 — the object IS the role-to-be (real-id embedded projection);
+        // the decoded object passes verbatim into the workflow input (the
+        // schema decodes arrays as readonly — spread to the mutable RoleData)
+        const decoded = S.decodeUnknownSync(RoleMembershipChanged)(activity as never)
+        await client.workflow.start(processRoleMembershipChange, {
+          taskQueue: 'create-grants',
+          args: [
+            socialAgentRef(channel.webId),
+            {
+              ...decoded.object,
+              type: [...decoded.object.type],
+              members: [...decoded.object.members],
+            },
+            // the triggering activity as a typed ref — traceable completion
+            // (the schema decodes `type` as readonly — spread to the mutable
+            // data-model tuple the RoleMembershipChangedId ref expects)
+            { id: activity.id, type: [...decoded.type] },
+          ],
+          workflowId: crypto.randomUUID(),
+        })
+      } else {
+        // RoleDeleted (legacy until deleteRole moves): target ≡ the role;
+        // peers ride the object as a plain-IRI set (A-carrier)
+        const decoded = S.decodeUnknownSync(RoleDeleted)(activity as never)
+        const args: [NonNullable<Parameters<typeof processRoleDeletion>[0]>] = [
+          {
+            webId: socialAgentRef(channel.webId),
+            roleId: { id: decoded.target, type: [INTEROP.Role] },
+            peers: decoded.object.map(socialAgentRef),
+            activityId: activity.id,
+          },
+        ]
+        await client.workflow.start(processRoleDeletion, {
           taskQueue: 'create-grants',
           args,
           workflowId: crypto.randomUUID(),
-        }
-      )
+        })
+      }
       return
     }
 

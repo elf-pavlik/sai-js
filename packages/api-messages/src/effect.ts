@@ -208,6 +208,22 @@ export const InvitationCreatedMessage = S.Struct({
   note: S.optional(S.String),
 })
 
+/**
+ * Pending acknowledgment of a role update (activity-first step 2) — the RPC
+ * only writes the `roleMembershipChanged` activity (object = the role-to-be,
+ * real-id embedded projection); the `updateRole` workflow PATCHes the role to
+ * that state and regenerates grants. The ack echoes the role-to-be (pending
+ * handle) + the triggering activity id (the uniform UI claim anchor).
+ */
+export const RoleMembershipChangedMessage = S.Struct({
+  /** the role-to-be — the workflow PATCHes the role to this state */
+  id: IRI,
+  label: S.String,
+  members: S.Array(IRI),
+  /** the triggering `roleMembershipChanged` activity's IRI */
+  activityId: IRI,
+})
+
 // ──────────────────────────
 // Activity projections (the outbox) — payload-contract-alignment step 3
 // (amended wire). Same field sets as the data-model ActivityData union
@@ -389,17 +405,28 @@ export const AuthorizationRevoked = S.Struct({
   object: S.Array(S.String),
 })
 
-/** Role membership changed — `target` ≡ the role; `object` = the affected
- * members (A-carrier set; the carrier is pinned in activity-first step 4). */
+/** Role membership changed (activity-first step 2) — `target` dropped; the
+ * role-to-be rides `object` as a real-id embedded projection (the workflow
+ * PATCHes the role to it and derives the affected diff). */
 export const RoleMembershipChanged = S.Struct({
-  ...activityBaseFields,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('RoleMembershipChanged')),
+  id: S.String,
+  /** no `target` — the changed role's id rides `object.id` (the embedded
+   *  role-to-be); the changed container is not consumed */
+  createdAt: S.String,
+  type: S.Tuple(
+    S.Literal('Activity'),
+    S.Literal('RoleMembershipChanged'),
+    S.Literal('as:Update')
+  ),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the changed role */
-  target: S.String,
-  /** the affected members — interop:hasMember IRIs */
-  object: S.Array(S.String),
+  /** the role-to-be — real-id embedded projection of the `RoleData` */
+  object: S.Struct({
+    id: S.String,
+    type: S.Array(S.String),
+    label: S.String,
+    members: S.Array(S.String),
+  }),
 })
 
 /** Role deleted — `target` ≡ the role; `object` = the former members. */
@@ -643,7 +670,7 @@ export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
 
 export class UpdateRole extends S.TaggedRequest<UpdateRole>()('UpdateRole', {
   failure: S.Never,
-  success: Role,
+  success: RoleMembershipChangedMessage,
   payload: {
     id: IRI,
     label: S.String,
@@ -796,7 +823,7 @@ export class SaiService extends Context.Tag('SaiService')<
       label: string,
       members: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof Role>>
+    ) => Effect.Effect<S.Schema.Type<typeof RoleMembershipChangedMessage>>
     readonly deleteRole: (id: IRI, context: IRI) => Effect.Effect<S.Schema.Type<typeof S.Void>>
     readonly getSocialAgentInvitations: (context: IRI) => Effect.Effect<
       S.Schema.Type<typeof SocialAgentInvitationList>

@@ -5,7 +5,8 @@ import {
   type RoleMembershipChanged,
   loadRole,
 } from '@janeirodigital/interop-data-model'
-import { IRI, Role } from '@janeirodigital/sai-api-messages'
+import { IRI, Role, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import { getRole, listContained, sparqlTransportFor } from './queries/org.js'
@@ -53,34 +54,42 @@ export const updateRole = async (
   id: S.Schema.Type<typeof IRI>,
   label: string,
   members: readonly S.Schema.Type<typeof IRI>[]
-): Promise<S.Schema.Type<typeof Role>> => {
-  const role = await loadRole(id, ctx.session.fetch)
-  await RoleRegistry.updateRole(ctx.registrySet.hasRoleRegistry, ctx.session.fetch, id, label, [
-    ...members,
-  ])
-  const before = new Set(role.members)
-  const after = new Set(members)
-  const affected = [...before.symmetricDifference(after)]
-  if (affected.length) {
-    const activityRegistry = ctx.registrySet.hasActivityRegistry
-    if (!activityRegistry) throw new Error('activity registry not found in registry set')
-    // `target` ≡ the role (live link); the affected members ride the object
-    // as a plain-IRI set (A-carrier — steps 4–5 move the diff derivation into
-    // the workflow and pin the carrier)
-    const activity: Omit<RoleMembershipChanged, 'id'> = {
-      type: ['Activity', 'RoleMembershipChanged'],
-      actor: ctx.webId,
-      target: id,
-      object: affected,
-      createdAt: new Date().toISOString(),
-    }
-    await ActivityRegistry.createActivity(
-      activityRegistry,
-      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-      activity
-    )
+): Promise<S.Schema.Type<typeof RoleMembershipChangedMessage>> => {
+  // guard read: the role must exist — the workflow re-loads the before-image
+  // and PATCHes; a missing role would else leave the activity pending forever
+  await loadRole(id, ctx.session.fetch)
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // activity-first (step 2): the RPC writes the intended change only — the
+  // role-to-be as a real-id embedded projection (id + type + label + full
+  // members; `target` dropped — the id rides object.id). The updateRole
+  // workflow PATCHes the role to this state, derives the affected diff
+  // (before vs after members from the before-image it loads) and regenerates.
+  const object: RoleData = {
+    id,
+    type: [INTEROP.Role],
+    label,
+    members: [...members],
   }
-  return Role.make({ id, label, members: [...members] })
+  const activity: Omit<RoleMembershipChanged, 'id'> = {
+    type: ['Activity', 'RoleMembershipChanged', 'as:Update'],
+    actor: ctx.webId,
+    object,
+    createdAt: new Date().toISOString(),
+  }
+  const created = await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    activity
+  )
+  // pending ack — echoes the role-to-be (pending handle) + the triggering
+  // activity id (the uniform UI claim anchor)
+  return RoleMembershipChangedMessage.make({
+    id,
+    label,
+    members: [...members],
+    activityId: IRI.make(created.id),
+  })
 }
 
 export const deleteRole = async (

@@ -14,7 +14,17 @@
 > accept) bind the stream event by the echoed `activityId` (exact match, no
 > cross-binding; the accept's urn:uuid snapshot object needs no UI-known
 > id).
-> **Next:** step 2 (`recordAuthorization`).
+> **Latest (step 2 — `updateRole`, POJO-first reorder):** role updates are
+> activity-first — `RoleMembershipChanged` re-pinned to the InvitationCreated
+> template (`target` dropped, `object` = the role-to-be `RoleData`, `as:Update`);
+> the RPC keeps a read-side existence guard + writes the activity + returns a
+> pending ack (role-to-be + `activityId`); the `updateRole` workflow PATCHes
+> the role (`updateRoleInRegistry`, find-first idempotent) → derives the
+> affected diff from the before-image → regenerates → completes. Structure
+> activities (`recordAuthorization`, `shareResource`) moved to the end (§7).
+> **Next:** step 3 `deleteRole`.
+> Packages vitest + build + vue-tsc green (agent-run); `/test` suites
+> (roles/invitation) pending user run.
 > Extends the
 > established "RPC records a domain activity → `ActivityWebhookHandler`
 > dispatches a workflow that materializes the state" model (`events.md`,
@@ -78,6 +88,14 @@ AuthorizationAgent; no org session is minted in RPCs**).
   invitation-to-be pojo); the `createInvitation` workflow PUTs the invitation
   and generates the capabilityUrl there. The reference template for steps
   2–8 (the `InvitationCreated` form).
+- `updateRole` (`RoleRegistry.ts`) — **step 2**: the RPC keeps a read-side
+  existence guard and writes the intended change only
+  (`roleMembershipChanged` — `target` dropped, object = the role-to-be
+  `RoleData`, `as:Update`) + returns a pending ack (role-to-be + `activityId`);
+  the `updateRole` workflow PATCHes the role (`updateRoleInRegistry`,
+  find-first idempotent), derives the affected diff from the before-image,
+  regenerates grants and completes. The second `InvitationCreated`-form
+  template.
 - `InvitationHandler` + `establishReciprocal` — the inviter side, aligned:
   the handler pre-mints the registration id (container form) and writes
   `agentRegistrationAdded` (real-id embedded object) only; the workflow PUTs
@@ -97,9 +115,10 @@ AuthorizationAgent; no org session is minted in RPCs**).
   then one `authorizationRecorded` per deduped grantee. Known org-context debt:
   `shareDataInstance` writes on the session's *own* registry set (code comment
   "unexercised, tracked as debt").
-- `updateRole` / `deleteRole` (`RoleRegistry.ts:47,84`) — PATCH/DELETE the role
-  synchronously (incl. computing the affected-members diff), then activity →
-  `processRoleMembershipChange` / `processRoleDeletion` regenerate grants.
+- `deleteRole` (`RoleRegistry.ts:84`) — DELETEs the role synchronously
+  (incl. capturing the members before deletion), then `roleDeleted` →
+  `processRoleDeletion` regenerates grants. (`updateRole` **moved to
+  activity-first in step 2** — see §2.1.)
 
 ### 2.3 Fully synchronous — no activity at all
 - `revokeGrants` (`Revocation.ts`) — calls `GrantRevocationHandler.revokeGrants`
@@ -248,13 +267,13 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 |---|---|---|---|
 | **0. UI activity tracking + indicator** | infra — no RPC move | `ui/authorization/src/store/` (+ `events.ts`): track **accepted activities** — record `pending` → `done` per activity IRI and expose them to the views; a small indicator (applying… spinner → done check) beside the triggering control / list row. **Verified with `acceptInvitation`** (already activity-first, the most understood lifecycle): fire an accept → indicator pending → done → list refresh. **Implemented:** store tracker + claims + app-shell snackbar + `ACTIVITY_LABELS` map (spinner/amber → ✓/light-green, 5s auto-hide), verified via the create flow; the **accept claim** is wired in `store.acceptInvitation` with the ack-echoed `activityId` anchor (uniform — see the contract snapshot). Everything is in place and reused per step | — |
 | **1. `createInvitation`** | `CreateInvitation` | **first move** — best-documented leg in `docs/temporal.c4`. RPC: mint the invitation id (`iriForContained`), write `invitationCreated` (actor + `as:object` = the invitation-to-be `CreateInvitationPojo`, **no capabilityUrl**), return pending ack; workflow (`createInvitation`): PUT the invitation at the minted id with the context session, **generate the capabilityUrl there**, then complete. Update the `invitation` + `admin-invitation-send` **send legs** in c4; `/test` invitation suites become wait-for; UI: indicator + list refresh on done | 4g |
-| **2. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | RPC pre-mints the DataAuthorization id(s) (`iriForContained`); the activity's `as:object` = the **real-id embedded projection** of the DataAuthorization-to-be (the InvitationCreated form; **`target` removed** — nothing consumes it, the id rides `object.id`); workflow records the authorizations at those ids (`recordAuthorizationFromStructure` as `getSession(ctx.webId)`) → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile (per-grantee consumer reads `grantee` from the object — decision 1) | 4a |
-| **3. `shareResource`** | `ShareResource` | `ShareDataInstanceStructure` + applicationId ride as the flat structure fields (structure-based — followup); the authorization(s) record via a pre-minted `as:object` id; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
-| **4. `updateRole`** | `UpdateRole` | the role's *intended* change rides `as:object` as a **real-id embedded projection of the role-to-be** (`{ id, type: [Role], label, members }` — the InvitationCreated form; **`target` removed**, `roleId` reads `object.id`); workflow loads the role (before-image) → PATCHes from the object → derives the affected diff → regenerates → completes; `role-membership-change` c4 view + UI | 4c |
-| **5. `deleteRole`** | `DeleteRole` | `as:object` = the role-to-be-deleted as a **real-id embedded projection** (alive at write; the workflow deletes; **`target` removed**, `roleId` reads `object.id`); workflow loads the role **first** (members must be captured before deletion), DELETEs, derives the diff, regenerates, completes; same c4 view + UI | 4c |
-| **6. `revokeGrants`** | `RevokeGrants` | introduce the missing `grantsRevoked` **producer**: activity = `actor`, flat `grantee`/`dataOwner` (existing terms) + `as:object` = the revoked grant IRIs (set); local-revoke workflow runs `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + clears the grantor's projection; `authorization`/`revoke` UI + c4 | 4d |
-| **7. `addAdmin`** | `AddAdmin` | activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** (pre-minted — the workflow PUTs it; **`target` removed** — nothing consumes the registry container); re-decide R1 (§9): RPC-time validation reads (already-admin) + activity-only write; `org-admin-add` c4 + toggle-admin UI | 4e |
-| **8. `removeAdmin`** | `RemoveAdmin` | same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the existing AdminAuthorization as a **real-id embedded projection** — the workflow DELETEs; **`target` removed**); the last-admin guard rides the workflow (`syncAdminAcr`); `org-admin-add` (remove) c4 + toggle-admin UI | 4e |
+| **2. `updateRole`** | `UpdateRole` | **✅ EXECUTED** — the role's *intended* change rides `as:object` as a **real-id embedded projection of the role-to-be** (`{ id, type: [Role], label, members }` — the InvitationCreated form; **`target` removed**, `roleId` reads `object.id`, `as:Update`); the RPC keeps a read-side existence guard + writes the activity + returns a pending ack (echoes the role-to-be + `activityId`); the `updateRole` workflow PATCHes the role (`updateRoleInRegistry` — find-first idempotent) → derives the affected diff from the before-image → regenerates → completes; `role-membership-change` c4 view + UI (claim + done-row) | 4c |
+| **3. `deleteRole`** | `DeleteRole` | `as:object` = the role-to-be-deleted as a **real-id embedded projection** (alive at write; the workflow deletes; **`target` removed**, `roleId` reads `object.id`); workflow loads the role **first** (members must be captured before deletion), DELETEs, derives the diff, regenerates, completes; same c4 view + UI | 4c |
+| **4. `revokeGrants`** | `RevokeGrants` | introduce the missing `grantsRevoked` **producer**: activity = `actor`, flat `grantee`/`dataOwner` (existing terms) + `as:object` = the revoked grant IRIs (set); local-revoke workflow runs `GrantRevocationHandler` with the **org** session (fixes seeded-ACR 403) + clears the grantor's projection; `authorization`/`revoke` UI + c4 | 4d |
+| **5. `addAdmin`** | `AddAdmin` | activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** (pre-minted — the workflow PUTs it; **`target` removed** — nothing consumes the registry container); re-decide R1 (§9): RPC-time validation reads (already-admin) + activity-only write; `org-admin-add` c4 + toggle-admin UI | 4e |
+| **6. `removeAdmin`** | `RemoveAdmin` | same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the existing AdminAuthorization as a **real-id embedded projection** — the workflow DELETEs; **`target` removed**); the last-admin guard rides the workflow (`syncAdminAcr`); `org-admin-add` (remove) c4 + toggle-admin UI | 4e |
+| **7. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | **moved to the end (POJO-first reorder)** — structure-based: the object fields (`AuthorizationStructure`) have NO `dataModelContext` terms (execution note 9 in `payload-contract-alignment.md` — expansion silently drops unknown keys), so the carrier needs the structure-vocab decision first. Then: RPC pre-mints the DataAuthorization id(s) (`iriForContained`); the activity's `as:object` = the **real-id embedded projection** of the DataAuthorization-to-be (the InvitationCreated form; **`target` removed** — nothing consumes it, the id rides `object.id`); workflow records the authorizations at those ids (`recordAuthorizationFromStructure` as `getSession(ctx.webId)`) → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile (per-grantee consumer reads `grantee` from the object — decision 1) | 4a |
+| **8. `shareResource`** | `ShareResource` | **moved to the end** — structure-based (same term gap as step 7). `ShareDataInstanceStructure` + applicationId ride as the flat structure fields (structure-based — followup); the authorization(s) record via a pre-minted `as:object` id; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
 | **9. `createRole` — keep, verify** | `CreateRole` | **stays synchronous** (no derived work — "no authorizations can exist before role is created"); step = regression coverage in `/test`, no c4/UI change beyond the indicator; re-entry criterion: a workflow becomes necessary if credentials, durability, or uniform UI require it | 4f |
 | **10. `requestAccessUsingApplicationNeeds` — keep, verify** | `RequestAccess` | **stays synchronous** (single PATCH); verify-only step | 4i |
 | — (housekeeping) | `addSocialAgent` | **no RPC consumer** (grep-verified) — not a user-facing step; decide later whether to wire it (and with what reciprocal semantics) or drop it (§9) | 4h |
@@ -264,11 +283,16 @@ Order rationale: **step 0** gives every subsequent move its UI verification
 vehicle; **step 1** is first because the invitation send leg is the
 best-documented in `docs/temporal.c4` — a low-risk, well-understood move
 that also exercises the new `pending→done` indicator against a real flow;
-steps 2–8 then follow in capability order (payload-carrying authorization
-shares first, then roles and revocation, then the admin pair that re-decides
-R1), **each targeting exactly one service function** so each lands green
-independently; steps 9–10 are explicit verify-only keepers; step 11 closes
-the docs.
+**steps 2–6 move the regular-POJO classes first** — `RoleData`,
+`GrantsRevoked`, `AdminAuthorizationData` are term-covered (no contract gap),
+so roles (update/delete), revocation, then the admin pair that re-decides
+R1 land green one at a time; **the structure-based steps 7–8
+(`recordAuthorization`, `shareResource`) land LAST** — their `as:object`
+forms need the structure-field vocabulary followup (execution note 9 in
+`payload-contract-alignment.md`: JSON-LD expansion silently drops untemmed
+structure keys), and open decision 1 (dedicated workflow vs per-grantee
+consumer) rides along; steps 9–10 are explicit verify-only keepers; step 11
+closes the docs.
 
 ### Foundation — the contract flip (first, before step 1; verifies green alone)
 
@@ -361,11 +385,13 @@ sketches):
   changed container is not consumed. Removed now: `InvitationCreated`,
   `InvitationAccepted` and `AgentRegistrationAdded` (the invitation legs
   aligned to the template; a pre-minted registration id also rides
-  `object.id`, the synchronous handler create moved into the workflow);
-  scheduled with their re-pins:
-  `AuthorizationRecorded`/`Revoked` (steps 2–3),
-  `RoleMembershipChanged`/`RoleDeleted` (steps 4–5, `roleId` then reads
-  `object.id`), `AdminAuthorizationRecorded`/`Revoked` (steps 7–8). Kept for
+  `object.id`, the synchronous handler create moved into the workflow); and
+  `RoleMembershipChanged` (**step 2 landed** — the role-to-be rides
+  `object.id` at the existing role IRI, `as:Update`). Scheduled with their
+  re-pins:
+  `RoleDeleted` (step 3, `roleId` then reads `object.id`),
+  `AdminAuthorizationRecorded`/`Revoked` (steps 4–5),
+  `AuthorizationRecorded`/`Revoked` (steps 7–8). Kept for
   the classes whose `target` is a delivered dispatch value
   (`DelegatedGrantsUpdated` — the peer) or the completion target
   (`ActivityCompleted` — the machinery's payload).
@@ -373,8 +399,9 @@ sketches):
   not flat fields — consumers read them from the object (`grantee`,
   `registeredAgent` inside the embedded/linked POJO); the embedded form
   gives them to the workflow WITHOUT dereferencing (critical when the
-  resource doesn't exist at dispatch); `roleId` ≡ `target`; `peers` and the
-  grantee kind are derived by the workflow/consumer.
+  resource doesn't exist at dispatch); `roleId` rides `object.id` for the
+  re-pinned role classes (step 2 landed); `peers` and the grantee kind are
+  derived by the workflow/consumer.
 - **capabilityUrl lives in the workflow** (step 1): the activity carries no
   capabilityUrl — it is generated when the workflow PUTs the invitation (the
   RPC returns a pending ack echoing label/note + the minted id). No pre-PUT
@@ -495,7 +522,7 @@ green per step; `temporal.c4` edits validate with `likec4 validate`;
 2. **`revokeGrants` orchestrator**: reuse/extend `processGrantsRevocation`
    (requester-hop shape) or a new local-revoke workflow (4d).
 3. **R1 re-decision**: synchronous `AdminAuthorization` write + RPC-time error
-   semantics vs activity-only with async errors (4e) — re-decided in steps 7–8.
+   semantics vs activity-only with async errors (4e) — re-decided in steps 5–6.
 4. **`addSocialAgent`**: no RPC consumer today — wire it later (and decide
    whether it establishes the reciprocal) or drop it (4h).
 5. **Keepers stay synchronous (decided)**: `createRole` and

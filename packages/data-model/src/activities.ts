@@ -1,4 +1,5 @@
 import type { AuthorizationStructure, ShareDataInstanceStructure } from './authorization-structures'
+import type { RoleData } from './role'
 import type { SocialAgentInvitationData } from './social-agent-invitation'
 
 // ──────────────────────────
@@ -243,18 +244,29 @@ export type AuthorizationRevoked = ActivityBase & {
   object: string[]
 }
 
-/** Role membership changed. `target` ≡ the role IRI; the affected members
- * ride the object as a plain-IRI set (A-carrier — the workflow needs them
- * while the RPC still applies the change synchronously; the carrier is
- * pinned in activity-first step 4, where the workflow derives the diff). */
-export type RoleMembershipChanged = ActivityBase & {
-  type: ['Activity', 'RoleMembershipChanged']
+/**
+ * Role membership changed — activity-first step 2 (the updateRole move).
+ * `target` dropped (the InvitationCreated precedent): the changed role's id
+ * rides `object.id`. The object is a real-id embedded projection of the
+ * role-to-be (the full `RoleData` — the workflow loads the before-image,
+ * PATCHes the role to this state and derives the affected diff from it; the
+ * A-carrier member set is retired).
+ */
+export type RoleMembershipChanged = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'RoleMembershipChanged', 'as:Update']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
-  /** the changed role */
-  target: string
-  /** the affected members — interop:hasMember IRIs (A-carrier set) */
-  object: string[]
+  /** the role-to-be — real-id embedded projection `{ id, type, label,
+   *  members }` (the role exists at write; never dereferenced after) */
+  object: RoleData
+}
+
+/** Typed activity ref for the `updateRole` workflow's completion — the XId
+ * pattern for temporal inputs (refs stay TS-level, never on the wire; the
+ * completed activity's type is still read from the resource). */
+export type RoleMembershipChangedId = {
+  id: string
+  type: RoleMembershipChanged['type']
 }
 
 /** Role deleted. `target` ≡ the role IRI; `object` = the former members

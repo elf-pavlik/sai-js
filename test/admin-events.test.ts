@@ -152,7 +152,9 @@ describe('org context — admin event forwarding (phase 3)', () => {
         message.activity.status === 'done'
     )
     expect(done).toBeDefined()
-    expect(done!.activity.target).toBe(role.id)
+    // step 2: `target` dropped — the changed role's id rides `object.id`
+    // (the real-id embedded role-to-be in the activity's as:object)
+    expect(done!.activity.object.id).toBe(role.id)
     expect(activityOwner(done!.activity)).toBe(yoyoId)
   })
 

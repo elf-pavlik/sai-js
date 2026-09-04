@@ -12,6 +12,7 @@ import type {
   Resource,
   Role,
   RoleList,
+  RoleMembershipChangedMessage,
   ShareAuthorization,
   ShareAuthorizationConfirmation,
   SocialAgent,

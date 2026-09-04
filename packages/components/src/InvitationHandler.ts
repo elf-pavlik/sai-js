@@ -1,10 +1,9 @@
 import {
   ActivityRegistry,
-  AgentRegistry,
   setRegisteredAgent,
 } from '@janeirodigital/interop-authorization-agent'
 import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -48,28 +47,30 @@ export class InvitationHandler extends OperationHttpHandler {
       throw new Error(`Social Agent Invitation not found! (capabilityUrl: ${capabilityUrl})`)
     }
 
-    let socialAgentRegistration = await sai.findSocialAgentRegistration(invitedId)
-    if (!socialAgentRegistration) {
-      socialAgentRegistration = await AgentRegistry.addSocialAgentRegistration(
+    // mint-in-service (the InvitationCreated form): pre-mint the registration
+    // id and write the agentRegistrationAdded activity — the
+    // establishReciprocal workflow PUTs the registration at the minted id
+    // (real-id embedded projection: no target, object.id is the changed
+    // record, `registeredAgent` — the peer — rides inside) and discovers the
+    // reciprocal. The activity is written only when the registration does not
+    // exist yet (a duplicated POST after the workflow already created it is
+    // a no-op — find-first).
+    const existing = await sai.findSocialAgentRegistration(invitedId)
+    if (!existing) {
+      const registrationId = iriForContained(
         sai.registrySet.hasSocialAgentRegistry,
-        { fetch: sai.fetch, randomUUID: sai.randomUUID },
-        { agent: sai.webId, client: sai.agentId },
-        invitedId,
-        socialAgentInvitation.label,
-        socialAgentInvitation.note
+        sai.randomUUID,
+        // registrations are containers — same container-id form
+        // addSocialAgentRegistration mints internally (iriForContained …, true)
+        true
       )
-      // write the agentRegistrationAdded activity → the main agent's webhook
-      // handler starts establishReciprocal (retry policy replaces the old
-      // startDelay hack — §6.7) — urn:uuid snapshot of the registration
-      // (`registeredAgent` — the peer; same-doc embed, never dereferenced)
       const activityRegistry = sai.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
       const activity: Omit<AgentRegistrationAdded, 'id'> = {
         type: ['Activity', 'AgentRegistrationAdded', 'as:Add'],
         actor: sai.webId,
-        target: socialAgentRegistration.id,
         object: {
-          id: `urn:uuid:${sai.randomUUID()}`,
+          id: registrationId,
           type: [INTEROP.SocialAgentRegistration],
           registeredAgent: invitedId,
           label: socialAgentInvitation.label,
@@ -77,19 +78,14 @@ export class InvitationHandler extends OperationHttpHandler {
         },
         createdAt: new Date().toISOString(),
       }
-      await ActivityRegistry.createActivity(
-        activityRegistry,
-        { fetch: sai.fetch, randomUUID: sai.randomUUID },
-        activity
-      )
+      await ActivityRegistry.createActivity(activityRegistry, {
+        fetch: sai.fetch,
+        randomUUID: sai.randomUUID,
+      }, activity)
     }
 
     // update invitation with agent who accepted it
-    await setRegisteredAgent(
-      socialAgentInvitation,
-      sai.fetch,
-      socialAgentRegistration.registeredAgent
-    )
+    await setRegisteredAgent(socialAgentInvitation, sai.fetch, invitedId)
 
     const representation = new BasicRepresentation(inviteeId, operation.target, 'text/plain')
     return new OkResponseDescription(representation.metadata, representation.data)

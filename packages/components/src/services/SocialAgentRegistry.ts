@@ -204,7 +204,8 @@ export async function acceptInvitation(
   const activity: Omit<InvitationAccepted, 'id'> = {
     type: ['Activity', 'InvitationAccepted', 'as:Accept'],
     actor: ctx.webId,
-    target: ctx.registrySet.id,
+    // no target — the object is a self-contained urn:uuid snapshot (the
+    // acceptor has no owning container to mint a real id in)
     object: {
       id: `urn:uuid:${ctx.session.randomUUID()}`,
       type: [INTEROP.SocialAgentInvitation],
@@ -214,10 +215,13 @@ export async function acceptInvitation(
     },
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(
+  const created = await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     activity
   )
-  return InvitationAcceptedMessage.make({ accepted: true })
+  // the activity id is the uniform UI claim anchor — the snapshot object
+  // carries nothing the UI knows, so bindClaim matches the stream event by
+  // the echoed activity IRI exactly
+  return InvitationAcceptedMessage.make({ accepted: true, activityId: IRI.make(created.id) })
 }

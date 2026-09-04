@@ -61,13 +61,28 @@ export type EmbeddedSocialAgentRegistration = {
   note?: string
 }
 
-/** Acceptance of a social agent invitation (acceptor's Activity Registry). */
-export type InvitationAccepted = ActivityBase & {
+/** Acceptance of a social agent invitation (acceptor's Activity Registry).
+ *
+ * `target` dropped (the InvitationCreated precedent): nothing consumes the
+ * acceptor's registry-set id; the object is a self-contained urn:uuid
+ * snapshot (the acceptor has no owning container to mint a real id in —
+ * id-unknown-at-write keeps the snapshot form). */
+export type InvitationAccepted = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'InvitationAccepted', 'as:Accept']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
   /** urn:uuid snapshot of the invitation (opaque capabilityUrl inside) */
   object: EmbeddedSocialAgentInvitation
+}
+
+/**
+ * Ref to the triggering `invitationAccepted` activity — id + class tuple
+ * (the XId pattern for temporal inputs; refs stay TS-level, never on the
+ * wire). Carried by the `acceptInvitation` workflow's completion.
+ */
+export type InvitationAcceptedId = {
+  id: string
+  type: InvitationAccepted['type']
 }
 
 /** Invitation created via RPC (activity-first step 1).
@@ -117,15 +132,29 @@ export type InvitationCreatedId = {
   type: InvitationCreated['type']
 }
 
-/** Reciprocal social agent registration written by the invitation handler. */
-export type AgentRegistrationAdded = ActivityBase & {
+/** Reciprocal social agent registration written by the invitation handler.
+ *
+ * `target` dropped (the InvitationCreated precedent): the changed record's
+ * id rides `object.id` — the REAL pre-minted registration id (the handler
+ * pre-mints via `iriForContained`; the `establishReciprocal` workflow PUTs
+ * the registration there and discovers the reciprocal). */
+export type AgentRegistrationAdded = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'AgentRegistrationAdded', 'as:Add']
   /** as:actor — plain IRI (the session that wrote the registration) */
   actor: string
-  /** the new social agent registration — pre-minted, the workflow PUTs it */
-  target: string
-  /** urn:uuid snapshot of the registration (`registeredAgent` — the peer) */
+  /** real-id embedded projection of the registration-to-be — `registeredAgent`
+   *  (the peer), `label`, `note` at the pre-minted id */
   object: EmbeddedSocialAgentRegistration
+}
+
+/**
+ * Ref to the triggering `agentRegistrationAdded` activity — id + class
+ * tuple (the XId pattern for temporal inputs). Carried by the
+ * `establishReciprocal` workflow's completion.
+ */
+export type AgentRegistrationAddedId = {
+  id: string
+  type: AgentRegistrationAdded['type']
 }
 
 /** Admin authorization recorded (org context). */

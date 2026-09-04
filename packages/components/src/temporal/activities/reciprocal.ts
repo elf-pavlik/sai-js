@@ -1,6 +1,11 @@
-import type { SocialAgentId } from '@janeirodigital/interop-data-model'
+import type { EmbeddedSocialAgentInvitation, SocialAgentId, SocialAgentRegistrationData } from '@janeirodigital/interop-data-model'
 import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
-import { AgentRegistry } from '@janeirodigital/interop-authorization-agent'
+import {
+  AgentRegistry,
+  createSocialAgentRegistration,
+  setAcr,
+} from '@janeirodigital/interop-authorization-agent'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'
@@ -15,15 +20,6 @@ function webhookTargetUrl(): string {
   return `${process.env.CSS_BASE_URL}.sai/reciprocal-webhook/${crypto.randomUUID()}`
 }
 
-export interface ReciprocalRegistrationInput {
-  accountId: string
-  webId: string
-  peerId: string
-  registrationId: string
-  /** IRI of the activity that triggered this workflow — marked done on success */
-  activityId?: string
-}
-
 export interface ReciprocalWebhookInput {
   accountId: string
   webId: string
@@ -31,19 +27,11 @@ export interface ReciprocalWebhookInput {
   topic: string
 }
 
-export interface AcceptInvitationInput {
-  accountId: string
-  webId: string
-  capabilityUrl: string
-  label: string
-  note?: string
-  /** IRI of the activity that triggered this workflow — marked done on success */
-  activityId?: string
-}
-
 export interface AcceptInvitationOutput {
   inviterWebId: string
-  registrationId: string
+  /** the acceptor's registration of the inviter (find-first — the id the
+   *  workflow passes to `reciprocalRegistration`) */
+  registration: SocialAgentRegistrationData
 }
 
 /**
@@ -54,13 +42,16 @@ export interface AcceptInvitationOutput {
  * identity is learned). Then creates the acceptor's registration of the
  * inviter (find-first — idempotent under workflow retries). The reciprocal
  * discovery is left to the workflow's `reciprocalRegistration` activity.
+ * Multi-param/template: `(webId, object)` — the decoded activity object
+ * passes verbatim (the urn:uuid snapshot carries capabilityUrl/label/note).
  */
 export async function invitationAcceptance(
-  payload: AcceptInvitationInput
+  webId: string,
+  object: EmbeddedSocialAgentInvitation
 ): Promise<AcceptInvitationOutput> {
   const manager = buildSessionManager()
-  const session = await manager.getSession(payload.webId)
-  const response = await session.fetch(payload.capabilityUrl, { method: 'POST' })
+  const session = await manager.getSession(webId)
+  const response = await session.fetch(object.capabilityUrl, { method: 'POST' })
   if (!response.ok) throw new Error(`accepting capability url failed: ${response.status}`)
   const inviterWebId = (await response.text()).trim()
   if (!inviterWebId) throw new Error('can not accept invitation without webid')
@@ -70,41 +61,70 @@ export async function invitationAcceptance(
     registration = await AgentRegistry.addSocialAgentRegistration(
       session.registrySet.hasSocialAgentRegistry,
       { fetch: session.fetch, randomUUID: session.randomUUID },
-      { agent: payload.webId, client: session.agentId },
+      { agent: webId, client: session.agentId },
       inviterWebId,
-      payload.label,
-      payload.note
+      object.label,
+      object.note
     )
   }
-  return { inviterWebId, registrationId: registration.id }
+  return { inviterWebId, registration }
 }
 
+/**
+ * The reciprocal leg shared by both invitation workflows: materializes the
+ * registration at the given id when missing (the inviter side —
+ * `establishReciprocal`, find-first idempotent), validates the peer,
+ * discovers the peer's reciprocal registration and returns the webhook-store
+ * input. Multi-param/template: `(webId, registration, accountId)` — the
+ * inviter side passes the decoded activity object verbatim; the accept side
+ * passes the freshly-created registration from `invitationAcceptance`.
+ */
 export async function reciprocalRegistration(
-  payload: ReciprocalRegistrationInput
+  webId: string,
+  registration: SocialAgentRegistrationData,
+  accountId: string
 ): Promise<ReciprocalWebhookInput> {
   const manager = buildSessionManager()
-  const session = await manager.getSession(payload.webId)
-  const registration = await loadSocialAgentRegistration(payload.registrationId, session.fetch)
-  if (registration.registeredAgent !== payload.peerId) {
+  const session = await manager.getSession(webId)
+  let loaded = await loadSocialAgentRegistration(registration.id, session.fetch).catch(
+    (): undefined => undefined
+  )
+  if (!loaded) {
+    // the inviter side — the workflow PUTs the registration at the pre-minted
+    // id from the activity object (the ACR setup mirrors addSocialAgentRegistration)
+    await createSocialAgentRegistration(
+      { ...registration, hasDataGrant: [], hasAdminGrant: [] },
+      session.fetch
+    )
+    const peerUas = await discoverAuthorizationAgent(registration.registeredAgent, session.fetch)
+    await setAcr(
+      registration,
+      session.fetch,
+      { agent: webId, client: session.agentId },
+      { agent: registration.registeredAgent, client: peerUas }
+    )
+    loaded = await loadSocialAgentRegistration(registration.id, session.fetch)
+  }
+  if (loaded.registeredAgent !== registration.registeredAgent) {
     throw new Error(
-      `invalid payload - peerId: ${payload.peerId}, registrationId: ${payload.registrationId}, registeredAgent: ${registration.registeredAgent}`
+      `invalid payload - peerId: ${registration.registeredAgent}, registrationId: ${registration.id}, registeredAgent: ${loaded.registeredAgent}`
     )
   }
-  if (!registration.reciprocalRegistration) {
-    await session.discoverAndUpdateReciprocal(registration)
+  if (!loaded.reciprocalRegistration) {
+    await session.discoverAndUpdateReciprocal(loaded)
   }
-  if (!registration.reciprocalRegistration) {
-    throw new Error(`reciprocal registration from ${payload.peerId} was not found`)
+  if (!loaded.reciprocalRegistration) {
+    throw new Error(`reciprocal registration from ${registration.registeredAgent} was not found`)
   }
   // NOTE: the initial reciprocal-mirror write is deliberately NOT here — it
   // is orchestrated by the establishReciprocal workflow (its own activity,
   // own retry policy), currently disabled until phase 4b
   // (org-context-sparql.md / federation.md 1a)
   return {
-    accountId: payload.accountId,
-    webId: payload.webId,
-    peerId: payload.peerId,
-    topic: registration.reciprocalRegistration,
+    accountId,
+    webId,
+    peerId: registration.registeredAgent,
+    topic: loaded.reciprocalRegistration,
   }
 }
 

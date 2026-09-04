@@ -31,10 +31,7 @@ import type { ActivityEvents } from './ActivityEvents.js'
 import type { ActivityWebhookStore } from './ActivityWebhookStore.js'
 import type { SessionManager } from './SessionManager'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
-import type {
-  AcceptInvitationInput,
-  ReciprocalRegistrationInput,
-} from './temporal/activities/reciprocal.js'
+import type { ReciprocalWebhookInput } from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
 import { processAdminChange } from './temporal/workflows/admin.js'
 import type { AdminChangeInput } from './temporal/workflows/admin.js'
@@ -147,21 +144,18 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
     if (isActivityClass(activity, 'InvitationAccepted')) {
       // the acceptor's AA runs the accept itself (POST the opaque capabilityUrl,
       // build acceptor → inviter + reciprocal) — personal and org contexts alike.
-      // The object is a urn:uuid snapshot embedded in the activity doc.
+      // The object is a urn:uuid snapshot embedded in the activity doc. The
+      // decoded object passes verbatim; accountId rides for the webhook store
+      // (this is a webhook/push type per the checklist).
       const decoded = S.decodeUnknownSync(InvitationAccepted)(activity)
-      const args: [AcceptInvitationInput] = [
-        {
-          accountId: channel.accountId,
-          webId: channel.webId,
-          capabilityUrl: decoded.object.capabilityUrl,
-          label: decoded.object.label,
-          note: decoded.object.note,
-          activityId: activity.id,
-        },
-      ]
       await client.workflow.start(acceptInvitation, {
         taskQueue: 'reciprocal-registration',
-        args,
+        args: [
+          channel.webId,
+          { ...decoded.object, type: [...decoded.object.type] },
+          channel.accountId,
+          { id: activity.id, type: [...decoded.type] },
+        ],
         workflowId: crypto.randomUUID(),
       })
       return
@@ -194,18 +188,14 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
 
     if (isActivityClass(activity, 'AgentRegistrationAdded')) {
       const decoded = S.decodeUnknownSync(AgentRegistrationAdded)(activity)
-      const args: [ReciprocalRegistrationInput] = [
-        {
-          accountId: channel.accountId,
-          webId: channel.webId,
-          peerId: decoded.object.registeredAgent,
-          registrationId: decoded.target,
-          activityId: activity.id,
-        },
-      ]
       await client.workflow.start(establishReciprocal, {
         taskQueue: 'reciprocal-registration',
-        args,
+        args: [
+          channel.webId,
+          { ...decoded.object, type: [...decoded.object.type] },
+          channel.accountId,
+          { id: activity.id, type: [...decoded.type] },
+        ],
         workflowId: crypto.randomUUID(),
       })
       return

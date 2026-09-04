@@ -180,6 +180,11 @@ export const SocialAgentInvitationList = S.Array(SocialAgentInvitation)
  */
 export const InvitationAcceptedMessage = S.Struct({
   accepted: S.Boolean,
+  /** the triggering activity's IRI — the uniform UI claim anchor: the
+   *  producer mints the activity at write time, so the ack can echo it even
+   *  though the object is a urn:uuid snapshot (no UI-known id rides the
+   *  activity). `bindClaim` matches the stream event by id exactly. */
+  activityId: IRI,
 })
 
 /**
@@ -189,12 +194,16 @@ export const InvitationAcceptedMessage = S.Struct({
  * `capabilityUrl` there, so the ack deliberately carries neither. Echoed
  * `label`/`note` + the pre-minted id give the UI a pending handle for the
  * step-0 indicator; the capabilityUrl is learned from the invitation resource
- * after completion (never from an RPC or activity).
+ * after completion (never from an RPC or activity). `activityId` is the
+ * triggering activity's IRI — the uniform UI claim anchor (the producer
+ * mints the activity at write time; the stream event carries the same id).
  */
 export const InvitationCreatedMessage = S.Struct({
   accepted: S.Boolean,
   /** the pre-minted invitation IRI the workflow will PUT at */
   id: IRI,
+  /** the triggering `invitationCreated` activity's IRI */
+  activityId: IRI,
   label: S.String,
   note: S.optional(S.String),
 })
@@ -269,7 +278,10 @@ export const EmbeddedSocialAgentRegistration = S.Struct({
 
 /** Acceptance of a social agent invitation (acceptor's Activity Registry). */
 export const InvitationAccepted = S.Struct({
-  ...activityBaseFields,
+  id: S.String,
+  /** no `target` — the object is a self-contained urn:uuid snapshot (the
+   *  acceptor has no owning container to mint a real id in) */
+  createdAt: S.String,
   type: S.Tuple(
     S.Literal('Activity'),
     S.Literal('InvitationAccepted'),
@@ -302,13 +314,15 @@ export const InvitationCreated = S.Struct({
 
 /** Reciprocal social agent registration written by the invitation handler. */
 export const AgentRegistrationAdded = S.Struct({
-  ...activityBaseFields,
+  id: S.String,
+  /** no `target` — the changed record's id rides `object.id` (the real-id
+   *  embedded registration-to-be) */
+  createdAt: S.String,
   type: S.Tuple(S.Literal('Activity'), S.Literal('AgentRegistrationAdded'), S.Literal('as:Add')),
   /** as:actor — plain IRI (the session that wrote the registration) */
   actor: S.String,
-  /** the new social agent registration — pre-minted, the workflow PUTs it */
-  target: S.String,
-  /** urn:uuid snapshot of the registration (`registeredAgent` — the peer) */
+  /** real-id embedded projection of the registration-to-be (`registeredAgent`
+   *  — the peer; the `establishReciprocal` workflow PUTs it at `object.id`) */
   object: EmbeddedSocialAgentRegistration,
 })
 

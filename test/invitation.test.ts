@@ -103,7 +103,7 @@ describe('personal invitation', () => {
     const acceptBody = await acceptResponse.json()
     const accept = acceptBody[0]
     expect(accept._tag).toBe('Success')
-    expect(accept.value).toEqual({ accepted: true })
+    expect(accept.value).toEqual({ accepted: true, activityId: expect.any(String) })
 
     // acceptor side (Kim's acceptInvitation workflow): kim → dan + reciprocal
     const kimSession = await manager.getSession(kimId)
@@ -183,7 +183,7 @@ describe('admin invitation send', () => {
     const acceptBody = await acceptResponse.json()
     const accept = acceptBody[0]
     expect(accept._tag).toBe('Success')
-    expect(accept.value).toEqual({ accepted: true })
+    expect(accept.value).toEqual({ accepted: true, activityId: expect.any(String) })
 
     // acceptor side (Kim's acceptInvitation workflow): kim → yoyo + reciprocal
     const kimSession = await manager.getSession(kimId)
@@ -264,7 +264,7 @@ describe('admin invitation receive', () => {
     const acceptBody = await acceptResponse.json()
     const accept = acceptBody[0]
     expect(accept._tag).toBe('Success')
-    expect(accept.value).toEqual({ accepted: true })
+    expect(accept.value).toEqual({ accepted: true, activityId: expect.any(String) })
 
     // acceptor side (YoYo's acceptInvitation workflow, running as YoYo):
     // yoyo → kim + reciprocal

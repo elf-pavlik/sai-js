@@ -1,8 +1,21 @@
 # Activity-first services — move mutation processing from `services/` to `temporal/`
 
-> **Status: Foundation (the payload-contract prerequisite flip) EXECUTED — `/test`
-> 150/150 green. Steps 0–11 not started; step 0 (UI activity tracking +
-> indicator) is next.** Extends the
+> **Status: step 0's mechanism + step 1 EXECUTED** — the `createInvitation`
+> send leg is activity-first (the `InvitationCreated` form); the step-0
+> activity indicator (store tracker + claims + app-shell snackbar +
+> `ACTIVITY_LABELS` map) is built and verified via the create flow; and
+> **both invitation legs (accept + inviter `establishReciprocal`) are aligned
+> to the same template** (typed activity refs, verbatim object passthrough,
+> `target` dropped, mint-in-service handler + workflow materializes).
+> `/test` invitation suites green (user-run).
+> **Latest (step 0 completed):** the pending acks now echo the triggering
+> **activity id** (`createActivity` already returns it — previously
+> discarded) — the uniform UI claim anchor; both store claims (create +
+> accept) bind the stream event by the echoed `activityId` (exact match, no
+> cross-binding; the accept's urn:uuid snapshot object needs no UI-known
+> id).
+> **Next:** step 2 (`recordAuthorization`).
+> Extends the
 > established "RPC records a domain activity → `ActivityWebhookHandler`
 > dispatches a workflow that materializes the state" model (`events.md`,
 > `workflow-temporal-decupling.md`, `org-admin-feature.md`,
@@ -56,7 +69,20 @@ the phase-3 invariant: **the RPC session is always the signed-in user's
 AuthorizationAgent; no org session is minted in RPCs**).
 
 ### 2.1 Already activity-first ✓
-- `acceptInvitation` (`SocialAgentRegistry.ts:184`) — activity-only RPC.
+- `acceptInvitation` (`SocialAgentRegistry.ts:184`) — activity-only RPC
+  (aligned to the step-1 template: `InvitationAcceptedId` ref, verbatim
+  object, no `target`; the acceptor workflow POSTs the capabilityUrl + builds
+  acceptor → inviter + reciprocal).
+- `createInvitation` (`InvitationRegistry.ts`) — **step 1**: the RPC mints
+  the invitation id and writes `invitationCreated` (object = the
+  invitation-to-be pojo); the `createInvitation` workflow PUTs the invitation
+  and generates the capabilityUrl there. The reference template for steps
+  2–8 (the `InvitationCreated` form).
+- `InvitationHandler` + `establishReciprocal` — the inviter side, aligned:
+  the handler pre-mints the registration id (container form) and writes
+  `agentRegistrationAdded` (real-id embedded object) only; the workflow PUTs
+  the registration at `object.id` + discovers the reciprocal (completion via
+  the `AgentRegistrationAddedId` ref).
 - `addAdmin` / `removeAdmin` (`Admin.ts`) — activity + `processAdminChange`
   (`createAdminGrants`/`revokeAdminGrants`/`syncAdminAcr`), **but** the RPC
   still synchronously writes/deletes the `AdminAuthorization` (R1 decision).
@@ -81,8 +107,7 @@ AuthorizationAgent; no org session is minted in RPCs**).
   has no producer per `revoke-delegation-chain.md`).
 - `createRole` (`RoleRegistry.ts:33`) — deliberate ("no authorizations can
   exist before role is created").
-- `createInvitation` (`InvitationRegistry.ts`) — synchronous PUT **today**;
-  moved to activity-first in **step 1** (§7).
+- `createInvitation` — **moved to activity-first in step 1** (see §2.1).
 - `addSocialAgent` (`SocialAgentRegistry.ts:172`) — creates a registration,
   **no activity, no reciprocal** (only the invited flow establishes
   reciprocals).
@@ -221,7 +246,7 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 
 | Step | Service function (RPC) | Scope | §4 rows |
 |---|---|---|---|
-| **0. UI activity tracking + indicator** | infra — no RPC move | `ui/authorization/src/store/` (+ `events.ts`): track **accepted activities** — record `pending` → `done` per activity IRI and expose them to the views; a small indicator (applying… spinner → done check) beside the triggering control / list row. **Verified with `acceptInvitation`** (already activity-first, the most understood lifecycle): fire an accept → indicator pending → done → list refresh. **Reused in every step below** for the RPC-call ↔ activity start/complete pair. Requires the prerequisite payload-contract plan (done first — its step 3 simplifies `events.ts registryOwner` to `payload.actor`, plain IRI) | — |
+| **0. UI activity tracking + indicator** | infra — no RPC move | `ui/authorization/src/store/` (+ `events.ts`): track **accepted activities** — record `pending` → `done` per activity IRI and expose them to the views; a small indicator (applying… spinner → done check) beside the triggering control / list row. **Verified with `acceptInvitation`** (already activity-first, the most understood lifecycle): fire an accept → indicator pending → done → list refresh. **Implemented:** store tracker + claims + app-shell snackbar + `ACTIVITY_LABELS` map (spinner/amber → ✓/light-green, 5s auto-hide), verified via the create flow; the **accept claim** is wired in `store.acceptInvitation` with the ack-echoed `activityId` anchor (uniform — see the contract snapshot). Everything is in place and reused per step | — |
 | **1. `createInvitation`** | `CreateInvitation` | **first move** — best-documented leg in `docs/temporal.c4`. RPC: mint the invitation id (`iriForContained`), write `invitationCreated` (actor + `as:object` = the invitation-to-be `CreateInvitationPojo`, **no capabilityUrl**), return pending ack; workflow (`createInvitation`): PUT the invitation at the minted id with the context session, **generate the capabilityUrl there**, then complete. Update the `invitation` + `admin-invitation-send` **send legs** in c4; `/test` invitation suites become wait-for; UI: indicator + list refresh on done | 4g |
 | **2. `recordAuthorization`** | `AuthorizeApp` (`authorizeApp`) | RPC pre-mints the DataAuthorization id(s) (`iriForContained`); the activity's `as:object` = the **real-id embedded projection** of the DataAuthorization-to-be (the InvitationCreated form; **`target` removed** — nothing consumes it, the id rides `object.id`); workflow records the authorizations at those ids (`recordAuthorizationFromStructure` as `getSession(ctx.webId)`) → grants → completion; RPC returns pending ack; `authorization` c4 view + UI refreshed on done; handler + reconcile (per-grantee consumer reads `grantee` from the object — decision 1) | 4a |
 | **3. `shareResource`** | `ShareResource` | `ShareDataInstanceStructure` + applicationId ride as the flat structure fields (structure-based — followup); the authorization(s) record via a pre-minted `as:object` id; workflow performs the share as the context session — **fixes the org-context debt** (session-own registry targeting); `share-resource` / `share-resource-get-data` c4 views + UI | 4b |
@@ -333,14 +358,17 @@ sketches):
     known id uses the real-id embedded form, not a second urn node.
 - **`as:target` drops with the embedded form (InvitationCreated precedent).**
   A class whose changed-record id rides `object.id` has NO `target`; the
-  changed container is not consumed. Removed now: `InvitationCreated`
-  (step 1); scheduled with their re-pins:
+  changed container is not consumed. Removed now: `InvitationCreated`,
+  `InvitationAccepted` and `AgentRegistrationAdded` (the invitation legs
+  aligned to the template; a pre-minted registration id also rides
+  `object.id`, the synchronous handler create moved into the workflow);
+  scheduled with their re-pins:
   `AuthorizationRecorded`/`Revoked` (steps 2–3),
   `RoleMembershipChanged`/`RoleDeleted` (steps 4–5, `roleId` then reads
   `object.id`), `AdminAuthorizationRecorded`/`Revoked` (steps 7–8). Kept for
   the classes whose `target` is a delivered dispatch value
-  (`AgentRegistrationAdded`, `DelegatedGrantsUpdated`) or the completion
-  target (`ActivityCompleted` — the machinery's payload).
+  (`DelegatedGrantsUpdated` — the peer) or the completion target
+  (`ActivityCompleted` — the machinery's payload).
 - **Parties ride the object:** `admin`/`authorizationGrantee`/`peerId` are
   not flat fields — consumers read them from the object (`grantee`,
   `registeredAgent` inside the embedded/linked POJO); the embedded form
@@ -352,6 +380,13 @@ sketches):
   RPC returns a pending ack echoing label/note + the minted id). No pre-PUT
   accept window exists (the capabilityUrl is unknowable early); the accept
   side's retry policy is therefore not needed for that window.
+- **The pending ack echoes the activity id** (the uniform UI claim anchor):
+  `createActivity` returns the minted activity id — producers echo it in the
+  ack (`InvitationCreatedMessage`/`InvitationAcceptedMessage` gain
+  `activityId`); the store claim binds the stream event by that id exactly
+  (unique per activity — no context+class cross-binding, works uniformly for
+  live-link / embedded / urn:uuid-snapshot / set object forms). Fallback:
+  context + class (+ optional object) matching for ack shapes without an id.
 - **Producer/workflow split (mint-in-service, step-1 pattern):** the service
   (admin's AA) does registrySet discovery + id minting (`iriForContained`) +
   the activity write (the object = the real-id embedded projection of the

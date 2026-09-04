@@ -72,7 +72,7 @@ export async function createInvitation(
     object,
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(activityRegistry, {
+  const created = await ActivityRegistry.createActivity(activityRegistry, {
     fetch: ctx.session.fetch,
     randomUUID: ctx.session.randomUUID,
   }, activity)
@@ -81,5 +81,7 @@ export async function createInvitation(
     id: IRI.make(invitationId),
     label: base.label,
     note: base.note,
+    // the uniform UI claim anchor — bindClaim matches the stream event by id
+    activityId: IRI.make(created.id),
   })
 }

@@ -114,7 +114,8 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
   switch (cls) {
     case 'InvitationAccepted':
       return {
-        ...base,
+        id,
+        createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'InvitationAccepted', 'as:Accept'],
         actor,
         // the urn:uuid snapshot — fields normalized (a single rdf:type
@@ -136,9 +137,6 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'InvitationCreated', 'as:Create'],
         actor,
-        // the invitation-to-be — fields normalized (a single rdf:type frames
-        // as a scalar string; the embedded pojo types it as string[]). No
-        // target — object.id is the changed record; the container is unused.
         object: {
           id: asString((node.object as CreateInvitationPojo)?.id),
           type: asStringArray((node.object as CreateInvitationPojo)?.type),

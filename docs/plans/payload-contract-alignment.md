@@ -5,7 +5,9 @@
 > section at the end records what was implemented (and where it deviates from
 > the step sketches/inventory). What remains: step 4 (optional POJO-derived
 > message hardening — build-green only, decide in review) and the per-class
-> carriers re-pinned by later `activity-first-services.md` steps.
+> carriers re-pinned by later `activity-first-services.md` steps (the
+> invitation legs — the step-1 send leg and both accept/inviter legs — are
+> aligned, see Execution notes).
 >
 > Extracted from `activity-first-services.md` §6.10 / step 0 — the
 > **prerequisite** that plan executes against. Aligns the currently
@@ -378,15 +380,15 @@ reads could re-embed, and that stays internal.
 
 **`target` rule (InvitationCreated precedent — landed):** a class whose
 changed-record id rides `object.id` (the real-id embedded form) DROPS
-`target`; a class whose `target` is a delivered value (a registration id to
-PUT at, a role/peer dispatch anchor) or the completion target keeps it.
-Removed: `InvitationCreated` (step 1). Scheduled removals with their
-re-pins: `AuthorizationRecorded`/`Revoked` (steps 2–3),
+`target`; a class whose `target` is a delivered value (a role/peer dispatch
+anchor) or the completion target keeps it. Removed: `InvitationCreated`
+(step 1), `InvitationAccepted` + `AgentRegistrationAdded` (the invitation
+legs aligned to the template). Scheduled removals with their re-pins:
+`AuthorizationRecorded`/`Revoked` (steps 2–3),
 `RoleMembershipChanged`/`RoleDeleted` (steps 4–5),
 `AdminAuthorizationRecorded`/`Revoked` (steps 7–8). Kept:
-`AgentRegistrationAdded` (consumed as `registrationId` — re-pin candidate
-would remove it), `DelegatedGrantsUpdated` (consumed as `peerId`),
-`ActivityCompleted` (the completion machinery's payload).
+`DelegatedGrantsUpdated` (consumed as `peerId`), `ActivityCompleted` (the
+completion machinery's payload).
 
 **Object-embedding scope (amendment — latest):** the flat rows below are the
 **target** design — the `as:object` forms per class (see the §2 decision); only
@@ -395,9 +397,9 @@ in §5).
 
 | Class (`type[1]`) | Flat interface fields (data-model, `activities.ts` — wire truth) | producer | consumer (workflow / input) |
 |---|---|---|---|
-| `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `label`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` / `AcceptInvitationInput` (handler maps `object.capabilityUrl`/`label`/`note`) |
+| `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `label`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` — **no `target`** (the acceptor's registry-set id was never consumed; id-unknown-at-write keeps the snapshot form) | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` workflow — the decoded object passes verbatim; completion rides the `InvitationAcceptedId` ref |
 | `InvitationCreated` *(new — activity-first step 1)* | `actor: string; object: CreateInvitationPojo` — the invitation-to-be at the REAL pre-minted id: `{ id, type: [SocialAgentInvitation], label, note? }` (embedded projection with `type` — the sparql.md self-graph read rule keeps activity-graph type claims out of authoritative queries; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id (the passed object), generates the capabilityUrl, then completes |
-| `AgentRegistrationAdded` | `actor: string; target: <pre-minted registration IRI>; object: urn snapshot of `SocialAgentRegistrationData` (`registeredAgent` — the peer, `label`, `note`)` | `InvitationHandler` (mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `target` from the object, then discovers the reciprocal |
+| `AgentRegistrationAdded` | `actor: string; object: EmbeddedSocialAgentRegistration` — the registration-to-be at the REAL pre-minted id (the handler pre-mints via `iriForContained`; `registeredAgent` — the peer, `label`, `note`); `type: ['Activity', 'AgentRegistrationAdded', 'as:Add']` — **no `target`** (the changed record's id rides `object.id`, the InvitationCreated form); the `establishReciprocal` workflow PUTs the registration there (the synchronous handler create moved into the workflow) | `InvitationHandler` (pre-mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `object.id` (find-first), discovers the reciprocal; completion rides the `AgentRegistrationAddedId` ref |
 | `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
 **Re-pin (steps 7–8, InvitationCreated form):** once the workflow materializes/deletes the AdminAuthorization, the object becomes the **real-id embedded projection** (`{ id, type: [AdminAuthorization], grantee, grantedBy, scopeOfAuthorization }` at the pre-minted/existing id) — dispatch must not dereference a not-yet-PUT (Recorded) or already-deleted (Revoked) resource; the handler/consumer reads `grantee` from the embedded projection (today the RPC records/deletes synchronously and the object is an urn snapshot — execution notes). **`target` is REMOVED with that re-pin** (steps 7–8) — nothing consumes the container and the id rides `object.id` (InvitationCreated precedent). |
 | `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <DataAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` — reads `grantee` from the object |
@@ -571,3 +573,31 @@ decisions** (authoritative over the step sketches where they differ):
    `EmbeddedAuthorization` may be superseded if the deny path lands its
    long-term home as `AuthorizationRevoked` (`events.md` /
    `authorization-revoked.md`) — re-check before steps 2–3 harden the shapes.
+
+10. **Invitation legs aligned to the step-1 template (activity-first steps
+    0–1).** Both invitation activities now follow the `InvitationCreated`
+    form and the settled conventions:
+    - **`target` dropped** on `InvitationAccepted` (the acceptor's
+      registry-set id was never consumed) and `AgentRegistrationAdded` (the
+      changed record's id rides `object.id` — the REAL pre-minted
+      registration id; the handler pre-mints the **container form**
+      `iriForContained(…, true)` — omitting the flag broke the workflow's
+      registration PUT with a CSS "Content-Type required" 400, since social
+      agent registrations are containers).
+    - **Typed activity refs** — `InvitationAcceptedId` /
+      `AgentRegistrationAddedId` (`{ id, type }`, the XId pattern) ride the
+      workflows' completions (`markActivitiesDone` on the ref, like
+      `InvitationCreatedId`).
+    - **Multi-param signatures** — `acceptInvitation(webId, object,
+      accountId, activity: InvitationAcceptedId)` / `establishReciprocal(
+      webId, registration, accountId, activity: AgentRegistrationAddedId)`;
+      the activities take `(webId, object)`; the decoded object passes
+      **verbatim** from the handler (`AcceptInvitationInput` /
+      `ReciprocalRegistrationInput` deleted).
+    - **Mint-in-service on the inviter side** — `InvitationHandler` pre-mints
+      and writes the activity only; the synchronous registration create moved
+      into `establishReciprocal` (`reciprocalRegistration` PUTs at
+      `object.id` find-first, including the ACR setup mirroring
+      `addSocialAgentRegistration`). The `AgentRegistrationAdded` object is
+      thus the real-id embedded projection (the urn snapshot form is now used
+      only where the id is genuinely unknown at write — `InvitationAccepted`).

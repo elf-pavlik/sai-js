@@ -64,8 +64,8 @@ export const useAppStore = defineStore('app', () => {
   // ──────────────────────────
   // Activity tracker + snackbar (activity-first-services step 0) — record
   // every stream activity pending → done; claims bind a user-triggered
-  // action to its activity (step 1: create matches the echoed pre-minted
-  // invitation id — the activity's as:object); the app-shell snackbar
+  // action to its activity by the ack-echoed activity id (uniform anchor,
+  // uniform across as:object forms); the app-shell snackbar
   // mirrors the latest claim — spinner + yellow while pending, ✓ + light
   // green on done, auto-hidden 5s after completion.
   // ──────────────────────────
@@ -74,10 +74,15 @@ export const useAppStore = defineStore('app', () => {
   interface ActivityClaim {
     context: string
     type: string
-    /** match anchor — e.g. the create-ack's echoed invitation id (as:object) */
+    /** exact match anchor — the triggering activity's IRI, echoed in the RPC
+     *  ack; unique per activity, uniform across `as:object` forms (live-link,
+     *  embedded, urn:uuid snapshot, set) */
+    activityId?: string
+    /** fallback match anchor for ack shapes that carry no id — e.g. a
+     *  pre-activityId create ack's echoed as:object invitation id */
     object?: string
     /** bound once the matching stream event arrived */
-    activityId?: string
+    boundActivityId?: string
     status: 'pending' | 'done'
   }
 
@@ -102,18 +107,26 @@ export const useAppStore = defineStore('app', () => {
   /** Bind (or refresh) a claim against the recorded events — the done event
    *  replaces the pending entry (same activity id), so an already-bound claim
    *  re-reads the CURRENT entry and flips to done even when both events
-   *  arrived before the claim was registered (webhook beats the RPC ack). */
+   *  arrived before the claim was registered (webhook beats the RPC ack).
+   *  Exact anchor: the ack-echoed activity id; falls back to context + class
+   *  (+ optional object) matching for ack shapes that carry no id. */
   function bindClaim(claim: ActivityClaim) {
-    const found = claim.activityId
-      ? streamActivities[claim.activityId]
-      : Object.values(streamActivities).find(
-          (a) =>
-            a.actor === claim.context &&
-            a.type.includes(claim.type) &&
-            (claim.object === undefined || a.object === claim.object)
-        )
+    // prefer the pinned bound id (re-read the CURRENT entry under the same
+    // id — pending → done), then the ack-echoed expected id, then the
+    // context + class (+ optional object) fallback for ack shapes that
+    // carry no id
+    const found = claim.boundActivityId
+      ? streamActivities[claim.boundActivityId]
+      : claim.activityId
+        ? streamActivities[claim.activityId]
+        : Object.values(streamActivities).find(
+            (a) =>
+              a.actor === claim.context &&
+              a.type.includes(claim.type) &&
+              (claim.object === undefined || a.object === claim.object)
+          )
     if (!found) return
-    claim.activityId = found.id
+    claim.boundActivityId = found.id
     const event = streamActivities[found.id]
     if (event.status === 'done') {
       claim.status = 'done'
@@ -131,11 +144,16 @@ export const useAppStore = defineStore('app', () => {
   }
 
   /** Claim a user-triggered action's activity and surface it in the
-   *  app-shell snackbar. The claim matches the stream event by context +
-   *  class + optional as:object; bindClaim sweeps events that already
-   *  arrived, so the snackbar state is correct even if the workflow
-   *  completed before the RPC ack resolved. */
-  function claimActivity(expected: { context: string; type: string; object?: string }) {
+   *  app-shell snackbar. The claim matches the stream event by the ack-echoed
+   *  activity id (fallback: context + class + optional as:object); bindClaim
+   *  sweeps events that already arrived, so the snackbar state is correct
+   *  even if the workflow completed before the RPC ack resolved. */
+  function claimActivity(expected: {
+    context: string
+    type: string
+    object?: string
+    activityId?: string
+  }) {
     const claim = reactive<ActivityClaim>({ ...expected, status: 'pending' })
     claims.push(claim)
     bindClaim(claim)
@@ -292,10 +310,13 @@ export const useAppStore = defineStore('app', () => {
     // activity-first (step 1): the invitation resource is PUT by the
     // createInvitation workflow later — no optimistic push; the InvitationCreated
     // done-row (events.ts) refreshes the list. The snackbar claims the activity
-    // by the echoed pre-minted id (the activity's as:object) — pending spinner
-    // → done ✓ (step 0).
+    // by the ack-echoed activityId (pending spinner → done ✓, step 0).
     const result = await effect.createInvitation(label, note, currentContext())
-    claimActivity({ context: currentContext(), type: 'InvitationCreated', object: result.id })
+    claimActivity({
+      context: currentContext(),
+      type: 'InvitationCreated',
+      activityId: result.activityId,
+    })
     return result
   }
 
@@ -305,13 +326,21 @@ export const useAppStore = defineStore('app', () => {
     note?: string
   ): Promise<S.Schema.Type<typeof InvitationAcceptedMessage>> {
     // pending acknowledgment — the acceptance completes via the acceptor's
-    // `invitationAccepted` workflow; the list refresh picks the new agent up
+    // `invitationAccepted` workflow; the list refresh picks the new agent up.
+    // Step 0 accept claim: the activity's object is a urn:uuid snapshot the
+    // UI cannot know, so the claim anchors on the ack-echoed activity id
+    // (exact match — no cross-binding between in-flight accepts).
     const result = await effect.acceptInvitation(
       capabilityUrl,
       label,
       note,
       currentContext()
     )
+    claimActivity({
+      context: currentContext(),
+      type: 'InvitationAccepted',
+      activityId: result.activityId,
+    })
     listSocialAgents(true)
     return result
   }

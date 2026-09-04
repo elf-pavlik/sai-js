@@ -5,7 +5,7 @@ import {
   type RoleMembershipChanged,
   loadRole,
 } from '@janeirodigital/interop-data-model'
-import { IRI, Role, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
+import { IRI, Role, RoleDeletedMessage, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
@@ -95,23 +95,34 @@ export const updateRole = async (
 export const deleteRole = async (
   ctx: ResolvedContext,
   id: S.Schema.Type<typeof IRI>
-): Promise<void> => {
-  const role = await loadRole(id, ctx.session.fetch)
-  await RoleRegistry.deleteRole(ctx.registrySet.hasRoleRegistry, ctx.session.fetch, id)
+): Promise<S.Schema.Type<typeof RoleDeletedMessage>> => {
+  // guard read + the write-time snapshot: the role is alive here, so the
+  // full RoleData (members incl.) embeds as the activity's real-id object —
+  // the retry backstop once the workflow has deleted the resource
+  const roleData = await loadRole(id, ctx.session.fetch)
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  // `target` ≡ the role; `object` = the former members (plain-IRI set —
-  // unresolvable after deletion, the service read the role before deleting)
+  // activity-first (step 3): the RPC writes the intended deletion only —
+  // `target` dropped, the role-to-be-deleted rides `object` (real-id
+  // embedded projection); the deleteRole workflow loads first (find-first),
+  // DELETEs the role (404-tolerant), regenerates and completes
   const activity: Omit<RoleDeleted, 'id'> = {
     type: ['Activity', 'RoleDeleted'],
     actor: ctx.webId,
-    target: id,
-    object: role.members,
+    object: {
+      id,
+      type: [INTEROP.Role],
+      label: roleData.label,
+      members: roleData.members,
+    },
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(
+  const created = await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     activity
   )
+  // pending ack — echoes the deleted role id (pending handle) + the
+  // triggering activity id (the uniform UI claim anchor)
+  return RoleDeletedMessage.make({ id, activityId: IRI.make(created.id) })
 }

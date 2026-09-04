@@ -71,14 +71,6 @@ export interface GetAuthorizationsInput {
   peerId: AgentId
 }
 
-export interface ProcessRoleMembershipChangeInput {
-  webId: SocialAgentId
-  roleId: RoleId
-  peers: SocialAgentId[]
-  /** IRI of the activity that triggered this workflow — marked done on success */
-  activityId?: string
-}
-
 export interface CheckEquivalenceInput {
   webId: SocialAgentId
   grantee: AgentId
@@ -162,6 +154,33 @@ export async function updateRoleInRegistry(payload: {
     payload.role.members
   )
   return before.members
+}
+
+// ---------------------------------------------------------------------------
+// Role deletion (activity-first step 3 — the deleteRole move)
+// ---------------------------------------------------------------------------
+
+/**
+ * DELETE the role with the context's own session — the activity-first
+ * deleteRole leg. Find-first by the STABLE role id: a retry or reconcile
+ * re-delivery after the role was already deleted (e.g. a crash between the
+ * DELETE and the completion) must NOT throw — 404-tolerant skip. The
+ * affected set rides the activity's embedded role-to-be (the write-time
+ * snapshot), never this read.
+ */
+export async function deleteRoleFromRegistry(payload: {
+  webId: SocialAgentId
+  role: RoleData
+}): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
+  if (!existing) return
+  await RoleRegistry.deleteRole(
+    session.registrySet.hasRoleRegistry,
+    session.fetch,
+    payload.role.id
+  )
 }
 
 // ---------------------------------------------------------------------------

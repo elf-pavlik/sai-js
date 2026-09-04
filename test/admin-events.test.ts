@@ -179,7 +179,9 @@ describe('org context — admin event forwarding (phase 3)', () => {
         message.type === 'activity' &&
         message.activity?.type?.includes('RoleDeleted') &&
         message.activity.status === 'done' &&
-        message.activity.target === role.id
+        // step 3: `target` dropped — the deleted role's id rides `object.id`
+        // (the real-id embedded role-to-be-deleted in the as:object)
+        message.activity.object.id === role.id
     )
     expect(done).toBeDefined()
     expect(activityOwner(done!.activity)).toBe(danId)

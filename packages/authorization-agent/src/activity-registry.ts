@@ -226,11 +226,19 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     case 'RoleDeleted':
+      // target dropped (step 3) — the role-to-be-deleted (real-id embedded
+      // projection, alive at write) rides the object; the workflow DELETEs it
       return {
-        ...base,
+        id,
+        createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'RoleDeleted'],
         actor,
-        object: asStringArray(node.object),
+        object: {
+          id: asString((node.object as RoleData)?.id),
+          type: asStringArray((node.object as RoleData)?.type),
+          label: asString((node.object as RoleData)?.label),
+          members: asStringArray((node.object as RoleData)?.members),
+        },
       }
     case 'DelegatedGrantsUpdated':
       return {

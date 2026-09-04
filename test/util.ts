@@ -326,6 +326,18 @@ export async function waitForRoleMembershipChangedCompletion(
   return waitForActivityCompletion(session, 'RoleMembershipChanged')
 }
 
+/**
+ * The deleteRole tail (activity-first step 3): the deleteRole workflow
+ * DELETEd the role, regenerated grants and marked the roleDeleted activity
+ * done — a completion referencing it exists in the session's Activity
+ * Registry.
+ */
+export async function waitForRoleDeletedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'RoleDeleted')
+}
+
 // ---------------------------------------------------------------------------
 // UI events stream (/.sai/events) — the NDJSON stream from refactor-ui.md
 // ---------------------------------------------------------------------------

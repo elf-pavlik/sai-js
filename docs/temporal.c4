@@ -3975,6 +3975,420 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
     }
   }
 
+  dynamic view role-deletion {
+    title: 'Role deletion — bob deletes the Whiz role'
+
+    include Bob
+    include Bob.AUI, Bob.UAS, Bob.Registry, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker
+
+    style Bob {
+      color: green
+    }
+
+    Bob.AUI -> Bob.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Bob.AUI -> Bob.UAS 'POST (RPC) deleteRole' {
+        notes'''
+          #### POST (RPC) deleteRole
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > activity-first (step 3): the RPC only writes the activity — the
+          > role is DELETEd by the workflow; a read-side guard loads the role
+          > (the snapshot source)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "DeleteRole",
+                "id": "https://registry/bob/role/v7emok",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'GET role — guard read + snapshot source [Role]' {
+        notes'''
+          #### GET role - guard read + snapshot source [Role]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > the role is still alive here — the read is both the existence
+          > guard (a missing role errors the RPC) and the write-time
+          > snapshot: its label + members embed as the activity's as:object
+          > (the UI only sent the role id)
+
+          ```http
+          GET https://registry/bob/role/v7emok
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/role/v7emok",
+            "type": ["Role"],
+            "label": "Whiz",
+            "members": ["https://id/dan"]
+          }
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'PUT roleDeleted activity [Activity]' {
+        notes'''
+          #### PUT roleDeleted activity [Activity]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > `target` dropped — the deleted role's id rides `object.id`; the
+          > object is the role-to-be-deleted (real-id embedded projection of
+          > the FULL RoleData — the write-time snapshot from the guard read)
+
+          ```http
+          PUT https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "RoleDeleted"],
+            "as:actor": "https://id/bob",
+            "as:object": {
+              "id": "https://registry/bob/role/v7emok",
+              "type": ["Role"],
+              "label": "Whiz",
+              "members": ["https://id/dan"]
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Bob.Registry -> Bob.UAS 'pending ack (deleted role id + activityId)' {
+          notes'''
+            #### pending ack (deleted role id + activityId)
+            >[!NOTE]
+            >roles.test.ts > delete grantee role
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "id": "https://registry/bob/role/v7emok",
+                "activityId": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c"
+              }
+            }
+            ```
+            ### Checks
+
+            #### String matching
+            * `id` - `https://registry/bob/role`
+            * `activityId` - `https://registry/bob/activity`
+            * no synchronous DELETE — the role is deleted by the workflow
+          '''
+      }
+      Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >roles.test.ts > delete grantee role
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "target": "https://registry/bob/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    Bob.ActivityWebhookHandler -> Bob.Temporal 'start processRoleDeletion workflow' {
+        notes'''
+          #### start processRoleDeletion workflow
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!TIP]
+          >gRPC
+
+          >[!TIP]
+          > the decoded object passes verbatim (the workflow's data arg); the
+          > triggering activity rides as a typed ref — traceable completion
+
+          ```json
+          [
+            "https://id/bob",
+            {
+              "id": "https://registry/bob/role/v7emok",
+              "type": ["Role"],
+              "label": "Whiz",
+              "members": ["https://id/dan"]
+            },
+            {
+              "id": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "RoleDeleted"]
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.Temporal -> Bob.Worker '(workflow) run processRoleDeletion' {
+        notes'''
+          #### (workflow) run processRoleDeletion
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!TIP]
+          > the usage scan runs BEFORE the deletions — the matched
+          > authorization ids and the dataOwner-grantees must be captured
+          > while the authorizations still exist
+        '''
+    }
+    Bob.Worker -> Bob.Registry 'find role usage [Authorization]' {
+        notes'''
+          #### find role usage [Authorization]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!TIP]
+          > registry-plane SPARQL scan (docs/sparql.md): usedAsGrantee +
+          > dataOwner authorizations of the role; the affected members ride
+          > the embedded object (the write-time snapshot — unrecoverable
+          > from the store after the role + its role-grantee authorizations
+          > are gone, e.g. on a retry)
+        '''
+    }
+    Bob.Worker -> Bob.Registry 'DELETE matched authorizations [Authorization]' {
+        notes'''
+          #### (activity) DELETE matched authorizations [Authorization]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          ```http
+          DELETE https://registry/bob/authorization/ab7c9d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 204 No Content
+          ```
+        '''
+    }
+    Bob.Worker -> Bob.Registry '(activity) delete role [Role]' {
+        notes'''
+          #### (activity) delete role [Role]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > `deleteRoleFromRegistry`: find-first by the stable role id — a
+          > retry after a crash between the DELETE and the completion sees
+          > the role already gone and skips (404-tolerant, idempotent); the
+          > role must be gone before the regeneration so the membership
+          > re-reads see it removed
+
+          ```http
+          DELETE https://registry/bob/role/v7emok
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 204 No Content
+          ```
+        '''
+    }
+    parallel {
+      Bob.Worker -> Bob.Temporal '(child workflows) start create grants for each affected agent' {
+          notes'''
+            #### (child workflows) start create grants for each affected agent
+            >[!NOTE]
+            >roles.test.ts > delete grantee role
+
+            >[!TIP]
+            > affected = the role's members from the embedded object (role
+            > used as grantee) + grantees of dataOwner authorizations (from
+            > the usage scan)
+          '''
+      }
+      Bob.Temporal -> Bob.Worker 'run createGrantsForAgent'
+      Bob.Worker -> Bob.Registry '(activity) replace grants + registration [Grant]' {
+          notes'''
+            #### (activity) replace grants + registration [Grant]
+            >[!NOTE]
+            >roles.test.ts > delete grantee role
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `bob`
+
+            >[!TIP]
+            > self-contained regeneration: the agent's authorizations are
+            > gone (role + authorizations deleted) → the deny path — grants
+            > cleared, registration `hasDataGrant` rewritten to []
+
+            ```http
+            PATCH https://registry/bob/social-agent/dan/
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+
+            ```json
+            {
+              "@context": ["in reality payload uses Expanded JSON-LD"],
+              "id": "https://registry/bob/social-agent/dan/",
+              "type": ["SocialAgentRegistration"],
+              "interop:hasDataGrant": []
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 204 No Content
+            ```
+          '''
+      }
+      Bob.Registry -> Bob.Worker 'OK'
+    }
+    Bob.Worker -> Bob.Registry 'PUT activityCompleted [Activity]' {
+        notes'''
+          #### (activity) PUT activityCompleted [Activity]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!TIP]
+          > single completion after all branches succeed (children never
+          > mark done)
+
+          ```http
+          PUT https://registry/bob/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+        '''
+    }
+    Bob.ActivityWebhookHandler -> Bob.AUI 'done' {
+        notes'''
+          #### done
+          >[!NOTE]
+          >roles.test.ts > delete grantee role
+
+          >[!TIP]
+          > NDJSON - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/bob/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "RoleDeleted"],
+              "actor": "https://id/bob",
+              "object": {
+                "id": "https://registry/bob/role/v7emok",
+                "type": ["Role"],
+                "label": "Whiz",
+                "members": ["https://id/dan"]
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
+
+          >[!TIP]
+          > the RoleDeleted done-row refreshes the context's agent + role
+          > lists (events.ts) — the deleted role disappears, and dan's
+          > revoked grant flips his access flag
+        '''
+    }
+  }
+
   dynamic view share-resource-get-data {
     title: 'Share resource - get data'
 

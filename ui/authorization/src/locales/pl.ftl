@@ -60,6 +60,7 @@ send-link = Wyślij link
 create-invitation = Zaproś
 accept-invitation = Przyjmij zaproszenie
 update-role = Zaktualizuj rolę
+delete-role = Usuń rolę
 
 invitation-link-input =
   .label = Link z zaproszeniem

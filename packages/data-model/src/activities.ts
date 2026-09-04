@@ -269,16 +269,27 @@ export type RoleMembershipChangedId = {
   type: RoleMembershipChanged['type']
 }
 
-/** Role deleted. `target` ≡ the role IRI; `object` = the former members
- * (unresolvable after deletion — the service read the role before). */
-export type RoleDeleted = ActivityBase & {
+/** Role deleted (activity-first step 3). `target` dropped — the deleted
+ * role's id rides `object.id`; the object is a real-id embedded projection
+ * of the role-to-be-deleted (the full `RoleData`, alive at write) — the
+ * write-time snapshot is the retry backstop: after a crash between the
+ * DELETE and the completion, the role is gone and the member set would
+ * otherwise be unrecoverable (the role-grantee authorizations are deleted
+ * too), so the affected-set derivation uses the embedded members. */
+export type RoleDeleted = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'RoleDeleted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
-  /** the deleted role */
-  target: string
-  /** former members — interop:hasMember IRIs (A-carrier set) */
-  object: string[]
+  /** the role-to-be-deleted — real-id embedded projection `{ id, type,
+   *  label, members }` (never dereferenced — the role disappears) */
+  object: RoleData
+}
+
+/** Typed activity ref for the `deleteRole` workflow's completion — the XId
+ * pattern for temporal inputs (refs stay TS-level, never on the wire). */
+export type RoleDeletedId = {
+  id: string
+  type: RoleDeleted['type']
 }
 
 /** Peer mirror grants updated (reciprocal webhook). */

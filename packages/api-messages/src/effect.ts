@@ -224,6 +224,20 @@ export const RoleMembershipChangedMessage = S.Struct({
   activityId: IRI,
 })
 
+/**
+ * Pending acknowledgment of a role deletion (activity-first step 3) — the
+ * RPC only writes the `roleDeleted` activity (object = the role-to-be-deleted,
+ * real-id embedded projection); the `deleteRole` workflow DELETEs the role
+ * and regenerates grants. The ack echoes the deleted role id (pending
+ * handle) + the triggering activity id (the uniform UI claim anchor).
+ */
+export const RoleDeletedMessage = S.Struct({
+  /** the role-to-be-deleted — the workflow DELETEs it */
+  id: IRI,
+  /** the triggering `roleDeleted` activity's IRI */
+  activityId: IRI,
+})
+
 // ──────────────────────────
 // Activity projections (the outbox) — payload-contract-alignment step 3
 // (amended wire). Same field sets as the data-model ActivityData union
@@ -429,16 +443,23 @@ export const RoleMembershipChanged = S.Struct({
   }),
 })
 
-/** Role deleted — `target` ≡ the role; `object` = the former members. */
+/** Role deleted (activity-first step 3) — `target` dropped; the
+ * role-to-be-deleted rides `object` as a real-id embedded projection. */
 export const RoleDeleted = S.Struct({
-  ...activityBaseFields,
+  id: S.String,
+  /** no `target` — the deleted role's id rides `object.id` (the embedded
+   *  role-to-be-deleted); the changed container is not consumed */
+  createdAt: S.String,
   type: S.Tuple(S.Literal('Activity'), S.Literal('RoleDeleted')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the deleted role */
-  target: S.String,
-  /** former members — interop:hasMember IRIs */
-  object: S.Array(S.String),
+  /** the role-to-be-deleted — real-id embedded projection of the `RoleData` */
+  object: S.Struct({
+    id: S.String,
+    type: S.Array(S.String),
+    label: S.String,
+    members: S.Array(S.String),
+  }),
 })
 
 /** Peer mirror grants updated (reciprocal webhook). */
@@ -681,7 +702,7 @@ export class UpdateRole extends S.TaggedRequest<UpdateRole>()('UpdateRole', {
 
 export class DeleteRole extends S.TaggedRequest<DeleteRole>()('DeleteRole', {
   failure: S.Never,
-  success: S.Void,
+  success: RoleDeletedMessage,
   payload: {
     id: IRI,
     context: IRI,
@@ -824,7 +845,9 @@ export class SaiService extends Context.Tag('SaiService')<
       members: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof RoleMembershipChangedMessage>>
-    readonly deleteRole: (id: IRI, context: IRI) => Effect.Effect<S.Schema.Type<typeof S.Void>>
+    readonly deleteRole: (id: IRI, context: IRI) => Effect.Effect<
+      S.Schema.Type<typeof RoleDeletedMessage>
+    >
     readonly getSocialAgentInvitations: (context: IRI) => Effect.Effect<
       S.Schema.Type<typeof SocialAgentInvitationList>
     >

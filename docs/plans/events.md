@@ -29,7 +29,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 | `authorizationRecorded` | `services/Authorization.ts`, `services/ShareResource.ts` | per-grantee consumer (`processGranteeActivities`) |
 | `authorizationRevoked` | deny path (see `authorization-revoked.md`, not yet landed) | per-grantee consumer |
 | `roleMembershipChanged` | `services/RoleRegistry.ts` — **activity-only (step 2)**: the RPC writes the intended change (object = the role-to-be `RoleData`); the `updateRole` workflow PATCHes the role, derives the affected diff, regenerates grants | `processRoleMembershipChange` (workflow, `create-grants` queue) |
-| `roleDeleted` | `services/RoleRegistry.ts` (synchronous DELETE until step 3) | `processRoleDeletion` |
+| `roleDeleted` | `services/RoleRegistry.ts` — **activity-only (step 3)**: the RPC writes the role-to-be-deleted (object = the real-id embedded `RoleData`); the `deleteRole` workflow DELETEs the role + its authorizations and regenerates grants | `processRoleDeletion` (workflow, `create-grants` queue) |
 | `agentRegistrationAdded` | `InvitationHandler.ts` | `establishReciprocal` |
 | `invitationAccepted` | `acceptInvitation` service (acceptor's Activity Registry — own or org) | `acceptInvitation` (acceptor's workflow) |
 | `invitationCreated` | `createInvitation` RPC (activity-only — step 1; the workflow PUTs the invitation and generates the capabilityUrl there) | `createInvitation` (workflow, `create-grants` queue) |

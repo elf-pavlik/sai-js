@@ -8,6 +8,7 @@ import type {
   InvitationCreated,
   RoleData,
   RoleDeleted,
+  RoleDeletedId,
   RoleMembershipChanged,
   RoleMembershipChangedId,
   SocialAgentId,
@@ -58,6 +59,7 @@ const {
   getPendingActivities,
   resolveActivityGrantee,
   updateRoleInRegistry,
+  deleteRoleFromRegistry,
   markActivitiesDone,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
@@ -276,15 +278,21 @@ export async function processRoleMembershipChange(
 }
 
 export async function processRoleDeletion(
-  payload: activities.ProcessRoleMembershipChangeInput
+  webId: SocialAgentId,
+  role: RoleData,
+  activity: RoleDeletedId
 ): Promise<void> {
-  // scan BEFORE deletion — the usage info and the matched authorization ids
-  // must be captured while the authorizations still exist
-  const usage = await findRoleUsage({ webId: payload.webId, roleId: payload.roleId })
-  await deleteAuthorizations({
-    webId: payload.webId,
-    authorizations: usage.authorizations,
-  })
+  // scan BEFORE the deletions — the usage info and the matched authorization
+  // ids must be captured while the authorizations still exist; the affected
+  // members ride the object (the write-time snapshot — unrecoverable from
+  // the store after the role and its role-grantee authorizations are gone,
+  // e.g. on a retry after a crash between the DELETE and the completion)
+  const usage = await findRoleUsage({ webId, roleId: { id: role.id, type: role.type } })
+  await deleteAuthorizations({ webId, authorizations: usage.authorizations })
+  // the role must be gone before the regeneration: the self-contained
+  // createGrantsForAgent re-derives memberships from the store (find-first,
+  // 404-tolerant — a retry sees the role already deleted and skips)
+  await deleteRoleFromRegistry({ webId, role })
   const affected: AgentId[] = []
   const seen = new Set<string>()
   const add = (agent: AgentId) => {
@@ -292,15 +300,15 @@ export async function processRoleDeletion(
     seen.add(agent.id)
     affected.push(agent)
   }
-  // role.members ARE the grantees of grantee-authorizations; unresolvable
-  // after deletion (role resource gone) → must come from the service
+  // role.members ARE the grantees of grantee-authorizations — read from the
+  // embedded object, not the store (the role is gone by now)
   if (usage.usedAsGrantee) {
-    for (const peer of payload.peers) add(peer)
+    for (const member of role.members) add({ id: member, type: [SOCIAL_AGENT_TYPE] })
   }
   // grantees of dataOwner-authorizations — route by type
   for (const grantee of usage.affectedGrantees) {
     if (grantee.type.includes(ROLE_TYPE)) {
-      const members = await getGrantees({ webId: payload.webId, grantee })
+      const members = await getGrantees({ webId, grantee })
       for (const member of members) add(member)
     } else {
       add(grantee as AgentId)
@@ -311,19 +319,15 @@ export async function processRoleDeletion(
       executeChild(createGrantsForAgent, {
         args: [
           {
-            webId: payload.webId,
+            webId,
             grantee,
           },
         ],
       })
     )
   )
-  if (payload.activityId) {
-    await markActivitiesDone({
-      webId: payload.webId,
-      activities: [{ id: payload.activityId }],
-    })
-  }
+  // single completion after all branches succeed (children never mark done)
+  await markActivitiesDone({ webId, activities: [activity] })
 }
 
 /**
@@ -432,10 +436,9 @@ export async function reconcileActivities(payload: {
     }
   }
   for (const activity of roleActivities) {
+    // steps 2–3: both role classes carry the role-to-be as a real-id
+    // embedded object (`target` dropped) — same multi-param signature
     if (isActivityClass(activity, 'RoleMembershipChanged')) {
-      // step 2 — the RPC wrote only the intended change (object = the
-      // role-to-be, real-id embedded); the workflow PATCHes the role to it,
-      // derives the diff, regenerates and completes
       const roleActivity = activity as RoleMembershipChanged
       await executeChild(processRoleMembershipChange, {
         args: [
@@ -444,22 +447,17 @@ export async function reconcileActivities(payload: {
           { id: activity.id, type: [...roleActivity.type] },
         ],
       })
-      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else {
-      // RoleDeleted (legacy until deleteRole moves): target ≡ the role;
-      // peers ride the object as a plain-IRI set (A-carrier)
       const roleActivity = activity as RoleDeleted
-      const args: [activities.ProcessRoleMembershipChangeInput] = [
-        {
-          webId: payload.webId,
-          roleId: { id: roleActivity.target, type: [ROLE_TYPE] },
-          peers: roleActivity.object.map((id) => ({ id, type: [SOCIAL_AGENT_TYPE] })),
-          activityId: activity.id,
-        },
-      ]
-      await executeChild(processRoleDeletion, { args })
-      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+      await executeChild(processRoleDeletion, {
+        args: [
+          payload.webId,
+          roleActivity.object,
+          { id: activity.id, type: [...roleActivity.type] },
+        ],
+      })
     }
+    await markActivitiesDone({ webId: payload.webId, activities: [activity] })
   }
 }
 

@@ -11,6 +11,7 @@ import type {
   InvitationCreatedMessage,
   Resource,
   Role,
+  RoleDeletedMessage,
   RoleList,
   RoleMembershipChangedMessage,
   ShareAuthorization,
@@ -264,9 +265,20 @@ export const useAppStore = defineStore('app', () => {
     return role
   }
 
-  async function deleteRole(id: S.Schema.Type<typeof IRI>): Promise<void> {
-    await effect.deleteRole(id, currentContext())
-    listRoles(true)
+  async function deleteRole(
+    id: S.Schema.Type<typeof IRI>
+  ): Promise<S.Schema.Type<typeof RoleDeletedMessage>> {
+    // activity-first (step 3): the role is DELETEd by the deleteRole workflow
+    // later (the ack echoes the deleted role id + activityId) — the
+    // RoleDeleted done-row (events.ts) refreshes the lists; the snackbar
+    // claims the activity by the ack-echoed activityId
+    const result = await effect.deleteRole(id, currentContext())
+    claimActivity({
+      context: currentContext(),
+      type: 'RoleDeleted',
+      activityId: result.activityId,
+    })
+    return result
   }
 
   async function listSocialAgentInvitations(force = false) {

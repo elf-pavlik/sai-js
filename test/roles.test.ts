@@ -10,6 +10,7 @@ import {
   awaitGrantCompletion,
   dataGrants,
   waitForQuiescence,
+  waitForRoleDeletedCompletion,
   waitForRoleMembershipChangedCompletion,
 } from './util'
 
@@ -157,6 +158,9 @@ describe('role-based access', () => {
       aliceCookie
     )
 
+    // activity-first (step 3): the role is DELETEd by the deleteRole
+    // workflow — wait for the completion, then assert the end state
+    await waitForRoleDeletedCompletion(session)
     const deletedRole = await session.findRole(roleId)
     expect(deletedRole).toBeUndefined()
   })

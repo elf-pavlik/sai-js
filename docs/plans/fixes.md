@@ -141,6 +141,24 @@ Writes stay HTTP (PUT the invitation, SPARQL PATCH the
   `socialAgentRegistrations`) are out of scope for this fix; they share the
   pattern and are candidates for the same treatment (`queries/org.ts` already
   re-exports their SPARQL twins).
+- **`findRoleUsage` — plane-based, but still list-and-scan (noted from the
+  `role-membership-change` c4 view, activity-first step 2).** It has no HTTP
+  twin (the workflow calls `session.findRoleUsage` over the internal
+  endpoint), but the scan shape remains: `listContained` over the
+  authorization registry + **one graph read per authorization**
+  (`Promise.all(iris.map(getDataAuthorizationFromSparql))`) + a **JS loop**
+  matching `grantee === role` / `dataOwner === role && grantee !== role`.
+  Candidate follow-up, same treatment as §3.2: a single VALUES-pinned SELECT
+  that matches the role grantee/dataOwner **in the query** (`grantEquivalence`
+  pattern, `sparql.ts:432`) — `usedAsGrantee`, the matched authorization
+  IRIs and the dataOwner-grantees in one round trip, no per-candidate reads.
+  Scoping discipline applies: the query must stay VALUES-pinned /
+  self-graph-scoped — the inverse failure (a store-wide scan without the
+  guard) is what broke `findRolesWithMember` in step 2, where a real-id
+  embedded projection inside an immutable activity graph kept asserting an
+  old `interop:hasMember` (fixed with `FILTER(?g = ?role)`; see `sparql.md`
+  hygiene notes). Low-frequency (per role update/delete + reconcile), so not
+  urgent — capture as a follow-up alongside the sibling scans.
 - Docs: promote the "invitations candidate" note in `docs/sparql.md` to
   current; `docs/temporal.c4` step 5 (accept view) already uses the direct
   capabilityUrl-matching `CONSTRUCT` (§3.2).

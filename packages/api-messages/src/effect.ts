@@ -255,6 +255,24 @@ export const AdminAuthorizationRecordedMessage = S.Struct({
   activityId: IRI,
 })
 
+/**
+ * Pending acknowledgment of an admin demotion (activity-first step 6 — the
+ * R1 re-decision's remove half: validation reads + the last-admin guard stay
+ * in the RPC, the DELETE moves to the workflow) — the RPC writes the
+ * `adminAuthorizationRevoked` activity (object = the existing
+ * AdminAuthorization as a real-id embedded projection at its id); the
+ * `removeAdmin` workflow DELETEs the resource there, revokes grants + the
+ * ACR rewrite (re-guarding the last admin), then completes. The ack echoes
+ * the revoked id (pending handle) + the triggering activity id (the uniform
+ * UI claim anchor).
+ */
+export const AdminAuthorizationRevokedMessage = S.Struct({
+  /** the revoked AdminAuthorization IRI the workflow DELETEs */
+  id: IRI,
+  /** the triggering `adminAuthorizationRevoked` activity's IRI */
+  activityId: IRI,
+})
+
 // ──────────────────────────
 // Activity projections (the outbox) — payload-contract-alignment step 3
 // (amended wire). Same field sets as the data-model ActivityData union
@@ -400,13 +418,18 @@ export const AdminAuthorizationRecorded = S.Struct({
   object: EmbeddedAdminAuthorization,
 })
 
-/** Admin authorization revoked (org context — unchanged until step 6). */
+/** Admin authorization revoked (org context, activity-first step 6) —
+ * `target` dropped; the existing AdminAuthorization rides `object` as a
+ * real-id embedded projection at its real id (the workflow DELETEs it). */
 export const AdminAuthorizationRevoked = S.Struct({
-  ...activityBaseFields,
+  id: S.String,
+  /** no `target` — the revoked record's id rides `object.id` (the embedded
+   *  AdminAuthorization); the changed container is not consumed */
+  createdAt: S.String,
   type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRevoked')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the AdminAuthorization — urn:uuid snapshot (the admin's grantee inside) */
+  /** the AdminAuthorization — real-id embedded projection at the existing id */
   object: EmbeddedAdminAuthorization,
 })
 
@@ -824,7 +847,7 @@ export class AddAdmin extends S.TaggedRequest<AddAdmin>()('AddAdmin', {
 
 export class RemoveAdmin extends S.TaggedRequest<RemoveAdmin>()('RemoveAdmin', {
   failure: S.Never,
-  success: SocialAgent,
+  success: AdminAuthorizationRevokedMessage,
   payload: { webId: IRI, context: IRI },
 }) {}
 
@@ -916,7 +939,7 @@ export class SaiService extends Context.Tag('SaiService')<
       S.Schema.Type<typeof AdminAuthorizationRecordedMessage>
     >
     readonly removeAdmin: (webId: IRI, context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof SocialAgent>
+      S.Schema.Type<typeof AdminAuthorizationRevokedMessage>
     >
   }
 >() {}

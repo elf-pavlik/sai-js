@@ -186,9 +186,12 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     case 'AdminAuthorizationRevoked':
-      // unchanged until step 6 — target kept; the urn:uuid snapshot object
+      // target dropped (step 6) — the existing AdminAuthorization (real-id
+      // embedded projection at its id, alive at write) rides the object; the
+      // removeAdmin workflow DELETEs the resource at object.id
       return {
-        ...base,
+        id,
+        createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'AdminAuthorizationRevoked'],
         actor,
         object: {

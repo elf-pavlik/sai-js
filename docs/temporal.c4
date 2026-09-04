@@ -725,6 +725,393 @@ views {
     Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
   }
 
+  dynamic view org-admin-remove {
+    title: 'Remove org admin — Dan demotes Bob in YoYo'
+
+    include Dan, YoYo, Bob
+    include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
+
+    style YoYo {
+      color: green
+    }
+
+    style Dan {
+      color: indigo
+    }
+
+    style Bob {
+      color: sky
+    }
+
+    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'POST (RPC) RemoveAdmin — { webId: bob, context: yoyo }' {
+        navigateTo org-registry-set-discovery
+        notes'''
+          #### POST (RPC) RemoveAdmin - { webId: bob, context: yoyo }
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `dan`
+
+          >[!TIP]
+          > activity-first (step 6 — R1 re-decided in full): the RPC keeps the
+          > validation reads and writes the activity only — the workflow
+          > DELETEs the AdminAuthorization
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "RemoveAdmin",
+                "webId": "https://id/bob",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+        navigateTo org-registry-set-discovery
+        notes'''
+          #### discover org registry set
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          [org-registry-set-discovery](../org-registry-set-discovery/?dynamic=sequence)
+
+          >[!TIP]
+          > the admin-only `Link: <registrySet>; rel="interop:hasRegistrySet"`
+          > header on the org's authorization agent (AgentIdHandler)
+
+          ```http
+          HEAD https://auth/.sai/agents/aHR0cHM6Ly9pZC95b3lv
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```http
+          HTTP/1.1 200 OK
+          Link: <https://registry/yoyo/>;
+                rel="http://www.w3.org/ns/solid/interop#hasRegistrySet"
+          ```
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
+        notes'''
+          #### find Social Agent Registration [Agent]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > guard read — the demoted agent must be registered
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'find AdminAuthorization + last-admin guard' {
+        notes'''
+          #### find AdminAuthorization + last-admin guard
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > validation reads (R1 re-decision): admin-exists + the LAST-ADMIN
+          > guard — the org must never end up adminless (error at RPC time);
+          > the workflow re-checks via `syncAdminAcr`
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRevoked activity [Activity]' {
+        notes'''
+          #### PUT adminAuthorizationRevoked activity [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > `target` dropped — the revoked record's id rides `object.id`;
+          > the object is the EXISTING AdminAuthorization (real-id embedded
+          > projection at its real id — alive at write; the workflow DELETEs it)
+
+          ```http
+          PUT https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "AdminAuthorizationRevoked"],
+            "as:actor": "https://id/yoyo",
+            "as:object": {
+              "id": "https://registry/yoyo/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+              "type": ["AdminAuthorization"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/yoyo",
+              "scopeOfAuthorization": "interop:All"
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Dan.UAS -> Dan.AUI 'OK (pending) — revoked AA id + activityId' {
+          notes'''
+            #### OK (pending) - revoked AA id + activityId
+            >[!NOTE]
+            >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "id": "https://registry/yoyo/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+                "activityId": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c"
+              }
+            }
+            ```
+            ### Checks
+
+            #### String matching
+            * `id` - `https://registry/yoyo/authorization`
+            * `activityId` - `https://registry/yoyo/activity`
+            * the AdminAuthorization still exists — the workflow DELETEs it
+          '''
+      }
+      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+          notes'''
+            #### notify Add activity (owner channel - dispatch) [Activity]
+            >[!NOTE]
+            >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "target": "https://registry/yoyo/activity/",
+              "published": "2026-09-01T01:50:31.328Z"
+            }
+            ```
+          '''
+      }
+    }
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationRevoked workflow' {
+        notes'''
+          #### start processAdminAuthorizationRevoked workflow
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          >gRPC
+
+          >[!TIP]
+          > the decoded object passes verbatim (the workflow's data arg); the
+          > triggering activity rides as a typed ref — traceable completion
+
+          ```json
+          [
+            "https://id/yoyo",
+            {
+              "id": "https://registry/yoyo/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+              "type": ["AdminAuthorization"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/yoyo",
+              "scopeOfAuthorization": "interop:All"
+            },
+            {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "AdminAuthorizationRevoked"]
+            }
+          ]
+          ```
+        '''
+    }
+    YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
+    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationRevoked' {
+        notes'''
+          #### (workflow) run processAdminAuthorizationRevoked
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
+        notes'''
+          #### (activity) DELETE AdminAuthorization [Authorization]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          >[!TIP]
+          > `deleteAdminAuthorizationAtId`: at the EXISTING id — find-first
+          > 404-tolerant (a retry after a crash between the DELETE and the
+          > completion sees the resource already gone and skips)
+
+          ```http
+          DELETE https://registry/yoyo/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 204 No Content
+          ```
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(child workflow) revokeAdminGrants [Grant]' {
+        notes'''
+          #### (child workflow) revokeAdminGrants [Grant]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > find + delete the RegistrySet- and DataRegistry-scoped AdminGrants
+          > (resources + ACRs) and unlink `hasAdminGrant` — single PATCH on
+          > the org's registration of the admin
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+        notes'''
+          #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > ACP resource — not a sub registry; derived rewrite from the
+          > CURRENT admin list (post-deletion — the demoted admin drops out,
+          > the remaining admins stay); last-admin re-guard inside the activity
+        '''
+    }
+    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > only after the DELETE + grants + ACR rewrite ALL succeeded —
+          > single completion (children never mark done)
+
+          ```http
+          PUT https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/yoyo/activity/c6f2a0b9-4d5e-4a7f-9b3c-8e1d0f2a5c6d",
+            "type": ["Activity", "ActivityCompleted"],
+            "as:target": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "interop:createdAt": "2024-01-01T10:00:02.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+        notes'''
+          #### notify Add activity (admin channel - forward only) [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > the change activity → pending, the completion → done (enriched
+          > with the typed activity — the UI reads the embedded object)
+        '''
+    }
+    Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - formatted here for readability
+
+          ```json
+          {
+            "type": "activity",
+            "activity": {
+              "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+              "type": ["Activity", "AdminAuthorizationRevoked"],
+              "actor": "https://id/yoyo",
+              "object": {
+                "id": "https://registry/yoyo/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+                "type": ["AdminAuthorization"],
+                "grantee": "https://id/bob",
+                "grantedBy": "https://id/yoyo",
+                "scopeOfAuthorization": "interop:All"
+              },
+              "createdAt": "2026-09-01T01:50:31.328Z",
+              "status": "done"
+            }
+          }
+          ```
+
+          >[!TIP]
+          > the AdminAuthorizationRevoked done-row refreshes the org context
+          > agent list (events.ts) — bob's admin flag flips off
+        '''
+    }
+    Dan.AUI -> Dan.UAS 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: yoyo) - refresh
+          >[!NOTE]
+          >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
+
+          >[!TIP]
+          > triggered by the done event — reload the org context agent list
+        '''
+    }
+    Dan.UAS -> YoYo.Registry 'list social agents with admin flag [Agent]'
+    YoYo.Registry -> Dan.UAS 'list'
+    Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
+  }
+
   dynamic view authorization-data-app {
     title: 'Authorization data (app)'
 

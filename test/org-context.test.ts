@@ -207,12 +207,15 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
       timeout: 20_000,
     })
 
-    // ...and demotes him again
-    const demoted = await rpcCall<{ id: string; admin: boolean }>(
+    // ...and demotes him again (activity-first step 6: the ack echoes the
+    // revoked AdminAuthorization id + the activity id; the workflow DELETEs
+    // the resource, revokes grants + the ACR rewrite)
+    const demoted = await rpcCall<{ id: string; activityId: string }>(
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toBe(bobId)
+    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.activityId).toEqual(expect.any(String))
     await waitFor(async () => (await orgContextAdminFlag(bobId, danCookie)) === false, {
       timeout: 20_000,
     })

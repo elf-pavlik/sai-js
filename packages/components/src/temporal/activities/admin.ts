@@ -82,6 +82,26 @@ export async function recordAdminAuthorizationAtId(payload: {
   })
 }
 
+/**
+ * The activity-first removeAdmin leg (step 6): DELETE the AdminAuthorization
+ * at the EXISTING id with the context's own session. Find-first by the
+ * STABLE id — idempotent under retries/reconcile: a retry after a crash
+ * between the DELETE and the completion sees the resource already gone and
+ * skips (must NOT throw — the affected set rides the embedded object).
+ */
+export async function deleteAdminAuthorizationAtId(payload: {
+  webId: SocialAgentId
+  authorization: EmbeddedAdminAuthorization
+}): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const existing = await fetchJsonLd(payload.authorization.id, session.fetch).catch(
+    (): undefined => undefined
+  )
+  if (!existing) return
+  await session.deleteAdminAuthorization(payload.authorization.id)
+}
+
 const acp = {
   AccessControl: 'http://www.w3.org/ns/solid/acp#AccessControl',
   anyOf: 'http://www.w3.org/ns/solid/acp#anyOf',

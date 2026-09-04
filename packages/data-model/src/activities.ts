@@ -182,9 +182,9 @@ export type AdminAuthorizationRecordedId = {
 
 /**
  * Embedded AdminAuthorization — the full wire shape shared by the recorded
- * (real-id embedded projection at the pre-minted id, step 5) and revoked
- * (urn:uuid snapshot — the RPC deletes the resource synchronously until
- * step 6) objects. The admin's `grantee` rides inside either way.
+ * and revoked objects (real-id embedded projections at their ids, steps 5–6;
+ * previously a urn:uuid snapshot). The admin's `grantee` rides inside either
+ * way.
  */
 export type EmbeddedAdminAuthorization = {
   id: string
@@ -194,18 +194,26 @@ export type EmbeddedAdminAuthorization = {
   scopeOfAuthorization: string
 }
 
-/** Admin authorization revoked (org context). */
-export type AdminAuthorizationRevoked = ActivityBase & {
+/** Admin authorization revoked (org context — activity-first step 6).
+ * `target` dropped: the revoked record's id rides `object.id`. The object
+ * is a real-id embedded projection of the EXISTING AdminAuthorization at its
+ * real id (alive at write) — the `removeAdmin` workflow DELETEs it, revokes
+ * grants + the ACR rewrite, then completes. The last-admin guard stays a
+ * validation read in the RPC and is re-checked by `syncAdminAcr`. */
+export type AdminAuthorizationRevoked = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'AdminAuthorizationRevoked']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
-  /** the AuthorizationRegistry */
-  target: string
-  /** urn:uuid snapshot of the AdminAuthorization (the admin's `grantee`
-   *  inside — the RPC deletes the resource synchronously in A, so the
-   *  object must embed it; the workflow DELETEs from step 8 on and the
-   *  object returns to the live-link form) */
+  /** the AdminAuthorization — real-id embedded projection at the EXISTING
+   *  id (never dereferenced — the workflow deletes it) */
   object: EmbeddedAdminAuthorization
+}
+
+/** Typed activity ref for the `removeAdmin` workflow's completion — the XId
+ * pattern for temporal inputs (refs stay TS-level, never on the wire). */
+export type AdminAuthorizationRevokedId = {
+  id: string
+  type: AdminAuthorizationRevoked['type']
 }
 
 /**

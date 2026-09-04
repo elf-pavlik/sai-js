@@ -2,6 +2,7 @@ import type {
   AgentId,
   ActivityData,
   AdminAuthorizationRecorded,
+  AdminAuthorizationRevoked,
   DelegatedGrantsUpdated,
   FinalGrantData,
   GrantId,
@@ -23,7 +24,10 @@ import {
   setHandler,
 } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
-import { createAdminGrants, processAdminAuthorizationRecorded, revokeAdminGrants, syncAdminAcr } from './admin.js'
+import {
+  processAdminAuthorizationRecorded,
+  processAdminAuthorizationRevoked,
+} from './admin.js'
 import type { AdminWorkflowInput } from './admin.js'
 import { createInvitation } from './invitation.js'
 
@@ -404,13 +408,13 @@ export async function reconcileActivities(payload: {
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'AdminAuthorizationRevoked')) {
-      // step 6 leg — unchanged: grants + ACR orchestrated here, children
-      // never mark done themselves (see processAdminChange)
-      const admin = await resolveActivityGrantee({ activity })
-      if (!admin) continue
-      const args: [AdminWorkflowInput] = [{ webId: payload.webId, admin, activityId: activity.id }]
-      await executeChild(revokeAdminGrants, { args })
-      await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
+      // step 6 — the workflow DELETEs the AdminAuthorization at the embedded
+      // id, revokes grants + the ACR rewrite, then completes (self-completing;
+      // the outer markActivitiesDone is the accepted duplicate)
+      const revoked = activity as AdminAuthorizationRevoked
+      await executeChild(processAdminAuthorizationRevoked, {
+        args: [payload.webId, revoked.object, { id: activity.id, type: [...revoked.type] }],
+      })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'InvitationCreated')) {
       // step 1 — same routing as the webhook handler: the workflow PUTs the

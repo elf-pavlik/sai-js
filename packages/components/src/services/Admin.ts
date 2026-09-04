@@ -3,11 +3,14 @@ import type {
   AdminAuthorizationRecorded,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
-import { AdminAuthorizationRecordedMessage, IRI } from '@janeirodigital/sai-api-messages'
+import {
+  AdminAuthorizationRecordedMessage,
+  AdminAuthorizationRevokedMessage,
+  IRI,
+} from '@janeirodigital/sai-api-messages'
 import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
-import type { SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { buildSocialAgentProfile, findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
+import { findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
 
 /**
@@ -63,14 +66,19 @@ export const addAdmin = async (
 }
 
 /**
- * Demote a registered social agent from org admin: delete the
- * `AdminAuthorization` (refusing to remove the last admin), then write the
- * `adminAuthorizationRevoked` activity which drives the grant/ACR workflows.
+ * Demote a registered social agent from org admin (activity-first step 6 —
+ * the R1 re-decision's remove half): the RPC keeps the VALIDATION reads
+ * (registered, admin-exists, last-admin guard) and writes the
+ * `adminAuthorizationRevoked` activity (object = the EXISTING
+ * AdminAuthorization as a real-id embedded projection at its id — `target`
+ * dropped). The `removeAdmin` workflow DELETEs the resource at that id,
+ * revokes the admin grants + the ACR rewrite (re-guarding the last admin via
+ * `syncAdminAcr`), then completes.
  */
 export const removeAdmin = async (
   ctx: ResolvedContext,
   webId: S.Schema.Type<typeof IRI>
-): Promise<S.Schema.Type<typeof SocialAgent>> => {
+): Promise<S.Schema.Type<typeof AdminAuthorizationRevokedMessage>> => {
   const registration = await findSocialAgentRegistrationInContext(ctx, webId)
   if (!registration) throw new Error(`Social Agent Registration for ${webId} not found`)
 
@@ -78,7 +86,9 @@ export const removeAdmin = async (
   const existing = await ctx.session.findAdminAuthorization(webId, authorizationRegistry)
   if (!existing) throw new Error(`Admin Authorization for ${webId} not found`)
 
-  // last-admin guard — the org must never end up adminless (enforced again by syncAdminAcr)
+  // last-admin guard — the org must never end up adminless; sails as a
+  // RPC-time validation read (R1 re-decision) and is re-checked by the
+  // workflow's syncAdminAcr
   let count = 0
   for (const _adminAuthorization of await ctx.session.adminAuthorizations(authorizationRegistry)) {
     count += 1
@@ -87,16 +97,14 @@ export const removeAdmin = async (
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  // the demoted admin's grantee rides a urn:uuid SNAPSHOT of the
-  // AdminAuthorization — the RPC deletes the resource synchronously below, so
-  // a live link would be unresolvable at dispatch time (step 8 moves the
-  // delete into the workflow and the object returns to the live-link form)
+  // activity-first: the existing AdminAuthorization (alive at write) rides
+  // as a real-id embedded projection at its real id — `target` dropped; the
+  // workflow DELETEs the resource at object.id (404-tolerant, idempotent)
   const activity: Omit<AdminAuthorizationRevoked, 'id'> = {
     type: ['Activity', 'AdminAuthorizationRevoked'],
     actor: ctx.webId,
-    target: authorizationRegistry.id,
     object: {
-      id: `urn:uuid:${ctx.session.randomUUID()}`,
+      id: existing.id,
       type: existing.type,
       grantee: existing.grantee,
       grantedBy: existing.grantedBy,
@@ -104,12 +112,15 @@ export const removeAdmin = async (
     },
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(
+  const created = await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     activity
   )
-  await ctx.session.deleteAdminAuthorization(existing.id)
-
-  return buildSocialAgentProfile(registration, ctx, false)
+  // pending ack — echoes the revoked AdminAuthorization id (pending handle)
+  // + the triggering activity id (the uniform UI claim anchor)
+  return AdminAuthorizationRevokedMessage.make({
+    id: IRI.make(existing.id),
+    activityId: IRI.make(created.id),
+  })
 }

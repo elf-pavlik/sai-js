@@ -64,6 +64,7 @@ accept-invitation = Accept invitation
 update-role = Update role
 delete-role = Delete role
 add-admin = Add admin
+remove-admin = Remove admin
 
 invitation-link-input =
   .label = Invitation link

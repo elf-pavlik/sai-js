@@ -1,6 +1,7 @@
 import type {
   AgentId,
   AdminAuthorizationRecordedId,
+  AdminAuthorizationRevokedId,
   EmbeddedAdminAuthorization,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
@@ -16,6 +17,7 @@ const {
   findAdminGrants,
   deleteAdminGrants,
   recordAdminAuthorizationAtId,
+  deleteAdminAuthorizationAtId,
   syncAdminAcr: syncAdminAcrActivity,
 } = proxyActivities<typeof adminActivities>({
   startToCloseTimeout: '1 minute',
@@ -38,11 +40,6 @@ export interface AdminWorkflowInput {
   admin: AgentId
   /** IRI of the activity that triggered this workflow — completed by the orchestrator / grantee consumer once the ACR rewrite also succeeded */
   activityId?: string
-}
-
-/** Input of the sequential orchestrator the webhook handler starts (phase 4). */
-export interface AdminChangeInput extends AdminWorkflowInput {
-  activityType: 'adminAuthorizationRecorded' | 'adminAuthorizationRevoked'
 }
 
 /**
@@ -105,30 +102,6 @@ export async function syncAdminAcr(payload: {
 }
 
 /**
- * Sequential orchestrator (phase 4): grants materialization THEN the derived
- * ACR rewrite, and only when both succeeded is the activity marked done. The
- * webhook handler starts only this workflow (previously two parallel
- * workflows each marked done — an activity completed while the ACR rewrite
- * had failed, and successful runs wrote duplicate completions). The grantee
- * consumer in grants.ts mirrors the same order.
- */
-export async function processAdminChange(payload: AdminChangeInput): Promise<void> {
-  await executeChild(
-    payload.activityType === 'adminAuthorizationRecorded' ? createAdminGrants : revokeAdminGrants,
-    {
-      args: [{ webId: payload.webId, admin: payload.admin }],
-    }
-  )
-  await executeChild(syncAdminAcr, { args: [{ webId: payload.webId }] })
-  if (payload.activityId) {
-    await markActivitiesDone({
-      webId: payload.webId,
-      activities: [{ id: payload.activityId }],
-    })
-  }
-}
-
-/**
  * The activity-first addAdmin leg (step 5): the RPC wrote only the activity
  * (object = the AdminAuthorization-to-be at the PRE-MINTED id) — this
  * workflow PUTs the AdminAuthorization there (find-first idempotent), then
@@ -144,6 +117,27 @@ export async function processAdminAuthorizationRecorded(
 ): Promise<void> {
   await recordAdminAuthorizationAtId({ webId, authorization })
   await executeChild(createAdminGrants, {
+    args: [{ webId, admin: { id: authorization.grantee, type: [SOCIAL_AGENT_TYPE] } }],
+  })
+  await executeChild(syncAdminAcr, { args: [{ webId }] })
+  await markActivitiesDone({ webId, activities: [activity] })
+}
+
+/**
+ * The activity-first removeAdmin leg (step 6): the RPC wrote only the
+ * activity (object = the existing AdminAuthorization, real-id embedded at
+ * its id) — this workflow DELETEs the AdminAuthorization there (find-first,
+ * 404-tolerant), revokes the admin grants and runs the ACR rewrite
+ * (re-guarding the last admin), and only when ALL succeeded marks the
+ * activity done. The triggering activity rides as a typed ref.
+ */
+export async function processAdminAuthorizationRevoked(
+  webId: SocialAgentId,
+  authorization: EmbeddedAdminAuthorization,
+  activity: AdminAuthorizationRevokedId
+): Promise<void> {
+  await deleteAdminAuthorizationAtId({ webId, authorization })
+  await executeChild(revokeAdminGrants, {
     args: [{ webId, admin: { id: authorization.grantee, type: [SOCIAL_AGENT_TYPE] } }],
   })
   await executeChild(syncAdminAcr, { args: [{ webId }] })

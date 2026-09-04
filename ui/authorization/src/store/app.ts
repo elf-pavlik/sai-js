@@ -372,8 +372,17 @@ export const useAppStore = defineStore('app', () => {
         activityId: result.activityId,
       })
     } else {
-      await effect.removeAdmin(webId, currentContext())
-      listSocialAgents(true)
+      // activity-first (step 6): the AdminAuthorization is DELETEd by the
+      // removeAdmin workflow later (the ack echoes the revoked id +
+      // activityId) — the AdminAuthorizationRevoked done-row (events.ts)
+      // refreshes the agent list; the snackbar claims the activity by the
+      // ack-echoed activityId
+      const result = await effect.removeAdmin(webId, currentContext())
+      claimActivity({
+        context: currentContext(),
+        type: 'AdminAuthorizationRevoked',
+        activityId: result.activityId,
+      })
     }
   }
 

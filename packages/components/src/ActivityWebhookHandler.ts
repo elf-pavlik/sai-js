@@ -33,8 +33,10 @@ import type { SessionManager } from './SessionManager'
 import type { CreateGrantsInput } from './temporal/activities/grants.js'
 import type { ReciprocalWebhookInput } from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
-import { processAdminChange } from './temporal/workflows/admin.js'
-import type { AdminChangeInput } from './temporal/workflows/admin.js'
+import {
+  processAdminAuthorizationRecorded,
+  processAdminAuthorizationRevoked,
+} from './temporal/workflows/admin.js'
 import {
   granteeActivitiesSignal,
   processGranteeActivities,
@@ -43,7 +45,6 @@ import {
   processRoleMembershipChange,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
-import { processAdminAuthorizationRecorded } from './temporal/workflows/admin.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
 import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
 
@@ -273,22 +274,17 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           workflowId: crypto.randomUUID(),
         })
       } else {
-        // step 6 leg — unchanged: the admin rides the urn:uuid snapshot
-        // (the RPC still deletes the resource synchronously); the
-        // processAdminChange orchestrator completes after grants + ACR
+        // step 6 — the object IS the existing AdminAuthorization (real-id
+        // embedded projection at its id); the removeAdmin workflow DELETEs
+        // it, revokes grants + the ACR rewrite, then completes
         const decoded = S.decodeUnknownSync(AdminAuthorizationRevoked)(activity as never)
-        const admin = (decoded as { object: { grantee: string } }).object.grantee
-        const args: [AdminChangeInput] = [
-          {
-            webId: socialAgentRef(channel.webId),
-            admin: socialAgentRef(admin),
-            activityType: 'adminAuthorizationRevoked',
-            activityId: activity.id,
-          },
-        ]
-        await client.workflow.start(processAdminChange, {
+        await client.workflow.start(processAdminAuthorizationRevoked, {
           taskQueue: 'create-grants',
-          args,
+          args: [
+            socialAgentRef(channel.webId),
+            { ...decoded.object, type: [...decoded.object.type] },
+            { id: activity.id, type: [...decoded.type] },
+          ],
           workflowId: crypto.randomUUID(),
         })
       }

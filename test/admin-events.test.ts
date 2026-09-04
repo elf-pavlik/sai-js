@@ -106,13 +106,16 @@ describe('org context — admin event forwarding (phase 3)', () => {
     expect(done!.activity.actor).toBe(yoyoId)
 
     // demote bob again — the distinct adminAuthorizationRevoked activity flows
-    // through the same channel (distinct shape, no granted-flag reuse)
+    // through the same channel (distinct shape, no granted-flag reuse);
+    // activity-first (step 6): the ack echoes the revoked AdminAuthorization
+    // id + the activity id (the uniform UI claim anchor)
     const stream2 = await openEventsStream(danCookie)
     const demoted = await rpcCall<{ id: string }>(
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toBe(bobId)
+    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.activityId).toEqual(expect.any(String))
 
     const revoked = await awaitEvent(
       stream2,
@@ -407,7 +410,8 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toBe(bobId)
+    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.activityId).toEqual(expect.any(String))
 
     const revokedPending = await awaitEvent(
       stream2,

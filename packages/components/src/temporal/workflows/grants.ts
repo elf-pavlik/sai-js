@@ -6,7 +6,6 @@ import type {
   DelegatedGrantsUpdated,
   FinalGrantData,
   GrantId,
-  GrantsRevoked,
   InvitationCreated,
   RoleData,
   RoleDeleted,
@@ -56,9 +55,7 @@ const {
   findRoleUsage,
   storeDataGrant,
   createAcr,
-  removeDataGrantsFromRegistration,
   requestDelegation,
-  requestGrantRevocation,
   replaceDataGrantsOnRegistration,
   getPendingGranteeActivities,
   getPendingActivities,
@@ -208,27 +205,6 @@ export async function updateDelegatedGrants(
  * grants plus their inheriting children; the response echo drives the link
  * cleanup here.
  */
-export async function processGrantsRevocation(
-  payload: activities.ProcessGrantsRevocationInput
-): Promise<void> {
-  await requestGrantRevocation({
-    webId: payload.webId,
-    dataOwner: payload.dataOwner,
-    grants: payload.grants,
-  })
-  await removeDataGrantsFromRegistration({
-    webId: payload.webId,
-    grantee: payload.grantee,
-    grants: payload.grants,
-  })
-  if (payload.activityId) {
-    await markActivitiesDone({
-      webId: payload.webId,
-      activities: [{ id: payload.activityId }],
-    })
-  }
-}
-
 export async function processRoleMembershipChange(
   webId: SocialAgentId,
   role: RoleData,
@@ -378,20 +354,6 @@ export async function reconcileActivities(payload: {
           {
             webId: payload.webId,
             peerId: { id: decoded.target, type: [SOCIAL_AGENT_TYPE] },
-            activityId: activity.id,
-          },
-        ],
-      })
-      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
-    } else if (isActivityClass(activity, 'GrantsRevoked')) {
-      const grantsRevoked = activity as GrantsRevoked
-      await executeChild(processGrantsRevocation, {
-        args: [
-          {
-            webId: payload.webId,
-            grantee: { id: grantsRevoked.grantee, type: [SOCIAL_AGENT_TYPE] },
-            dataOwner: grantsRevoked.dataOwner,
-            grants: grantsRevoked.object.map((id) => ({ id, type: [DATA_GRANT_TYPE] })),
             activityId: activity.id,
           },
         ],

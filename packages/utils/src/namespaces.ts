@@ -43,7 +43,6 @@ export const INTEROP = createVocabulary(
   'grantedBy',
   'grantee',
   'GrantRegistry',
-  'GrantsRevoked',
   'hasAccessAuthorization',
   'hasAccessDescriptionSet',
   'hasAccessNeed',

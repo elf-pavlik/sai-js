@@ -104,10 +104,7 @@ function handleActivity(activity: ActivityEvent) {
     // completion (never from an RPC or activity) — the done-row refresh does
     // exactly that via the invitation list
     appStore.listSocialAgentInvitations(true)
-  } else if (
-    activity.type.includes('DelegatedGrantsUpdated') ||
-    activity.type.includes('GrantsRevoked')
-  ) {
+  } else if (activity.type.includes('DelegatedGrantsUpdated')) {
     appStore.listSocialAgents(true)
   } else if (
     // org-admin (Phase 1/3): the admin marker lands via the grant workflow —

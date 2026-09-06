@@ -3,11 +3,12 @@
 //
 // Relocated from authorization-agent (payload-contract-alignment §2, decision
 // (a2)) so the activity classes (`AuthorizationRequested`/`ShareRequested`)
-// can embed them: `data-model` is the anchor of the payload contract and
-// must not import from authorization-agent, so the canonical shapes live
-// here; authorization-agent re-exports them (source-compatible). Fields stay
-// domain-shaped plain-IRI strings — no `{ id, type }` refs, satisfying the
-// storage law for SPARQL-queried registries.
+// can embed them (if the flat carriers are adopted — authorization-granting.md
+// Decision A decides use-or-drop): `data-model` is the anchor of the payload
+// contract and must not import from authorization-agent, so the canonical
+// shapes live here; authorization-agent re-exports them (source-compatible).
+// Fields stay domain-shaped plain-IRI strings — no `{ id, type }` refs,
+// satisfying the storage law for SPARQL-queried registries.
 // ──────────────────────────
 
 /** One data authorization of an authorization (scope is the interop IRI). */

@@ -1,9 +1,14 @@
 # `authorizationRevoked` activity — typed revocation
 
-> **Status:** design only. Extracted from `workflow-temporal-decupling.md`
-> Phase 4.4. The routing (handler, per-target consumer, reconciliation sweep)
-> already supports `authorizationRevoked`; only the **producer** still needs to
-> write it.
+> **Status: design only — adopted by the separate plan
+> [`authorization-revocation.md`](authorization-revocation.md) (the
+> authorization-revocation leg, extracted from `activity-first-services.md`
+> step 4).** Extracted from
+> `workflow-temporal-decupling.md` Phase 4.4. The routing (handler,
+> per-target consumer, reconciliation sweep) already supports
+> `authorizationRevoked`; only the **producer** still needs to write it — the
+> plan's revokeGrants step makes the UI's revoke target the **authorization**
+> (this producer) and moves the grant revocation into a workflow.
 
 ## 1. Problem
 

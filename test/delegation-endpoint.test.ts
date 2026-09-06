@@ -1,14 +1,10 @@
-import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris, type GrantsRevoked } from '@janeirodigital/interop-data-model'
+import { buildOidcSession, issuanceUrl } from '@elfpavlik/sai-components'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
 import { ACL, INTEROP, LDP, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { waitFor } from './util'
 import { SOLIDTREES } from './vocabularies'
 
 const bobId = 'https://id/bob'
-const aliceId = 'https://id/alice'
 const acmeId = 'https://id/acme'
 const testClient = 'https://data/test-client/public/id'
 const grantRegistry = 'https://registry/acme/grant/'
@@ -151,70 +147,6 @@ describe('DelegationRevocationEndpoint', () => {
     })
     expect(response.status).toBe(403)
     expect(await countGrants()).toBe(seededGrantCount + 2)
-  })
-})
-
-describe('DelegationRevocationRequesterHop', () => {
-  test('pending activity → AccessRevocation → registration cleared → done', async () => {
-    // seeded fixtures (no runtime grant issuance): alice's application
-    // registration for testClient (registry/alice/application/cvmsa4/) already links
-    // the seeded acme grants wwp4j6 (Project parent) and qwvbcu (inheriting
-    // Task child); the only writer is the requester-hop workflow
-    const aliceGrant = 'https://registry/acme/grant/wwp4j6'
-    const aliceChildGrant = 'https://registry/acme/grant/qwvbcu'
-
-    const manager = buildSessionManager()
-    const aliceSession = await manager.getSession(aliceId)
-
-    // pending grantsRevoked activity in alice's outbox → the seeded
-    // activity-webhook channel starts processGrantsRevocation
-    const activityRegistry = aliceSession.registrySet.hasActivityRegistry
-    if (!activityRegistry) throw new Error('activity registry not found')
-    const grantsRevokedActivity: Omit<GrantsRevoked, 'id'> = {
-      type: ['Activity', 'GrantsRevoked'],
-      actor: aliceId,
-      target: aliceId,
-      grantee: testClient,
-      dataOwner: acmeId,
-      object: [aliceGrant, aliceChildGrant],
-      createdAt: new Date().toISOString(),
-    }
-    await ActivityRegistry.createActivity(
-      activityRegistry,
-      { fetch: aliceSession.fetch, randomUUID: aliceSession.randomUUID },
-      grantsRevokedActivity
-    )
-
-    // await the requester-hop workflow to completion FIRST — a failing test
-    // must not leave the workflow running into the next test's reseed
-    const registry = aliceSession.registrySet.hasActivityRegistry!
-    await waitFor(
-      async () => {
-        const completed = await ActivityRegistry.getCompletedActivityIris(
-          registry,
-          aliceSession.fetch
-        )
-        if (!completed.length) return false
-        const all = await ActivityRegistry.getActivityIris(registry, aliceSession.fetch)
-        for (const iri of all) {
-          const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
-          if (activity.type.includes('GrantsRevoked') && completed.includes(activity.id)) {
-            return true
-          }
-        }
-        return false
-      },
-      { timeout: 30_000 }
-    )
-
-    // the grants are revoked in acme's registry (parent + inheriting child) …
-    expect(await countGrants()).toBe(seededGrantCount - 2)
-    // … and the grantor's registration projection is cleared
-    const refreshed = await aliceSession.findApplicationRegistration(testClient)
-    if (!refreshed) throw new Error('application registration not found')
-    const iris = await getDataGrantIris(refreshed)
-    expect(iris).not.toContain(aliceGrant)
-    expect(iris).not.toContain(aliceChildGrant)
   })
 })
 

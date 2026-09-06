@@ -56,7 +56,6 @@ describe('vocabularies', () => {
     expect(INTEROP.DelegatedGrantsUpdated).toBe(
       'http://www.w3.org/ns/solid/interop#DelegatedGrantsUpdated'
     )
-    expect(INTEROP.GrantsRevoked).toBe('http://www.w3.org/ns/solid/interop#GrantsRevoked')
     expect(INTEROP.AuthorizationRequested).toBe(
       'http://www.w3.org/ns/solid/interop#AuthorizationRequested'
     )

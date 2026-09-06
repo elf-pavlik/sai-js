@@ -18,7 +18,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
   consumer per (webId, grantee));
 - **one workflow per type** (`activityWorkflows` map): `roleMembershipChanged`,
   `roleDeleted`, `agentRegistrationAdded`, `invitationAccepted`,
-  `invitationCreated`, `delegatedGrantsUpdated`, `grantsRevoked` → matching
+  `invitationCreated`, `delegatedGrantsUpdated` → matching
   Temporal workflow on its task queue;
 - completions (`activityCompleted`) never dispatch, only forward.
 
@@ -34,7 +34,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 | `invitationAccepted` | `acceptInvitation` service (acceptor's Activity Registry — own or org) | `acceptInvitation` (acceptor's workflow) |
 | `invitationCreated` | `createInvitation` RPC (activity-only — step 1; the workflow PUTs the invitation and generates the capabilityUrl there) | `createInvitation` (workflow, `create-grants` queue) |
 | `delegatedGrantsUpdated` | `ReciprocalWebhookHandler.ts` | `updateDelegatedGrants` |
-| `grantsRevoked` | revocation boundary (`revoke-delegation-chain.md`) | `processGrantsRevocation` |
+| `grantsRevoked` | **retired by the activity-first cleanup (step 4 — executed)**: dormant (no producer); grants are only revoked via the **issuance endpoint** and **from workflows** (`revoke-delegation-chain.md`); the authorization-revocation leg lives in [`authorization-revocation.md`](authorization-revocation.md) | — (wiring retired with the class) |
 | `activityCompleted` | Temporal completions | — (forwarding only) |
 
 ## New: admin event (org-admin Phase 1 + activity-first step 5)

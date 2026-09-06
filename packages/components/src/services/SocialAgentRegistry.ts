@@ -1,5 +1,5 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { ActivityRegistry, AgentRegistry } from '@janeirodigital/interop-authorization-agent'
+import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
   type InvitationAccepted,
   type SocialAgentRegistrationData,
@@ -160,27 +160,6 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
   }
 
   return profiles
-}
-
-export const addSocialAgent = async (
-  ctx: ResolvedContext,
-  data: { webId: string; label: string; note?: string }
-) => {
-  const existing = await findSocialAgentRegistrationInContext(ctx, data.webId)
-  if (existing) {
-    // logger.error('SocialAgentRegistration already exists', { webId: data.webId })
-    return buildSocialAgentProfile(existing, ctx)
-  }
-  const registration = await AgentRegistry.addSocialAgentRegistration(
-    ctx.registrySet.hasSocialAgentRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
-    { agent: ctx.webId, client: ctx.session.agentId },
-    data.webId,
-    data.label,
-    data.note
-  )
-
-  return buildSocialAgentProfile(registration, ctx)
 }
 
 /**

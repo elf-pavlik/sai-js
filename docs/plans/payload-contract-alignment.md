@@ -149,8 +149,11 @@ effect-free and must not import `api-messages`. ⇒ the canonical shapes live in
   structure-field terms (`accessNeed`, `agentType`, `granted`,
   `applicationId`, `resource`, `children`, `agents`, …) — the structures'
   own serialization vocabulary, unrelated to the activity context.
-  **Followup (see §5):** evaluate other approaches when activity-first
-  steps 2–3 land.
+  **Followup:** the flat `authorization: <structure>` carrier (and the fate
+  of `AuthorizationRequested`/`ShareRequested` — **use** them, completing
+  their routing, **or drop** them) is decided by
+  [`authorization-granting.md`](authorization-granting.md) (Decision A — the
+  granting leg; supersedes the stale "activity-first steps 2–3" reference).
 - **`actor` = `as:actor` (decided).** The activity's owner field is named
   `actor` (ActivityStreams) and maps to `as:actor` — verified the generic
   `webId` predicate is used **nowhere else** (no `WebId` term in
@@ -409,8 +412,8 @@ in §5).
 | `DelegatedGrantsUpdated` | `actor: string; target: <the peer>; object: <reciprocal registration IRI>` (`peerId` derivable — `registeredAgent` inside) | `ReciprocalWebhookHandler` | `updateDelegatedGrants` / `FindAffectedAuthorizationsInput` |
 | `GrantsRevoked` | `actor: string; grantee: string; dataOwner: string; object: [<grant IRIs>]` (`as:object` set — the revoked grants; `grantee`/`dataOwner` reuse the existing interop terms) | `Revocation.ts` `revokeGrants` *(producer lands in activity-first step 6)* | `processGrantsRevocation` / `ProcessGrantsRevocationInput` |
 | `ActivityCompleted` | **no own fields** — `target: string` (plain IRI — the completed activity IRI; its type is found by reading the target, not embedded in the completion) | `markActivitiesDone` / `ActivityRegistry.createCompletion` | forwarding only |
-| `AuthorizationRequested` *(new — activity-first step 2)* | `actor: string; target: <AuthorizationRegistry>; authorization: AuthorizationStructure‡` (flat — structure-based, followup) | `authorizeApp` RPC | `processAuthorizationRecorded` (new) |
-| `ShareRequested` *(new — activity-first step 3)* | `actor: string; target: <data registry>; authorization: ShareDataInstanceStructure‡; applicationId: string` (flat — structure-based, followup) | `shareResource` RPC | `processShareRequested` (new) |
+| `AuthorizationRequested` *(candidate — NOT adopted; flat carrier, fate decided by [`authorization-granting.md`](authorization-granting.md) Decision A — use or drop)* | `actor: string; target: <AuthorizationRegistry>; authorization: AuthorizationStructure‡` (flat — structure-based, followup) | `authorizeApp` RPC *(only if adopted)* | `processAuthorizationRecorded` (new, only if adopted) |
+| `ShareRequested` *(candidate — NOT adopted; flat carrier, fate decided by [`authorization-granting.md`](authorization-granting.md) Decision A — use or drop)* | `actor: string; target: <data registry>; authorization: ShareDataInstanceStructure‡; applicationId: string` (flat — structure-based, followup) | `shareResource` RPC *(only if adopted)* | `processShareRequested` (new, only if adopted) |
 
 † `capabilityUrl` is deliberately the one protocol-opaque plain string
 (`federation.md`) — the acceptor must not parse it and never learns the

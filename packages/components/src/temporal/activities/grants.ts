@@ -436,50 +436,6 @@ export async function requestDelegation(payload: { grantData: GrantData }): Prom
   return iris.map((id) => ({ id, type: [INTEROP.DataGrant] }))
 }
 
-export interface RequestGrantRevocationInput {
-  webId: SocialAgentId
-  dataOwner: string
-  grants: GrantId[]
-}
-
-export interface ProcessGrantsRevocationInput {
-  webId: SocialAgentId
-  grantee: AgentId
-  dataOwner: string
-  grants: GrantId[]
-  /** IRI of the activity that triggered this workflow — marked done on success */
-  activityId?: string
-}
-
-/**
- * POST an interop:AccessRevocation to the data owner's delegation endpoint
- * (mirror of requestDelegation). The response echoes the removed grant IRIs;
- * the requester's registration cleanup happens in the workflow after this
- * succeeds.
- */
-export async function requestGrantRevocation(payload: RequestGrantRevocationInput): Promise<void> {
-  const manager = buildSessionManager()
-  const session = await manager.getSession(payload.webId.id)
-
-  const endpoint = await discoverDelegationIssuanceEndpoint(payload.dataOwner, session.fetch)
-  const response = await session.fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      type: [INTEROP.AccessRevocation],
-      grants: payload.grants.map((grant) => grant.id!),
-    }),
-  })
-  if (!response.ok) {
-    throw new Error(await response.text())
-  }
-  if (response.status !== 200) {
-    throw new Error(`expected 200 but received ${response.status}`)
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Registration link/unlink
 // ---------------------------------------------------------------------------
@@ -512,30 +468,6 @@ export async function replaceDataGrantsOnRegistration(
   await replaceDataGrants(
     agentRegistration,
     session.fetch,
-    payload.grants.map((grant) => grant.id!)
-  )
-}
-
-export interface RemoveDataGrantsFromRegistrationInput {
-  webId: SocialAgentId
-  grantee: AgentId
-  grants: GrantId[]
-}
-
-/**
- * Remove the given grant IRIs from the grantee's registration `hasDataGrant`
- * links — the requester hop: the grantor clears its projection after the
- * revocation response (§5 System 1). Rewrites the links via the regeneration
- * path's proven single-PATCH replacement (`replaceDataGrants`), so the removal
- * never takes the delete-only `removeDataGrant` route.
- */
-export async function removeDataGrantsFromRegistration(
-  payload: RemoveDataGrantsFromRegistrationInput
-): Promise<void> {
-  const manager = buildSessionManager()
-  const session = await manager.getSession(payload.webId.id)
-  await session.removeGrantsFromRegistration(
-    payload.grantee.id,
     payload.grants.map((grant) => grant.id!)
   )
 }

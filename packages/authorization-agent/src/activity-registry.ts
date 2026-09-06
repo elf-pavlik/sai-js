@@ -267,15 +267,6 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         actor,
         object: asString(node.object),
       }
-    case 'GrantsRevoked':
-      return {
-        ...base,
-        type: canonicalType as ['Activity', 'GrantsRevoked'],
-        actor,
-        grantee: asString(node.grantee),
-        dataOwner: asString(node.dataOwner),
-        object: asStringArray(node.object),
-      }
     case 'ActivityCompleted':
       return { ...base, type: canonicalType as ['Activity', 'ActivityCompleted'] }
     default:

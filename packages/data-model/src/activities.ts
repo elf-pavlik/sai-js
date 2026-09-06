@@ -24,7 +24,9 @@ import type { SocialAgentInvitationData } from './social-agent-invitation'
 // or linked POJO.
 //
 // `AuthorizationRequested`/`ShareRequested` stay flat (structure-based —
-// followup in payload-contract-alignment.md §5).
+// candidates, NOT adopted; their fate — use or drop — is decided by
+// authorization-granting.md Decision A, superseding the payload-contract
+// followup reference).
 // ──────────────────────────
 
 type ActivityBase = {
@@ -319,19 +321,6 @@ export type DelegatedGrantsUpdated = ActivityBase & {
   object: string
 }
 
-/** Grants revoked (producer lands in activity-first step 6). */
-export type GrantsRevoked = ActivityBase & {
-  type: ['Activity', 'GrantsRevoked']
-  /** as:actor — plain IRI (the registry owner) */
-  actor: string
-  /** interop:grantee — plain IRI */
-  grantee: string
-  /** interop:dataOwner — plain IRI */
-  dataOwner: string
-  /** the revoked grant IRIs — as:object set */
-  object: string[]
-}
-
 /** Authorization requested via RPC (future — activity-first step 2). */
 export type AuthorizationRequested = ActivityBase & {
   type: ['Activity', 'AuthorizationRequested']
@@ -374,9 +363,8 @@ export type ActivityData =
   | RoleMembershipChanged
   | RoleDeleted
   | DelegatedGrantsUpdated
-  | GrantsRevoked
-  | AuthorizationRequested // future (activity-first step 2)
-  | ShareRequested // future (activity-first step 3)
+  | AuthorizationRequested // candidate — flat carrier (authorization-granting.md: use or drop)
+  | ShareRequested // candidate — flat carrier (authorization-granting.md: use or drop)
   | ActivityCompleted
 
 /**

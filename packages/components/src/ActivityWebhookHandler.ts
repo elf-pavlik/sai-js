@@ -10,7 +10,6 @@ import {
   AuthorizationRecorded,
   AuthorizationRevoked,
   DelegatedGrantsUpdated,
-  GrantsRevoked,
   InvitationAccepted,
   InvitationCreated,
   RoleDeleted,
@@ -40,7 +39,6 @@ import {
 import {
   granteeActivitiesSignal,
   processGranteeActivities,
-  processGrantsRevocation,
   processRoleDeletion,
   processRoleMembershipChange,
   updateDelegatedGrants,
@@ -338,25 +336,6 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           {
             webId: socialAgentRef(channel.webId),
             peerId: socialAgentRef(decoded.target),
-            activityId: activity.id,
-          },
-        ],
-        workflowId: crypto.randomUUID(),
-      })
-      return
-    }
-
-    if (isActivityClass(activity, 'GrantsRevoked')) {
-      const decoded = S.decodeUnknownSync(GrantsRevoked)(activity)
-      const grantee = await session.typeGrantee(decoded.grantee)
-      await client.workflow.start(processGrantsRevocation, {
-        taskQueue: 'create-grants',
-        args: [
-          {
-            webId: socialAgentRef(channel.webId),
-            grantee,
-            dataOwner: decoded.dataOwner,
-            grants: decoded.object.map((id) => ({ id, type: [INTEROP.DataGrant] })),
             activityId: activity.id,
           },
         ],

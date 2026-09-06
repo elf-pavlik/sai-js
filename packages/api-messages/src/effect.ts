@@ -520,18 +520,6 @@ export const DelegatedGrantsUpdated = S.Struct({
   object: S.String,
 })
 
-/** Grants revoked (producer lands in activity-first step 6). */
-export const GrantsRevoked = S.Struct({
-  ...activityBaseFields,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('GrantsRevoked')),
-  /** as:actor — plain IRI (the registry owner) */
-  actor: S.String,
-  grantee: S.String,
-  dataOwner: S.String,
-  /** the revoked grant IRIs — as:object set */
-  object: S.Array(S.String),
-})
-
 /** Authorization requested via RPC (future — activity-first step 2). */
 export const AuthorizationRequested = S.Struct({
   ...activityBaseFields,

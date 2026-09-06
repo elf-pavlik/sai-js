@@ -239,6 +239,23 @@ export const RoleDeletedMessage = S.Struct({
 })
 
 /**
+ * Pending acknowledgment of a role creation (activity-first step 9) — the
+ * RPC mints the role id and writes the `roleCreated` activity (object = the
+ * role-to-be, real-id embedded projection); the `createRole` workflow PUTs
+ * the role at the minted id and completes. The ack echoes the role-to-be
+ * (pending handle) + the triggering activity id (the uniform UI claim
+ * anchor).
+ */
+export const RoleCreatedMessage = S.Struct({
+  /** the role-to-be — the workflow PUTs the role to this state */
+  id: IRI,
+  label: S.String,
+  members: S.Array(IRI),
+  /** the triggering `roleCreated` activity's IRI */
+  activityId: IRI,
+})
+
+/**
  * Pending acknowledgment of an admin promotion (activity-first step 5 — R1
  * re-decision: validation reads stay in the RPC, the write moves to the
  * workflow) — the RPC pre-mints the AdminAuthorization id and writes the
@@ -489,6 +506,26 @@ export const RoleMembershipChanged = S.Struct({
   }),
 })
 
+/** Role created (activity-first step 9) — `target` dropped; the
+ * role-to-be rides `object` as a real-id embedded projection at the
+ * PRE-MINTED id. */
+export const RoleCreated = S.Struct({
+  id: S.String,
+  /** no `target` — the created role's id rides `object.id` (the embedded
+   *  role-to-be); the changed container is not consumed */
+  createdAt: S.String,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('RoleCreated'), S.Literal('as:Add')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the role-to-be — real-id embedded projection of the `RoleData` */
+  object: S.Struct({
+    id: S.String,
+    type: S.Array(S.String),
+    label: S.String,
+    members: S.Array(S.String),
+  }),
+})
+
 /** Role deleted (activity-first step 3) — `target` dropped; the
  * role-to-be-deleted rides `object` as a real-id embedded projection. */
 export const RoleDeleted = S.Struct({
@@ -715,7 +752,7 @@ export class ListRoles extends S.TaggedRequest<ListRoles>()('ListRoles', {
 
 export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
   failure: S.Never,
-  success: Role,
+  success: RoleCreatedMessage,
   payload: {
     label: S.String,
     members: S.Array(IRI),
@@ -872,7 +909,7 @@ export class SaiService extends Context.Tag('SaiService')<
       label: string,
       members: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof Role>>
+    ) => Effect.Effect<S.Schema.Type<typeof RoleCreatedMessage>>
     readonly updateRole: (
       id: IRI,
       label: string,

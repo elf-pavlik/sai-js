@@ -287,6 +287,27 @@ export type RoleMembershipChangedId = {
   type: RoleMembershipChanged['type']
 }
 
+/** Role created (activity-first step 9). `target` dropped: the created
+ * role's id rides `object.id`. The object is a real-id embedded projection
+ * of the role-to-be at the PRE-MINTED id — the `createRole` workflow PUTs
+ * the resource there (the `createInvitation` pattern) and completes; no
+ * derived work (no authorizations can exist before the role exists). */
+export type RoleCreated = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'RoleCreated', 'as:Add']
+  /** as:actor — plain IRI (the registry owner) */
+  actor: string
+  /** the role-to-be — real-id embedded projection at the pre-minted id
+   *  (never dereferenced — the workflow materializes it) */
+  object: RoleData
+}
+
+/** Typed activity ref for the `createRole` workflow's completion — the XId
+ * pattern for temporal inputs (refs stay TS-level, never on the wire). */
+export type RoleCreatedId = {
+  id: string
+  type: RoleCreated['type']
+}
+
 /** Role deleted (activity-first step 3). `target` dropped — the deleted
  * role's id rides `object.id`; the object is a real-id embedded projection
  * of the role-to-be-deleted (the full `RoleData`, alive at write) — the
@@ -362,6 +383,7 @@ export type ActivityData =
   | AuthorizationRevoked
   | RoleMembershipChanged
   | RoleDeleted
+  | RoleCreated
   | DelegatedGrantsUpdated
   | AuthorizationRequested // candidate — flat carrier (authorization-granting.md: use or drop)
   | ShareRequested // candidate — flat carrier (authorization-granting.md: use or drop)

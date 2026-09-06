@@ -8,6 +8,8 @@ import type {
   GrantId,
   InvitationCreated,
   RoleData,
+  RoleCreated,
+  RoleCreatedId,
   RoleDeleted,
   RoleDeletedId,
   RoleMembershipChanged,
@@ -53,6 +55,7 @@ const {
   deleteDataGrants,
   deleteAuthorizations,
   findRoleUsage,
+  createRoleAtId,
   storeDataGrant,
   createAcr,
   requestDelegation,
@@ -205,6 +208,19 @@ export async function updateDelegatedGrants(
  * grants plus their inheriting children; the response echo drives the link
  * cleanup here.
  */
+export async function createRole(
+  webId: SocialAgentId,
+  role: RoleData,
+  activity: RoleCreatedId
+): Promise<void> {
+  // activity-first step 9: the RPC wrote only the activity (object = the
+  // role-to-be at the PRE-MINTED id) — this workflow PUTs the role there
+  // (find-first idempotent), then completes. No derived work: no
+  // authorizations can exist before the role exists (the PUT is the create).
+  await createRoleAtId({ webId, role })
+  await markActivitiesDone({ webId, activities: [activity] })
+}
+
 export async function processRoleMembershipChange(
   webId: SocialAgentId,
   role: RoleData,
@@ -357,6 +373,15 @@ export async function reconcileActivities(payload: {
             activityId: activity.id,
           },
         ],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'RoleCreated')) {
+      // step 9 — the workflow PUTs the role at the pre-minted id, then
+      // completes (self-completing; the outer markActivitiesDone is the
+      // accepted duplicate)
+      const created = activity as RoleCreated
+      await executeChild(createRole, {
+        args: [payload.webId, created.object, { id: activity.id, type: [...created.type] }],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'AdminAuthorizationRecorded')) {

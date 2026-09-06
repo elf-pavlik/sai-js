@@ -105,6 +105,7 @@ export const dataModelContext: JsonLdContext = {
   AuthorizationRevoked: { '@id': INTEROP.AuthorizationRevoked },
   RoleMembershipChanged: { '@id': INTEROP.RoleMembershipChanged },
   RoleDeleted: { '@id': INTEROP.RoleDeleted },
+  RoleCreated: { '@id': INTEROP.RoleCreated },
   DelegatedGrantsUpdated: { '@id': INTEROP.DelegatedGrantsUpdated },
   AuthorizationRequested: { '@id': INTEROP.AuthorizationRequested },
   ShareRequested: { '@id': INTEROP.ShareRequested },

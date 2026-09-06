@@ -10,6 +10,7 @@ import {
   awaitGrantCompletion,
   dataGrants,
   waitForQuiescence,
+  waitForRoleCreatedCompletion,
   waitForRoleDeletedCompletion,
   waitForRoleMembershipChangedCompletion,
 } from './util'
@@ -134,9 +135,15 @@ describe('role-based access', () => {
     expect(body.id).toMatch('https://registry/alice/role/')
     expect(body.label).toBe('Test Role')
     expect(body.members).toEqual([])
+    // activity-first (step 9): the ack echoes the role-to-be (pending
+    // handle) + the triggering activity id (the uniform UI claim anchor);
+    // the role is PUT by the createRole workflow
+    expect(body.activityId).toEqual(expect.any(String))
 
     const manager = buildSessionManager()
     const session = await manager.getSession(aliceId)
+    // wait-for end state: the workflow PUTs the role, then completes
+    await waitForRoleCreatedCompletion(session)
     const role = await session.findRole(body.id)
     expect(role).toBeDefined()
     expect(role!.label).toBe('Test Role')

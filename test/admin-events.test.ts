@@ -3,7 +3,7 @@ import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import { loadGrant } from '@janeirodigital/interop-data-model'
 import { INTEROP, LDP, getAcl, linkedIrisJsonLd, parseTurtle } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { awaitEvent, openEventsStream } from './util'
+import { awaitEvent, openEventsStream, waitForRoleCreatedCompletion } from './util'
 
 /**
  * Phase 3 of org-admin-feature.md — admin events forwarding.
@@ -138,6 +138,10 @@ describe('org context — admin event forwarding (phase 3)', () => {
       rpcPayload({ _tag: 'CreateRole', label: 'YoYo Watch', members: [], context: yoyoId }),
       danCookie
     )
+    // activity-first (step 9): the role is PUT by the createRole workflow —
+    // wait for it before the UpdateRole guard reads it
+    const yoyoSession = (await buildSessionManager().getSession(yoyoId)) as never
+    await waitForRoleCreatedCompletion(yoyoSession as never)
     const updated = await rpcCall<{ id: string }>(
       rpcPayload({
         _tag: 'UpdateRole',
@@ -173,6 +177,10 @@ describe('org context — admin event forwarding (phase 3)', () => {
       rpcPayload({ _tag: 'CreateRole', label: 'Dan Ops', members: [], context: danId }),
       danCookie
     )
+    // activity-first (step 9): wait for the createRole workflow before the
+    // DeleteRole guard reads the role
+    const danSession = (await buildSessionManager().getSession(danId)) as never
+    await waitForRoleCreatedCompletion(danSession as never)
     // DeleteRole returns Void — the roleDeleted activity is the observable
     await rpcCall<unknown>(
       rpcPayload({ _tag: 'DeleteRole', id: role.id, context: danId }),

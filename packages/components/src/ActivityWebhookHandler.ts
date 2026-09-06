@@ -13,6 +13,7 @@ import {
   InvitationAccepted,
   InvitationCreated,
   RoleDeleted,
+  RoleCreated,
   RoleMembershipChanged,
 } from '@janeirodigital/sai-api-messages'
 import {
@@ -41,6 +42,7 @@ import {
   processGranteeActivities,
   processRoleDeletion,
   processRoleMembershipChange,
+  createRole,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
@@ -286,6 +288,27 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           workflowId: crypto.randomUUID(),
         })
       }
+      return
+    }
+
+    if (isActivityClass(activity, 'RoleCreated')) {
+      // step 9 — the object IS the role-to-be (real-id embedded projection
+      // at the PRE-MINTED id); the decoded object passes verbatim into the
+      // workflow input; the workflow PUTs the role there and completes
+      const decoded = S.decodeUnknownSync(RoleCreated)(activity as never)
+      await client.workflow.start(createRole, {
+        taskQueue: 'create-grants',
+        args: [
+          socialAgentRef(channel.webId),
+          {
+            ...decoded.object,
+            type: [...decoded.object.type],
+            members: [...decoded.object.members],
+          },
+          { id: activity.id, type: [...decoded.type] },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
       return
     }
 

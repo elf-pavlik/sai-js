@@ -53,6 +53,7 @@ describe('vocabularies', () => {
       'http://www.w3.org/ns/solid/interop#RoleMembershipChanged'
     )
     expect(INTEROP.RoleDeleted).toBe('http://www.w3.org/ns/solid/interop#RoleDeleted')
+    expect(INTEROP.RoleCreated).toBe('http://www.w3.org/ns/solid/interop#RoleCreated')
     expect(INTEROP.DelegatedGrantsUpdated).toBe(
       'http://www.w3.org/ns/solid/interop#DelegatedGrantsUpdated'
     )

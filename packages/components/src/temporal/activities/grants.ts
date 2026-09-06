@@ -32,6 +32,7 @@ import {
   loadGrant,
   loadRole,
   toJsonLd,
+  dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -39,6 +40,8 @@ import {
   discoverDelegationIssuanceEndpoint,
   expandedJsonLd,
   getAcl,
+  putJsonLd,
+  withContext,
 } from '@janeirodigital/interop-utils'
 import { buildSessionManager } from '../../builders/sessionManager.js'
 
@@ -181,6 +184,30 @@ export async function deleteRoleFromRegistry(payload: {
     session.fetch,
     payload.role.id
   )
+}
+
+// ---------------------------------------------------------------------------
+// Role creation (activity-first step 9 — the createRole move)
+// ---------------------------------------------------------------------------
+
+/**
+ * The activity-first createRole leg (step 9): PUT the role at the PRE-MINTED
+ * id with the context's own session. Find-first by the STABLE pre-minted id
+ * — idempotent under retries/reconcile: a re-run after a crash sees the
+ * resource already materialized and skips (the `If-None-Match: *` PUT would
+ * 412 on the second attempt). No derived work — the role is the leaf.
+ */
+export async function createRoleAtId(payload: {
+  webId: SocialAgentId
+  role: RoleData
+}): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
+  if (existing) return
+  await putJsonLd(payload.role.id, session.fetch, withContext(dataModelContext, payload.role), {
+    'If-None-Match': '*',
+  })
 }
 
 // ---------------------------------------------------------------------------

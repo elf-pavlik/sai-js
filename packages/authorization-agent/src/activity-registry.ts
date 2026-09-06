@@ -230,6 +230,22 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         actor,
         object: asStringArray(node.object),
       }
+    case 'RoleCreated':
+      // target dropped (step 9) — the role-to-be (real-id embedded
+      // projection at the PRE-MINTED id) rides the object; the workflow
+      // PUTs the role at object.id
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'RoleCreated', 'as:Add'],
+        actor,
+        object: {
+          id: asString((node.object as RoleData)?.id),
+          type: asStringArray((node.object as RoleData)?.type),
+          label: asString((node.object as RoleData)?.label),
+          members: asStringArray((node.object as RoleData)?.members),
+        },
+      }
     case 'RoleMembershipChanged':
       // target dropped (step 2) — the role-to-be (real-id embedded
       // projection) rides the object; the workflow PATCHes the role to it

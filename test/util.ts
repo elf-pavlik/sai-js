@@ -315,6 +315,18 @@ export async function waitForInvitationCreatedCompletion(
 }
 
 /**
+ * The createRole tail (activity-first step 9): the createRole workflow
+ * PUT the role at the pre-minted id and marked the roleCreated activity
+ * done — a completion referencing it exists in the session's Activity
+ * Registry.
+ */
+export async function waitForRoleCreatedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'RoleCreated')
+}
+
+/**
  * The updateRole tail (activity-first step 2): the updateRole workflow
  * PATCHed the role to the intended state and marked the
  * roleMembershipChanged activity done — a completion referencing it exists

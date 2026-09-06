@@ -1,7 +1,7 @@
 import { agentId, buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
 import { getRegistrySetIri } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
-import { waitFor } from './util'
+import { waitFor, waitForRoleCreatedCompletion } from './util'
 
 /**
  * Phase 2 of org-admin-feature.md — operating in context.
@@ -167,11 +167,11 @@ describe('org context — owner identity (2.4)', () => {
       danCookie
     )
     expect(role.id).toMatch('https://registry/yoyo/role/')
-
-    // readable back through YoYo's own server-side session → the write targeted
-    // the org's registry, authenticated by Dan's UAS (fullAdminAccess)
+    // activity-first (step 9): the role is PUT by the createRole workflow —
+    // wait for the completion before reading it back
     const manager = buildSessionManager()
     const yoyoSession = await manager.getSession(yoyoId)
+    await waitForRoleCreatedCompletion(yoyoSession)
     const found = await yoyoSession.findRole(role.id)
     expect(found).toBeDefined()
     expect(found!.label).toBe('YoYo Ops')

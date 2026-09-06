@@ -11,6 +11,7 @@ import type {
   InvitationCreatedMessage,
   Resource,
   Role,
+  RoleCreatedMessage,
   RoleDeletedMessage,
   RoleList,
   RoleMembershipChangedMessage,
@@ -249,10 +250,18 @@ export const useAppStore = defineStore('app', () => {
   async function createRole(
     label: string,
     members: readonly S.Schema.Type<typeof IRI>[]
-  ): Promise<S.Schema.Type<typeof Role>> {
-    const role = await effect.createRole(label, members, currentContext())
-    listRoles(true)
-    return role
+  ): Promise<S.Schema.Type<typeof RoleCreatedMessage>> {
+    // activity-first (step 9): the role is PUT by the createRole workflow
+    // later (the ack echoes the role-to-be + activityId) — the RoleCreated
+    // done-row (events.ts) refreshes the roles list; the snackbar claims the
+    // activity by the ack-echoed activityId
+    const result = await effect.createRole(label, members, currentContext())
+    claimActivity({
+      context: currentContext(),
+      type: 'RoleCreated',
+      activityId: result.activityId,
+    })
+    return result
   }
 
   async function updateRole(

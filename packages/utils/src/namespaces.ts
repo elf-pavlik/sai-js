@@ -87,6 +87,7 @@ export const INTEROP = createVocabulary(
   'Role',
   'RoleDeleted',
   'RoleMembershipChanged',
+  'RoleCreated',
   'RoleRegistry',
   'satisfiesAccessNeed',
   'scopeOfAdminGrant',

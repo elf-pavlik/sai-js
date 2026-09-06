@@ -61,6 +61,7 @@ create-invitation = Zaproś
 accept-invitation = Przyjmij zaproszenie
 update-role = Zaktualizuj rolę
 delete-role = Usuń rolę
+create-role = Utwórz rolę
 add-admin = Dodaj administratora
 remove-admin = Usuń administratora
 

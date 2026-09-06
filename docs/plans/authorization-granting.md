@@ -1,13 +1,17 @@
-# Authorization granting — `recordAuthorization` + `shareResource` (the structure-based pair)
+# Authorization granting — `recordAuthorization` + `shareResource` (+ access request)
 
 > **Status: design only — extracted out of `activity-first-services.md`
-> steps 7–8 (2026-09, matching the revocation plan's extraction).** Those two
-> moves ride **structure types** (`AuthorizationStructure`,
-> `DataAuthorizationStructure`, `ShareDataInstanceStructure`) whose fields
-> have NO `dataModelContext` terms — the term-gap (execution note 9 in
-> `payload-contract-alignment.md`) is why the POJO-first reorder moved them to
-> the end, and why they now live here as one plan: the **granting leg**,
-> counterpart of [`authorization-revocation.md`](authorization-revocation.md).
+> steps 7–8 (2026-09), then joined by the access-request leg (`requestAccess
+> UsingApplicationNeeds`, formerly its step 10 — matching the revocation
+> plan's extraction).** The two main moves ride **structure types**
+> (`AuthorizationStructure`, `DataAuthorizationStructure`,
+> `ShareDataInstanceStructure`) whose fields have NO `dataModelContext` terms
+> — the term-gap (execution note 9 in `payload-contract-alignment.md`) is why
+> the POJO-first reorder moved them to the end, and why they now live here as
+> one plan: the **granting leg**, counterpart of
+> [`authorization-revocation.md`](authorization-revocation.md). The access-
+> request leg has NO structure types (plain-IRI `webId`/`applicationId`) — it
+> rides along as the plan's third scope row.
 
 ## 1. Scope — the granting leg
 
@@ -18,6 +22,15 @@ The activity-first moves for the two granting RPCs (was steps 7–8 of
 |---|---|---|
 | `recordAuthorization` (`AuthorizeApp`) | `authorizationRecorded` (+ the `Revoked` carrier for the deny path — cross-ref the revocation plan) | `AuthorizationStructure` / `DataAuthorizationStructure` |
 | `shareResource` | `authorizationRecorded` (one per deduped grantee) | `ShareDataInstanceStructure` / `DataAuthorizationStructure` + `applicationId` |
+| `requestAccessUsingApplicationNeeds` (access request) | a NEW class (e.g. `AccessNeedGroupRequested`) — flat `{ webId, applicationId }` | **none** (plain IRIs — the term-gap does not apply; the access-need-group is derived in the workflow from the client-id document) |
+
+**Access-request leg** (moved from `activity-first-services.md` step 10): the
+RPC keeps the guard read (registration exists) + writes the activity with flat
+plain-IRI fields; a minimal workflow loads the client-id document and performs
+the single `setAccessNeedGroup` PATCH as `getSession(ctx.webId)`, then
+completes (idempotent — a retry re-PATCHes the same group, a no-op). The ack
+echoes the agent webId + `activityId`; the `accessRequested` profile flag
+refreshes via the done-row.
 
 Both follow the established template (the `InvitationCreated` form): the RPC
 **pre-mints** the DataAuthorization id(s) (`iriForContained`) and writes the

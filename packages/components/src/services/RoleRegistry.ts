@@ -1,12 +1,13 @@
 import { ActivityRegistry, RoleRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
+  type RoleCreated,
   type RoleData,
   type RoleDeleted,
   type RoleMembershipChanged,
   loadRole,
 } from '@janeirodigital/interop-data-model'
-import { IRI, Role, RoleDeletedMessage, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { IRI, Role, RoleCreatedMessage, RoleDeletedMessage, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
+import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import { getRole, listContained, sparqlTransportFor } from './queries/org.js'
@@ -34,19 +35,44 @@ export const getRoles = async (ctx: ResolvedContext) => {
   )
 }
 
-// no workflow since no authorizations can exist before role is created
 export const createRole = async (
   ctx: ResolvedContext,
   label: string,
   members: readonly S.Schema.Type<typeof IRI>[]
-): Promise<S.Schema.Type<typeof Role>> => {
-  const registration = await RoleRegistry.createRole(
-    ctx.registrySet.hasRoleRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+): Promise<S.Schema.Type<typeof RoleCreatedMessage>> => {
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  // activity-first (step 9 — the createInvitation pattern): the RPC mints
+  // the role id and writes `roleCreated` (object = the role-to-be at the
+  // minted id, real-id embedded projection) — the createRole workflow PUTs
+  // the role there and completes. No derived work: no authorizations can
+  // exist before the role exists (the PUT IS the create).
+  const roleId = iriForContained(ctx.registrySet.hasRoleRegistry, ctx.session.randomUUID)
+  const object: RoleData = {
+    id: roleId,
+    type: [INTEROP.Role],
     label,
-    [...members]
+    members: [...members],
+  }
+  const activity: Omit<RoleCreated, 'id'> = {
+    type: ['Activity', 'RoleCreated', 'as:Add'],
+    actor: ctx.webId,
+    object,
+    createdAt: new Date().toISOString(),
+  }
+  const created = await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    activity
   )
-  return Role.make({ id: IRI.make(registration.id), label, members: [...members] })
+  // pending ack — echoes the role-to-be (pending handle) + the triggering
+  // activity id (the uniform UI claim anchor)
+  return RoleCreatedMessage.make({
+    id: IRI.make(roleId),
+    label,
+    members: [...members],
+    activityId: IRI.make(created.id),
+  })
 }
 
 export const updateRole = async (

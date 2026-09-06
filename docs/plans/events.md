@@ -17,7 +17,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
   `authorizationRevoked` → `processGranteeActivities` (start-or-signal, one
   consumer per (webId, grantee));
 - **one workflow per type** (`activityWorkflows` map): `roleMembershipChanged`,
-  `roleDeleted`, `agentRegistrationAdded`, `invitationAccepted`,
+  `roleDeleted`, `roleCreated`, `agentRegistrationAdded`, `invitationAccepted`,
   `invitationCreated`, `delegatedGrantsUpdated` → matching
   Temporal workflow on its task queue;
 - completions (`activityCompleted`) never dispatch, only forward.
@@ -30,6 +30,7 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 | `authorizationRevoked` | deny path (see `authorization-revoked.md`, not yet landed) | per-grantee consumer |
 | `roleMembershipChanged` | `services/RoleRegistry.ts` — **activity-only (step 2)**: the RPC writes the intended change (object = the role-to-be `RoleData`); the `updateRole` workflow PATCHes the role, derives the affected diff, regenerates grants | `processRoleMembershipChange` (workflow, `create-grants` queue) |
 | `roleDeleted` | `services/RoleRegistry.ts` — **activity-only (step 3)**: the RPC writes the role-to-be-deleted (object = the real-id embedded `RoleData`); the `deleteRole` workflow DELETEs the role + its authorizations and regenerates grants | `processRoleDeletion` (workflow, `create-grants` queue) |
+| `roleCreated` | `services/RoleRegistry.ts` — **activity-only (step 9)**: the RPC mints the role id + writes the role-to-be (object = the real-id embedded `RoleData` at the minted id); the `createRole` workflow PUTs the role there and completes (no derived work — the PUT is the create) | `createRole` (workflow, `create-grants` queue) |
 | `agentRegistrationAdded` | `InvitationHandler.ts` | `establishReciprocal` |
 | `invitationAccepted` | `acceptInvitation` service (acceptor's Activity Registry — own or org) | `acceptInvitation` (acceptor's workflow) |
 | `invitationCreated` | `createInvitation` RPC (activity-only — step 1; the workflow PUTs the invitation and generates the capabilityUrl there) | `createInvitation` (workflow, `create-grants` queue) |

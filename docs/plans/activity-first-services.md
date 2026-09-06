@@ -62,11 +62,14 @@
 > revocation plan's extraction.
 > **Latest (`addSocialAgent` dropped + steps 9–10 reversed, 2026-09):** the
 > unused `addSocialAgent` service was **dropped** (no RPC consumer —
-> registrations are only created via the invited flow); the verify-only
-> keepers are **reversed — `createRole` and
-> `requestAccessUsingApplicationNeeds` will move to activity-first** (the
-> remaining work in this plan, steps 9–10, next after the addSocialAgent drop
-> is checked).
+> registrations are only created via the invited flow);
+> **step 9 (`createRole`) EXECUTED** — `roleCreated` on the `createInvitation`
+> template (RPC mints the role id + writes the activity + pending ack; the
+> `createRole` workflow PUTs the role at the minted id, find-first idempotent,
+> then completes; `RoleCreatedMessage` echoes role-to-be + `activityId`);
+> `requestAccessUsingApplicationNeeds` moved to
+> [`authorization-granting.md`](authorization-granting.md) (the granting plan).
+> **This plan's activity moves are all executed** — remaining: docs alignment
 > Packages vitest + build + vue-tsc green (agent-run); `/test` suites
 > (roles/invitation) pending user run.
 > Extends the
@@ -186,17 +189,16 @@ AuthorizationAgent; no org session is minted in RPCs**).
   this step retires the **dormant grant-revocation temporal artifacts** that
   currently have no producer (grants are only revoked via the issuance
   endpoint + workflows, `revoke-delegation-chain.md`).
-- `createRole` (`RoleRegistry.ts:33`) — **will move to activity-first
-  (2026-09 reversal of the keep decision, step 9)**: the role-id mint + a
-  `roleCreated` activity, the workflow PUTs the role.
+- `createRole` (`RoleRegistry.ts:33`) — **EXECUTED (activity-first step 9)**:
+  the role-id mint + a `roleCreated` activity; the workflow PUTs the role.
 - `createInvitation` — **moved to activity-first in step 1** (see §2.1).
 - `addSocialAgent` (`SocialAgentRegistry.ts:172`) — created a registration,
   no activity, no reciprocal — **DROPPED (decided 2026-09)**: no RPC consumer
   (grep- + codegraph-verified), the unused service removed; registrations are
   only created via the invited flow.
 - `requestAccessUsingApplicationNeeds` (`ShareResource.ts:207`) — single PATCH
-  — **will move to activity-first (2026-09 reversal of the keep decision,
-  step 10)**: a new class + a workflow performing the PATCH.
+  — **moved to [`authorization-granting.md`](authorization-granting.md)** (the
+  granting plan's access-request leg).
   via `setAccessNeedGroup`.
 
 ### 2.4 Reads (stay in services)
@@ -240,10 +242,10 @@ dormant until phase 4b).
 | 4c | `updateRole` / `deleteRole` (`RoleRegistry.ts`) | ✅ move | the role PATCH/DELETE + the affected-members diff (workflow loads the role first — `deleteRole` needs `role.members` *before* deletion) | `{webId, roleId, label?, members?}`; peers derived in the workflow | `createRole` stays synchronous (4f); RPC response shape (pending ack / echo) |
 | 4d | `revokeGrants` (`Revocation.ts`) | ➖ **retire from the activity-first scope (cleanup)** — the authorization-revocation leg is extracted to [`authorization-revocation.md`](authorization-revocation.md) (later) | remove the **dormant** grant-revocation temporal artifacts — `grantsRevoked` (+ its api-messages projection, `loadActivity` case, handler/reconcile branches, `events.ts`/events.md rows), `processGrantsRevocation` (+ its input) and its only-callee activities `requestGrantRevocation` / `removeDataGrantsFromRegistration` — none have a producer; grant revocation stays at the **issuance endpoint** (`GrantRevocationHandler`, live) and in the **derived workflows** (role membership/deletion — steps 2–3) | — | the separate plan (decision 2) decides whether any of the retired wiring is revived for the authorization-revocation leg |
 | 4e | `addAdmin` / `removeAdmin` (`Admin.ts`) | ⚠️ optional | extend `createAdminGrants`/`revokeAdminGrants` to also record/delete the `AdminAuthorization`, so the RPC becomes activity-only | unchanged `{webId, admin}` | **re-decide R1**: async loses RPC-time error semantics (already-admin/non-admin; RPC last-admin guard). Middle ground: keep RPC-time *validation reads* (duplicate check, last-admin count) and move only the write; `syncAdminAcr` already enforces the guard at workflow time |
-| 4f | `createRole` (`RoleRegistry.ts`) | 🔄 **will move (2026-09 reversal of the keep decision)** | the `createInvitation` pattern — mint the role id + `roleCreated` activity, workflow PUTs it | — | uniform activity-first; the old "no derived work" rationale falls |
+| 4f | `createRole` (`RoleRegistry.ts`) | ✅ **EXECUTED (step 9)** | the `createInvitation` pattern — mint the role id + `roleCreated` activity, workflow PUTs it (find-first idempotent) | — | uniform activity-first; the old "no derived work" rationale falls |
 | 4g | `createInvitation` (`InvitationRegistry.ts`) | ✅ **move — step 1** (best-documented in `docs/temporal.c4`) | RPC mints the invitation id (`iriForContained` on the invitation registry) and writes `invitationCreated` (actor + `as:object` = the invitation-to-be `CreateInvitationPojo` — `{ id, type, label, note }`, **no capabilityUrl**); a `createInvitation` workflow PUTs the invitation resource at the minted id with the context session, generates the capabilityUrl there, then completes | `{ actor, label, note, invitationId (as:object.id) }` — capabilityUrl is generated in the workflow, never in the RPC/activity | **latest (payload-contract-alignment/object-embedding):** the capabilityUrl is unknowable before the workflow PUTs (the UI can't leak it early; no pre-PUT accept window); `InvitationHandler` unchanged; the c4 send legs change (updated in this step) |
 | 4h | `addSocialAgent` (`SocialAgentRegistry.ts`) | 🗑️ **DROPPED (decided 2026-09)** — the service had no RPC consumer (grep- + codegraph-verified: not wired in `ApiHandler.ts`, `effect.ts`, or the UI); registrations are only ever created via the invitation accept flow (`establishReciprocal`'s `addSocialAgentRegistration`) | — | — | dropped with it: no `socialAgentAdded` class, no UI wiring, no reciprocal question — the manual-add path does not exist |
-| 4i | `requestAccessUsingApplicationNeeds` (`ShareResource.ts`) | 🔄 **will move (2026-09 reversal of the keep decision)** | a new class + workflow performing the single `setAccessNeedGroup` PATCH as `getSession(ctx.webId)` + completion | — | uniform durability/credentials/UI; the single-PATCH overhead rationale reversed |
+| 4i | `requestAccessUsingApplicationNeeds` (`ShareResource.ts`) | 🔄 **moved to [`authorization-granting.md`](authorization-granting.md)** (the granting plan's access-request leg) | a new class + workflow performing the `setAccessNeedGroup` PATCH as `getSession(ctx.webId)` + completion | — | no structure types (plain-IRI `webId`/`applicationId` — the term-gap does not apply) |
 
 ## 5. What stays in services
 
@@ -341,8 +343,8 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 | **5. `addAdmin`** | `AddAdmin` | **✅ EXECUTED** — activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** at the PRE-MINTED id (**`target` removed** — nothing consumes the registry container); **R1 re-decided (§9)**: the RPC keeps the validation reads (registered + already-admin) + pre-mints the id + writes the activity + returns `AdminAuthorizationRecordedMessage` (pre-minted id + `activityId`); the `addAdmin` workflow PUTs the AdminAuthorization at the pre-minted id (`recordAdminAuthorizationAtId` — find-first idempotent), materializes grants + the ACR rewrite, then completes; `org-admin-add` c4 + toggle-admin UI (claim + done-row) | 4e |
 | **6. `removeAdmin`** | `RemoveAdmin` | **✅ EXECUTED** — same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the EXISTING AdminAuthorization as a **real-id embedded projection** at its real id — the workflow DELETEs; **`target` removed**); the RPC keeps the validation reads (registered, admin-exists, **last-admin guard**) + writes the activity + returns `AdminAuthorizationRevokedMessage` (revoked id + `activityId`); the `removeAdmin` workflow DELETEs the resource at `object.id` (`deleteAdminAuthorizationAtId` — find-first 404-tolerant, idempotent), revokes grants + the ACR rewrite (the last-admin guard rides `syncAdminAcr` — RPC re-check), then completes; `org-admin-remove` c4 + toggle-admin UI (claim + done-row) | 4e |
 | **7–8. `recordAuthorization` + `shareResource`** | — | **extracted to [`authorization-granting.md`](authorization-granting.md)** (the structure-based granting leg — the `AuthorizationStructure`/`DataAuthorizationStructure`/`ShareDataInstanceStructure` term-gap, Decision A settles the carrier first). This plan keeps only the verify-only keepers (9–10), the housekeeping note and the docs alignment (11) | 4a, 4b |
-| **9. `createRole`** | `CreateRole` | **will move to activity-first (decided 2026-09 — reversed from “keep synchronous”)** — the `createInvitation` pattern: the RPC mints the role id (`iriForContained`) + writes `roleCreated` (object = the role-to-be, real-id embedded — a NEW class: data-model term + `RoleCreatedId` + api-messages + handler/reconcile/UI rows) + returns a pending ack; the workflow PUTs the role at the minted id and completes. The old “no authorizations can exist before role is created” rationale falls with uniform activity-first | 4f |
-| **10. `requestAccessUsingApplicationNeeds`** | `RequestAccess` | **will move to activity-first (decided 2026-09 — reversed from “keep synchronous”)** — a NEW class (e.g. `AccessNeedGroupRequested`) + workflow performing the single `setAccessNeedGroup` PATCH as `getSession(ctx.webId)` + completion (uniform durability/credentials/UI; the single-PATCH overhead rationale reversed) | 4i |
+| **9. `createRole`** | `CreateRole` | **✅ EXECUTED** — the `createInvitation` pattern: the RPC mints the role id (`iriForContained`) + writes `roleCreated` (object = the role-to-be, real-id embedded at the minted id, `as:Add`; a NEW class: data-model term + `RoleCreatedId` + api-messages + handler/reconcile/UI rows) + returns `RoleCreatedMessage` (role-to-be + `activityId`); the `createRole` workflow PUTs the role at the minted id (`createRoleAtId` — find-first `If-None-Match: *` idempotent) and completes. No derived work — no authorizations can exist before the role exists (the PUT IS the create) | 4f |
+| **10. `requestAccessUsingApplicationNeeds`** | — | **moved to [`authorization-granting.md`](authorization-granting.md)** (the granting plan — the access-request leg: a new class + workflow performing the `setAccessNeedGroup` PATCH) | 4i |
 | — (housekeeping) | `addSocialAgent` | **🗑️ dropped (decided 2026-09)** — no RPC consumer (grep- + codegraph-verified); the unused service was removed; registrations are only created via the invitation accept flow | — |
 | **11. Docs alignment** | — | `events.md` + `peer.md` rows per new type; `workflow-temporal-decupling.md` producer table (rows 2–7); final c4 sweep | — |
 
@@ -615,9 +617,11 @@ green per step; `temporal.c4` edits validate with `likec4 validate`;
    unused service was removed; registrations are only created via the invited
    flow (the acceptor's reciprocal). No manual-add path.
 5. **Keepers stay synchronous (decided)** — **REVERSED (decided 2026-09)**:
-   `createRole` and `requestAccessUsingApplicationNeeds` **will move to
-   activity-first** (§7 steps 9–10) — uniform activity-first lifecycle wins
-   over the no-derived-work / single-PATCH rationales.
+   `createRole` moves to activity-first in this plan (step 9, the last move
+   here); `requestAccessUsingApplicationNeeds` followed it into
+   [`authorization-granting.md`](authorization-granting.md) (the granting
+   plan) — the uniform activity-first lifecycle wins over the
+   no-derived-work / single-PATCH rationales.
 6. **`createInvitation` moves (decided — step 1).** The c4 send legs change
    accordingly, and the c4 acceptance JSON examples change with the
    payload-contract wire flip (`webId` → `actor`, typed classes, plain-IRI

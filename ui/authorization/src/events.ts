@@ -86,7 +86,8 @@ function handleActivity(activity: ActivityEvent) {
     appStore.listSocialAgents(true)
   } else if (
     activity.type.includes('RoleMembershipChanged') ||
-    activity.type.includes('RoleDeleted')
+    activity.type.includes('RoleDeleted') ||
+    activity.type.includes('RoleCreated')
   ) {
     appStore.listSocialAgents(true)
     appStore.listRoles(true)

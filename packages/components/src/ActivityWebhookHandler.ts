@@ -1,4 +1,5 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import type { EmbeddedNeedBasedAccessRequest } from '@janeirodigital/interop-data-model'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type { ActivityCompleted, ActivityData } from '@janeirodigital/interop-data-model'
 import { isActivityClass, loadDataAuthorization } from '@janeirodigital/interop-data-model'
@@ -12,6 +13,8 @@ import {
   DelegatedGrantsUpdated,
   InvitationAccepted,
   InvitationCreated,
+  NeedBasedAccessRequestReceived,
+  NeedBasedAccessRequestSent,
   RoleDeleted,
   RoleCreated,
   RoleMembershipChanged,
@@ -45,6 +48,10 @@ import {
   createRole,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
+import {
+  processNeedBasedAccessRequest,
+  processNeedBasedAccessRequestReceived,
+} from './temporal/workflows/access-request.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
 import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
 
@@ -181,6 +188,49 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           // the triggering activity as a typed ref — traceable completion
           // (the schema decodes `type` as readonly — spread to the mutable
           // data-model tuple the InvitationCreatedId ref expects)
+          { id: activity.id, type: [...decoded.type] },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'NeedBasedAccessRequestReceived')) {
+      // the owner-side access-request leg (authorization-granting.md §6.2):
+      // the endpoint wrote the activity (object = the request-to-be, real-id
+      // embedded projection at the minted id, target = the AccessRequest
+      // registry); the workflow PUTs the immutable AccessRequest resource
+      // there, then completes. Not a webhook/push type.
+      const decoded = S.decodeUnknownSync(NeedBasedAccessRequestReceived)(activity)
+      await client.workflow.start(processNeedBasedAccessRequestReceived, {
+        taskQueue: 'create-grants',
+        args: [
+          socialAgentRef(channel.webId),
+          { ...decoded.object, type: [...decoded.object.type] } as EmbeddedNeedBasedAccessRequest,
+          { id: activity.id, type: [...decoded.type] },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'NeedBasedAccessRequestSent')) {
+      // the requester-side access-request leg (authorization-granting.md
+      // §6.4): the RPC wrote the activity (object = the request snapshot,
+      // urn:uuid id — the requester has no AccessRequestRegistry); the
+      // workflow forwards the request to the data owner's (reused) issuance
+      // endpoint, expects 202, then completes. Not a webhook/push type — no
+      // accountId pass-through.
+      const decoded = S.decodeUnknownSync(NeedBasedAccessRequestSent)(activity)
+      await client.workflow.start(processNeedBasedAccessRequest, {
+        taskQueue: 'create-grants',
+        args: [
+          socialAgentRef(channel.webId),
+          // the schema decodes the group loosely (S.Unknown — the framed
+          // group passes through); the single cast is sound: the target's
+          // `hasAccessNeedGroup: NeedBasedAccessRequestGroup` is assignable
+          // to the decoded `unknown` (target→source overlap)
+          { ...decoded.object, type: [...decoded.object.type] } as EmbeddedNeedBasedAccessRequest,
           { id: activity.id, type: [...decoded.type] },
         ],
         workflowId: crypto.randomUUID(),

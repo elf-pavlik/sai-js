@@ -1,11 +1,15 @@
 import {
+  ActivityRegistry,
   findDelegableGrant,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessRequestMessage,
+  type EmbeddedNeedBasedAccessRequest,
   type FinalGrantData,
   type IncomingGrantData,
+  type NeedBasedAccessRequestMessage,
+  type NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, iriForContained } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -16,19 +20,25 @@ import {
   ForbiddenHttpError,
   OkResponseDescription,
   OperationHttpHandler,
+  ResponseDescription,
+  UnauthorizedHttpError,
+  UnsupportedMediaTypeHttpError,
   readableToString,
 } from '@solid/community-server'
-import type {
-  CredentialsExtractor,
-  OperationHttpHandlerInput,
-  ResponseDescription,
-} from '@solid/community-server'
+import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 import { GrantRevocationHandler } from './GrantRevocationHandler.js'
-import { isAccessRequestMessage, isAccessRevocationMessage } from './messages.js'
+import {
+  isAccessRequestMessage,
+  isAccessRevocationMessage,
+  isNeedBasedAccessRequestMessage,
+} from './messages.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
+
+/** The JSON-LD media type the whole endpoint now requires (§6.2). */
+const LD_JSON_MEDIA_TYPE = 'application/ld+json'
 
 export class GrantIssuanceHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -45,9 +55,18 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
   }: OperationHttpHandlerInput): Promise<ResponseDescription> {
     const credentials = await this.credentialsExtractor.handleSafe(request)
     if (!credentials.agent?.webId || !credentials.client?.clientId) {
-      throw new ForbiddenHttpError()
+      // missing credentials is an AUTHENTICATION failure — 401, not 403
+      // (authorization-granting.md §6.2, codes decided 2026-09)
+      throw new UnauthorizedHttpError()
     }
     // TODO: check if WebID served by this authz agent
+
+    // the whole endpoint requires JSON-LD (authorization-granting.md §6.2 —
+    // the WHOLE-endpoint gate, decided 2026-09; the delegation tests send
+    // the header now)
+    if (operation.body.metadata.contentType !== LD_JSON_MEDIA_TYPE) {
+      throw new UnsupportedMediaTypeHttpError(`expected content type ${LD_JSON_MEDIA_TYPE}`)
+    }
 
     const uasId = await discoverAuthorizationAgent(credentials.agent.webId, fetch)
     if (credentials.client.clientId !== uasId) {
@@ -63,10 +82,62 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
         operation
       )
     }
+    if (isNeedBasedAccessRequestMessage(message)) {
+      return this.acceptNeedBasedAccessRequest(message, credentials)
+    }
     if (!isAccessRequestMessage(message)) {
       throw new BadRequestHttpError('invalid delegation message')
     }
     return this.issue(message, credentials, operation)
+  }
+
+  private async acceptNeedBasedAccessRequest(
+    message: NeedBasedAccessRequestMessage,
+    credentials: Awaited<ReturnType<CredentialsExtractor['handleSafe']>>
+  ): Promise<ResponseDescription> {
+    // the client-is-requester's-UAS check ran at the top of handle (403);
+    // self-requests only — grantee === grantedBy === the authenticated agent
+    if (message.grantedBy !== message.grantee || message.grantedBy !== credentials.agent.webId) {
+      throw new BadRequestHttpError('invalid grantedBy/grantee')
+    }
+    // the requester must be registered with the data owner (403)
+    const sai = await this.sessionManager.getSession(message.dataOwner)
+    const registration = await sai.findSocialAgentRegistration(credentials.agent.webId)
+    if (!registration) {
+      throw new ForbiddenHttpError('agent is not registered with the data owner')
+    }
+    // the received half (authorization-granting.md §6.2): pre-mint the
+    // request id in the OWNER's AccessRequestRegistry and write the
+    // `NeedBasedAccessRequestReceived` activity (real-id embedded projection
+    // at the minted id, `target` = the registry) — the owner-side workflow
+    // PUTs the AccessRequest resource there (find-first idempotent). The 202
+    // is sent IMMEDIATELY — it awaits nothing beyond the activity write.
+    const requestRegistry = sai.registrySet.hasAccessRequestRegistry
+    if (!requestRegistry) throw new Error('access-request registry not found in registry set')
+    const requestId = iriForContained(requestRegistry, sai.randomUUID)
+    const activityRegistry = sai.registrySet.hasActivityRegistry
+    if (!activityRegistry) throw new Error('activity registry not found in registry set')
+    const object: EmbeddedNeedBasedAccessRequest = {
+      id: requestId,
+      type: [INTEROP.NeedBasedAccessRequest],
+      grantee: message.grantee,
+      grantedBy: message.grantedBy,
+      dataOwner: message.dataOwner,
+      hasAccessNeedGroup: message.hasAccessNeedGroup,
+    }
+    const activity: Omit<NeedBasedAccessRequestReceived, 'id'> = {
+      type: ['Activity', 'NeedBasedAccessRequestReceived'],
+      actor: sai.webId,
+      target: requestRegistry.id,
+      object,
+      createdAt: new Date().toISOString(),
+    }
+    await ActivityRegistry.createActivity(
+      activityRegistry,
+      { fetch: sai.fetch, randomUUID: sai.randomUUID },
+      activity
+    )
+    return new ResponseDescription(202)
   }
 
   private async issue(

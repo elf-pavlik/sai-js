@@ -198,6 +198,20 @@ export const InvitationAcceptedMessage = S.Struct({
  * triggering activity's IRI — the uniform UI claim anchor (the producer
  * mints the activity at write time; the stream event carries the same id).
  */
+/**
+ * Pending acknowledgment of a need-based access request (activity-first,
+ * authorization-granting.md §6.4) — the RPC writes the
+ * `NeedBasedAccessRequestSent` activity and echoes its IRI (the uniform UI
+ * claim anchor). No minted resource id: the requester mints NO real id (the
+ * data owner mints it owner-side, next phase) — the
+ * `InvitationAcceptedMessage` shape.
+ */
+export const NeedBasedAccessRequestSentMessage = S.Struct({
+  accepted: S.Boolean,
+  /** the triggering `needBasedAccessRequestSent` activity's IRI */
+  activityId: IRI,
+})
+
 export const InvitationCreatedMessage = S.Struct({
   accepted: S.Boolean,
   /** the pre-minted invitation IRI the workflow will PUT at */
@@ -356,6 +370,52 @@ export const EmbeddedSocialAgentRegistration = S.Struct({
   registeredAgent: S.String,
   label: S.String,
   note: S.optional(S.String),
+})
+
+/** Unbranded projection of data-model `EmbeddedNeedBasedAccessRequest` —
+ * the `NeedBasedAccessRequestSent` object (urn:uuid snapshot; the embedded
+ * access need group passes through loosely — payload values are
+ * (expanded-form) IRIs). */
+export const EmbeddedNeedBasedAccessRequest = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  grantee: S.String,
+  grantedBy: S.String,
+  dataOwner: S.String,
+  hasAccessNeedGroup: S.Unknown,
+})
+
+/** Access request sent via RPC (activity-first — the requesting-authorization
+ * leg, authorization-granting.md §6.4). `target` dropped: the request
+ * snapshot (urn:uuid id — the requester has no AccessRequestRegistry) rides
+ * `object`; the requester-side workflow forwards it to the owner's (reused)
+ * issuance endpoint. */
+export const NeedBasedAccessRequestSent = S.Struct({
+  id: S.String,
+  /** no `target` — the request snapshot (urn:uuid id) rides `object` */
+  createdAt: S.String,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('NeedBasedAccessRequestSent')),
+  /** as:actor — plain IRI (the registry owner — the requester) */
+  actor: S.String,
+  /** the request snapshot — urn:uuid id + the embedded access need group */
+  object: EmbeddedNeedBasedAccessRequest,
+})
+
+/** Access request received by the data owner's endpoint (the minted half,
+ * authorization-granting.md §6.2) — `target` = the AccessRequest registry;
+ * the object is the request-to-be as a real-id embedded projection at the
+ * PRE-MINTED id (the owner-side workflow PUTs the AccessRequest resource
+ * there). */
+export const NeedBasedAccessRequestReceived = S.Struct({
+  id: S.String,
+  /** as:target — the AccessRequest registry (the changed container) */
+  target: S.String,
+  createdAt: S.String,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('NeedBasedAccessRequestReceived')),
+  /** as:actor — plain IRI (the registry owner — the data owner) */
+  actor: S.String,
+  /** the request-to-be — real-id embedded projection at the minted id */
+  object: EmbeddedNeedBasedAccessRequest,
 })
 
 /** Acceptance of a social agent invitation (acceptor's Activity Registry). */
@@ -807,10 +867,28 @@ export class RequestAccessUsingApplicationNeeds extends S.TaggedRequest<RequestA
   'RequestAccessUsingApplicationNeeds',
   {
     failure: S.Never,
-    success: S.Void,
+    success: NeedBasedAccessRequestSentMessage,
     payload: {
       applicationId: IRI,
+      /** the data owner — the service method extracts the access needs from
+       *  `applicationId`'s client-id document (§6.4); kept for dev-env
+       *  manual testing, the access-needs variant is the tested path */
       agentId: IRI,
+      context: IRI,
+    },
+  }
+) {}
+
+export class RequestAccessUsingAccessNeeds extends S.TaggedRequest<RequestAccessUsingAccessNeeds>()(
+  'RequestAccessUsingAccessNeeds',
+  {
+    failure: S.Never,
+    success: NeedBasedAccessRequestSentMessage,
+    payload: {
+      /** the data owner (e.g. Alice) */
+      dataOwner: IRI,
+      /** the embedded access need group — (expanded-form) IRIs inside */
+      hasAccessNeedGroup: S.Unknown,
       context: IRI,
     },
   }
@@ -936,7 +1014,12 @@ export class SaiService extends Context.Tag('SaiService')<
       applicationId: string,
       agentId: string,
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof S.Void>>
+    ) => Effect.Effect<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>>
+    readonly requestAccessUsingAccessNeeds: (
+      dataOwner: string,
+      hasAccessNeedGroup: unknown,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>>
     readonly createInvitation: (
       label: string,
       note: string | undefined,
@@ -1072,6 +1155,14 @@ export const router = RpcRouter.make(
       Effect.gen(function* () {
         const saiService = yield* SaiService
         return yield* saiService.requestAccessUsingApplicationNeeds(applicationId, agentId, context)
+      })
+  ),
+  Rpc.effect(
+    RequestAccessUsingAccessNeeds,
+    ({ dataOwner, hasAccessNeedGroup, context }) =>
+      Effect.gen(function* () {
+        const saiService = yield* SaiService
+        return yield* saiService.requestAccessUsingAccessNeeds(dataOwner, hasAccessNeedGroup, context)
       })
   ),
   Rpc.effect(CreateInvitation, ({ label, note, context }) =>

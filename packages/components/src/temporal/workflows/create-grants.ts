@@ -7,3 +7,4 @@
 export * from './grants.js'
 export * from './admin.js'
 export * from './invitation.js'
+export * from './access-request.js'

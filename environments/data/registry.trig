@@ -37,6 +37,7 @@ GRAPH <meta:https://registry/acme/> {
     interop:hasGrantRegistry <https://registry/acme/grant/>;
     interop:hasRoleRegistry <https://registry/acme/role/>;
     interop:hasActivityRegistry <https://registry/acme/activity/>;
+    interop:hasAccessRequestRegistry <https://registry/acme/access-request/>;
     interop:hasDataRegistry
       <https://data/acme-rnd/>,
       <https://data/acme-hr/>.
@@ -160,6 +161,20 @@ GRAPH <meta:https://registry/acme/activity/> {
 
 GRAPH <https://registry/acme/activity/> {
 }
+
+GRAPH <meta:https://registry/acme/access-request/> {
+
+  <https://registry/acme/access-request/>
+
+    a interop:AccessRequestRegistry, ldp:Resource .
+
+}
+
+
+GRAPH <https://registry/acme/access-request/> {
+
+}
+
 
 GRAPH <https://registry/acme/role/> {
 }
@@ -517,6 +532,7 @@ GRAPH <meta:https://registry/alice/> {
     interop:hasGrantRegistry <https://registry/alice/grant/>;
     interop:hasRoleRegistry <https://registry/alice/role/>;
     interop:hasActivityRegistry <https://registry/alice/activity/>;
+    interop:hasAccessRequestRegistry <https://registry/alice/access-request/>;
     interop:hasDataRegistry
       <https://data/alice-home/>,
       <https://data/alice-work/>.
@@ -629,6 +645,20 @@ GRAPH <meta:https://registry/alice/activity/> {
 
 GRAPH <https://registry/alice/activity/> {
 }
+
+GRAPH <meta:https://registry/alice/access-request/> {
+
+  <https://registry/alice/access-request/>
+
+    a interop:AccessRequestRegistry, ldp:Resource .
+
+}
+
+
+GRAPH <https://registry/alice/access-request/> {
+
+}
+
 
 GRAPH <https://registry/alice/role/> {
   <https://registry/alice/role/>
@@ -1025,6 +1055,7 @@ GRAPH <meta:https://registry/bob/> {
     interop:hasGrantRegistry <https://registry/bob/grant/>;
     interop:hasRoleRegistry <https://registry/bob/role/>;
     interop:hasActivityRegistry <https://registry/bob/activity/>;
+    interop:hasAccessRequestRegistry <https://registry/bob/access-request/>;
     interop:hasDataRegistry
       <https://data/bob/>.
 }
@@ -1096,6 +1127,20 @@ GRAPH <meta:https://registry/bob/activity/> {
 
 GRAPH <https://registry/bob/activity/> {
 }
+
+GRAPH <meta:https://registry/bob/access-request/> {
+
+  <https://registry/bob/access-request/>
+
+    a interop:AccessRequestRegistry, ldp:Resource .
+
+}
+
+
+GRAPH <https://registry/bob/access-request/> {
+
+}
+
 
 GRAPH <https://registry/bob/role/> {
   <https://registry/bob/role/>
@@ -1444,6 +1489,7 @@ GRAPH <meta:https://registry/kim/> {
     interop:hasGrantRegistry <https://registry/kim/grant/>;
     interop:hasRoleRegistry <https://registry/kim/role/>;
     interop:hasActivityRegistry <https://registry/kim/activity/>;
+    interop:hasAccessRequestRegistry <https://registry/kim/access-request/>;
     interop:hasDataRegistry
       <https://data/kim-red/>,
       <https://data/kim-blue/>.
@@ -1467,6 +1513,7 @@ GRAPH <meta:https://registry/yoyo/> {
     interop:hasGrantRegistry <https://registry/yoyo/grant/>;
     interop:hasRoleRegistry <https://registry/yoyo/role/>;
     interop:hasActivityRegistry <https://registry/yoyo/activity/>;
+    interop:hasAccessRequestRegistry <https://registry/yoyo/access-request/>;
     interop:hasDataRegistry
       <https://data/yoyo-eu/>,
       <https://data/yoyo-na/>.
@@ -1561,6 +1608,20 @@ GRAPH <meta:https://registry/yoyo/activity/> {
 
 GRAPH <https://registry/yoyo/activity/> {
 }
+
+GRAPH <meta:https://registry/yoyo/access-request/> {
+
+  <https://registry/yoyo/access-request/>
+
+    a interop:AccessRequestRegistry, ldp:Resource .
+
+}
+
+
+GRAPH <https://registry/yoyo/access-request/> {
+
+}
+
 
 GRAPH <https://registry/yoyo/role/> {
 }
@@ -1942,6 +2003,20 @@ GRAPH <meta:https://registry/kim/activity/> {
 
 GRAPH <https://registry/kim/activity/> {
 }
+
+GRAPH <meta:https://registry/kim/access-request/> {
+
+  <https://registry/kim/access-request/>
+
+    a interop:AccessRequestRegistry, ldp:Resource .
+
+}
+
+
+GRAPH <https://registry/kim/access-request/> {
+
+}
+
 
 GRAPH <https://registry/kim/role/> {
 }
@@ -4331,6 +4406,7 @@ GRAPH <https://registry/alice/grant/azgyc5.acr> {
       interop:hasInvitationRegistry <https://registry/dan/invitation/>;
       interop:hasRoleRegistry <https://registry/dan/role/>;
       interop:hasActivityRegistry <https://registry/dan/activity/>;
+      interop:hasAccessRequestRegistry <https://registry/dan/access-request/>;
       interop:hasAuthorizationRegistry <https://registry/dan/authorization/>;
       interop:hasGrantRegistry <https://registry/dan/grant/>;
       interop:hasDataRegistry
@@ -4388,6 +4464,20 @@ GRAPH <https://registry/alice/grant/azgyc5.acr> {
 
   GRAPH <https://registry/dan/activity/> {
   }
+
+  GRAPH <meta:https://registry/dan/access-request/> {
+
+    <https://registry/dan/access-request/>
+
+      a interop:AccessRequestRegistry, ldp:Resource .
+
+  }
+
+
+  GRAPH <https://registry/dan/access-request/> {
+
+  }
+
 
   GRAPH <meta:https://registry/dan/social-agent/moi15b/> {
     <https://registry/dan/social-agent/moi15b/>

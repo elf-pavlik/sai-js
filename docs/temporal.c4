@@ -185,7 +185,7 @@ views {
   }
 
   dynamic view application-registration-discovery {
-    title: 'Application Registration discovery'
+    title: 'Discovery / Application Registration'
 
     include Alice, App
     include Alice.UAS, Alice.Registry
@@ -214,7 +214,7 @@ views {
   }
 
   dynamic view social-agent-registration-discovery {
-    title: 'Social Agent Registration discovery'
+    title: 'Discovery / Social Agent Registration'
 
     include Bob, Alice
     include Bob.UAS, Alice.UAS, Alice.Registry
@@ -243,7 +243,7 @@ views {
   }
 
   dynamic view org-registry-set-discovery {
-    title: 'Org Registry Set discovery'
+    title: 'Discovery / Registry Set'
 
     include Dan, YoYo, Bob
     include Dan.UAS, YoYo.UAS, YoYo.Registry
@@ -296,7 +296,7 @@ views {
   }
 
   dynamic view org-admin-add {
-    title: 'Add org admin — Dan promotes Bob in YoYo'
+    title: 'Admin / Dan promotes Bob in YoYo'
 
     include Dan, YoYo, Bob
     include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
@@ -726,7 +726,7 @@ views {
   }
 
   dynamic view org-admin-remove {
-    title: 'Remove org admin — Dan demotes Bob in YoYo'
+    title: 'Admin / Dan demotes Bob in YoYo'
 
     include Dan, YoYo, Bob
     include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
@@ -1205,7 +1205,7 @@ views {
   }
 
   dynamic view invitation {
-    title: 'Invitation - Dan to Kim'
+    title: 'Invitation / Dan invites Kim'
 
     include Kim, Dan
     include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, Dan.Worker, Dan.Registry, Dan.Temporal, Dan.ActivityWebhookHandler, Dan.UAS, Dan.AUI
@@ -2277,7 +2277,7 @@ views {
   }
 
   dynamic view admin-invitation-send {
-    title: 'Invitation — Dan as YoYo admin to Kim'
+    title: 'Invitation / Dan as YoYo admin invites Kim'
 
     include Kim, YoYo, Dan
     include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
@@ -3405,7 +3405,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
   }
 
   dynamic view admin-invitation-receive {
-    title: 'Invitation - Kim to YoYo, accepted by Dan (YoYo admin)'
+    title: 'Invitation / Kim invites YoYo, accepted by Dan (YoYo admin)'
 
     include Kim, YoYo, Dan
     include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
@@ -4361,7 +4361,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
   }
 
   dynamic view role-membership-change {
-    title: 'Role membership change — Alice updates the Chums role'
+    title: 'Roles / Alice updates members of the Chums role'
 
     include Alice
     include Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker
@@ -4714,7 +4714,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
   }
 
   dynamic view role-deletion {
-    title: 'Role deletion — bob deletes the Whiz role'
+    title: 'Roles / Bob deletes the Whiz role'
 
     include Bob
     include Bob.AUI, Bob.UAS, Bob.Registry, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker
@@ -5229,8 +5229,9 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
   dynamic view request-access {
     title: 'Request access'
 
-    include Bob, Alice, App
-    include App.CID, Bob.AUI, Bob.UAS, Bob.Registry, Alice.UAS
+    include Bob, Alice
+    include Bob.AUI, Bob.UAS, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker, Bob.Registry
+    include Alice.UAS, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Alice.Registry
 
     style Alice {
       color: green
@@ -5240,30 +5241,721 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
       color: indigo
     }
 
-    style App {
-      color: gray
+    Bob.AUI -> Bob.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Bob.AUI -> Bob.UAS 'POST (RPC) requestAccessUsingApplicationNeeds' {
+        notes'''
+          #### POST (RPC) requestAccessUsingApplicationNeeds
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > the need group rides the RPC message (urn:uuid ids, accept-invitation precedent) — NO app involved, NO extraction from a client-id document; `grantee`/`grantedBy` = `ctx.webId` (the session user), derived server-side
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "RequestAccessUsingApplicationNeeds",
+                "dataOwner": "https://id/alice",
+                "hasAccessNeedGroup": {
+                  "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                  "type": ["AccessNeedGroup"],
+                  "hasAccessNeed": [
+                    {
+                      "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                      "type": ["AccessNeed"],
+                      "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                      "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                      "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                      "hasInheritingNeed": [
+                        {
+                          "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                          "type": ["AccessNeed"],
+                          "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                          "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                          "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.Registry 'PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]' {
+        notes'''
+          #### PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > the requester has no AccessRequestRegistry — the object is a urn:uuid snapshot (no `target`); the REAL id is minted owner-side (accept-invitation precedent); payloads compact via `dataModelContext` (no `interop:` prefix)
+
+          >[!TIP]
+          > the FULL needs ride the activity's `as:object` — the requester-side workflow reconstructs the endpoint payload from the activity graph ALONE (`docs/sparql.md`: one graph, two subjects; self-graph reads)
+
+          ```http
+          PUT https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
+            "id": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c",
+            "type": ["Activity", "NeedBasedAccessRequestSent"],
+            "actor": "https://id/bob",
+            "object": {
+              "id": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+              "type": ["NeedBasedAccessRequest"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/bob",
+              "dataOwner": "https://id/alice",
+              "hasAccessNeedGroup": {
+                "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                "type": ["AccessNeedGroup"],
+                "hasAccessNeed": [
+                  {
+                    "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                    "type": ["AccessNeed"],
+                    "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                    "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                    "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                    "hasInheritingNeed": [
+                      {
+                        "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                        "type": ["AccessNeed"],
+                        "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                        "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Bob.UAS -> Bob.AUI 'OK (pending)' {
+        notes'''
+          #### OK (pending)
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": {
+              "accepted": true,
+              "activityId": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c"
+            }
+          }
+          ```
+          ### Checks
+
+          #### Compare with request
+          * `accepted` - `true`
+
+          #### String matching
+          * `activityId` - `https://registry/bob/activity`
+          * no `id` in the response (no resource is minted requester-side)
+        '''
+    }
+    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+        notes'''
+          #### notify Add activity (subscription webhook) [Activity]
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          ```json
+          {
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://www.w3.org/ns/solid/notifications-context/v1"
+            ],
+            "id": "urn:uuid:0aa56a9c-55b2-4c31-b7da-26d0ad4f8e2b",
+            "type": "Add",
+            "object": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c",
+            "target": "https://registry/bob/activity/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Bob.ActivityWebhookHandler -> Bob.Temporal 'start requester-side workflow (NeedBasedAccessRequestSent)' {
+        notes'''
+          #### start requester-side workflow (NeedBasedAccessRequestSent)
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!TIP]
+          >gRPC
+
+          ```json
+          [
+            "https://id/bob",
+            {
+              "id": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+              "type": ["NeedBasedAccessRequest"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/bob",
+              "dataOwner": "https://id/alice",
+              "hasAccessNeedGroup": {
+                "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                "type": ["AccessNeedGroup"],
+                "hasAccessNeed": [
+                  {
+                    "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                    "type": ["AccessNeed"],
+                    "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                    "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                    "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                    "hasInheritingNeed": [
+                      {
+                        "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                        "type": ["AccessNeed"],
+                        "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                        "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c",
+              "type": ["Activity", "NeedBasedAccessRequestSent"]
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.Temporal -> Bob.Worker '(workflow) run requester-side NeedBasedAccessRequestSent workflow' {
+        notes'''
+          #### (workflow) run requester-side NeedBasedAccessRequestSent workflow
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!TIP]
+          >gRPC
+        '''
+    }
+    Bob.Worker -> Alice.UAS 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
+        notes'''
+          #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
+          >[!NOTE]
+          >access-request-rpc.test.ts > leg B (RPC)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob` (client = Bob's UAS)
+
+          >[!TIP]
+          > THE single request to the reused grant-issuance endpoint — `issuanceUrl(aliceId)`; no new endpoint/term in the client-id document
+
+          >[!TIP]
+          > validations (all-or-nothing): `Content-Type: application/ld+json` (415); `credentials.agent.webId` present (401 — `UnauthorizedHttpError`); client = requester's UAS (403); `grantedBy === grantee === credentials.agent.webId` (400); requester registered with the owner (403)
+
+          ```http
+          POST https://auth/.sai/grants/aHR0cHM6Ly9pZC9hbGljZQ
+          Content-Type: application/ld+json
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
+            "type": ["NeedBasedAccessRequest"],
+            "grantee": "https://id/bob",
+            "grantedBy": "https://id/bob",
+            "dataOwner": "https://id/alice",
+            "hasAccessNeedGroup": {
+              "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+              "type": ["AccessNeedGroup"],
+              "hasAccessNeed": [
+                {
+                  "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                  "type": ["AccessNeed"],
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                  "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                  "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                  "hasInheritingNeed": [
+                    {
+                      "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                      "type": ["AccessNeed"],
+                      "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                      "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                      "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          ```
+          ---
+
+          >[!TIP]
+          > the group content mirrors the seeded access needs (`environments/data/registry.trig` #need-group-pm) — Project + inherited Task only in this view's payload; FRESH urn:uuid ids; FIRST PASS carries NO description literals (en/es descriptions follow up)
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'find social agent registration of Bob [Agent]' {
+        notes'''
+          #### find social agent registration of Bob [Agent]
+          >[!NOTE]
+          >access-request.test.ts > leg A (endpoint)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > the owner's read — the requester must be registered in the registry owned by the authz agent's webid
+
+
+          ```http
+          GET https://registry/alice/social-agent/vzp6ky/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    alt {
+      if 'validation fails' {
+        Alice.UAS -> Bob.Worker '403 Forbidden' {
+            notes'''
+              #### 403 Forbidden
+              >[!NOTE]
+              >access-request.test.ts > leg A (endpoint)
+
+              >[!TIP]
+              > early return — the flow TERMINATES here (no mint, no webhook, no workflow); ANY validation failure short-circuits: 415 / 401 / 403 / 400 (§6.2)
+
+              ```http
+              HTTP/1.1 403 Forbidden
+              ```
+            '''
+        }      }
+      else 'registered' {
+        Alice.UAS -> Alice.Registry 'mint AccessRequest id + PUT NeedBasedAccessRequestReceived activity [Activity]' {
+            notes'''
+              #### mint AccessRequest id + PUT NeedBasedAccessRequestReceived activity [Activity]
+              >[!NOTE]
+              >access-request.test.ts > leg A (endpoint)
+
+              >[!IMPORTANT]
+              > Auth: Solid OIDC access token as `alice`
+
+              >[!TIP]
+              > activity-first: the handler pre-mints the request id (`iriForContained` on the AccessRequestRegistry) and writes the activity — the workflow materializes the resource later; `type` tuple carries NO `as:` verb (the class term lives in OUR interop namespace)
+
+              >[!TIP]
+              > the activity graph is SELF-CONTAINED — the needs can be constructed from the activity graph alone (`docs/sparql.md`; type-matching queries carry the `FILTER(?g = ?s)` self-graph guard)
+
+              ```http
+              PUT https://registry/alice/activity/2c9e8f4a-5b6d-4c3e-9f0a-1b2c3d4e5f6a
+              Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+              ```
+
+              ```json
+              {
+                "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
+                "id": "https://registry/alice/activity/2c9e8f4a-5b6d-4c3e-9f0a-1b2c3d4e5f6a",
+                "type": ["Activity", "NeedBasedAccessRequestReceived"],
+                "actor": "https://id/alice",
+                "target": "https://registry/alice/access-request/",
+                "object": {
+                  "id": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+                  "type": ["NeedBasedAccessRequest"],
+                  "grantee": "https://id/bob",
+                  "grantedBy": "https://id/bob",
+                  "dataOwner": "https://id/alice",
+                  "hasAccessNeedGroup": {
+                    "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                    "type": ["AccessNeedGroup"],
+                    "hasAccessNeed": [
+                      {
+                        "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                        "type": ["AccessNeed"],
+                        "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                        "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                        "hasInheritingNeed": [
+                          {
+                            "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                            "type": ["AccessNeed"],
+                            "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                            "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                            "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "createdAt": "2024-01-01T10:00:00.000Z"
+              }
+              ```
+              ---
+
+              ```http
+              HTTP/1.1 201 Created
+              ```
+            '''
+        }
+        Alice.UAS -> Bob.Worker '202 Accepted (empty body)' {
+            notes'''
+              #### 202 Accepted (empty body)
+              >[!NOTE]
+              >access-request.test.ts > leg A (endpoint)
+
+              >[!TIP]
+              > the 202 does NOT await anything — the requester-side workflow completes on it immediately; a GRANT (approval phase) later notifies the requester via webhook, not part of this flow
+
+              ```http
+              HTTP/1.1 202 Accepted
+              ```
+            '''
+        }
+      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+      Bob.Worker -> Bob.Registry 'PUT activityCompleted [Activity]' {
+          notes'''
+            #### (activity) PUT activityCompleted [Activity]
+            >[!NOTE]
+            >access-request-rpc.test.ts > leg B (RPC)
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `bob`
+
+            >[!TIP]
+            > the requester-side workflow completes as soon as the 202 lands (the owner chain runs in parallel)
+
+            ```http
+            PUT https://registry/bob/activity/e3a4b5c6-7d8e-4f90-8a1b-2c3d4e5f6a7b
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+
+            ```json
+            {
+              "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
+              "id": "https://registry/bob/activity/e3a4b5c6-7d8e-4f90-8a1b-2c3d4e5f6a7b",
+              "type": ["Activity", "ActivityCompleted"],
+              "target": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c",
+              "createdAt": "2024-01-01T10:00:02.000Z"
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 201 Created
+            ```
+          '''
+      }
+      Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >access-request-rpc.test.ts > leg B (RPC)
+
+            >[!IMPORTANT]
+            > Auth: Capability URL
+
+            >[!TIP]
+            > the `activityCompleted` Add — the UI's done-row trigger
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:7d12f0a3-1c8e-4b5a-9d67-e2f4b0a8c5d3",
+              "type": "Add",
+              "object": "https://registry/bob/activity/e3a4b5c6-7d8e-4f90-8a1b-2c3d4e5f6a7b",
+              "target": "https://registry/bob/activity/",
+              "published": "2026-09-01T01:50:33.328Z"
+            }
+            ```
+          '''
+      }
+      Bob.ActivityWebhookHandler -> Bob.AUI 'done' {
+          notes'''
+            #### done
+            >[!NOTE]
+            >access-request-rpc.test.ts > leg B (RPC)
+
+            >[!TIP]
+            > NDJSON - formatted here for readability
+
+            ```json
+            {
+              "type": "activity",
+              "activity": {
+                "id": "https://registry/bob/activity/4a8f2c61-3b5d-4e7f-9c0a-1d2e3f4a5b6c",
+                "type": ["Activity", "NeedBasedAccessRequestSent"],
+                "actor": "https://id/bob",
+                "object": {
+                  "id": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+                  "type": ["NeedBasedAccessRequest"],
+                  "grantee": "https://id/bob",
+                  "grantedBy": "https://id/bob",
+                  "dataOwner": "https://id/alice",
+                  "hasAccessNeedGroup": {
+                    "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                    "type": ["AccessNeedGroup"],
+                    "hasAccessNeed": [
+                      {
+                        "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                        "type": ["AccessNeed"],
+                        "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                        "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                        "hasInheritingNeed": [
+                          {
+                            "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                            "type": ["AccessNeed"],
+                            "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                            "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                            "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "createdAt": "2024-01-01T10:00:00.000Z",
+                "status": "done"
+              }
+            }
+            ```
+          '''
+      }
+      Alice.ActivityWebhookHandler -> Alice.Temporal 'start owner-side workflow (NeedBasedAccessRequestReceived)'
+      Alice.Temporal -> Alice.Worker '(workflow) run owner-side NeedBasedAccessRequestReceived workflow'
+      Alice.Worker -> Alice.Registry '(activity) PUT AccessRequest at the minted id [AccessRequest registry]' {
+          notes'''
+            #### (activity) PUT AccessRequest at the minted id [AccessRequest registry]
+            >[!NOTE]
+            >access-request.test.ts > leg A (endpoint)
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `alice`
+
+            >[!TIP]
+            > find-first idempotent; the stored request is IMMUTABLE — no status field, granting only ever references it
+
+            >[!TIP]
+            > `hasAccessNeedGroup` stores the full framed group (mirrors the POST payload above — urn:uuid ids)
+
+            ```http
+            PUT https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+
+            ```json
+            {
+              "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
+              "id": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+              "type": ["NeedBasedAccessRequest"],
+              "grantee": "https://id/bob",
+              "grantedBy": "https://id/bob",
+              "dataOwner": "https://id/alice",
+              "hasAccessNeedGroup": {
+                "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                "type": ["AccessNeedGroup"],
+                "hasAccessNeed": [
+                  {
+                    "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                    "type": ["AccessNeed"],
+                    "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                    "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                    "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                    "hasInheritingNeed": [
+                      {
+                        "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                        "type": ["AccessNeed"],
+                        "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                        "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 201 Created
+            ```
+          '''
+      }
+      Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+      }
     }
 
-    Bob.AUI -> Bob.UAS 'POST (RPC) requestAccessUsingApplicationNeeds' {
-      notes'''
-        uses cookie session
-      '''
+  }  dynamic view authz-data-need-based-request {
+    title: 'Authorization data (need based access request)'
+
+    include Alice, Bob, Common
+    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Common.Shapetrees
+
+    style Alice {
+      color: green
     }
-    Bob.UAS -> Bob.Registry 'find social agent registration [Agent]'
-    Bob.Registry -> Bob.UAS '200 OK'
-    Bob.UAS -> App.CID 'GET identity document' {
-      notes'''
-        To find access need group
-      '''
+
+    style Bob {
+      color: indigo
     }
-    App.CID -> Bob.UAS '200 OK'
-    Bob.UAS -> Bob.Registry 'add access need group to social agent registration [Agent]'
-    Bob.Registry -> Bob.UAS '200 OK'
-    Bob.UAS -> Bob.AUI 'OK confirmation'
-    Alice.UAS .overview Bob.UAS 'authorize' {
+
+    style Common {
+      color: slate
+    }
+
+    Alice.AUI -> Alice.UAS 'POST (RPC) getAuthorizationData' {
+        notes'''
+          #### POST (RPC) getAuthorizationData
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > the access need group comes from the EMBEDDED group in the request (`accessRequestIri`, added to `GetAuthoriaztionData`) — NO client-id document / reciprocal-registration fetch; grantee = Bob (the request's grantee, `agentType` = SocialAgent)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "GetAuthoriaztionData",
+                "agentId": "https://id/bob",
+                "agentType": "SocialAgent",
+                "lang": "en",
+                "accessRequestIri": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'find the AccessRequest [AccessRequest registry]' {
+        notes'''
+          #### find the AccessRequest [AccessRequest registry]
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > SPARQL read of the immutable request — the group resolves from its embedded copy
+
+          ```http
+          GET https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.Data 'find relevant data registrations [Data]' {
+        notes'''
+          #### find relevant data registrations [Data]
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+        '''
+    }
+    Alice.UAS -> Common.Shapetrees 'GET shapetrees descriptions' {
+        notes'''
+          #### GET shapetrees descriptions
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+
+          ```http
+          GET https://shapetrees.acme/shapetrees
+          ```
+        '''
+    }
+    Alice.UAS -> Alice.AUI 'OK authorization data' {
+        notes'''
+          #### OK authorization data
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+        '''
+    }
+    Alice.AUI .overview Alice.UAS 'authorize' {
         navigateTo authorization
         notes'''
-          same flow as authorizing application, minus redirects
+          #### authorize
+          >[!NOTE]
+          >access-request.test.ts > approval phase
+
+          >[!TIP]
+          > reuses the existing authorization screen (`AuthorizeApp.vue`) + `recordAuthorization` — the request stays immutable, the authorization references it
+
+          [authorization](../authorization/?dynamic=sequence)
         '''
     }
   }

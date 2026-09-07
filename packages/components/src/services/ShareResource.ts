@@ -7,13 +7,15 @@ import {
   ActivityRegistry,
   computeChildren,
   loadDataInstance,
-  setAccessNeedGroup,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AuthorizationRecorded,
   type DataAuthorizationData,
   type DataInstanceData,
   DataRegistration,
+  type EmbeddedNeedBasedAccessRequest,
+  type NeedBasedAccessRequestGroup,
+  type NeedBasedAccessRequestSent,
   ShapeTree,
   isBlob,
   labelFromNode,
@@ -23,15 +25,13 @@ import {
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   IRI,
+  NeedBasedAccessRequestSentMessage,
   Resource,
   type ShareAuthorization,
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import {
-  findSocialAgentRegistrationInContext,
-  listSocialAgentRegistrations,
-} from './SocialAgentRegistry.js'
+import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
 import { fetchPeerDocument, peerInstanceNode } from './peerProxy.js'
 import { getDataAuthorization, listContained, sparqlTransportFor } from './queries/org.js'
@@ -200,16 +200,81 @@ export const shareResource = async (
   }
 }
 
+/**
+ * Write the `NeedBasedAccessRequestSent` activity (activity-first,
+ * authorization-granting.md §6.4) — the converged producer for BOTH RPC
+ * variants. The requester mints NO real id (no AccessRequestRegistry) — the
+ * object rides as a **urn:uuid snapshot**; the requester-side workflow
+ * forwards the request to the data owner's (reused) issuance endpoint and
+ * completes. The pending ack echoes the activity id (the uniform UI claim
+ * anchor — the `InvitationAcceptedMessage` shape).
+ */
+async function recordAccessRequest(
+  ctx: ResolvedContext,
+  request: { dataOwner: string; hasAccessNeedGroup: NeedBasedAccessRequestGroup }
+): Promise<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>> {
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  const object: EmbeddedNeedBasedAccessRequest = {
+    id: `urn:uuid:${ctx.session.randomUUID()}`,
+    type: [INTEROP.NeedBasedAccessRequest],
+    grantee: ctx.webId,
+    grantedBy: ctx.webId,
+    dataOwner: request.dataOwner,
+    hasAccessNeedGroup: request.hasAccessNeedGroup,
+  }
+  const activity: Omit<NeedBasedAccessRequestSent, 'id'> = {
+    type: ['Activity', 'NeedBasedAccessRequestSent'],
+    actor: ctx.webId,
+    object,
+    createdAt: new Date().toISOString(),
+  }
+  const created = await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    activity
+  )
+  return NeedBasedAccessRequestSentMessage.make({
+    accepted: true,
+    activityId: IRI.make(created.id),
+  })
+}
+
+/**
+ * The applicationId variant (kept for dev-env MANUAL testing, §6.4 — the
+ * automated test uses the access-needs variant): the service method EXTRACTS
+ * the access need group from the application's client-id document;
+ * `dataOwner` = the `webId` argument. The embedded group is minimal (id +
+ * type) — the full framed embedding rides the access-needs variant and the
+ * follow-up RPC (whole group + descriptions).
+ */
 export async function requestAccessUsingApplicationNeeds(
   ctx: ResolvedContext,
   applicationIri: string,
   webId: string
-): Promise<void> {
-  const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, webId)
+): Promise<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>> {
   const clientIdDocument = await loadClientIdDocument(applicationIri, ctx.session.fetch)
-  await setAccessNeedGroup(
-    socialAgentRegistration,
-    ctx.session.fetch,
-    clientIdDocument.hasAccessNeedGroup
-  )
+  if (!clientIdDocument.hasAccessNeedGroup) {
+    throw new Error('application client-id document has no access need group')
+  }
+  const group: NeedBasedAccessRequestGroup = {
+    id: clientIdDocument.hasAccessNeedGroup,
+    type: [INTEROP.AccessNeedGroup],
+    hasAccessNeed: [],
+  }
+  return recordAccessRequest(ctx, { dataOwner: webId, hasAccessNeedGroup: group })
+}
+
+/** The access-needs variant (the tested path, §6.4): the access need group
+ *  rides the RPC message (embedded, framed — (expanded-form) IRIs inside);
+ *  `grantee = grantedBy = ctx.webId` derived server-side. */
+export async function requestAccessUsingAccessNeeds(
+  ctx: ResolvedContext,
+  dataOwner: string,
+  hasAccessNeedGroup: unknown
+): Promise<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>> {
+  return recordAccessRequest(ctx, {
+    dataOwner,
+    hasAccessNeedGroup: hasAccessNeedGroup as NeedBasedAccessRequestGroup,
+  })
 }

@@ -69,8 +69,18 @@ export { dataModelContext } from './context'
 export type { GrantData, GrantId, FinalGrantData, GeneratedGrants } from './grant'
 export * as Grant from './grant'
 export { toJsonLd, loadGrant } from './grant'
-export type { AccessRequestMessage, IncomingGrantData } from './access-request'
+export type {
+  AccessRequestMessage,
+  IncomingGrantData,
+  NeedBasedAccessRequestData,
+  NeedBasedAccessRequestGroup,
+  NeedBasedAccessRequestMessage,
+} from './access-request'
 export * as AccessRequest from './access-request'
+export {
+  fromJsonLd as AccessRequestFromJsonLd,
+  loadNeedBasedAccessRequest,
+} from './access-request'
 export type { AccessRevocationMessage } from './access-revocation'
 export * as AccessRevocation from './access-revocation'
 export type {

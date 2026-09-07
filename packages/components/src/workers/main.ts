@@ -2,6 +2,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { NativeConnection, Worker } from '@temporalio/worker'
 import * as adminActivities from '../temporal/activities/admin.js'
+import * as accessRequestActivities from '../temporal/activities/access-request.js'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
 import * as invitationActivities from '../temporal/activities/invitation.js'
@@ -50,7 +51,12 @@ async function run() {
       // grants + org-admin + activity-first invitation activities — the
       // combined workflow module calls names from all three (the admin
       // workflows also use markActivitiesDone)
-      activities: { ...grantsActivities, ...adminActivities, ...invitationActivities },
+      activities: {
+        ...grantsActivities,
+        ...adminActivities,
+        ...invitationActivities,
+        ...accessRequestActivities,
+      },
     })
 
     // Run all workers simultaneously

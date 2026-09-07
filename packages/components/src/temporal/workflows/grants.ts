@@ -7,6 +7,8 @@ import type {
   FinalGrantData,
   GrantId,
   InvitationCreated,
+  NeedBasedAccessRequestReceived,
+  NeedBasedAccessRequestSent,
   RoleData,
   RoleCreated,
   RoleCreatedId,
@@ -31,6 +33,10 @@ import {
 } from './admin.js'
 import type { AdminWorkflowInput } from './admin.js'
 import { createInvitation } from './invitation.js'
+import {
+  processNeedBasedAccessRequest,
+  processNeedBasedAccessRequestReceived,
+} from './access-request.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
 // beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
@@ -373,6 +379,27 @@ export async function reconcileActivities(payload: {
             activityId: activity.id,
           },
         ],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'NeedBasedAccessRequestReceived')) {
+      // the owner-side leg (authorization-granting.md §6.2) — same routing as
+      // the webhook handler: the workflow PUTs the immutable AccessRequest at
+      // the minted id (find-first — a reconcile re-run sees the resource and
+      // only marks done), then completes
+      const received = activity as NeedBasedAccessRequestReceived
+      await executeChild(processNeedBasedAccessRequestReceived, {
+        args: [payload.webId, received.object, { id: activity.id, type: [...received.type] }],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'NeedBasedAccessRequestSent')) {
+      // the requester-side access-request leg (authorization-granting.md
+      // §6.4) — same routing as the webhook handler: the workflow forwards
+      // the request to the data owner's (reused) issuance endpoint (expects
+      // 202), then completes (self-completing; the outer markActivitiesDone
+      // is the accepted duplicate for a reconcile re-run)
+      const sent = activity as NeedBasedAccessRequestSent
+      await executeChild(processNeedBasedAccessRequest, {
+        args: [payload.webId, sent.object, { id: activity.id, type: [...sent.type] }],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'RoleCreated')) {

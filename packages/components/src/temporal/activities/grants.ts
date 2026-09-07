@@ -446,10 +446,13 @@ export async function requestDelegation(payload: { grantData: GrantData }): Prom
     type: [INTEROP.AccessRequest],
     grants: [payload.grantData as unknown as IncomingGrantData],
   }
+  // the whole delegation endpoint now requires application/ld+json
+  // (authorization-granting.md §6.2) — the AccessRequest envelope is
+  // JSON-LD-shaped, so the header is the gate, not the body
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json',
+      'content-type': 'application/ld+json',
     },
     body: JSON.stringify(message),
   })

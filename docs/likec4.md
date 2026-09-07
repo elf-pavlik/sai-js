@@ -110,3 +110,38 @@ band` (TIP with the capabilityUrl) → **accept flow** → workflow steps
 `activityIri`) → `activityCompleted` → webhook `notify Add` (Solid
 Notifications `Add` JSON-LD) → admin-channel forward → `forward done event`
 (single-line NDJSON).
+## Tooling — likec4 version
+
+- **Flow-control blocks (`alt` / `when` / `if` / `else`) need likec4 ≥ 1.53.**
+  The workspace `package.json` pins `^1.42.1` (resolves to 1.48.0), whose
+  grammar does NOT recognize `alt`/`when`/`if` — it parses `alt` as an
+  element reference (`Could not resolve reference to Referenceable named
+  'alt'`). Until the dependency is bumped, run the version explicitly from
+  the repo root: `npx --yes likec4@latest validate --file docs/temporal.c4 .`
+  (also `… start`), and use the same version for validation as for the
+  dev server.
+
+## Flow-control conventions (dynamic views)
+
+- Blocks are **containers**: disjoint or properly nested — **no partial
+  overlap** (a step belongs to exactly its enclosing blocks; crossing
+  fences are structurally impossible).
+- `parallel` cannot nest inside `parallel` (the only nesting ban); it may
+  live inside `opt`/`loop`/`try`/an `alt` branch.
+- `alt` takes **one `else`** (the catch-all — a second `else` is
+  grammatically tolerated but dead); branches are `when`/`if` + `else`,
+  each with an optional title.
+- **Early-return pattern** (used by `request-access`): put the failure
+  branch first and the WHOLE follow-up inside `else`:
+
+  ```likec4
+  alt {
+    if 'validation fails' {
+      SOURCE -> TARGET '403 Forbidden'   // flow terminates here
+    }
+    else 'registered' {
+      SOURCE -> TARGET '…'               // the entire success chain
+      // (everything downstream lives INSIDE the branch — nothing follows the alt)
+    }
+  }
+  ```

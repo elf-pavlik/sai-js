@@ -4,6 +4,7 @@ import {
   type CreateInvitationPojo,
   type EmbeddedAdminAuthorization,
   type EmbeddedAuthorization,
+  type EmbeddedNeedBasedAccessRequest,
   type EmbeddedSocialAgentInvitation,
   type EmbeddedSocialAgentRegistration,
   type RoleData,
@@ -147,6 +148,60 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
               ? undefined
               : asString((node.object as CreateInvitationPojo)?.note),
         },
+      }
+    case 'NeedBasedAccessRequestSent':
+      // target dropped — the request snapshot (urn:uuid id, the embedded
+      // access need group) rides the object; the requester-side workflow
+      // forwards it to the data owner's (reused) issuance endpoint
+      {
+        const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
+        const group = embedded?.hasAccessNeedGroup
+        return {
+          id,
+          createdAt: asString(node.createdAt),
+          type: canonicalType as ['Activity', 'NeedBasedAccessRequestSent'],
+          actor,
+          object: {
+            id: asString(embedded?.id),
+            type: asStringArray(embedded?.type),
+            grantee: asString(embedded?.grantee),
+            grantedBy: asString(embedded?.grantedBy),
+            dataOwner: asString(embedded?.dataOwner),
+            // the framed group node is NORMALIZED like the other embedded
+            // objects — a single rdf:type frames as a scalar, so `type`
+            // goes through asStringArray (no shape assertion)
+            hasAccessNeedGroup: {
+              id: asString(group),
+              type: asStringArray(group?.type),
+              hasAccessNeed: group?.hasAccessNeed ?? [],
+            },
+          },
+        }
+      }
+    case 'NeedBasedAccessRequestReceived':
+      // minted half — `target` = the AccessRequest registry; the object is
+      // the request-to-be as a REAL-ID embedded projection at the minted id;
+      // the owner-side workflow PUTs the AccessRequest resource there
+      {
+        const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
+        const group = embedded?.hasAccessNeedGroup
+        return {
+          ...base,
+          type: canonicalType as ['Activity', 'NeedBasedAccessRequestReceived'],
+          actor,
+          object: {
+            id: asString(embedded?.id),
+            type: asStringArray(embedded?.type),
+            grantee: asString(embedded?.grantee),
+            grantedBy: asString(embedded?.grantedBy),
+            dataOwner: asString(embedded?.dataOwner),
+            hasAccessNeedGroup: {
+              id: asString(group),
+              type: asStringArray(group?.type),
+              hasAccessNeed: group?.hasAccessNeed ?? [],
+            },
+          },
+        }
       }
     case 'AgentRegistrationAdded':
       return {

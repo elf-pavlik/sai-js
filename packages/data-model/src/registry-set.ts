@@ -28,6 +28,14 @@ export type RegistrySetData = {
   hasDataRegistry: DataRegistryData[]
   /** present once the Activity Registry is seeded; producers throw without it */
   hasActivityRegistry?: ActivityRegistryData
+  /** present once the AccessRequestRegistry is seeded (authorization-granting.md §6.3) */
+  hasAccessRequestRegistry?: AccessRequestRegistryData
+}
+
+/** `interop:AccessRequestRegistry` — the owner's container of received
+ *  need-based access requests (immutable resources). */
+export type AccessRequestRegistryData = {
+  id: string
 }
 
 // ──────────────────────────
@@ -53,6 +61,9 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetD
     hasRoleRegistry: { id: node.hasRoleRegistry },
     hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
     hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,
+    hasAccessRequestRegistry: node.hasAccessRequestRegistry
+      ? { id: node.hasAccessRequestRegistry }
+      : undefined,
   }
 }
 

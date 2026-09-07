@@ -29,6 +29,7 @@ import { revokeGrants } from './services/Revocation.js'
 import { createRole, deleteRole, getRoles, updateRole } from './services/RoleRegistry.js'
 import {
   getResource,
+  requestAccessUsingAccessNeeds,
   requestAccessUsingApplicationNeeds,
   shareResource,
 } from './services/ShareResource.js'
@@ -167,6 +168,11 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
             return requestAccessUsingApplicationNeeds(ctx, applicationId, agentId)
+          }),
+        requestAccessUsingAccessNeeds: (dataOwner, hasAccessNeedGroup, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context)
+            return requestAccessUsingAccessNeeds(ctx, dataOwner, hasAccessNeedGroup)
           }),
         createInvitation: (label, note, context) =>
           Effect.promise(async () => {

@@ -73,6 +73,7 @@ async function issueProjectsGrant(): Promise<string[]> {
   const session = await buildOidcSession(bobId)
   const response = await session.authFetch(issuanceUrl(acmeId), {
     method: 'POST',
+    headers: { 'Content-Type': 'application/ld+json' },
     body: issuancePayload([projectsGrantData]),
   })
   expect(response.status).toBe(200)
@@ -92,6 +93,7 @@ describe('DelegationRevocationEndpoint', () => {
     const session = await buildOidcSession(bobId)
     const response = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
     })
     expect(response.status).toBe(200)
@@ -108,6 +110,7 @@ describe('DelegationRevocationEndpoint', () => {
 
     const first = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
     })
     expect(first.status).toBe(200)
@@ -115,6 +118,7 @@ describe('DelegationRevocationEndpoint', () => {
 
     const second = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
     })
     expect(second.status).toBe(200)
@@ -129,6 +133,7 @@ describe('DelegationRevocationEndpoint', () => {
     const session = await buildOidcSession(bobId)
     const response = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId, 'https://registry/acme/grant/does-not-exist']),
     })
     expect(response.status).toBe(200)
@@ -143,6 +148,7 @@ describe('DelegationRevocationEndpoint', () => {
     const kimSession = await buildOidcSession('https://id/kim')
     const response = await kimSession.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
     })
     expect(response.status).toBe(403)
@@ -156,6 +162,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData]),
       })
       expect(response.status).toBe(200)
@@ -170,6 +177,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData, hrProjectsGrantData]),
       })
       expect(response.status).toBe(200)
@@ -184,6 +192,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([{ ...projectsGrantData, grantedBy: 'https://id/kim' }]),
       })
       expect(response.status).toBe(400)
@@ -193,6 +202,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
           { ...projectsGrantData, dataOwner: 'https://id/kim' },
           projectsGrantData,
@@ -205,6 +215,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([]),
       })
       expect(response.status).toBe(400)
@@ -214,6 +225,7 @@ describe('DelegationIssuanceEndpoint', () => {
       const session = await buildOidcSession(bobId, clientId)
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData]),
       })
       expect(response.status).toBe(403)

@@ -80,6 +80,7 @@ export const dataModelContext: JsonLdContext = {
   hasRoleRegistry: iriTermDef(INTEROP, 'hasRoleRegistry'),
   hasDataRegistry: iriTermDef(INTEROP, 'hasDataRegistry', { set: true }),
   hasActivityRegistry: iriTermDef(INTEROP, 'hasActivityRegistry'),
+  hasAccessRequestRegistry: iriTermDef(INTEROP, 'hasAccessRequestRegistry'),
   callbackEndpoint: iriTermDef(INTEROP, 'hasAuthorizationCallbackEndpoint'),
 
   // activity registry (outbox) — payload-contract-alignment wire: typed
@@ -103,6 +104,9 @@ export const dataModelContext: JsonLdContext = {
   AdminAuthorizationRevoked: { '@id': INTEROP.AdminAuthorizationRevoked },
   AuthorizationRecorded: { '@id': INTEROP.AuthorizationRecorded },
   AuthorizationRevoked: { '@id': INTEROP.AuthorizationRevoked },
+  NeedBasedAccessRequest: { '@id': INTEROP.NeedBasedAccessRequest },
+  NeedBasedAccessRequestReceived: { '@id': INTEROP.NeedBasedAccessRequestReceived },
+  NeedBasedAccessRequestSent: { '@id': INTEROP.NeedBasedAccessRequestSent },
   RoleMembershipChanged: { '@id': INTEROP.RoleMembershipChanged },
   RoleDeleted: { '@id': INTEROP.RoleDeleted },
   RoleCreated: { '@id': INTEROP.RoleCreated },

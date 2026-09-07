@@ -320,6 +320,33 @@ export async function waitForInvitationCreatedCompletion(
  * done — a completion referencing it exists in the session's Activity
  * Registry.
  */
+
+/**
+ * The request-received tail (authorization-granting.md §6.2): the owner-side
+ * workflow PUT the immutable AccessRequest at the minted id and marked the
+ * `needBasedAccessRequestReceived` activity done — a completion referencing
+ * it exists in the session's Activity Registry.
+ */
+export async function waitForNeedBasedAccessRequestReceivedCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'NeedBasedAccessRequestReceived')
+}
+
+/**
+ * The request-sent tail (activity-first, authorization-granting.md §6.4):
+ * the requester-side workflow forwarded the request to the data owner's
+ * (reused) issuance endpoint (expects 202) and marked the
+ * `needBasedAccessRequestSent` activity done — a completion referencing it
+ * exists in the session's Activity Registry. The `done` means "forwarded",
+ * not "granted" (the grant outcome arrives later via webhook, §6.8).
+ */
+export async function waitForNeedBasedAccessRequestSentCompletion(
+  session: AuthorizationAgent
+): Promise<void> {
+  return waitForActivityCompletion(session, 'NeedBasedAccessRequestSent')
+}
+
 export async function waitForRoleCreatedCompletion(
   session: AuthorizationAgent
 ): Promise<void> {

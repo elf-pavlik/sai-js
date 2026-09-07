@@ -1,4 +1,5 @@
 import type { AuthorizationStructure, ShareDataInstanceStructure } from './authorization-structures'
+import type { NeedBasedAccessRequestGroup } from './access-request'
 import type { RoleData } from './role'
 import type { SocialAgentInvitationData } from './social-agent-invitation'
 
@@ -64,6 +65,23 @@ export type EmbeddedSocialAgentRegistration = {
   note?: string
 }
 
+/**
+ * Embedded NeedBasedAccessRequest snapshot (the `NeedBasedAccessRequestSent`
+ * object — minted `urn:uuid` node: `type` incl.
+ * `interop:NeedBasedAccessRequest`, `grantee`, `grantedBy`, `dataOwner`,
+ * `hasAccessNeedGroup` — the embedded (framed) access need group). Never
+ * dereferenced.
+ */
+export type EmbeddedNeedBasedAccessRequest = {
+  id: string
+  type: string[]
+  grantee: string
+  grantedBy: string
+  dataOwner: string
+  /** the framed group node — (expanded-form) IRIs; descriptions follow-up */
+  hasAccessNeedGroup: NeedBasedAccessRequestGroup
+}
+
 /** Acceptance of a social agent invitation (acceptor's Activity Registry).
  *
  * `target` dropped (the InvitationCreated precedent): nothing consumes the
@@ -86,6 +104,53 @@ export type InvitationAccepted = Omit<ActivityBase, 'target'> & {
 export type InvitationAcceptedId = {
   id: string
   type: InvitationAccepted['type']
+}
+
+/**
+ * Access request sent via RPC (activity-first — the requesting-authorization
+ * leg of authorization-granting.md §6.4). `target` dropped: the object is a
+ * self-contained urn:uuid snapshot (the requester has NO AccessRequestRegistry —
+ * the REAL id is minted owner-side by the data owner's endpoint); the
+ * requester-side workflow forwards the request to the owner's (reused)
+ * issuance endpoint and completes. The `NeedBasedAccessRequestReceived`
+ * counterpart is written owner-side in the next phase.
+ */
+export type NeedBasedAccessRequestSent = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'NeedBasedAccessRequestSent']
+  /** as:actor — plain IRI (the registry owner — the requester) */
+  actor: string
+  /** the request snapshot (urn:uuid id, the embedded group inside) */
+  object: EmbeddedNeedBasedAccessRequest
+}
+
+/** Ref to the triggering `needBasedAccessRequestSent` activity — id + class
+ *  tuple (the XId pattern for temporal inputs). */
+export type NeedBasedAccessRequestSentId = {
+  id: string
+  type: NeedBasedAccessRequestSent['type']
+}
+
+/**
+ * Access request received by the data owner's endpoint (activity-first —
+ * receiver side of authorization-granting.md §6.2, the minted half): the
+ * handler pre-mints the request id in the OWNER's AccessRequestRegistry and
+ * writes the activity — `target` = the AccessRequest registry, `as:object` =
+ * the request-to-be as a REAL-ID embedded projection at the minted id; the
+ * owner-side workflow PUTs the AccessRequest resource there (find-first
+ * idempotent), then completes.
+ */
+export type NeedBasedAccessRequestReceived = ActivityBase & {
+  type: ['Activity', 'NeedBasedAccessRequestReceived']
+  /** as:actor — plain IRI (the registry owner — the data owner) */
+  actor: string
+  /** the request-to-be — real-id embedded projection at the minted id */
+  object: EmbeddedNeedBasedAccessRequest
+}
+
+/** Ref to the triggering `needBasedAccessRequestReceived` activity. */
+export type NeedBasedAccessRequestReceivedId = {
+  id: string
+  type: NeedBasedAccessRequestReceived['type']
 }
 
 /** Invitation created via RPC (activity-first step 1).
@@ -377,6 +442,8 @@ export type ActivityData =
   | InvitationAccepted
   | InvitationCreated
   | AgentRegistrationAdded
+  | NeedBasedAccessRequestReceived
+  | NeedBasedAccessRequestSent
   | AdminAuthorizationRecorded
   | AdminAuthorizationRevoked
   | AuthorizationRecorded

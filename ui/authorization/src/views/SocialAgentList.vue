@@ -33,13 +33,20 @@
           {{ $t('data') }}
         </v-btn>
         <v-btn
-          :disabled="!agent.accessNeedGroup"
+          :disabled="!agent.accessNeedGroup && !agent.accessRequest"
           prepend-icon="mdi-security"
-          :to="{name: 'authorization', query: {webid: agent.id, redirect: 'false'}}"
+          :to="{
+            name: 'authorization',
+            query: {
+              webid: agent.id,
+              redirect: 'false',
+              ...(agent.accessRequest ? { request: agent.accessRequest } : {})
+            }
+          }"
         >
           {{ $t('access') }}
           <template
-            v-if="agent.accessNeedGroup && !agent.accessGrant"
+            v-if="(agent.accessNeedGroup && !agent.accessGrant) || agent.accessRequest"
             #append
           >
             <v-badge

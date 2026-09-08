@@ -14,9 +14,11 @@ import {
   type AccessNeedGroupData,
   type AuthorizationRecorded,
   type GrantData,
+  type NeedBasedAccessRequestGroup,
   ShapeTree,
   type SocialAgentRegistrationData,
   loadClientIdDocument,
+  loadNeedBasedAccessRequest,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
@@ -49,14 +51,19 @@ const formatAccessNeed = async (
   descriptionsLang: string,
   fetch: WhatwgFetch
 ): Promise<S.Schema.Type<typeof AccessNeed>> => {
-  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, fetch)
+  // tolerant — an embedded request's needs carry urn:uuid ids with NO
+  // description documents (descriptions are the follow-up); the shape trees
+  // are real IRIs and always resolve
+  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, fetch).catch(
+    (): undefined => undefined
+  )
   const shapeTree = await loadShapeTree(accessNeed.registeredShapeTree, fetch)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, fetch)
 
   return AccessNeed.make({
     id: IRI.make(accessNeed.id),
-    label: description.label,
-    description: description.definition,
+    label: description?.label ?? '',
+    description: description?.definition,
     required: accessNeed.required,
     access: accessNeed.accessMode.map((mode) => IRI.make(mode)),
     shapeTree: {
@@ -137,16 +144,59 @@ async function findSocialAgentDataRegistrations(
  * @param preferredLang XSD language requested, e.g.: "en", "es", "i-navajo".
  * @param saiSession Authoirization Agent from `@janeirodigital/interop-authorization-agent`
  */
+
+/** Embedded need node → the composed-read `AccessNeedData` (recursive). */
+function accessNeedFromEmbedded(
+  node: Record<string, unknown>,
+  parentId?: string
+): AccessNeedData {
+  const children = ((node.hasInheritingNeed as Record<string, unknown>[] | undefined) ?? []).map(
+    (child) => accessNeedFromEmbedded(child, node.id as string)
+  )
+  return {
+    id: node.id as string,
+    type: Array.isArray(node.type) ? (node.type as string[]) : node.type ? [node.type as string] : [],
+    registeredShapeTree: node.registeredShapeTree as string,
+    inheritsFromNeed: parentId,
+    hasInheritingNeed: children.map((child) => child.id),
+    accessMode: (node.accessMode as string[]) ?? [],
+    required: node.required === INTEROP.AccessRequired,
+    children,
+    descriptionLanguages: [],
+  }
+}
+
+/** The embedded group of the request → `AccessNeedGroupData` — NO re-fetch
+ *  (the group's urn:uuid ids resolve nowhere; descriptions follow-up). */
+function accessNeedGroupFromEmbedded(group: NeedBasedAccessRequestGroup): AccessNeedGroupData {
+  const accessNeeds = ((group.hasAccessNeed as unknown as Record<string, unknown>[]) ?? []).map(
+    (need) => accessNeedFromEmbedded(need)
+  )
+  return {
+    id: group.id,
+    type: group.type,
+    hasAccessNeed: accessNeeds.map((need) => need.id),
+    accessNeeds,
+  }
+}
+
 export const getDescriptions = async (
   ctx: ResolvedContext,
   agentIri: string,
   agentType: AgentType,
   preferredLang: string,
-  accessNeedGroupIri?: string & Brand<'IRI'>
+  accessNeedGroupIri?: string & Brand<'IRI'>,
+  accessRequestIri?: string
 ): Promise<S.Schema.Type<typeof AuthorizationData>> => {
+  // the approval path (authorization-granting.md §6.8): the access need
+  // group comes from the EMBEDDED copy in the request — no client-id doc,
+  // no reciprocal registration, no group re-fetch
+  let fromRequest = false
   let accessNeedGroupIriResolved: string
   const transport = sparqlTransportFor(ctx)
-  if (accessNeedGroupIri) {
+  if (accessRequestIri) {
+    fromRequest = true
+  } else if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
   } else if (agentType === AgentType.Application) {
     const clientIdDocument = await loadClientIdDocument(agentIri, ctx.session.fetch)
@@ -164,11 +214,11 @@ export const getDescriptions = async (
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')
 
-  const accessNeedGroup = await resolveAccessNeedGroup(
-    accessNeedGroupIriResolved,
-    ctx.session.fetch,
-    preferredLang
-  )
+  const accessNeedGroup = fromRequest
+    ? accessNeedGroupFromEmbedded(
+        (await loadNeedBasedAccessRequest(accessRequestIri, ctx.session.fetch)).hasAccessNeedGroup
+      )
+    : await resolveAccessNeedGroup(accessNeedGroupIriResolved, ctx.session.fetch, preferredLang)
 
   const dataOwners: {
     id: string & Brand<'IRI'>
@@ -223,14 +273,17 @@ export const getDescriptions = async (
     accessNeedGroup,
     ctx.session.fetch
   )
-  const descriptionsLang = reliableDescriptionLanguages.has(preferredLang)
-    ? preferredLang
-    : descriptionLanguages[0]
-  const descriptions = await AccessNeedGroupModule.getDescription(
-    accessNeedGroup,
-    descriptionsLang,
-    ctx.session.fetch
-  )
+  const descriptionsLang = fromRequest
+    ? // the embedded group has no description sets — the screen renders with
+      // the shape-tree labels only (descriptions follow-up); the requested
+      // language still drives those lookups
+      preferredLang
+    : reliableDescriptionLanguages.has(preferredLang)
+      ? preferredLang
+      : descriptionLanguages[0]
+  const descriptions = fromRequest
+    ? undefined
+    : await AccessNeedGroupModule.getDescription(accessNeedGroup, descriptionsLang, ctx.session.fetch)
 
   return {
     // TODO if the id is the unique id of something then it should not be its own id. It should refer by a different name,
@@ -239,8 +292,8 @@ export const getDescriptions = async (
     agentType,
     accessNeedGroup: {
       id: IRI.make(accessNeedGroup.id),
-      label: descriptions.label,
-      description: descriptions.definition,
+      label: descriptions?.label ?? '',
+      description: descriptions?.definition,
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) =>
           formatAccessNeed(need, descriptionsLang, ctx.session.fetch)
@@ -255,7 +308,8 @@ export const getDescriptions = async (
 
 export const recordAuthorization = async (
   ctx: ResolvedContext,
-  authorization: S.Schema.Type<typeof Authorization>
+  authorization: S.Schema.Type<typeof Authorization>,
+  accessRequestIri?: string
 ): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
   // thin adapter: the RPC shape → the AA's AuthorizationStructure (field
   // copies); the SAI rules (scope mapping, dataOwner assignment, inheritance
@@ -279,10 +333,19 @@ export const recordAuthorization = async (
         })) satisfies DataAuthorizationStructure[])
       : undefined,
   }
+  // the approval path (§6.8): the group comes from the EMBEDDED copy in the
+  // request (urn:uuid ids resolve nowhere) — injected instead of fetched
+  const accessNeedGroupData = accessRequestIri
+    ? accessNeedGroupFromEmbedded(
+        (await loadNeedBasedAccessRequest(accessRequestIri, ctx.session.fetch)).hasAccessNeedGroup
+      )
+    : undefined
   const recorded = await ctx.session.recordAuthorizationFromStructure(
     structure,
     ctx.webId,
-    ctx.registrySet
+    ctx.registrySet,
+    false,
+    accessNeedGroupData
   )
   const response: S.Schema.Type<typeof AccessAuthorization> = recorded.map((dataAuthorization) => ({
     id: IRI.make(dataAuthorization.id),

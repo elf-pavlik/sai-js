@@ -140,6 +140,9 @@ export const SocialAgent = S.Struct({
   note: S.optional(S.String),
   accessNeedGroup: S.optional(S.String),
   accessRequested: S.Boolean,
+  /** the pending need-based access request (the approval entry — opens the
+   *  authorization screen with `accessRequestIri`, §6.8) */
+  accessRequest: S.optional(IRI),
   accessGrant: S.optional(S.String),
   /**
    * True when the agent holds an admin marker in the *current context's*
@@ -774,6 +777,7 @@ export class GetAuthoriaztionData extends S.TaggedRequest<GetAuthoriaztionData>(
       agentType: S.Enums(AgentType),
       lang: S.String,
       accessNeedGroupIri: S.optional(IRI),
+      accessRequestIri: S.optional(IRI),
       context: IRI,
     },
   }
@@ -929,6 +933,9 @@ export class AuthorizeApp extends S.TaggedRequest<AuthorizeApp>()('AuthorizeApp'
   success: AccessAuthorization,
   payload: {
     authorization: Authorization,
+    /** the approval path (authorization-granting.md §6.8) — the record
+     *  resolves the group from the EMBEDDED copy in the request */
+    accessRequestIri: S.optional(IRI),
     context: IRI,
   },
 }) {}
@@ -974,6 +981,7 @@ export class SaiService extends Context.Tag('SaiService')<
       agentType: AgentType,
       lang: string,
       accessNeedGroupIri: IRI | undefined,
+      accessRequestIri: IRI | undefined,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof AuthorizationData>>
     readonly getResource: (
@@ -1037,6 +1045,7 @@ export class SaiService extends Context.Tag('SaiService')<
     ) => Effect.Effect<S.Schema.Type<typeof ShareAuthorizationConfirmation>>
     readonly authorizeApp: (
       authorization: S.Schema.Type<typeof Authorization>,
+      accessRequestIri: IRI | undefined,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof AccessAuthorization>>
     readonly revokeGrants: (
@@ -1089,11 +1098,20 @@ export const router = RpcRouter.make(
       return yield* saiService.getUnregisteredApplication(id)
     })
   ),
-  Rpc.effect(GetAuthoriaztionData, ({ agentId, agentType, lang, accessNeedGroupIri, context }) =>
-    Effect.gen(function* () {
-      const saiService = yield* SaiService
-      return yield* saiService.getAuthorizationData(agentId, agentType, lang, accessNeedGroupIri, context)
-    })
+  Rpc.effect(
+    GetAuthoriaztionData,
+    ({ agentId, agentType, lang, accessNeedGroupIri, accessRequestIri, context }) =>
+      Effect.gen(function* () {
+        const saiService = yield* SaiService
+        return yield* saiService.getAuthorizationData(
+          agentId,
+          agentType,
+          lang,
+          accessNeedGroupIri,
+          accessRequestIri,
+          context
+        )
+      })
   ),
   Rpc.effect(GetResource, ({ id, lang, context }) =>
     Effect.gen(function* () {
@@ -1183,10 +1201,10 @@ export const router = RpcRouter.make(
       return yield* saiService.shareResource(authorization, context)
     })
   ),
-  Rpc.effect(AuthorizeApp, ({ authorization, context }) =>
+  Rpc.effect(AuthorizeApp, ({ authorization, accessRequestIri, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.authorizeApp(authorization, context)
+      return yield* saiService.authorizeApp(authorization, accessRequestIri, context)
     })
   ),
   Rpc.effect(RevokeGrants, ({ grants, context }) =>

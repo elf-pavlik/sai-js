@@ -6,6 +6,7 @@ import {
   findSocialAgentRegistration,
   getApplicationRegistration,
   getDataAuthorization,
+  getAccessRequestsOnRegistry,
   getDataGrant,
   getDataRegistration,
   getRole,
@@ -22,6 +23,7 @@ import type { ResolvedContext } from '../Context.js'
 // authorization-agent package (it owns `sparqlEndpoint`); this module adds
 // the org-context `/sparql-admin` transport and the context dispatch.
 export {
+  getAccessRequestsOnRegistry,
   findApplicationRegistration,
   findSocialAgentInvitation,
   findSocialAgentRegistration,

@@ -13,6 +13,7 @@ import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
   findSocialAgentRegistration as findRegistrationFromSparql,
+  getAccessRequestsOnRegistry,
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
   listContained,
@@ -84,10 +85,16 @@ export const findSocialAgentRegistrationInContext = async (
  * - `false` (org context) — `registration` is the ORG's registration of the
  *   agent; the admin marker is read directly from it.
  */
+/** The owner's pending access requests keyed by grantee — the
+ *  `accessRequested` marker + the approval entry (the request IRI opens the
+ *  authorization screen, §6.8). */
+export type AccessRequestsByGrantee = Map<string, { id: string }>
+
 export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
   ctx: ResolvedContext,
-  personal = true
+  personal = true,
+  accessRequestsByGrantee: AccessRequestsByGrantee = new Map()
 ) => {
   const reciprocal = registration.reciprocalRegistration
     ? await getReciprocalRegistration(ctx, registration)
@@ -106,7 +113,10 @@ export const buildSocialAgentProfile = async (
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessRequested: !!registration.hasAccessNeedGroup,
+    accessRequested: accessRequestsByGrantee.has(registration.registeredAgent),
+    accessRequest: accessRequestsByGrantee.get(registration.registeredAgent)
+      ? IRI.make(accessRequestsByGrantee.get(registration.registeredAgent)!.id)
+      : undefined,
     admin,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
@@ -120,9 +130,18 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
   const transport = sparqlTransportFor(ctx)
   const registrations = await listSocialAgentRegistrations(ctx)
 
+  // the owner's pending access requests (grantee → request) — the
+  // accessRequested marker + the approval entry (§6.8)
+  const accessRequests = ctx.registrySet.hasAccessRequestRegistry
+    ? await getAccessRequestsOnRegistry(transport, ctx.registrySet.hasAccessRequestRegistry.id)
+    : []
+  const accessRequestsByGrantee = new Map(
+    accessRequests.map((request) => [request.grantee, { id: request.id }])
+  )
+
   const profiles = []
   for (const registration of registrations) {
-    profiles.push(await buildSocialAgentProfile(registration, ctx, personal))
+    profiles.push(await buildSocialAgentProfile(registration, ctx, personal, accessRequestsByGrantee))
   }
 
   const seenIds = new Set(profiles.map((p) => p.id))

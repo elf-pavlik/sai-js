@@ -5,10 +5,13 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
+  accessNeedGroup as resolveAccessNeedGroup,
   computeChildren,
   loadDataInstance,
 } from '@janeirodigital/interop-authorization-agent'
 import {
+  type AccessNeedData,
+  type AccessNeedGroupData,
   type AuthorizationRecorded,
   type DataAuthorizationData,
   type DataInstanceData,
@@ -248,6 +251,25 @@ async function recordAccessRequest(
  * type) — the full framed embedding rides the access-needs variant and the
  * follow-up RPC (whole group + descriptions).
  */
+/** Composed `AccessNeedData` → the embedded node shape (recursive). */
+function needToEmbedded(need: AccessNeedData): Record<string, unknown> {
+  return {
+    id: need.id,
+    type: need.type,
+    registeredShapeTree: need.registeredShapeTree,
+    required: need.required ? INTEROP.AccessRequired : INTEROP.AccessOptional,
+    accessMode: need.accessMode,
+    hasInheritingNeed: need.children.map(needToEmbedded),
+  }
+}
+
+/**
+ * The applicationId variant (kept for dev-env MANUAL testing, §6.4): the
+ * service method EXTRACTS the access needs — resolves the full framed group
+ * from the application's client-id document (the same embedded shape the
+ * access-needs variant carries) so the downstream activity + approval
+ * behave identically; `dataOwner` = the `webId` argument.
+ */
 export async function requestAccessUsingApplicationNeeds(
   ctx: ResolvedContext,
   applicationIri: string,
@@ -257,12 +279,16 @@ export async function requestAccessUsingApplicationNeeds(
   if (!clientIdDocument.hasAccessNeedGroup) {
     throw new Error('application client-id document has no access need group')
   }
-  const group: NeedBasedAccessRequestGroup = {
-    id: clientIdDocument.hasAccessNeedGroup,
-    type: [INTEROP.AccessNeedGroup],
-    hasAccessNeed: [],
+  const group: AccessNeedGroupData = await resolveAccessNeedGroup(
+    clientIdDocument.hasAccessNeedGroup,
+    ctx.session.fetch
+  )
+  const embedded: NeedBasedAccessRequestGroup = {
+    id: group.id,
+    type: group.type,
+    hasAccessNeed: group.accessNeeds.map(needToEmbedded),
   }
-  return recordAccessRequest(ctx, { dataOwner: webId, hasAccessNeedGroup: group })
+  return recordAccessRequest(ctx, { dataOwner: webId, hasAccessNeedGroup: embedded })
 }
 
 /** The access-needs variant (the tested path, §6.4): the access need group

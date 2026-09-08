@@ -114,7 +114,8 @@ export async function getAuthoriaztionData(
   agentType: AgentType,
   lang: string,
   context: string,
-  accessNeedGroupIri?: string
+  accessNeedGroupIri?: string,
+  accessRequestIri?: string
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
@@ -125,6 +126,7 @@ export async function getAuthoriaztionData(
         lang,
         context: IRI.make(context),
         ...(accessNeedGroupIri ? { accessNeedGroupIri: IRI.make(accessNeedGroupIri) } : {}),
+        ...(accessRequestIri ? { accessRequestIri: IRI.make(accessRequestIri) } : {}),
       })
     )
   }).pipe(Effect.provide(AuthLayer))
@@ -247,11 +249,18 @@ export async function shareResource(
 
 export async function authorizeApp(
   authorization: S.Schema.Type<typeof Authorization>,
-  context: string
+  context: string,
+  accessRequestIri?: string
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new AuthorizeApp({ authorization, context: IRI.make(context) }))
+    return yield* client(
+      new AuthorizeApp({
+        authorization,
+        context: IRI.make(context),
+        ...(accessRequestIri ? { accessRequestIri: IRI.make(accessRequestIri) } : {}),
+      })
+    )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

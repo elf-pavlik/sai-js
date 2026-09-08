@@ -12,4 +12,6 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   RoleDeleted: 'delete-role',
   RoleCreated: 'create-role',
   AdminAuthorizationRecorded: 'add-admin',
+  NeedBasedAccessRequestSent: 'request-access-sent',
+  NeedBasedAccessRequestReceived: 'request-access-received',
 }

@@ -1,6 +1,7 @@
 import {
   AdminAuthorization,
   type AdminAuthorizationData,
+  type AccessNeedGroupData,
   type AgentId,
   type AgentOrRoleId,
   type ApplicationRegistryData,
@@ -319,7 +320,10 @@ export class AuthorizationAgent {
     structure: AuthorizationStructure,
     grantedBy: string,
     registrySet: RegistrySetData = this.registrySet,
-    extendIfExists = false
+    extendIfExists = false,
+    /** the approval path (authorization-granting.md §6.8): the EMBEDDED group
+     *  of the request (urn:uuid ids resolve nowhere) — skips the fetch */
+    accessNeedGroupData?: AccessNeedGroupData
   ): Promise<FinalDataAuthorizationData[]> {
     const accessStructure: AccessAuthorizationStructure = structure.granted
       ? {
@@ -328,7 +332,8 @@ export class AuthorizationAgent {
           granted: true,
           dataAuthorizations: buildNestedDataAuthorizations(
             structure,
-            await accessNeedGroup(structure.hasAccessNeedGroup!, this.fetch),
+            accessNeedGroupData ??
+              (await accessNeedGroup(structure.hasAccessNeedGroup!, this.fetch)),
             grantedBy
           ),
         }

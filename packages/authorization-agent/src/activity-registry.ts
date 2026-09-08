@@ -12,7 +12,7 @@ import {
   isActivityClass,
 } from '@janeirodigital/interop-data-model'
 import type { DataModelDependencies } from './types'
-import {
+import { INTEROP,
   LDP,
   type WhatwgFetch,
   fetchJsonLd,
@@ -63,8 +63,32 @@ export async function createActivity(
  * default `@embed: '@never'` — plain IRIs/literals only.
  */
 async function frameActivity(id: string, fetch: WhatwgFetch): Promise<Record<string, unknown>> {
-  return frameDoc(await fetchJsonLd(id, fetch), dataModelContext, id, {
-    object: { '@embed': '@always' },
+  const doc = await fetchJsonLd(id, fetch)
+  // the need-based classes embed the request SNAPSHOT (their objects are
+  // never live links) — the group inside must stay COMPLETE (sparql.md: the
+  // activity graph is self-contained; its needs incl. inherited children
+  // ride the graph, or the approval cannot resolve the group). The deep
+  // frame is CLASS-GATED: a per-property sub-frame is a whitelist that would
+  // mis-frame the LIVE-LINK object arrays of the other classes.
+  const needBasedClasses = [INTEROP.NeedBasedAccessRequestSent, INTEROP.NeedBasedAccessRequestReceived]
+  const nodes = Array.isArray(doc) ? doc : [doc]
+  const isNeedBased = nodes.some((node) => {
+    const types = typeof node?.['@type'] === 'string' ? [node['@type']] : (node?.['@type'] ?? [])
+    return types.some((type: string) => needBasedClasses.includes(type))
+  })
+  return frameDoc(doc, dataModelContext, id, {
+    object: isNeedBased
+      ? {
+          '@embed': '@always',
+          hasAccessNeedGroup: {
+            '@embed': '@always',
+            hasAccessNeed: {
+              '@embed': '@always',
+              hasInheritingNeed: { '@embed': '@always' },
+            },
+          },
+        }
+      : { '@embed': '@always' },
   })
 }
 

@@ -39,6 +39,7 @@ export const useAppStore = defineStore('app', () => {
     typeof ShareAuthorizationConfirmation
   > | null>(null)
   const authorizationData = ref<S.Schema.Type<typeof AuthorizationData> | null>(null)
+  const accessRequestIriRef = ref<string | undefined>()
   const accessAuthorization = ref<S.Schema.Type<typeof AccessAuthorization> | null>(null)
   const socialAgentList = ref<S.Schema.Type<typeof SocialAgentList>>([])
   const roleList = ref<S.Schema.Type<typeof RoleList>>([])
@@ -214,14 +215,17 @@ export const useAppStore = defineStore('app', () => {
     agentId: string,
     agentType: AgentType,
     preferredLang = lang.value,
-    accessNeedGroupIri?: string
+    accessNeedGroupIri?: string,
+    accessRequestIri?: string
   ) {
+    accessRequestIriRef.value = accessRequestIri
     authorizationData.value = await effect.getAuthoriaztionData(
       agentId,
       agentType,
       preferredLang,
       currentContext(),
-      accessNeedGroupIri
+      accessNeedGroupIri,
+      accessRequestIri
     )
   }
 
@@ -299,7 +303,11 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function authorizeApp(authorization: S.Schema.Type<typeof Authorization>) {
-    accessAuthorization.value = await effect.authorizeApp(authorization, currentContext())
+    accessAuthorization.value = await effect.authorizeApp(
+      authorization,
+      currentContext(),
+      accessRequestIriRef.value
+    )
     listApplications(true)
     listSocialAgents(true)
     listRoles(true)

@@ -74,7 +74,13 @@ export interface NeedBasedAccessRequestMessage {
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAccessRequestData> {
   const node = (await frameDoc(doc, dataModelContext, id, {
-    hasAccessNeedGroup: { '@embed': '@always' },
+    hasAccessNeedGroup: {
+      '@embed': '@always',
+      hasAccessNeed: {
+        '@embed': '@always',
+        hasInheritingNeed: { '@embed': '@always' },
+      },
+    },
   })) as {
     type?: unknown
     grantee?: unknown

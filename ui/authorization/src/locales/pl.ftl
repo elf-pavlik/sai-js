@@ -96,3 +96,6 @@ personal-context-person = Osobisty
 add-admin = Ustaw administratora
 remove-admin = Usuń administratora
 admin = Administrator
+
+request-access-sent = Access requested
+request-access-received = Access request received

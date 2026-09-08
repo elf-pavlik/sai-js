@@ -98,3 +98,6 @@ personal-context-person = Personal
 add-admin = Make admin
 remove-admin = Remove admin
 admin = Admin
+
+request-access-sent = Access requested
+request-access-received = Access request received

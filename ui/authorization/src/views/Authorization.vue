@@ -78,7 +78,20 @@ watch(
       if (needs && !Array.isArray(needs)) {
         accessNeedGroupIri.value = needs
       }
-      appStore.getAuthoriaztion(webid, AgentType.SocialAgent, undefined, accessNeedGroupIri.value)
+      // the approval entry (authorization-granting.md §6.8): the pending
+      // need-based access request — the group comes from the embedded copy
+      const request = route.query.request
+      if (request && !Array.isArray(request)) {
+        appStore.getAuthoriaztion(
+          webid,
+          AgentType.SocialAgent,
+          undefined,
+          undefined,
+          request
+        )
+      } else {
+        appStore.getAuthoriaztion(webid, AgentType.SocialAgent, undefined, accessNeedGroupIri.value)
+      }
     }
   },
   { immediate: true }

@@ -66,8 +66,20 @@ function expectRequestShape(
   expect(request.grantee).toBe(grantee)
   expect(request.grantedBy).toBe(grantedBy)
   expect(request.dataOwner).toBe(dataOwner)
-  expect(request.hasAccessNeedGroup).toBeDefined()
-  expect(request.hasAccessNeedGroup.id).toBe('urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b')
+  // the embedded group must be COMPLETE through the whole chain — the needs
+  // incl. their inherited children ride the activity graph and the stored
+  // request (sparql.md; regression: the shallow activity frame dropped the
+  // children until the class-gated deep embed landed)
+  const group = request.hasAccessNeedGroup
+  expect(group).toBeDefined()
+  expect(group.id).toBe('urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b')
+  expect(group.hasAccessNeed.length).toBe(1)
+  expect(group.hasAccessNeed[0].id).toBe('urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b')
+  expect(group.hasAccessNeed[0].registeredShapeTree).toBe('https://data/shapetrees/trees/Project')
+  expect(group.hasAccessNeed[0].hasInheritingNeed.length).toBe(1)
+  expect(group.hasAccessNeed[0].hasInheritingNeed[0].id).toBe(
+    'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b'
+  )
 }
 
 describe('request access (sent side)', () => {
@@ -122,13 +134,7 @@ describe('request access (sent side)', () => {
     expect(object.id).toMatch(/^urn:uuid:/)
     // the class term may frame bare (the context row) or as the full IRI
     expect(object.type).toContain('NeedBasedAccessRequest')
-    expect(object.grantee).toBe(bobId)
-    expect(object.grantedBy).toBe(bobId)
-    expect(object.dataOwner).toBe(aliceId)
-    expect(object.hasAccessNeedGroup).toBeDefined()
-    expect(object.hasAccessNeedGroup.id).toBe(
-      'urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b'
-    )
+    expectRequestShape(object, { grantee: bobId, grantedBy: bobId, dataOwner: aliceId })
   })
 })
 

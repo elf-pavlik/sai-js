@@ -453,3 +453,29 @@ export async function findDelegableGrant(
   const bindings = await transport.fetchBindings(query)
   return bindings.length > 0
 }
+
+
+/**
+ * The need-based access requests stored in an AccessRequestRegistry, as
+ * `{ id, grantee }` pairs — ONE container-scoped SELECT (the graph-per-resource
+ * storage law: `GRAPH ?s` IS the request resource). The profiles use the
+ * grantee → request mapping for the `accessRequested` marker + the approval
+ * entry (the request IRI opens the authorization screen, §6.8).
+ */
+export async function getAccessRequestsOnRegistry(
+  transport: SparqlTransport,
+  _accessRequestRegistryContainerIri: string
+): Promise<{ id: string; grantee: string }[]> {
+  const query = `
+SELECT ?s ?grantee WHERE {
+  GRAPH ?s {
+    ?s a <${INTEROP.NeedBasedAccessRequest}> ;
+       <${INTEROP.grantee}> ?grantee .
+  }
+}`
+  const bindings = await transport.fetchBindings(query)
+  return bindings.map((b) => ({
+    id: b.s.value,
+    grantee: b.grantee.value,
+  }))
+}

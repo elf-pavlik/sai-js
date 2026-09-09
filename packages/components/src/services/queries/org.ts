@@ -7,6 +7,7 @@ import {
   getApplicationRegistration,
   getDataAuthorization,
   getAccessRequestsOnRegistry,
+  getSentAccessRequestsByDataOwner,
   getDataGrant,
   getDataRegistration,
   getRole,
@@ -24,6 +25,7 @@ import type { ResolvedContext } from '../Context.js'
 // the org-context `/sparql-admin` transport and the context dispatch.
 export {
   getAccessRequestsOnRegistry,
+  getSentAccessRequestsByDataOwner,
   findApplicationRegistration,
   findSocialAgentInvitation,
   findSocialAgentRegistration,

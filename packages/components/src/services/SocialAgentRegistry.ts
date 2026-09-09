@@ -14,6 +14,7 @@ import type { ResolvedContext } from './Context.js'
 import {
   findSocialAgentRegistration as findRegistrationFromSparql,
   getAccessRequestsOnRegistry,
+  getSentAccessRequestsByDataOwner,
   getDataGrant as getDataGrantFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
   listContained,
@@ -94,7 +95,8 @@ export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
   ctx: ResolvedContext,
   personal = true,
-  accessRequestsByGrantee: AccessRequestsByGrantee = new Map()
+  accessRequestsByGrantee: AccessRequestsByGrantee = new Map(),
+  sentAccessRequestsByDataOwner: Set<string> = new Set()
 ) => {
   const reciprocal = registration.reciprocalRegistration
     ? await getReciprocalRegistration(ctx, registration)
@@ -113,7 +115,9 @@ export const buildSocialAgentProfile = async (
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessRequested: accessRequestsByGrantee.has(registration.registeredAgent),
+    accessRequested:
+      accessRequestsByGrantee.has(registration.registeredAgent) ||
+      sentAccessRequestsByDataOwner.has(registration.registeredAgent),
     accessRequest: accessRequestsByGrantee.get(registration.registeredAgent)
       ? IRI.make(accessRequestsByGrantee.get(registration.registeredAgent)!.id)
       : undefined,
@@ -139,9 +143,25 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
     accessRequests.map((request) => [request.grantee, { id: request.id }])
   )
 
+  // the requester's sent access requests (dataOwner → true) — set the
+  // accessRequested marker on the requester side (Alice) so the UI hides the
+  // "request access" button for agents she already asked (§6.4 / events.ts).
+  // Only meaningful in the personal context; org contexts don't send requests.
+  const sentAccessRequestsByDataOwner = personal && ctx.registrySet.hasActivityRegistry
+    ? await getSentAccessRequestsByDataOwner(transport)
+    : new Set<string>()
+
   const profiles = []
   for (const registration of registrations) {
-    profiles.push(await buildSocialAgentProfile(registration, ctx, personal, accessRequestsByGrantee))
+    profiles.push(
+      await buildSocialAgentProfile(
+        registration,
+        ctx,
+        personal,
+        accessRequestsByGrantee,
+        sentAccessRequestsByDataOwner
+      )
+    )
   }
 
   const seenIds = new Set(profiles.map((p) => p.id))

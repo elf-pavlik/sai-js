@@ -105,6 +105,16 @@ function handleActivity(activity: ActivityEvent) {
     // completion (never from an RPC or activity) — the done-row refresh does
     // exactly that via the invitation list
     appStore.listSocialAgentInvitations(true)
+  } else if (
+    activity.type.includes('NeedBasedAccessRequestSent') ||
+    activity.type.includes('NeedBasedAccessRequestReceived')
+  ) {
+    // requester side: sent → the outgoing request is now pending on Kim's side;
+    // owner side: received → a new pending request has landed in the registry.
+    // Both sides refresh the social-agents list so the UI reflects the pending
+    // request state (e.g. a "pending" badge next to Kim in Alice's list, and the
+    // incoming request entry in Kim's list).
+    appStore.listSocialAgents(true)
   } else if (activity.type.includes('DelegatedGrantsUpdated')) {
     appStore.listSocialAgents(true)
   } else if (

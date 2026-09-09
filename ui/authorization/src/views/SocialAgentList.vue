@@ -31,9 +31,19 @@
           :to="{name: 'data-registry-list', query: {agent: agent.id}}"
         >
           {{ $t('data') }}
+          <template
+            v-if="agent.accessRequested"
+            #append
+          >
+            <v-badge
+              inline
+              color="warning"
+              icon="mdi-bell-ring-outline"
+            />
+          </template>
         </v-btn>
         <v-btn
-          :disabled="!agent.accessNeedGroup && !agent.accessRequest"
+          :disabled="!agent.accessRequest"
           prepend-icon="mdi-security"
           :to="{
             name: 'authorization',
@@ -46,7 +56,7 @@
         >
           {{ $t('access') }}
           <template
-            v-if="(agent.accessNeedGroup && !agent.accessGrant) || agent.accessRequest"
+            v-if="agent.accessRequest"
             #append
           >
             <v-badge

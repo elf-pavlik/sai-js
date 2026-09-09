@@ -13,7 +13,7 @@ import {
   type SocialAgentRegistrationData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, LDP, frameDoc } from '@janeirodigital/interop-utils'
+import { AS, INTEROP, LDP, frameDoc } from '@janeirodigital/interop-utils'
 /**
  * Registry-plane SPARQL transport + queries, shared by the AuthorizationAgent
  * (session reads its own registry via the internal endpoint) and the
@@ -478,4 +478,31 @@ SELECT ?s ?grantee WHERE {
     id: b.s.value,
     grantee: b.grantee.value,
   }))
+}
+
+/**
+ * Data owners the requester has already sent a need-based access request to —
+ * the `NeedBasedAccessRequestSent` activities in the requester's activity
+ * registry, keyed by `dataOwner`. Used on the requester side (Alice) to set
+ * the `accessRequested` marker so the UI hides the "request access" button
+ * for agents she already asked.
+ *
+ * Excludes activities that already have a matching `ActivityCompleted` referencing
+ * them — a completed sent-request means the forwarding workflow finished, but
+ * we still want to show `accessRequested` so we include ALL sent activities
+ * regardless of completion status (the request is in flight either way).
+ */
+export async function getSentAccessRequestsByDataOwner(
+  transport: SparqlTransport
+): Promise<Set<string>> {
+  const query = `
+SELECT DISTINCT ?dataOwner WHERE {
+  GRAPH ?activity {
+    ?activity a <${INTEROP.NeedBasedAccessRequestSent}> ;
+              <${AS.object}> ?req .
+    ?req <${INTEROP.dataOwner}> ?dataOwner .
+  }
+}`
+  const bindings = await transport.fetchBindings(query)
+  return new Set(bindings.map((b) => b.dataOwner.value))
 }

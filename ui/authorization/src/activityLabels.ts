@@ -11,6 +11,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   RoleMembershipChanged: 'update-role',
   RoleDeleted: 'delete-role',
   RoleCreated: 'create-role',
+  AuthorizationGranted: 'authorize-app',
   AdminAuthorizationRecorded: 'add-admin',
   NeedBasedAccessRequestSent: 'request-access-sent',
   NeedBasedAccessRequestReceived: 'request-access-received',

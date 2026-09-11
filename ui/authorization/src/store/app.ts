@@ -303,11 +303,15 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function authorizeApp(authorization: S.Schema.Type<typeof Authorization>) {
-    accessAuthorization.value = await effect.authorizeApp(
+    // activity-first (step 2) — the RPC writes only the AuthorizationGranted
+    // activity; the pending ack echoes the pre-minted DA ids + activityId
+    // (the uniform UI claim anchor); the done-row refreshes the lists
+    const { activityId } = await effect.authorizeApp(
       authorization,
       currentContext(),
       accessRequestIriRef.value
     )
+    claimActivity({ context: currentContext(), type: 'AuthorizationGranted', activityId })
     listApplications(true)
     listSocialAgents(true)
     listRoles(true)

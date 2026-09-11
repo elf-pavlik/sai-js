@@ -3,7 +3,10 @@ import type {
   ActivityData,
   AdminAuthorizationRecorded,
   AdminAuthorizationRevoked,
+  AuthorizationGranted,
+  AuthorizationGrantedId,
   DelegatedGrantsUpdated,
+  FinalDataAuthorizationData,
   FinalGrantData,
   GrantId,
   InvitationCreated,
@@ -69,6 +72,8 @@ const {
   getPendingGranteeActivities,
   getPendingActivities,
   resolveActivityGrantee,
+  resolveAuthorizationGrantee,
+  storeAuthorizationGranted,
   updateRoleInRegistry,
   deleteRoleFromRegistry,
   markActivitiesDone,
@@ -180,6 +185,41 @@ export async function createGrantsForAuthorization(
       })
     )
   )
+}
+
+/**
+ * The dedicated granting workflow (architecture.md §4) — activity-first step
+ * 2 (authorization-granting.md): materialize the embedded DataAuthorizations
+ * at the pre-minted ids (find-first), then regenerate the grantee's grants
+ * (registry-state full regeneration — identical end-state to today), then
+ * single completion via the activity ref. The live-link / deny-snapshot object
+ * forms (transient) have nothing to materialize — regeneration alone (to
+ * empty, for the snapshot) preserves the current behavior until Step 3/4.
+ */
+export async function processAuthorizationGranted(
+  webId: SocialAgentId,
+  dataAuthorizations: AuthorizationGranted['object'],
+  activity: AuthorizationGrantedId
+): Promise<void> {
+  if (
+    Array.isArray(dataAuthorizations) &&
+    dataAuthorizations.length > 0 &&
+    typeof dataAuthorizations[0] === 'object'
+  ) {
+    await storeAuthorizationGranted({
+      webId,
+      dataAuthorizations: dataAuthorizations as FinalDataAuthorizationData[],
+    })
+  }
+  const authorizationGrantee = await resolveAuthorizationGrantee({
+    webId,
+    object: dataAuthorizations,
+  })
+  if (!authorizationGrantee) return
+  // role → members expansion + per-member regeneration — the same step the
+  // per-grantee consumer ran (createGrantsForAgent only handles agents)
+  await createGrantsForAuthorization({ webId, authorizationGrantee })
+  await markActivitiesDone({ webId, activities: [activity] })
 }
 
 export async function updateDelegatedGrants(
@@ -353,12 +393,19 @@ export async function reconcileActivities(payload: {
   const granteeGroups = new Map<string, ActivityData[]>()
   const roleActivities: ActivityData[] = []
   for (const activity of pending) {
-    if (
-      isActivityClass(activity, 'AuthorizationRecorded') ||
-      isActivityClass(activity, 'AuthorizationRevoked')
-    ) {
-      // parties ride the object — the grantee is resolved from the object's
-      // DataAuthorization (kind via the store)
+    if (isActivityClass(activity, 'AuthorizationGranted')) {
+      // dedicated workflow (step 2 — architecture.md §4): materialize the
+      // embedded DataAuthorizations at the pre-minted ids, regenerate grants;
+      // self-completes (the outer markActivitiesDone is the accepted
+      // duplicate for a reconcile re-run)
+      const granted = activity as AuthorizationGranted
+      await executeChild(processAuthorizationGranted, {
+        args: [payload.webId, granted.object, { id: activity.id, type: [...granted.type] }],
+      })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'AuthorizationRevoked')) {
+      // no producer today (revocation plan) — keep the per-grantee consumer
+      // grouping; the grantee is resolved from the object (kind via the store)
       const grantee = await resolveActivityGrantee({ activity })
       if (!grantee) continue
       const group = granteeGroups.get(grantee.id) ?? []

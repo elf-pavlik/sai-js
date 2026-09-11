@@ -45,9 +45,9 @@ describe('ActivityData typed union', () => {
       note?: string
       object: string
     }>()
-    // sets (AuthorizationRecorded / role classes) — plain-IRI object arrays
-    expectTypeOf<AuthorizationRecorded>().toMatchTypeOf<{
-      type: ['Activity', 'AuthorizationRecorded']
+    // sets (AuthorizationGranted / role classes) — plain-IRI object arrays
+    expectTypeOf<AuthorizationGranted>().toMatchTypeOf<{
+      type: ['Activity', 'AuthorizationGranted']
       actor: string
       target: string
       object: string[]

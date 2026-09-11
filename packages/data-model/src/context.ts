@@ -102,7 +102,8 @@ export const dataModelContext: JsonLdContext = {
   AgentRegistrationAdded: { '@id': INTEROP.AgentRegistrationAdded },
   AdminAuthorizationRecorded: { '@id': INTEROP.AdminAuthorizationRecorded },
   AdminAuthorizationRevoked: { '@id': INTEROP.AdminAuthorizationRevoked },
-  AuthorizationRecorded: { '@id': INTEROP.AuthorizationRecorded },
+  AuthorizationDenied: { '@id': INTEROP.AuthorizationDenied },
+  AuthorizationGranted: { '@id': INTEROP.AuthorizationGranted },
   AuthorizationRevoked: { '@id': INTEROP.AuthorizationRevoked },
   NeedBasedAccessRequest: { '@id': INTEROP.NeedBasedAccessRequest },
   NeedBasedAccessRequestReceived: { '@id': INTEROP.NeedBasedAccessRequestReceived },
@@ -111,8 +112,6 @@ export const dataModelContext: JsonLdContext = {
   RoleDeleted: { '@id': INTEROP.RoleDeleted },
   RoleCreated: { '@id': INTEROP.RoleCreated },
   DelegatedGrantsUpdated: { '@id': INTEROP.DelegatedGrantsUpdated },
-  AuthorizationRequested: { '@id': INTEROP.AuthorizationRequested },
-  ShareRequested: { '@id': INTEROP.ShareRequested },
   ActivityCompleted: { '@id': INTEROP.ActivityCompleted },
 
   // interop — multi-value node references

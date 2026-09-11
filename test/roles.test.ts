@@ -4,11 +4,12 @@ import {
   getSocialAgentRegistration,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { getDataGrantIris, loadDataAuthorization } from '@janeirodigital/interop-data-model'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
   awaitGrantCompletion,
   dataGrants,
+  waitFor,
   waitForQuiescence,
   waitForRoleCreatedCompletion,
   waitForRoleDeletedCompletion,
@@ -261,15 +262,22 @@ describe('role-based access', () => {
       },
     })
     test('existing authorization - add remove members to roles', async () => {
+      // activity-first (step 2): the RPC returns a pending ack — pre-minted
+      // DataAuthorization ids + the triggering activity id; the workflow
+      // materializes the DAs at those ids (asserted via the store below)
       const body = await rpcCall(payload, bobCookie)
-      expect(Array.isArray(body)).toBe(true)
-      expect(body.length).toBeGreaterThan(0)
-      expect(body[0].grantee).toBe(whizRoleId)
-      expect(body[0].grantedBy).toBe(bobId)
-      expect(body[0].id).toMatch('https://registry/bob/authorization/')
+      expect(body.activityId).toBeDefined()
+      expect(body.ids.length).toBeGreaterThan(0)
+      // minted in bob's authorization registry (the pre-minted ids)
+      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
+      // the dedicated workflow PUTs the DA at the pre-minted id for the role
+      await waitFor(async () => {
+        const da = await loadDataAuthorization(body.ids[0], bobSession.fetch).catch(() => undefined)
+        return da?.grantee === whizRoleId && da?.grantedBy === bobId
+      })
 
       const initialRole = await bobSession.findRole(whizRoleId)
       const initialMembers = initialRole?.members ?? []
@@ -328,28 +336,42 @@ describe('role-based access', () => {
         )
       })
 
+      let grantedIds: string[] = []
       await awaitGrantCompletion(bobSession.fetch, regForDan.id, [bobId, danId], async () => {
         const body = await rpcCall(payload, bobCookie)
-        expect(Array.isArray(body)).toBe(true)
-        expect(body.length).toBeGreaterThan(0)
-        expect(body[0].grantee).toBe(whizRoleId)
-        expect(body[0].grantedBy).toBe(bobId)
-        expect(body[0].id).toMatch('https://registry/bob/authorization/')
+        // activity-first (step 2): pending ack — pre-minted ids + activityId
+        expect(body.activityId).toBeDefined()
+        grantedIds = body.ids
+        expect(grantedIds.length).toBeGreaterThan(0)
+        // minted in bob's authorization registry (the pre-minted ids)
+        expect(grantedIds[0]).toMatch('https://registry/bob/authorization/')
+      })
+      // the dedicated workflow PUTs the DA at the pre-minted id for the role
+      await waitFor(async () => {
+        const da = await loadDataAuthorization(grantedIds[0], bobSession.fetch).catch(
+          () => undefined
+        )
+        return da?.grantee === whizRoleId && da?.grantedBy === bobId
       })
 
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, true)
     })
 
     test('delete grantee role', async () => {
+      // activity-first (step 2): pending ack — pre-minted ids + activityId
       const body = await rpcCall(payload, bobCookie)
-      expect(Array.isArray(body)).toBe(true)
-      expect(body.length).toBeGreaterThan(0)
-      expect(body[0].grantee).toBe(whizRoleId)
-      expect(body[0].grantedBy).toBe(bobId)
-      expect(body[0].id).toMatch('https://registry/bob/authorization/')
+      expect(body.activityId).toBeDefined()
+      expect(body.ids.length).toBeGreaterThan(0)
+      // minted in bob's authorization registry (the pre-minted ids)
+      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
+      // the dedicated workflow PUTs the DA at the pre-minted id for the role
+      await waitFor(async () => {
+        const da = await loadDataAuthorization(body.ids[0], bobSession.fetch).catch(() => undefined)
+        return da?.grantee === whizRoleId && da?.grantedBy === bobId
+      })
 
       await awaitGrantChange(bobSession, danId, () =>
         rpcCall(
@@ -379,15 +401,20 @@ describe('role-based access', () => {
     })
 
     test('delete dataOwner role', async () => {
+      // activity-first (step 2): pending ack — pre-minted ids + activityId
       const body = await rpcCall(payload, bobCookie)
-      expect(Array.isArray(body)).toBe(true)
-      expect(body.length).toBeGreaterThan(0)
-      expect(body[0].grantee).toBe(whizRoleId)
-      expect(body[0].grantedBy).toBe(bobId)
-      expect(body[0].id).toMatch('https://registry/bob/authorization/')
+      expect(body.activityId).toBeDefined()
+      expect(body.ids.length).toBeGreaterThan(0)
+      // minted in bob's authorization registry (the pre-minted ids)
+      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
+      // the dedicated workflow PUTs the DA at the pre-minted id for the role
+      await waitFor(async () => {
+        const da = await loadDataAuthorization(body.ids[0], bobSession.fetch).catch(() => undefined)
+        return da?.grantee === whizRoleId && da?.grantedBy === bobId
+      })
 
       await awaitGrantChange(bobSession, danId, () =>
         rpcCall(

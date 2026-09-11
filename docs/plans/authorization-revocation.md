@@ -9,6 +9,10 @@
 > `authorizationRevoked` producer — routed today, only the producer missing)
 > and [`revoke-delegation-chain.md`](revoke-delegation-chain.md) (the
 > revocation operation at the delegation issuance boundary).
+> **Decision (2026-09):** this plan is the **designated home of the revoke
+> action** — [`authorization-granting.md`](authorization-granting.md) §9
+> Step 4 defers all withdrawal work here (no `AuthorizationRevoked` producer
+> lands in the granting plan; `granted:false` becomes a pure decline).
 
 ## 1. The invariant
 

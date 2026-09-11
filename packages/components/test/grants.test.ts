@@ -321,7 +321,7 @@ describe('resolveActivityGrantee — object-carried grantee', () => {
 
     const activity = {
       id: 'https://registry/alice/activity/deny',
-      type: ['Activity', 'AuthorizationRecorded'],
+      type: ['Activity', 'AuthorizationGranted'],
       target: AUTHZ_REGISTRY,
       createdAt: '2024-01-01T00:00:00.000Z',
       actor: ALICE,

@@ -4,7 +4,7 @@ import {
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { type AuthorizationRecorded, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { type AuthorizationGranted, getDataGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -24,8 +24,10 @@ describe('reconciliation sweep', () => {
     // the activity stays unprocessed until the sweep processes it. The
     // grantee rides the object (the seeded DataAuthorization for alice).
     const registry = acmeSession.registrySet.hasActivityRegistry!
-    const activity: Omit<AuthorizationRecorded, 'id'> = {
-      type: ['Activity', 'AuthorizationRecorded'],
+    // live-link object form (pre-step-3 share); the dedicated workflow
+    // regenerates from the store for the object's grantee (seeded DA k9m4vp)
+    const activity: Omit<AuthorizationGranted, 'id'> = {
+      type: ['Activity', 'AuthorizationGranted'],
       actor: acmeId,
       target: acmeSession.registrySet.hasAuthorizationRegistry.id,
       object: ['https://registry/acme/authorization/k9m4vp'],

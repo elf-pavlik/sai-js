@@ -152,13 +152,16 @@ describe('denied', () => {
     const registration = await session.findApplicationRegistration(clientId)
     expect(registration).toBeDefined()
 
-    // grant first — authorizationRecorded activity → grants appear on the
+    // grant first — authorizationGranted activity → grants appear on the
     // application registration; wait for the chain's completion (shared
     // barrier: Update + quiescence, so the deny below can't race the tail)
     await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
       const granted = await rpcCall(rpcPayload(grantedAuthorization), bobCookie)
-      expect(Array.isArray(granted)).toBe(true)
-      expect(granted.length).toBeGreaterThan(0)
+      // activity-first (step 2): the RPC returns a pending ack — pre-minted
+      // DataAuthorization ids + the triggering activity id (the workflow
+      // materializes the DAs at those ids)
+      expect(granted.activityId).toBeDefined()
+      expect(granted.ids.length).toBeGreaterThan(0)
     })
     expect(
       (await session.findApplicationRegistration(clientId))?.hasDataGrant?.length
@@ -167,8 +170,9 @@ describe('denied', () => {
     // deny — grants revoked (single registration Update)
     await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
       const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
-      expect(Array.isArray(denied)).toBe(true)
-      expect(denied.length).toBe(0)
+      // transient deny: still an activity + ack (snapshot object), no DAs minted
+      expect(denied.activityId).toBeDefined()
+      expect(denied.ids).toHaveLength(0)
     })
 
     // the grantee's authorizations read via the registry plane (the data-model
@@ -336,8 +340,10 @@ describe('approve a need-based access request', () => {
         ],
         aliceCookie
       )
-      expect(Array.isArray(granted)).toBe(true)
-      expect(granted.length).toBeGreaterThan(0)
+      // activity-first (step 2): pending ack — the workflow materializes the
+      // DataAuthorizations at the pre-minted ids
+      expect(granted.activityId).toBeDefined()
+      expect(granted.ids.length).toBeGreaterThan(0)
     })
 
     const regAfter = await aliceSession.findSocialAgentRegistration(bobId)

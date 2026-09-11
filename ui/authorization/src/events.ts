@@ -81,7 +81,7 @@ function handleActivity(activity: ActivityEvent) {
   if (owner && appStore.currentContext() !== owner) return
   // dispatch on the type discriminant — the grantee kind is resolved in the
   // store, so authorization done-rows refresh both lists (cheap, idempotent)
-  if (activity.type.includes('AuthorizationRecorded') || activity.type.includes('AuthorizationRevoked')) {
+  if (activity.type.includes('AuthorizationGranted') || activity.type.includes('AuthorizationRevoked')) {
     appStore.listApplications(true)
     appStore.listSocialAgents(true)
   } else if (

@@ -8,11 +8,14 @@ import {
   AccessNeed as AccessNeedModule,
   ActivityRegistry,
   accessNeedGroup as resolveAccessNeedGroup,
+  buildNestedDataAuthorizations,
+  generateDataAuthorizations,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
-  type AuthorizationRecorded,
+  type AuthorizationGranted,
+  type EmbeddedAuthorization,
   type GrantData,
   type NeedBasedAccessRequestGroup,
   ShapeTree,
@@ -23,11 +26,11 @@ import {
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {
-  type AccessAuthorization,
   AccessNeed,
   AgentType,
   type Authorization,
   type AuthorizationData,
+  AuthorizationGrantedMessage,
   IRI,
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
@@ -310,11 +313,11 @@ export const recordAuthorization = async (
   ctx: ResolvedContext,
   authorization: S.Schema.Type<typeof Authorization>,
   accessRequestIri?: string
-): Promise<S.Schema.Type<typeof AccessAuthorization>> => {
+): Promise<S.Schema.Type<typeof AuthorizationGrantedMessage>> => {
   // thin adapter: the RPC shape → the AA's AuthorizationStructure (field
   // copies); the SAI rules (scope mapping, dataOwner assignment, inheritance
-  // wiring, ensure-Application-Registration) live in the AA session method
-  // recordAuthorizationFromStructure
+  // wiring, ensure-Application-Registration) live in the AA — called from the
+  // service to BUILD the carrier and from the workflow to MATERIALIZE.
   const structure: AuthorizationStructure = {
     grantee: authorization.grantee,
     agentType: authorization.agentType,
@@ -340,67 +343,82 @@ export const recordAuthorization = async (
         (await loadNeedBasedAccessRequest(accessRequestIri, ctx.session.fetch)).hasAccessNeedGroup
       )
     : undefined
-  const recorded = await ctx.session.recordAuthorizationFromStructure(
+
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+
+  // the deny snapshot carrier (no DataAuthorization is created — grantee rides
+  // here; term-covered subset). Transient on `AuthorizationGranted` until Step 4
+  // moves the decline to `AuthorizationDenied`.
+  const snapshot = (): EmbeddedAuthorization => ({
+    id: `urn:uuid:${ctx.session.randomUUID()}`,
+    type: [INTEROP.AuthorizationStructure],
+    grantee: authorization.grantee,
+    hasAccessNeedGroup: authorization.accessNeedGroup,
+  })
+
+  if (structure.granted) {
+    // activity-first (step 2 — the architecture pivot): pre-mint the
+    // DataAuthorization id(s) (AA `generateDataAuthorizations` — the same rule
+    // the synchronous path used) and embed the POJOs as the activity object;
+    // the dedicated `processAuthorizationGranted` workflow PUTs them at those
+    // ids (find-first) and regenerates grants. The RPC only writes the
+    // activity — no synchronous mutation.
+    const group =
+      accessNeedGroupData ??
+      (await resolveAccessNeedGroup(structure.hasAccessNeedGroup!, ctx.session.fetch))
+    const nested = buildNestedDataAuthorizations(structure, group, ctx.webId)
+    const dataAuthorizations = await generateDataAuthorizations(
+      nested,
+      ctx.webId,
+      ctx.registrySet.hasAuthorizationRegistry,
+      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID }
+    )
+    const activity: Omit<AuthorizationGranted, 'id'> = {
+      type: ['Activity', 'AuthorizationGranted'],
+      actor: ctx.webId,
+      target: ctx.registrySet.hasAuthorizationRegistry.id,
+      // all-filtered (self-grant) collapses to the snapshot — same as the
+      // synchronous path's empty result
+      object: dataAuthorizations.length > 0 ? dataAuthorizations : snapshot(),
+      createdAt: new Date().toISOString(),
+    }
+    const created = await ActivityRegistry.createActivity(
+      activityRegistry,
+      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+      activity
+    )
+    // pending ack — the pre-minted DataAuthorization ids (pending handles) +
+    // the triggering activity id (the uniform UI claim anchor)
+    return AuthorizationGrantedMessage.make({
+      ids: dataAuthorizations.map((dataAuthorization) => IRI.make(dataAuthorization.id)),
+      activityId: IRI.make(created.id),
+    })
+  }
+
+  // denied (transient — until Step 4): the synchronous
+  // `recordAuthorizationFromStructure` deletes the grantee's authorizations
+  // (the accidental revoke) and returns []; the snapshot activity still routes
+  // regeneration-to-empty. Step 4 replaces this with a pure
+  // `AuthorizationDenied` (no delete, no regeneration).
+  await ctx.session.recordAuthorizationFromStructure(
     structure,
     ctx.webId,
     ctx.registrySet,
     false,
     accessNeedGroupData
   )
-  const response: S.Schema.Type<typeof AccessAuthorization> = recorded.map((dataAuthorization) => ({
-    id: IRI.make(dataAuthorization.id),
-    grantee: IRI.make(dataAuthorization.grantee),
-    grantedBy: IRI.make(dataAuthorization.grantedBy),
-    registeredShapeTree: IRI.make(dataAuthorization.registeredShapeTree),
-    scopeOfAuthorization: IRI.make(dataAuthorization.scopeOfAuthorization),
-    dataOwner: dataAuthorization.dataOwner ? IRI.make(dataAuthorization.dataOwner) : undefined,
-    hasDataRegistration: dataAuthorization.hasDataRegistration
-      ? IRI.make(dataAuthorization.hasDataRegistration)
-      : undefined,
-    satisfiesAccessNeed: dataAuthorization.satisfiesAccessNeed
-      ? IRI.make(dataAuthorization.satisfiesAccessNeed)
-      : undefined,
-    inheritsFromAuthorization: dataAuthorization.inheritsFromAuthorization
-      ? IRI.make(dataAuthorization.inheritsFromAuthorization)
-      : undefined,
-    accessMode: dataAuthorization.accessMode.map((mode) => IRI.make(mode)),
-    creatorAccessMode: dataAuthorization.creatorAccessMode
-      ? dataAuthorization.creatorAccessMode.map((mode) => IRI.make(mode))
-      : undefined,
-    hasDataInstance: dataAuthorization.hasDataInstance
-      ? dataAuthorization.hasDataInstance.map((iri) => IRI.make(iri))
-      : undefined,
-    hasInheritingAuthorization: dataAuthorization.hasInheritingAuthorization
-      ? dataAuthorization.hasInheritingAuthorization.map((iri) => IRI.make(iri))
-      : undefined,
-  }))
-
-  const activityRegistry = ctx.registrySet.hasActivityRegistry
-  if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  // parties ride the object: the grantee is read from the recorded
-  // DataAuthorizations (kind resolved in the store), never a flat field. A
-  // denied authorization creates NO DataAuthorization (`recordAuthorizationFromStructure`
-  // returns [] for granted:false) — the request structure rides as a urn:uuid
-  // snapshot carrying `grantee` (there is nothing to link).
-  const activity: Omit<AuthorizationRecorded, 'id'> = {
-    type: ['Activity', 'AuthorizationRecorded'],
+  const activity: Omit<AuthorizationGranted, 'id'> = {
+    type: ['Activity', 'AuthorizationGranted'],
     actor: ctx.webId,
     target: ctx.registrySet.hasAuthorizationRegistry.id,
-    object:
-      recorded.length > 0
-        ? recorded.map((dataAuthorization) => dataAuthorization.id)
-        : {
-            id: `urn:uuid:${ctx.session.randomUUID()}`,
-            type: [INTEROP.AuthorizationStructure],
-            grantee: authorization.grantee,
-            hasAccessNeedGroup: authorization.accessNeedGroup,
-          },
+    object: snapshot(),
     createdAt: new Date().toISOString(),
   }
-  await ActivityRegistry.createActivity(
+  const created = await ActivityRegistry.createActivity(
     activityRegistry,
     { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
     activity
   )
-  return response
+  return AuthorizationGrantedMessage.make({ ids: [], activityId: IRI.make(created.id) })
 }

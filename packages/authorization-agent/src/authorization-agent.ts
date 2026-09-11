@@ -58,6 +58,7 @@ import {
   type NestedDataAuthorizationData,
   buildNestedDataAuthorizations,
   generateAuthorization,
+  generateDataAuthorizations,
   matchesScope,
 } from './authorization'
 import { loadDataInstance } from './data-instance'
@@ -700,11 +701,19 @@ export class AuthorizationAgent {
     )
   }
 
-  public async findSocialAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
-    const agentsWithAccess = await this.findAgentsWithAccess(dataInstanceIri)
+  public async findSocialAgentsWithAccess(
+    dataInstanceIri: string,
+    ownerWebId = this.webId,
+    registrySet = this.registrySet
+  ): Promise<AgentWithAccess[]> {
+    const agentsWithAccess = await this.findAgentsWithAccess(
+      dataInstanceIri,
+      ownerWebId,
+      registrySet
+    )
     const socialAgentsWithAccess: AgentWithAccess[] = []
     const transport = localSparqlTransport(this.sparqlEndpoint)
-    const iris = await listContained(transport, this.registrySet.hasSocialAgentRegistry.id)
+    const iris = await listContained(transport, registrySet.hasSocialAgentRegistry.id)
     const registrations = await Promise.all(
       iris.map((iri) => getRegistrationFromSparql(transport, iri))
     )
@@ -719,20 +728,24 @@ export class AuthorizationAgent {
     return socialAgentsWithAccess
   }
 
-  public async findAgentsWithAccess(dataInstanceIri: string): Promise<AgentWithAccess[]> {
+  public async findAgentsWithAccess(
+    dataInstanceIri: string,
+    ownerWebId = this.webId,
+    registrySet = this.registrySet
+  ): Promise<AgentWithAccess[]> {
     const dataInstance = await loadDataInstance(dataInstanceIri, this.fetch)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
     // the shared SPARQL listing over the authorization registry (same query
     // the org-context "who has access" uses) instead of the HTTP sweep
     const transport = localSparqlTransport(this.sparqlEndpoint)
-    const iris = await listContained(transport, this.registrySet.hasAuthorizationRegistry.id)
+    const iris = await listContained(transport, registrySet.hasAuthorizationRegistry.id)
     const authorizations = await Promise.all(
       iris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
     for (const dataAuthorization of authorizations) {
       if (dataAuthorization.registeredShapeTree !== shapeTree) continue
-      if (matchesScope(dataAuthorization, dataInstance, this.webId)) {
+      if (matchesScope(dataAuthorization, dataInstance, ownerWebId)) {
         agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
       }
     }
@@ -810,5 +823,46 @@ export class AuthorizationAgent {
       })
     )
     return authorizations.flat()
+  }
+
+  /**
+   * The build half of `shareDataInstance` (activity-first step 3,
+   * authorization-granting.md): compute the DataAuthorizations-to-be for a
+   * share selection WITHOUT writing — owner-excluded, already-have-access
+   * filtered, ids PRE-MINTED (`generateDataAuthorizations`). The RPC embeds
+   * them as one `AuthorizationGranted` per deduped grantee; the
+   * `processAuthorizationGranted` workflow materializes them with the
+   * context/org session (`getSession(ctx.webId)`) — fixing the org-context
+   * debt (`shareDataInstance` wrote against the SESSION's own registry set).
+   * `ownerWebId`/`registrySet` are the CONTEXT (the owner), not the session.
+   */
+  public async buildShareDataAuthorizations(
+    details: ShareDataInstanceStructure,
+    ownerWebId: string,
+    registrySet: RegistrySetData = this.registrySet
+  ): Promise<FinalDataAuthorizationData[]> {
+    // ensure owner doesn't grant access for oneself (the context owner, not
+    // the session's webId)
+    const requestedAgents = details.agents.filter((agent) => agent !== ownerWebId)
+    // filter out agents who already have access — evaluated from the CONTEXT
+    // owner's perspective in the CONTEXT registry
+    const agentsWithAccess = (
+      await this.findSocialAgentsWithAccess(details.resource, ownerWebId, registrySet)
+    ).map((obj) => obj.agent)
+    const agents = requestedAgents.filter((agent) => !agentsWithAccess.includes(agent))
+
+    const dataInstance = await loadDataInstance(details.resource, this.fetch)
+    const builds = await Promise.all(
+      agents.map(async (agent) => {
+        const authorization = await this.formatAuthorization(agent, dataInstance, details)
+        return generateDataAuthorizations(
+          authorization.dataAuthorizations ?? [],
+          ownerWebId,
+          registrySet.hasAuthorizationRegistry,
+          { fetch: this.fetch, randomUUID: this.randomUUID }
+        )
+      })
+    )
+    return builds.flat()
   }
 }

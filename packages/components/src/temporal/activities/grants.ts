@@ -4,7 +4,9 @@ import {
   ActivityRegistry,
   AgentRegistry,
   RoleRegistry,
+  ensureApplicationRegistration,
   replaceDataGrants,
+  storeDataAuthorizations,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessRequestMessage,
@@ -14,9 +16,11 @@ import {
   type AdminAuthorizationRevoked,
   type AgentId,
   type AgentOrRoleId,
-  type AuthorizationRecorded,
+  type AuthorizationGranted,
   type AuthorizationRevoked,
+  type DataAuthorizationData,
   type DataAuthorizationId,
+  type FinalDataAuthorizationData,
   type FinalGrantData,
   type GeneratedGrants,
   type GrantData,
@@ -524,10 +528,12 @@ export async function resolveActivityGrantee(payload: {
   const actor = (payload.activity as { actor: string }).actor
   const session = await manager.getSession(actor)
   if (
-    isActivityClass(payload.activity, 'AuthorizationRecorded') ||
+    isActivityClass(payload.activity, 'AuthorizationGranted') ||
     isActivityClass(payload.activity, 'AuthorizationRevoked')
   ) {
-    const authorizationActivity = payload.activity as AuthorizationRecorded | AuthorizationRevoked
+    const authorizationActivity = payload.activity as
+      | AuthorizationGranted
+      | AuthorizationRevoked
     // granted → the first live-link DataAuthorization; denied → the embedded
     // structure snapshot (a denied authorization creates no resource)
     const grantee = Array.isArray(authorizationActivity.object)
@@ -548,19 +554,101 @@ export async function resolveActivityGrantee(payload: {
   return undefined
 }
 
-/** The grantee of a live-link DataAuthorization object (never the deny case).
- * 404-tolerant: the DA may already be gone (a later deny deleted the grantee's
- * authorizations) — a lost object must skip the activity, never fail the sweep. */
+/** The grantee of an object's first DataAuthorization — live link (404
+ * tolerant: the DA may already be gone — a later deny deleted the grantee's
+ * authorizations) or embedded POJO (granted form reads the grantee directly).
+ * A lost object must skip the activity, never fail the sweep. */
 async function granteeFromObject(
-  id: string | undefined,
+  idOrNode: string | DataAuthorizationData | undefined,
   session: AuthorizationAgent
 ): Promise<string | undefined> {
-  if (!id) return undefined
+  if (!idOrNode) return undefined
+  if (typeof idOrNode === 'string') {
+    try {
+      const authorization = await loadDataAuthorization(idOrNode, session.fetch)
+      return authorization.grantee
+    } catch {
+      return undefined
+    }
+  }
+  return idOrNode.grantee
+}
+
+// ---------------------------------------------------------------------------
+// Authorization granted (activity-first step 2 — the dedicated workflow)
+// ---------------------------------------------------------------------------
+
+export interface StoreAuthorizationGrantedInput {
+  webId: SocialAgentId
+  dataAuthorizations: FinalDataAuthorizationData[]
+}
+
+/**
+ * Materialize the pre-built DataAuthorizations at their embedded ids (the
+ * `processAuthorizationGranted` workflow's materialize step). Runs as the
+ * context's own session (`getSession(webId)`); the AA `storeDataAuthorizations`
+ * is find-first idempotent (`If-None-Match: *`).
+ */
+export async function storeAuthorizationGranted(
+  payload: StoreAuthorizationGrantedInput
+): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  await storeDataAuthorizations(payload.dataAuthorizations, {
+    fetch: session.fetch,
+    randomUUID: session.randomUUID,
+  })
+}
+
+export interface AuthorizationGrantedObjectInput {
+  webId: SocialAgentId
+  object: AuthorizationGranted['object']
+}
+
+/**
+ * The grantee of an `AuthorizationGranted` object — kind via the store
+ * (`session.typeGrantee`). Object forms: embedded POJO(s) → the first DA's
+ * `grantee` (no deref — the resources do not exist until the workflow PUTs
+ * them); live-link set (pre-Step-3 share) → dereference the first DA
+ * (404-tolerant); deny snapshot → the embedded `grantee`. An unresolvable
+ * grantee = an unregistered agent → only applications are auto-registered
+ * at grant time (`ensureApplicationRegistration`, then re-check); the
+ * grantee kind cannot ride the wire (no `agentType` term).
+ */
+export async function resolveAuthorizationGrantee(
+  payload: AuthorizationGrantedObjectInput
+): Promise<AgentOrRoleId | undefined> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(payload.webId.id)
+  const object = payload.object
+  let granteeIri: string | undefined
+  if (Array.isArray(object)) {
+    const first = object[0]
+    if (typeof first === 'string') {
+      try {
+        const authorization = await loadDataAuthorization(first, session.fetch)
+        granteeIri = authorization.grantee
+      } catch {
+        // 404-tolerant — an intervening deny may have deleted the DA
+      }
+    } else {
+      granteeIri = first?.grantee
+    }
+  } else {
+    granteeIri = object.grantee
+  }
+  if (!granteeIri) return undefined
   try {
-    const authorization = await loadDataAuthorization(id, session.fetch)
-    return authorization.grantee
+    return await session.typeGrantee(granteeIri)
   } catch {
-    return undefined
+    // unregistered → only applications are auto-registered at grant time
+    await ensureApplicationRegistration(
+      session.registrySet.hasApplicationRegistry,
+      { fetch: session.fetch, randomUUID: session.randomUUID },
+      { agent: payload.webId.id, client: session.agentId },
+      granteeIri
+    )
+    return session.typeGrantee(granteeIri)
   }
 }
 
@@ -599,7 +687,7 @@ export async function getPendingGranteeActivities(
       continue
     }
     if (
-      !isActivityClass(activity, 'AuthorizationRecorded') &&
+      !isActivityClass(activity, 'AuthorizationGranted') &&
       !isActivityClass(activity, 'AuthorizationRevoked')
     )
       continue

@@ -12,7 +12,7 @@ import {
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
-  type AuthorizationRecorded,
+  type AuthorizationGranted,
   type DataAuthorizationData,
   type DataInstanceData,
   DataRegistration,
@@ -162,10 +162,17 @@ export const shareResource = async (
       accessMode: [...child.accessMode],
     })),
   }
-  // `shareDataInstance` writes on the session's own registry set — in an org
-  // context (unexercised) it would target the user's; out of the phase-3
-  // exercised scope, tracked as debt.
-  const recorded = await ctx.session.shareDataInstance(structure)
+  // activity-first (step 3): build the DataAuthorizations-to-be WITHOUT
+  // writing — ids PRE-MINTED by the AA (`buildShareDataAuthorizations`); one
+  // `AuthorizationGranted` per deduped grantee with the EMBEDDED POJOs. The
+  // `processAuthorizationGranted` workflow materializes them with the
+  // context/org session (`getSession(ctx.webId)`) — fixing the org-context
+  // debt (`shareDataInstance` wrote against the session's own registry set).
+  const recorded = await ctx.session.buildShareDataAuthorizations(
+    structure,
+    ctx.webId,
+    ctx.registrySet
+  )
 
   const clientIdDocument = await loadClientIdDocument(
     shareAuthorization.applicationId,
@@ -175,20 +182,18 @@ export const shareResource = async (
   // grantees are social agents in the share flow (roles are not share targets)
   const grantees = [...new Set(recorded.map((dataAuthorization) => dataAuthorization.grantee))]
 
-  // one authorizationRecorded activity per deduped grantee → one notification,
-  // one workflow per grantee (sequential PUTs — CSS SPARQL backend races on
+  // one AuthorizationGranted per deduped grantee → one notification, one
+  // workflow run per grantee (sequential PUTs — CSS SPARQL backend races on
   // concurrent PUTs in the same container). Parties ride the object: the
-  // recorded DataAuthorizations (live-link set) carry the grantee.
+  // embedded DataAuthorizations carry the grantee.
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   for (const grantee of grantees) {
-    const activity: Omit<AuthorizationRecorded, 'id'> = {
-      type: ['Activity', 'AuthorizationRecorded'],
+    const activity: Omit<AuthorizationGranted, 'id'> = {
+      type: ['Activity', 'AuthorizationGranted'],
       actor: ctx.webId,
       target: ctx.registrySet.hasAuthorizationRegistry.id,
-      object: recorded
-        .filter((dataAuthorization) => dataAuthorization.grantee === grantee)
-        .map((dataAuthorization) => dataAuthorization.id),
+      object: recorded.filter((dataAuthorization) => dataAuthorization.grantee === grantee),
       createdAt: new Date().toISOString(),
     }
     await ActivityRegistry.createActivity(

@@ -2,11 +2,13 @@
 // Authorization structures (domain-shaped)
 //
 // Relocated from authorization-agent (payload-contract-alignment §2, decision
-// (a2)) so the activity classes (`AuthorizationRequested`/`ShareRequested`)
-// can embed them (if the flat carriers are adopted — authorization-granting.md
-// Decision A decides use-or-drop): `data-model` is the anchor of the payload
-// contract and must not import from authorization-agent, so the canonical
-// shapes live here; authorization-agent re-exports them (source-compatible).
+// (a2)): `data-model` is the anchor of the payload contract and must not
+// import from authorization-agent, so the canonical shapes live here;
+// authorization-agent re-exports them (source-compatible). The activity
+// classes `AuthorizationRequested`/`ShareRequested` that could embed them
+// were DROPPED (authorization-granting.md Decision A) — the granting carrier
+// is the term-covered `DataAuthorizationData` POJO, so these structures are
+// RPC-input types only, never on the wire.
 // Fields stay domain-shaped plain-IRI strings — no `{ id, type }` refs,
 // satisfying the storage law for SPARQL-queried registries.
 // ──────────────────────────

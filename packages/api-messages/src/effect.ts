@@ -323,38 +323,6 @@ const activityBaseFields = {
   createdAt: S.String,
 }
 
-/** Unbranded projection of data-model `DataAuthorizationStructure`. */
-export const DataAuthorizationStructure = S.Struct({
-  accessNeed: S.String,
-  scopeOfAuthorization: S.String,
-  dataOwner: S.optional(S.String),
-  hasDataRegistration: S.optional(S.String),
-  hasDataInstance: S.optional(S.Array(S.String)),
-})
-
-/** Unbranded projection of data-model `AuthorizationStructure`. */
-export const AuthorizationStructure = S.Struct({
-  grantee: S.String,
-  agentType: S.String,
-  hasAccessNeedGroup: S.optional(S.String),
-  granted: S.Boolean,
-  dataAuthorizations: S.optional(S.Array(DataAuthorizationStructure)),
-})
-
-/** Unbranded projection of data-model `ShareDataInstanceStructure`. */
-export const ShareDataInstanceStructure = S.Struct({
-  applicationId: S.String,
-  resource: S.String,
-  accessMode: S.Array(S.String),
-  children: S.Array(
-    S.Struct({
-      shapeTree: S.String,
-      accessMode: S.Array(S.String),
-    })
-  ),
-  agents: S.Array(S.String),
-})
-
 /** Unbranded projection of data-model `EmbeddedSocialAgentInvitation` —
  * the `InvitationAccepted` object (urn:uuid snapshot, never dereferenced). */
 export const EmbeddedSocialAgentInvitation = S.Struct({
@@ -514,9 +482,9 @@ export const AdminAuthorizationRevoked = S.Struct({
 })
 
 /** Unbranded projection of data-model `EmbeddedAuthorization` — the denied
- * `AuthorizationRecorded` object (urn:uuid snapshot of the request structure;
+ * `AuthorizationGranted` object (urn:uuid snapshot of the request structure;
  * a denied authorization creates no DataAuthorization, so `grantee` rides
- * here). */
+ * here; moves to `AuthorizationDenied` at Step 4). */
 export const EmbeddedAuthorization = S.Struct({
   id: S.String,
   type: S.Array(S.String),
@@ -524,15 +492,49 @@ export const EmbeddedAuthorization = S.Struct({
   hasAccessNeedGroup: S.optional(S.String),
 })
 
-/** Authorization recorded — granted: the DataAuthorization live-link set;
- * denied: the request-structure snapshot (grantee kind resolved in the store). */
-export const AuthorizationRecorded = S.Struct({
+/** Unbranded projection of data-model `DataAuthorizationData` — the granted
+ * `AuthorizationGranted` object (term-covered fields only: the real-id
+ * embedded DataAuthorization(s)-to-be at the pre-minted ids). */
+export const EmbeddedDataAuthorization = S.Struct({
+  id: S.String,
+  type: S.Array(S.String),
+  grantee: S.String,
+  grantedBy: S.String,
+  registeredShapeTree: S.String,
+  scopeOfAuthorization: S.String,
+  dataOwner: S.optional(S.String),
+  hasDataRegistration: S.optional(S.String),
+  satisfiesAccessNeed: S.optional(S.String),
+  inheritsFromAuthorization: S.optional(S.String),
+  accessMode: S.Array(S.String),
+  creatorAccessMode: S.optional(S.Array(S.String)),
+  hasDataInstance: S.optional(S.Array(S.String)),
+  hasInheritingAuthorization: S.optional(S.Array(S.String)),
+})
+
+/** Authorization granted — the granting class (authorization-granting.md
+ * Step 2): object = the DataAuthorizations-to-be (real-id embedded POJOs);
+ * transient legacy forms: live-link `string[]` (pre-Step-3 share) and the
+ * deny snapshot (moves to `AuthorizationDenied` at Step 4). */
+export const AuthorizationGranted = S.Struct({
   ...activityBaseFields,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationRecorded')),
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationGranted')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the DataAuthorizations (live-link set) or the structure snapshot */
-  object: S.Union(S.Array(S.String), EmbeddedAuthorization),
+  /** the DataAuthorizations-to-be (embedded) or the legacy forms */
+  object: S.Union(S.Array(S.String), S.Array(EmbeddedDataAuthorization), EmbeddedAuthorization),
+})
+
+/** Pending acknowledgment of an approved authorization (activity-first step
+ * 2) — the RPC pre-mints the DataAuthorization id(s) and writes the
+ * activity; the `processAuthorizationGranted` workflow materializes them at
+ * those ids. Echoes the pre-minted ids (pending handles) + the triggering
+ * activity id (the uniform UI claim anchor). */
+export const AuthorizationGrantedMessage = S.Struct({
+  /** the pre-minted DataAuthorization IRIs the workflow will PUT at */
+  ids: S.Array(IRI),
+  /** the triggering `AuthorizationGranted` activity's IRI */
+  activityId: IRI,
 })
 
 /** Authorization revoked — `object` = the DataAuthorization live-link set. */
@@ -543,6 +545,18 @@ export const AuthorizationRevoked = S.Struct({
   actor: S.String,
   /** the DataAuthorizations — live-link set */
   object: S.Array(S.String),
+})
+
+/** Authorization denied (decline — silent, forward-only;
+ * authorization-granting.md Step 4). `target` dropped. */
+export const AuthorizationDenied = S.Struct({
+  id: S.String,
+  createdAt: S.String,
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationDenied')),
+  /** as:actor — plain IRI (the registry owner) */
+  actor: S.String,
+  /** the request-structure snapshot (urn:uuid) carrying `grantee` */
+  object: EmbeddedAuthorization,
 })
 
 /** Role membership changed (activity-first step 2) — `target` dropped; the
@@ -618,25 +632,6 @@ export const DelegatedGrantsUpdated = S.Struct({
   target: S.String,
   /** the reciprocal registration — live link */
   object: S.String,
-})
-
-/** Authorization requested via RPC (future — activity-first step 2). */
-export const AuthorizationRequested = S.Struct({
-  ...activityBaseFields,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationRequested')),
-  /** as:actor — plain IRI (the registry owner) */
-  actor: S.String,
-  authorization: AuthorizationStructure,
-})
-
-/** Resource sharing requested via RPC (future — activity-first step 3). */
-export const ShareRequested = S.Struct({
-  ...activityBaseFields,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('ShareRequested')),
-  /** as:actor — plain IRI (the registry owner) */
-  actor: S.String,
-  authorization: ShareDataInstanceStructure,
-  applicationId: S.String,
 })
 
 /** Completion marker — no own fields; `target` is the completed activity IRI. */
@@ -930,7 +925,7 @@ export class ShareResource extends S.TaggedRequest<ShareResource>()('ShareResour
 
 export class AuthorizeApp extends S.TaggedRequest<AuthorizeApp>()('AuthorizeApp', {
   failure: S.Never,
-  success: AccessAuthorization,
+  success: AuthorizationGrantedMessage,
   payload: {
     authorization: Authorization,
     /** the approval path (authorization-granting.md §6.8) — the record
@@ -1047,7 +1042,7 @@ export class SaiService extends Context.Tag('SaiService')<
       authorization: S.Schema.Type<typeof Authorization>,
       accessRequestIri: IRI | undefined,
       context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof AccessAuthorization>>
+    ) => Effect.Effect<S.Schema.Type<typeof AuthorizationGrantedMessage>>
     readonly revokeGrants: (
       grants: readonly S.Schema.Type<typeof IRI>[],
       context: IRI

@@ -43,8 +43,11 @@ describe('vocabularies', () => {
     expect(INTEROP.AdminAuthorizationRevoked).toBe(
       'http://www.w3.org/ns/solid/interop#AdminAuthorizationRevoked'
     )
-    expect(INTEROP.AuthorizationRecorded).toBe(
-      'http://www.w3.org/ns/solid/interop#AuthorizationRecorded'
+    expect(INTEROP.AuthorizationGranted).toBe(
+      'http://www.w3.org/ns/solid/interop#AuthorizationGranted'
+    )
+    expect(INTEROP.AuthorizationDenied).toBe(
+      'http://www.w3.org/ns/solid/interop#AuthorizationDenied'
     )
     expect(INTEROP.AuthorizationRevoked).toBe(
       'http://www.w3.org/ns/solid/interop#AuthorizationRevoked'
@@ -57,10 +60,6 @@ describe('vocabularies', () => {
     expect(INTEROP.DelegatedGrantsUpdated).toBe(
       'http://www.w3.org/ns/solid/interop#DelegatedGrantsUpdated'
     )
-    expect(INTEROP.AuthorizationRequested).toBe(
-      'http://www.w3.org/ns/solid/interop#AuthorizationRequested'
-    )
-    expect(INTEROP.ShareRequested).toBe('http://www.w3.org/ns/solid/interop#ShareRequested')
     expect(INTEROP.ActivityCompleted).toBe('http://www.w3.org/ns/solid/interop#ActivityCompleted')
   })
 })

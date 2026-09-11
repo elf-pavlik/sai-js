@@ -239,6 +239,29 @@ export async function replaceDataAuthorizationsForGrantee(
  * - denied: deletes all of the grantee's existing data authorization resources,
  *   returns [].
  */
+/**
+ * Store pre-built DataAuthorization resources at their embedded ids
+ * (activity-first granting, authorization-granting.md Step 2) — find-first
+ * idempotent (a retry/reconcile re-run sees the resource and skips).
+ * Containment is server-managed (ldp:contains) so a PUT into the registry
+ * container links the members.
+ */
+export async function storeDataAuthorizations(
+  dataAuthorizations: FinalDataAuthorizationData[],
+  deps: DataModelDependencies
+): Promise<void> {
+  for (const dataAuthorization of dataAuthorizations) {
+    const existing = await deps.fetch(dataAuthorization.id, { method: 'HEAD' })
+    if (existing.status === 200) continue
+    await putJsonLd(
+      dataAuthorization.id,
+      deps.fetch,
+      DataAuthorization.toJsonLd(dataAuthorization),
+      { 'If-None-Match': '*' }
+    )
+  }
+}
+
 export async function generateAuthorization(
   authorization: AccessAuthorizationStructure,
   grantedBy: string,

@@ -1,549 +1,357 @@
-# Authorization granting — `recordAuthorization` + `shareResource` (+ access request)
+# Authorization granting — `AuthorizationGranted` (+ `AuthorizationDenied`, requests, share)
 
-> **Status: design only — extracted out of `activity-first-services.md`
-> steps 7–8 (2026-09), then joined by the access-request leg (`requestAccess
-> UsingApplicationNeeds`, formerly its step 10 — matching the revocation
-> plan's extraction), re-framed (2026-09) as the `NeedBasedAccessRequest`
-> leg: the registration-link mechanism (`setAccessNeedGroup`) is dropped;
-> the request rides a NEW `NeedBasedAccessRequest` type through the data
-> owner's **reused grant-issuance endpoint** (no new endpoint/term), lands
-> as an immutable AccessRequest in the owner's new **AccessRequestRegistry**
-> (activity-first, 202 Accepted), and the kept RPC becomes the same
-> activity-first producer — see §6.** The two main moves ride **structure types**
-> (`AuthorizationStructure`, `DataAuthorizationStructure`,
-> `ShareDataInstanceStructure`) whose fields have NO `dataModelContext` terms
-> — the term-gap (execution note 9 in `payload-contract-alignment.md`) is why
-> the POJO-first reorder moved them to the end, and why they now live here as
-> one plan: the **granting leg**, counterpart of
-> [`authorization-revocation.md`](authorization-revocation.md). The access-
-> request leg has NO structure types — it
-> rides along as the plan's third scope row, re-framed as the
-> `NeedBasedAccessRequest` leg (§6).
+> **Status: design only for the parts below.** The **request leg**
+> (`NeedBasedAccessRequest` → `AccessRequestRegistry` → approval) already
+> landed (see `docs/features.md`); this plan covers the **terminology
+> alignment**, the **activity-first granting leg**, the **`shareResource`
+> unification**, **specific-instance requests**, and the **deny/revoke
+> split**. Extracted from `activity-first-services.md` steps 7–8, then
+> re-scoped (2026-09) around the decisions in §1.
+>
+> **Sibling plans:** [`authorization-revocation.md`](authorization-revocation.md)
+> (the revoke action + grant revocation) ·
+> [`authorization-revoked.md`](authorization-revoked.md) (typed revocation) ·
+> [`admin-authorization-naming.md`](admin-authorization-naming.md) (the admin
+> pair alignment) · [`payload-contract-alignment.md`](payload-contract-alignment.md)
+> (the structure term-gap, execution note 9) ·
+> [`revoke-delegation-chain.md`](revoke-delegation-chain.md) (delegation
+> boundary).
 
-## 1. Scope — the granting leg
+## 1. Terminology (DECIDED — authoritative)
 
-The activity-first moves for the two granting RPCs (was steps 7–8 of
-`activity-first-services.md`):
+> **Principle: verbs belong to their subject.** You *deny/approve a*
+> **request**. You *grant/revoke an* **authorization**. "Recorded" is a
+> system/logging verb that says nothing about the outcome — fine for storage,
+> wrong as the domain discriminant.
 
-| RPC | activity class(es) | Structure types in play |
+| Concept | Subject | Class | Change |
+|---|---|---|---|
+| requester asks | request | `NeedBasedAccessRequestSent` / `NeedBasedAccessRequestReceived` | unchanged (landed) |
+| owner declines | request/decision | **`AuthorizationDenied`** | **new** |
+| owner approves | authorization | **`AuthorizationGranted`** | **rename of `AuthorizationRecorded`** (positive only) |
+| owner/system withdraws | authorization | `AuthorizationRevoked` | keep (producer pending) |
+| grant intent carrier | — | ~~`AuthorizationRequested`~~ | **drop** (redundant — the grant carrier *is* `AuthorizationGranted`) |
+| owner direct share | authorization | ~~`ShareRequested`~~ | **drop** — reuses `AuthorizationGranted` (§5) |
+
+Why `AuthorizationGranted` is preferred over `AuthorizationRecorded`:
+
+- `interop:DataAuthorization` is **inherently a positive grant** — a "denied
+  authorization" is a domain contradiction. `AuthorizationRecorded` currently
+  carries *both* outcomes, hiding the outcome in the object shape (link-set vs
+  snapshot); the plan's own `authorization-revoked.md` calls this
+  "semantically wrong".
+- The RPC already speaks this vocabulary: `effect.ts` defines
+  `GrantedAuthorization | DeniedAuthorization`. The activities **match the RPC
+  union** after the rename.
+- `Granted`/`Denied`/`Revoked` are all actor decisions; `Recorded`/`Revoked`
+  mixed a system verb with a domain verb.
+
+The request axis keeps `NeedBasedAccessRequest*` (the `NeedBasedAccessRequest`
+**data type** is distinct from the delegation `AccessRequest` /
+`AccessRevocation` types). Dropping the `NeedBased` prefix from the *activity*
+names is a possible later alignment — **open decision (§11), not this plan.**
+
+## 2. Target activity set & carriers
+
+| Activity | Producer | Object carrier |
 |---|---|---|
-| `recordAuthorization` (`AuthorizeApp`) | `authorizationRecorded` (+ the `Revoked` carrier for the deny path — cross-ref the revocation plan) | `AuthorizationStructure` / `DataAuthorizationStructure` |
-| `shareResource` | `authorizationRecorded` (one per deduped grantee) | `ShareDataInstanceStructure` / `DataAuthorizationStructure` + `applicationId` |
-| access request — **`NeedBasedAccessRequest`** (re-framed, §6; the `requestAccessUsingApplicationNeeds` registration-link leg is dropped) | the NEW type `NeedBasedAccessRequest` + the activity pair (`NeedBasedAccessRequestSent` / `NeedBasedAccessRequestReceived`) — `{ grantee, grantedBy, dataOwner, hasAccessNeedGroup }` (+ embedded access need group) | **none** (plain IRIs + an embedded group — the term-gap does not apply); the payload goes through the REUSED grant-issuance endpoint (`GrantIssuanceHandler`), activity-first into the owner's new AccessRequestRegistry (202 Accepted) |
+| `NeedBasedAccessRequestSent` | requester RPC / endpoint (landed) | urn:uuid snapshot (requester has no registry to mint in) |
+| `NeedBasedAccessRequestReceived` | owner endpoint (landed) | real-id embedded `NeedBasedAccessRequest` at the minted id |
+| `AuthorizationGranted` | granting RPC / share RPC | **`DataAuthorizationData` POJO(s)-to-be, real-id embedded at pre-minted id(s)** |
+| `AuthorizationDenied` | granting RPC (`granted:false`) | `EmbeddedAuthorization` snapshot (term-covered subset) |
+| `AuthorizationRevoked` | revoke RPC (sibling plan) | the DataAuthorization(s) to withdraw |
+| `ActivityCompleted` | workflows | — |
 
-**Access-request leg** — re-framed as the `NeedBasedAccessRequest` leg (§6):
-**Bob requests access from Alice** (`grantedBy` = Bob, `dataOwner` = Alice,
-`grantee` = Bob — self-request, `grantee === grantedBy` enforced); the access
-need group rides **embedded** in the request (framed, self-contained;
-descriptions a follow-up); the data owner's NEW **AccessRequestRegistry**
-holds immutable request records anchored by an activity. The endpoint is the
-**reused grant-issuance endpoint** (`issuanceUrl(dataOwner)`, dispatched by
-payload type in `GrantIssuanceHandler` — no new endpoint/term), responding
-**202 Accepted** after the activity-first write. The kept
-`requestAccessUsingApplicationNeeds` RPC becomes the same activity-first
-producer (its service method extracts the access needs from the application's
-client-id document, then activity + workflows are identical to the endpoint
-leg). The `accessRequested` profile flag now derives from the
-AccessRequestRegistry (follow-up, §6.6).
+## 3. Current state (as-is)
 
-Both follow the established template (the `InvitationCreated` form): the RPC
-**pre-mints** the DataAuthorization id(s) (`iriForContained`) and writes the
-activity whose `as:object` is the **real-id embedded projection** of the
-DataAuthorization-to-be (`target` removed — nothing consumes it; the id rides
-`object.id`); the workflow records the authorizations at those ids
-(`recordAuthorizationFromStructure` / `shareDataInstance` as
-`getSession(ctx.webId)`) → the per-grantee consumer regenerates → completion;
-the RPC returns a pending ack (+ `activityId`).
+- **Request leg — landed** (`authorization-granting.md` §6 of the previous
+  revision): `NeedBasedAccessRequest` + `AccessRequestRegistry` +
+  `GrantIssuanceHandler` branch + `processNeedBasedAccessRequest{,Received}` +
+  the RPC leg + approval `getDescriptions({ accessRequestIri })`. Documented
+  in `docs/features.md`.
+- **Granting leg — synchronous.** `recordAuthorization` (`services/Authorization.ts`)
+  and `shareResource` (`services/ShareResource.ts`) **write the
+  DataAuthorizations synchronously** and then write `AuthorizationRecorded`
+  (both outcomes) only to trigger the per-grantee grant consumer. Not
+  activity-first.
+- **`AuthorizationRequested` / `ShareRequested`** exist as types but are
+  **unroutable stubs** (no producer, no `loadActivity` cases, no
+  handler/reconcile rows).
+- **Structure term-gap** (execution note 9): the RPC structure fields
+  (`agentType`, `granted`, `applicationId`, `resource`, `children`, `agents`)
+  have no `dataModelContext` terms → JSON-LD expansion silently drops them.
 
-The org-session workflow also fixes the **shareResource org-context debt**
-(`shareDataInstance` writing on the session's *own* registry set today).
+## 4. The granting leg — one activity, `DataAuthorizationData` carrier
 
-## 2. The blocker — the structure term-gap (settle FIRST)
+### 4.1 The term-gap is settled by the carrier choice (Decision A)
 
-Execution note 9 (`payload-contract-alignment.md`): the structure fields
-(`agentType`, `granted`, `accessNeed`, `scopeOfAuthorization`, `applicationId`,
-`resource`, `children`, `agents`, …) have NO `dataModelContext` terms — JSON-LD
-expansion **silently drops unknown keys on write** (observed on the deny
-snapshot: `agentType`/`granted` vanished; the snapshot was trimmed to
-term-covered fields). Any structure-on-the-wire form — the real-id embedded
-projection of the DataAuthorization-to-be, or the flat `authorization`-carrier
-follow-up (`AuthorizationRequested`/`ShareRequested`, `payload-contract-alignment.md`
-§5) — therefore requires one of:
+Embed the **`DataAuthorizationData` POJO(s)** the workflow should materialize —
+**not** the RPC `AuthorizationStructure` / `ShareDataInstanceStructure`.
 
-1. a **dedicated structure field vocabulary/context** (the plan's candidate #1),
-2. **expanded-form writes** with full-IRI keys, or
-3. the **link-to-stored-description** candidate.
+`DataAuthorizationData` (`data-model/src/data-authorization.ts`) is **fully
+term-covered**: `satisfiesAccessNeed`, `scopeOfAuthorization`,
+`hasDataRegistration`, `hasDataInstance`, `accessMode`,
+`inheritsFromAuthorization`, … So the RPC/workflow can pre-build the
+DataAuthorizations-to-be and embed *those* at pre-minted ids. `agentType` /
+`granted` never need to ride the wire; `applicationId` (share) is only used
+for the RPC callback response, not stored. **No new structure vocabulary is
+required** — Decision A resolves to "embed `DataAuthorizationData`; drop the
+flat structure carriers".
 
-**Decision A: pick the carrier + the vocab approach before hardening any
-shapes** (this is the reorder's original justification).
+`buildNestedDataAuthorizations(structure, accessNeedGroup, grantedBy)` (AA,
+`authorization-agent/src/authorization.ts:92`) already returns the nested
+DataAuthorization POJOs — the RPC reuses it, assigns pre-minted ids (parents +
+inherited children), and embeds them.
 
-## 3. What lands here (the `activity-first-services` carry-over)
+### 4.2 Flow (the `createInvitation` template)
 
-- **The `AuthorizationRecorded` / `AuthorizationRevoked` carrier re-pins**
-  (contract snapshot): `target` dropped; the DataAuthorization-to-be /
-  -to-revoke as real-id embedded projections at the pre-minted / existing ids.
-  The `Revoked` side feeds `authorization-revocation.md` (its consumer
-  derives the grant revocation); the deny path (`granted: false`) writes the
-  typed `authorizationRevoked` per `authorization-revoked.md`.
-- **The per-grantee consumer choice** (was open decision 1): dedicated
-  per-activity workflow vs extending the coalescing per-grantee consumer
-  (which today reads authorizations from the registry — with the payloads
-  riding the activity, the consumer can read `grantee` from the object).
-- **Handler + reconcile branches** (the `GRANTEE_ACTIVITY_TYPES` drain
-  already routes both classes), **docs/c4 views** (`authorization`,
-  `share-resource`, `share-resource-get-data`), **UI** (claim + done-rows),
-  **seeds** (kv.json channels for new orgs — yoyo/dan pre-seeded), and the
-  **`/test` parity suites** (authorization/share become wait-for; end-state
-  identical to today).
+1. **RPC** — validation reads; pre-mint DataAuthorization id(s)
+   (`iriForContained`); build the DataAuthorization POJO(s)-to-be; write
+   `AuthorizationGranted` (object = the POJO(s), real-id embedded); return a
+   pending ack + `activityId`.
+2. **Handler** — dispatch `AuthorizationGranted` → a **dedicated granting
+   workflow** (decided — [`architecture.md`](architecture.md) §4).
+3. **Workflow** — `processAuthorizationGranted`: PUT the DataAuthorizations
+   at the pre-minted ids (`getSession(ctx.webId)`, find-first/
+   `If-None-Match` idempotent) → regenerate grants → single
+   `ActivityCompleted`. (Regeneration shape: see §11.1.)
+4. **UI** — pending indicator → `done` refresh (the uniform claim anchor).
 
-## 4. Open decisions
+This also fixes the **org-context debt**: the workflow runs with the org
+session (`getSession(ctx.webId)`), not the admin's UAS.
 
-1. **Dedicated workflow vs extended per-grantee consumer** (section 3).
-2. **The carrier + vocabulary** (Decision A) — the term-gap resolution.
-3. **Deny-path home**: the `Revoked` producer (this plan) vs the revocation
-   plan's UI leg — the deny-via-`AuthorizeApp` (`granted: false`) shares the
-   same RPC; coordinate so the deny path writes `authorizationRevoked` exactly
-   once.
+## 5. `shareResource` unification (`ShareRequested` dropped)
 
-## 5. Out of scope here
+`shareDataInstance` (`authorization-agent.ts:787`) already produces exactly
+the carrier shape: `scopeOfAuthorization = SelectedFromRegistry` +
+`hasDataInstance: [resource]` + `Inherited` children, one authorization per
+grantee. So `shareResource` becomes:
 
-- The **revocation side** (`authorization-revocation.md`): UI revoke →
-  `authorizationRevoked` → workflow revokes grants.
-- The **verify-only keeper** `createRole` and the **housekeeping**
-  (`addSocialAgent`) stay in `activity-first-services.md` (steps 9–10).
-  `requestAccessUsingApplicationNeeds` is NOT verify-only anymore — it is
-  this plan's requesting-authorization leg (§6): kept as the RPC, reworked
-  to the activity-first producer whose workflow POSTs to the data owner's
-  (reused) endpoint.
-- The **registration-link mechanism** (`setAccessNeedGroup` on the grantor's
-  registration of the grantee) — dropped with the re-frame; the flow relies
-  on the reference to the immutable AccessRequest instead (§6).
-- The flat `AuthorizationRequested` / `ShareRequested` classes
-  (`payload-contract-alignment.md` §5 follow-up) — **this plan RESOLVES their
-  fate**: **use** (Decision A picks the flat carrier → complete their routing —
-  today they are unroutable stubs: no `loadActivity` cases, no
-  handler/reconcile rows, no producers) **or drop** (remove the types, union
-  members, context/namespaces terms + api-messages projections). The decision
-  is recorded when the carrier is settled (section 2).
+1. RPC receives the share selection (`ShareDataInstanceStructure` stays an
+   **RPC input** only — never stored on the wire);
+2. builds the DataAuthorization POJO(s)-to-be (per deduped grantee, with
+   minted ids) and writes **one `AuthorizationGranted` per grantee**
+   (matching today's one-activity-per-grantee `shareResource`);
+3. the same granting workflow materializes them; `applicationId` stays in the
+   RPC for the callback endpoint only.
 
-## 6. The requesting-authorization leg — `NeedBasedAccessRequest`
+`ShareRequested` is **dropped** — owner-direct sharing is a `AuthorizationGranted`,
+not a request.
 
-**Direction (demo + `/test` parity): Bob requests access from Alice** —
-`grantedBy` = Bob, `dataOwner` = Alice, and — Bob requesting for himself —
-`grantee` = Bob as well (the grantee-to-be). `grantee === grantedBy` is
-**enforced** at the endpoint: needs-based requests are self-requests, the
-delegation use cases stay at the grants level (the existing
-`AccessRequest`/`AccessRevocation` issuance flow). The app (test-client) is
-NOT involved at the protocol level — the access need group rides **inside
-the request** (framed, self-contained); only the kept RPC still derives it
-from the application's client-id document (§6.4). The registration-link
-mechanism (`setAccessNeedGroup` on the grantor's registration of the
-grantee) is **dropped** — the flow revolves around an **immutable**
-AccessRequest record in the data owner's new **AccessRequestRegistry**,
-anchored by an activity.
+> A **requester**-initiated "give me *this instance*" is a *request*, not a
+> share — it rides the request axis (§6).
 
-### 6.1 Wire type + payload
+## 6. Specific-instance requests (`hasDataInstance` on `AccessNeed`)
 
-One new type `NeedBasedAccessRequest` (`interop:NeedBasedAccessRequest` —
-**distinct from** the delegation `AccessRequest`/`AccessRevocation` message
-types in `data-model/src/access-request.ts`; added to
-`utils/src/namespaces.ts`). Covers the endpoint message `type` AND the
-registry-resource class; the ACTIVITY layer uses TWO classes: the
-`NeedBasedAccessRequestSent` (grantedBy/requester side) and
-`NeedBasedAccessRequestReceived` (dataOwner side) — one class per
-event/side, the codebase convention; dispatch never sniffs the object form.
+Today `AccessNeedData` (`data-model/src/access-need.ts`) carries
+`registeredShapeTree` / `accessMode` / `inheritsFromNeed` but **no instance
+selection**. To support "I need *this* resource", add `hasDataInstance` to the
+need:
 
-```json
-{
-  "@context": "https://www.w3.org/ns/solid/interop#",
-  "type": [ "interop:NeedBasedAccessRequest" ],
-  "grantee": "https://id/bob",
-  "grantedBy": "https://id/bob",
-  "dataOwner": "https://id/alice",
-  "hasAccessNeedGroup": { "...": "the access need group, framed" }
-}
-```
+- `data-model`: add the `hasDataInstance` term to the need context + `fromJsonLd`
+  + the embedded round-trip (`accessNeedFromEmbedded` / `needToEmbedded` in
+  `services/Authorization.ts` / `ShareResource.ts`).
+- **Semantics:** the need's `hasDataInstance` is a **request hint** (what the
+  requester wants). Approval still records the final
+  `SelectedFromRegistry` + `hasDataInstance` via the authorization structure,
+  so the owner can adjust. The approval screen prefills from the need.
+- This gives the `ShareRequested` use case (request a specific instance)
+  **without a new activity class** — it rides `NeedBasedAccessRequest*`, and
+  the resulting grant rides `AuthorizationGranted`.
 
-`hasAccessNeedGroup` carries the access need group **embedded** (framed,
-self-contained). Payloads are **compacted JSON-LD per `dataModelContext`** —
-interop terms compact to BARE keys (`grantee`, `dataOwner`,
-`hasAccessNeedGroup`, `required`, …) with NO `interop:` prefix; the context
-must define every term used (an implementation TODO: extend `context.ts` so
-no prefix appears on the wire). The embedded group + its needs carry
-**urn:uuid ids** (the accept-invitation snapshot precedent) — the content
-mirrors the seeded `#need-group-pm` group (`environments/data/registry.trig`:
-Project + inherited Task/Image/File, `https://data/shapetrees/trees/*`).
-First pass: NO description literals (the access needs structure);
-follow-up: the English-descriptions form. **The group is embedded COMPLETE
-in every activity `as:object`** (requester- and owner-side, steps 3 + 10 of
-the c4) — the SPARQL read plane constructs the needs from the activity
-graph ALONE (`docs/sparql.md`: one graph, two subjects; type-matching
-queries carry the `FILTER(?g = ?s)` self-graph guard).
+Vocabulary caveat: `hasDataInstance` currently lives on
+`DataAuthorization`/`DataGrant`; on an `AccessNeed` it is an SAI-internal
+overload (acceptable — the request group is already an SAI carrier, not a
+spec-declared need). **Open decision §11.**
 
-### 6.2 The endpoint leg — reuse of the grant-issuance endpoint
+## 7. Deny vs revoke split (DECIDED — option 2)
 
-**No new endpoint, no new advertised term.** The access request POSTs to the
-**existing grant-issuance endpoint** — `issuanceUrl(dataOwner)` =
-`/.sai/grants/{base64url(webId)}` (the scoped form
-`delegation-endpoint.test.ts` uses; the unscoped `/.sai/grants` advertised
-in the client-id doc routes to the same handler). `GrantIssuanceHandler`
-gains a third dispatch branch — the guard `isNeedBasedAccessRequestMessage`
-in `components/src/messages.ts` (mirrors `isAccessRequestMessage`):
+**Decision: split the two actions.** `AuthorizeApp(granted:false)` today
+*deletes* the grantee's DataAuthorizations (`replaceDataAuthorizationsForGrantee`)
+— i.e. it behaves as a **revoke**. That conflates admission (deny) with
+withdrawal (revoke).
 
-- `AccessRevocation` (+ grant IRIs) → revocation (unchanged);
-- `AccessRequest` (+ `grants`) → issuance (unchanged);
-- `NeedBasedAccessRequest` → this leg.
+| Action | When | Class | State change |
+|---|---|---|---|
+| **Decline** | a request (or a fresh decision), no prior grant | `AuthorizationDenied` | **none** (request stays immutable) |
+| **Revoke** | an existing authorization is withdrawn | `AuthorizationRevoked` | delete the DataAuthorizations → grants regenerate to empty |
 
-POST-restricted already (the router's `allowedMethods: ["POST"]`). The
-endpoint now REQUIRES `Content-Type: application/ld+json` (a non-JSON-LD
-content type is rejected — the new branch and the existing delegation
-branches alike, keeping the endpoint uniform; `delegation-endpoint.test.ts`
-gets the header added to its POSTs).
+Consequences:
 
-Validations (all before any write, all-or-nothing; status codes decided
-2026-09):
+- `AuthorizeApp(granted:false)` becomes a **pure decline** (`AuthorizationDenied`,
+  no delete). The delete behavior was **accidental** (the UI's `granted:false` is
+  a *decline*, not a withdrawal). The old "grant → deny → grants cleared"
+  test moves to the **revoke** test once the revocation plan lands.
+- **Revoke is deferred (decision c, §9 Step 4):** no `AuthorizationRevoked`
+  producer lands in this plan. The **revoke action/RPC + delete workflow** are
+  the sibling plan [`authorization-revocation.md`](authorization-revocation.md)
+  — its designated home; a temporary regression window is accepted until it
+  lands (no UI withdrawal path: grants are cleared only via role-change
+  workflows and the issuance endpoint `GrantRevocationHandler`).
+- `AuthorizationDenied` is **forward-only** initially (no state change, no
+  grant regeneration); requester notification is a follow-up.
 
-1. `Content-Type: application/ld+json` (else 415);
-2. `credentials.agent.webId` present (else **401 Unauthorized** —
-   `UnauthorizedHttpError` — NOT 403: missing credentials is an
-   authentication failure; the existing handler throws
-   `ForbiddenHttpError` there today, changed);
-3. client is the requester's UAS: `credentials.client.clientId ===
-   discoverAuthorizationAgent(credentials.agent.webId)` (else **403** — the
-   existing issuance check, TODOs unchanged — and the same 403 covers a
-   MISSING social-agent registration: neither is an auth failure, both are
-   authorization failures);
-4. `grantedBy === grantee === credentials.agent.webId` (else 400);
-5. `dataOwner` resolves to a session: `getSession(dataOwner)`;
-6. the requester has a **social-agent registration** in the registry owned
-   by the authz agent's webid: `getSession(dataOwner)
-   .findSocialAgentRegistration(credentials.agent.webId)` exists (**else
-   403** — grouped with the wrong-client case per the code decision) — the
-   "handler only allows POST from agents registered with the owner" ask.
+## 8. Admin authorization naming (companion plan)
 
-Then activity-first (the plan's template, the `InvitationCreated` form):
-pre-mint the request id (`iriForContained(registrySet.hasAccessRequestRegistry,
-randomUUID)`) and write the `NeedBasedAccessRequestReceived` activity in the **data
-owner's** Activity Registry — `actor` = dataOwner, `target` = the
-AccessRequest registry, `as:object` = the **real-id embedded projection** of
-the request-to-be at the minted id. The activity `type` tuple is
-**`['Activity', 'NeedBasedAccessRequestReceived']` — NO `as:` verb**: the
-class terms live in OUR interop namespace (`namespaces.ts`), matching
-`AuthorizationRecorded` (the ASV verbs are only borrowed where the wire
-convention adopted them). Respond **202 Accepted with an EMPTY
-body** (`new ResponseDescription(202)` — no existing handler returns a
-non-200 success; the bare-`ResponseDescription(200)` pattern precedent is
-`ActivityWebhookHandler`; nothing consumes a body — the requester-side
-workflow and the tests assert status only).
+`AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` shares the same
+`Recorded`-vs-`Revoked` asymmetry. Since an `AdminAuthorization` is also an
+authorization, align it to **`AdminAuthorizationGranted`** /
+`AdminAuthorizationRevoked`. Captured separately (it is org-admin surface, not
+the data-granting leg):
+[`admin-authorization-naming.md`](admin-authorization-naming.md).
 
-### 6.3 The AccessRequestRegistry (new)
+## 9. Steps — each independently verifiable
 
-The RegistrySet of every agent gains `hasAccessRequestRegistry`
-(`<id>access-request/`): vocab term, `dataModelContext` term,
-`RegistrySetData` + `fromJsonLd`, `templates/RegistrySet.ts` graph
-(bootstrap auto-covers new accounts via `registrySetTemplate`), and the
-**seeded graphs in `environments/data/registry.trig`** for all registry sets
-(acme, alice, bob, kim, yoyo, dan, … — same shape as the other seeded
-registries).
+**Rules.** Every step leaves `packages` build + vitest green (agent-run) and
+the relevant `/test` suites green (user-run, dagger). `docs/temporal.c4`
+edits validate with `likec4 validate`. No step starts before its predecessor
+is green.
 
-The stored AccessRequest is **immutable — no status field**. Granting is a
-follow-up: it produces an authorization + the derived grants and only ever
-*references* the request ("the rest of the flow relies on a reference to
-that request"); the only lifecycle signal is the activity completion
-(pending → done). Resource shape:
+**Layering.** Every step follows [`architecture.md`](architecture.md): thin
+services/handlers (activity write only), workflow-orchestrated mutation, SAI
+rules in `authorization-agent`. **Step 2 is the architecture pivot** — it
+lands the dedicated-workflow shape first because steps 3–5 build on it;
+it is one atomic, verifiable change (carrier + workflow + thin service +
+handler + reconcile + tests).
 
-```json
-{
-  "id": "<minted in the owner's access-request registry>",
-  "type": [ "interop:NeedBasedAccessRequest" ],
-  "grantee": "...", "grantedBy": "...", "dataOwner": "...",
-  "hasAccessNeedGroup": "<the embedded group>"
-}
-```
+**Step 0 — `docs/temporal.c4` gate (DECIDED by user before code).**
+Update the views to the final names + split:
+- `authorization` — `AuthorizationGranted` / `AuthorizationDenied`; the
+  activity-first granting flow (pre-mint → activity → workflow PUTs →
+  consumer); the revoke action drawn separately (or linked to
+  `authorization-revocation.md`).
+- `share-resource` — `AuthorizationGranted` (one per grantee), no
+  `ShareRequested`.
+- `request-access` — add the instance-selection detail (`hasDataInstance`
+  on the need) and the deny branch (`AuthorizationDenied`).
+- `authz-data-need-based-request` — approval prefills
+  `SelectedFromRegistry` when the need names an instance.
+- `org-admin-add` / `org-admin-remove` — `AdminAuthorizationGranted`
+  (per §8; can land with the companion plan).
+**Verify:** `likec4 validate --no-layout` on `docs/temporal.c4`; **user
+sign-off on the flows + payloads**.
 
-Framed via the existing `grantee`/`grantedBy`/`dataOwner`/`hasAccessNeedGroup`
-terms in `dataModelContext` (all present today). Read plane for the `/test`
-parity: `listContained` + a new `getAccessRequest` in `queries/org.ts`
-(SPARQL, mirroring the other registry reads) — the needs resolve from the
-activity graph (self-contained embed, §6.1) or the stored resource, both
-under the `?g = ?s` self-graph guard.
+**Step 1 — vocabulary rename/drop (types only, no behavior).**
+`data-model/src/activities.ts` + `context.ts` + `namespaces.ts` +
+`api-messages`: rename `AuthorizationRecorded` → `AuthorizationGranted`; add
+`AuthorizationDenied`; delete `AuthorizationRequested` and `ShareRequested`
+(types, union members, context rows, namespace terms, api-messages
+projections). Producers keep writing the renamed class for both outcomes —
+**deliberate transient**; behavior is unchanged.
+**Verify:** `packages` build + vitest green; the only test change is the
+renamed class in assertions.
 
-### 6.4 The RPC leg (kept)
+**Step 2 — activity-first granting via a dedicated workflow (ARCHITECTURE
+PIVOT; one atomic change).**
+- **Carrier:** RPC pre-mints the DataAuthorization id(s); builds the
+  `DataAuthorizationData` POJO(s)-to-be (via AA `buildNestedDataAuthorizations`
+  — the rule stays in `authorization-agent`); writes `AuthorizationGranted`
+  (embedded object); returns pending ack + `activityId`; **no synchronous
+  mutation** (the `recordAuthorizationFromStructure` call leaves the RPC).
+- **Workflow:** new `processAuthorizationGranted(webId, dataAuthorizations,
+  activity)` — materialize at the pre-minted ids (`getSession(ctx.webId)`,
+  find-first/`If-None-Match`) → regenerate grants → single completion
+  (see §11.1 for the regeneration shape). Bundled on `create-grants`;
+  `reconcileActivities` branch.
+- **Handler:** one dispatch branch (schema-decode + `workflow.start`),
+  forward-before-dispatch unchanged.
+- **Service thinning:** `recordAuthorization` keeps context gate + validation
+  reads + `createActivity` only (the architecture roll-up, `architecture.md` §2).
+**Verify (atomic — this step ships green on its own):** `packages` build +
+vitest green; `test/authorization.test.ts` becomes **wait-for**; end-state
+(DataAuthorizations + grants) identical to today's synchronous result;
+retry/re-delivery idempotency check.
+**TODO (architecture.md §7.4):** dedupe the embedded-node →
+`DataAuthorizationData` normalization into data-model
+(`authorization-agent/src/activity-registry.ts` `dataAuthorizationFromNode`
+vs `data-model/src/data-authorization.ts` `compactNodeToDataAuthorizationData`).
+**✅ DONE** (2026-09): `compactNodeToDataAuthorizationData` is exported + hardened
+(same-doc embedded-node unwrap) in `data-model`; the activity decode reuses it.
 
-`requestAccessUsingApplicationNeeds` stays (api-messages class, `ShareResource`
-service, `ApiHandler` wiring) for the UI path; its logic changes:
+**Step 3 — `shareResource` unification. ✅ DONE**
+- `shareResource` builds the same `AuthorizationGranted` carrier from the
+  share selection via a new AA build method (`AuthorizationAgent
+  .buildShareDataAuthorizations` — owner-excluded + already-have-access
+  filtered, ids pre-minted; the `shareDataInstance` write half is no longer
+  called by the RPC); one `AuthorizationGranted` per deduped grantee with
+  the EMBEDDED POJOs; `ShareDataInstanceStructure` never rides the wire
+  (RPC input only).
+- The same dedicated workflow materializes with the **org** session
+  (`getSession(ctx.webId)`) — fixes the org-context share debt
+  (`shareDataInstance` wrote against the session's registry set).
+- `findAgentsWithAccess`/`findSocialAgentsWithAccess` gained optional
+  `ownerWebId`/`registrySet` params so the share filters evaluate from the
+  CONTEXT owner's perspective.
+- Follow-up (architecture.md §7.6): retire the now-caller-less synchronous
+  `shareDataInstance`.
+**Verify:** `test/share-resource.test.ts` wait-for; end-state identical
+(response `callbackEndpoint` + grants unchanged); org-context share suite
+green.
 
-- the service method (components `ShareResource.ts`) **extracts the access
-  needs** — from the application's client-id document (the current
-  `loadClientIdDocument(applicationIri)` → `hasAccessNeedGroup`) — and
-  builds the SAME request payload as §6.2 (`grantee = grantedBy = ctx.webId`
-  — the session user, i.e. Bob; `dataOwner` = the `webId` argument, i.e.
-  Alice; `hasAccessNeedGroup` embedded). **From that point down the activity
-  + workflows are identical to the endpoint leg** — when the follow-up RPC
-  (whole group + descriptions embedded) lands, only this extraction changes.
-- activity-first: writes the `NeedBasedAccessRequestSent` class in the
-  **requester's** Activity Registry. The object rides as a **urn:uuid
-  snapshot** — the requester has no AccessRequestRegistry to mint into,
-  mirroring the `InvitationAccepted` acceptor-side snapshot; the REAL id is
-  minted owner-side (§6.2). No `target` on the requester-side activity.
-- the requester-side workflow `getSession(requester)` POSTs the request to
-  `issuanceUrl(dataOwner)` (the reused endpoint), expects **202**, then
-  marks the activity done — the `done` here means **"forwarded"**, NOT
-  "granted": the grant outcome arrives LATER via a webhook notification
-  when the owner approves (§6.8).
+**Step 4 — decline only; revoke deferred (DECIDED, option 2 + decision c).**
+- `recordAuthorization`: `granted:true` → `AuthorizationGranted`;
+  `granted:false` → `AuthorizationDenied` (**pure decline — no
+  DataAuthorization delete, no grant clear**; the old delete was accidental).
+- `ActivityWebhookHandler` + `reconcileActivities`: add the
+  `AuthorizationDenied` branch (forward-only — no workflow, no
+  regeneration); `AuthorizationRevoked` routing stays (no producer here).
+- **No revoke producer in this plan.** The regression window is accepted:
+  until [`authorization-revocation.md`](authorization-revocation.md) lands the
+  revoke action (its designated home), the UI has no withdrawal path.
+**Verify:** `authorization.test.ts` — grant (`AuthorizationGranted`); decline
+(`AuthorizationDenied`, grants **untouched**). The old "grant → deny → grants
+cleared" expectation is **dropped here and moves to the revocation plan** as
+the revoke test.
 
-Dispatch (`ActivityWebhookHandler` + `reconcileActivities`): ONE branch
-PER class, no object-form sniffing — `NeedBasedAccessRequestSent`
-(requester-side: target-less urn:uuid snapshot object) → the forwarding
-workflow; `NeedBasedAccessRequestReceived` (owner-side: `target` = the
-AccessRequest registry + real-id object) → the materializing workflow.
+**Step 5 — specific-instance requests (`hasDataInstance` on `AccessNeed`).**
+- Extend the need data type + context + embedded round-trip (§6).
+- Approval prefills `SelectedFromRegistry` + instance from the need.
+**Verify:** `test/access-request.test.ts` — a request naming an instance;
+approval records `SelectedFromRegistry` + `hasDataInstance`; the stored request
+stays immutable.
 
-**Follow-up (NOT this plan):** a new RPC carrying the whole access need
-group + descriptions embedded (the endpoint payload becomes fully
-self-contained); the applicationId RPC may then be retired. Only the
-service-method extraction changes — the activity + workflows stay as built
-here.
+**Step 6 — admin authorization naming** (companion plan, may run in parallel).
+**Verify:** see [`admin-authorization-naming.md`](admin-authorization-naming.md).
 
-> [!NOTE]
-> the `request-access` c4 view (§7 step 0) already reflects THIS target
-> shape — the need group rides the RPC message (urn:uuid ids), NO app in the
-> flow; the interim applicationId extraction is deliberately not drawn.
+**Step 7 — docs alignment.**
+`docs/events.md` rows per class (`AuthorizationGranted` / `AuthorizationDenied`
+/ `AuthorizationRevoked`; drop `AuthorizationRequested` / `ShareRequested`);
+`docs/features.md` (activity table, trigger classification, view coverage);
+`docs/peer.md` if it repeats the producer/consumer rows; `activity-first-services.md`
+step 4 cross-refs.
+**Verify:** docs reviewed; `likec4 validate` clean.
 
-### 6.5 Workflows
+## 10. Testing
 
-- **owner-side**: input `{ dataOwner, request, activity ref }` — PUT the
-  AccessRequest at the minted id (`getSession(dataOwner)`, find-first
-  idempotent) → `activityCompleted`.
-- **requester-side**: input `{ requester, request, activity ref }` —
-  `getSession(requester).authFetch(issuanceUrl(dataOwner), { method: "POST",
-  body: <the request> })` → 202 expected → `activityCompleted`.
+- **`packages` vitest (agent-run):** activity-class union/context/namespace
+  compile; handler dispatch + reconcile branches; the workflow activity +
+  idempotency (re-delivery) with the `grants.test.ts` mock harness
+  (`buildSessionManager` + SPARQL fetcher); the service producers' activity
+  shapes.
+- **`/test` (user-run, dagger):** authorization grant (wait-for), decline,
+  revoke, share-resource (personal + org), and the instance-in-need
+  request/approval sequence. Parity guard: the granting end-state is
+  identical to today's synchronous result.
 
-**Idempotency note:** a retried requester POST re-runs the owner handler and
-mints a NEW request (no dedupe key yet). Accepted for the first pass —
-requests are immutable and duplicates are inert until the granting leg
-consumes them; a dedupe key (e.g. the requester's activity id riding the
-payload, find-first on the owner side) is an execution-time option.
+## 11. Open decisions
 
-### 6.6 Wiring checklist
+1. ~~Dedicated workflow vs extended per-grantee consumer~~ — **DECIDED:
+   dedicated workflows** (`processAuthorizationGranted`, symmetric
+   `processAuthorizationRevoked` in the revocation plan). `architecture.md` §4;
+   the per-grantee consumer's fate (retire vs regenerate-only) and the
+   regeneration shape (self-contained vs signal the consumer) are open below.
+2. **`hasDataInstance` on `AccessNeed`** — overload an existing interop term
+   (pragmatic) vs a dedicated need-selection term.
+3. **Decline notification** — `AuthorizationDenied` stays forward-only
+   (silent deny, decided 2026-09; `features.md` note); a requester-side
+   notification may be reevaluated later.
+4. **Request-axis rename** — `NeedBasedAccessRequest*` → `AccessRequest*`
+   (out of scope; recorded for consistency).
 
-- `utils/src/namespaces.ts`: `AccessRequestRegistry`, `hasAccessRequestRegistry`,
-  `NeedBasedAccessRequest`, `NeedBasedAccessRequestSent`, `NeedBasedAccessRequestReceived`.
-- `data-model/src/context.ts`: the terms + the TWO activity-class rows
-  (`NeedBasedAccessRequestSent`, `NeedBasedAccessRequestReceived`) +
-  `hasAccessRequestRegistry` term.
-- `data-model/src/registry-set.ts`: `RegistrySetData.hasAccessRequestRegistry`
-  + `fromJsonLd`.
-- `data-model/src/templates/RegistrySet.ts`: `interop:hasAccessRequestRegistry
-  <${id}access-request/>` + container graph.
-- `data-model/src/access-request.ts` (or a sibling module):
-  `NeedBasedAccessRequestData` (with the embedded-group typing; descriptions
-  follow-up); `data-model/src/activities.ts`: the
-  `NeedBasedAccessRequestSent` (urn:uuid snapshot object) +
-  `NeedBasedAccessRequestReceived` (real-id object) activity types;
-  `isActivityClass` union.
-- `components/src/messages.ts`: `isNeedBasedAccessRequestMessage` guard.
-- `components/src/GrantIssuanceHandler.ts`: the third dispatch branch + the
-  §6.2 validations (incl. the `application/ld+json` content-type gate) + mint
-  + activity + 202.
-- `components/src/ActivityWebhookHandler.ts`: dispatch branch PER class
-  (`NeedBasedAccessRequestSent` → requester workflow; `NeedBasedAccessRequestReceived`
-  → owner workflow); `components/src/temporal/workflows/`: requester- +
-  owner-side workflows (new module or `grants.ts`), `reconcileActivities`
-  branches (one per class).
-- `components/src/services/ShareResource.ts`: the RPC service-method rework
-  (extract → activity-first). RPC success becomes a pending ack echoing the
-  requester activity id — `{ accepted: true, activityId }`, the
-  `InvitationAcceptedMessage` shape (the requester mints no real id — the
-  owner does — so the ack carries only the claim anchor, matching the
-  accept-invitation precedent; the minted-id producers echo `id` +
-  `activityId`, this one cannot).
-- api-messages: the TWO activity projections (`NeedBasedAccessRequestSent`,
-  `NeedBasedAccessRequestReceived` — Schema classes, `loadActivity` cases) + the RPC success pending-ack (the confirmed
-  `{ accepted: true, activityId }` shape, §6.6); `effect.ts` RPC entry
-  unchanged (same class name).
-- `components/src/ActivityEvents.ts` / `docs/events.md`: row per type.
-- `ui/authorization`: `activityLabels.ts` rows for BOTH new activity classes
-  (`NeedBasedAccessRequestSent` / `NeedBasedAccessRequestReceived`) +
-  `locales/*.ftl` keys (the "add their row" rule); `events.ts`
-  completion-driven refresh (completed `NeedBasedAccessRequestReceived` →
-  refresh the approvals/social-agents list; `Sent` → the step-0 claim
-  rows); `store/app.ts` `requestAccess` call site (interim keeps the
-  applicationId shape per §6.4 — swaps to the target
-  `{ dataOwner, hasAccessNeedGroup }` shape with the follow-up RPC);
-  `getAuthoriaztion` `accessRequestIri` pass-through (approval, §6.8).
-- Seeds: `environments/data/registry.trig` (all registry sets),
-  `test/setup.ts` parity if it seeds registry sets.
-- `/test`: three wait-for suites, one per leg + the full sequence (§7 steps
-  3–5): the **leg-A test** (endpoint — Bob's UAS POST to
-  `issuanceUrl(aliceId)`), the **leg-B test** (RPC UI path), the
-  **full-sequence test** (both legs converge on Alice's
-  AccessRequestRegistry). `delegation-endpoint.test.ts` gets the
-  `Content-Type: application/ld+json` header added to its POSTs (the
-  whole-endpoint gate, confirmed 2026-09) — coverage otherwise untouched.
-- docs/c4: rewrite the `request-access` view in `docs/temporal.c4` AND add a
-  NEW `authz-data-need-based-request` view — **Step 0, the user gate: BEFORE
-  any implementation** (§7), so the exact flow + payloads are confirmable;
-  the registration-PATCH steps removed. The existing `authorization-data-app`
-  view is left ALONE — it stays app-centric unless our changes force an
-  adjustment (note: the approval data-flow lives only in the new view; if
-  `getDescriptions`' app branch is later touched, revisit).
-  `events.md`/`peer.md` rows + `activity-first-services.md` row 4i cross-ref
-  align with the wiring steps below (no more `setAccessNeedGroup` PATCH).
-- `SocialAgentRegistry.buildSocialAgentProfile`: `accessRequested` now
-  derives from the AccessRequestRegistry listing (follow-up with the
-  granting leg — the registration `hasAccessNeedGroup` source is gone).
+## 12. Out of scope here
 
-### 6.7 Open / execution notes
-
-- **Org-context scope**: the endpoint validation targets the dataOwner's OWN
-  registry (`getSession(dataOwner)`) — whether an org's registry-set accepts
-  requests is a follow-up question; the first pass is personal-context only.
-- **`accessRequested` badge + UI claim rows** land with the parity suite
-  (§6.6); the badge's new source (the AccessRequestRegistry listing) is the
-  phase-2 approval entry (§6.8).
-- **Granting-side consumption** of the AccessRequest (Alice authorizes → an
-  authorization + grants referencing the request) is the follow-up,
-  adjacent to the existing `recordAuthorization` leg of this plan — it only
-  reads the immutable request, never mutates it.
-
-### 6.8 The approval phase (phase 2 — follow-up)
-
-Approving a `NeedBasedAccessRequest` REUSES the existing granting machine —
-the `recordAuthorization` leg (§1) and the authorization screen in
-`ui/authorization` (`AuthorizeApp.vue` — `store/app.ts` `getAuthoriaztion` /
-`authorizeApp`) — no new authorization workflow, no second registry:
-
-1. **Entry**: the owner's pending requests surface through the
-   `accessRequested` marker on the social-agent profile (which now derives
-   from the AccessRequestRegistry listing, §6.6) and open the existing
-   authorization screen for the request's grantee (`agentType` =
-   SocialAgent).
-2. **`getDescriptions` adjustment** (`components/src/services/Authorization.ts`):
-   the access need group comes from the **embedded group in the request**,
-   NOT fetched from a URI — the SocialAgent branch's
-   `reciprocalRegistration?.hasAccessNeedGroup` source is gone (the link was
-   dropped). Proposal: a new optional `accessRequestIri` argument on
-   `GetAuthoriaztionData` → the service loads the immutable request from the
-   context owner's registry (SPARQL `getAccessRequest`, §6.3) and resolves
-   the group from its embedded copy; `dataOwners` stays the context owner's
-   data registrations (`findUserDataRegistrations` — the request's
-   `dataOwner` IS the context). The `AuthorizeApp.vue` screen itself needs no
-   structural change — it renders `authorizationData.accessNeedGroup` and
-   reads `accessNeedGroup.id` from the embedded group.
-3. **`recordAuthorization` reuse (unchanged)**: the screen builds the
-   `Authorization` (grantee = the request's grantee, `agentType` SocialAgent,
-   `accessNeedGroup` = the embedded group's id, the selected data
-   registrations per need) → `AuthorizeApp` →
-   `recordAuthorizationFromStructure` writes the DataAuthorizations + the
-   derived grants (§1's workflow/consumer chains run untouched).
-4. **Immutability**: the AccessRequest is only READ — the authorization
-   *references* it; nothing mutates the stored request (matches §6.3).
-5. **Requester notification (follow-up, with the granting leg)**: once the
-   authorization is granted and the grants are generated, a webhook
-   notification updates the REQUESTER side — Bob's UI learns the outcome
-   (granted/denied) through that channel, not through the phase-1 flows
-   (the `NeedBasedAccessRequestSent` `done` = forwarded, §6.4).
-
-## 7. Implementation order — a working test after every step
-
-Every step leaves both the `packages` vitest suites and `/test` green. The
-`/test` coverage is one test PER LEG plus one FULL-SEQUENCE test (steps
-3–5, all wait-for style). **Step 0 is the user gate — nothing implemented
-before it.**
-
-**Step 0 — `docs/temporal.c4` first (GATE).** Rewrite the `request-access`
-view (reflecting the TARGET shape: the need group rides the RPC message
-with urn:uuid ids — the app is NOT in the flow; payloads compacted via
-`dataModelContext`, no `interop:` prefix) and add a NEW
-`authz-data-need-based-request` view so the exact flow + payloads are
-confirmable BEFORE any code changes; the existing `authorization-data-app`
-view is left alone (stays app-centric unless our changes force an
-adjustment — noted in §6.6):
-
-- `request-access`: ONE flow, invitation-style, starting with the RPC (the
-  direct leg-A endpoint POST is NOT drawn — the `/test` leg-A suite covers
-  it): Bob's UI → notifications stream (`.sai/events`) → `(RPC)
-  requestAccessUsingApplicationNeeds` (the need group rides the message,
-  urn:uuid ids) → requester activity (urn:uuid snapshot, no target) →
-  `{ accepted: true, activityId }` pending ack → requester-side workflow →
-  THE `POST NeedBasedAccessRequest` to the REUSED issuance endpoint
-  (`issuanceUrl(aliceId)`; `Content-Type: application/ld+json`; compacted
-  `{ grantee, grantedBy, dataOwner, hasAccessNeedGroup }`) →
-  `GrantIssuanceHandler` validations → mint + activity in Alice's registry
-  (target = the AccessRequestRegistry) → **202 empty body** (awaits
-  NOTHING — the requester-side workflow completes on it) → the two sides
-  then run in PARALLEL, any order (the diagram's order is arbitrary):
-  requester `activityCompleted` → `done` event on Bob's stream, and the
-  owner-side workflow PUTs the AccessRequest (its own `activityCompleted`).
-  The view's `alt` early-returns on validation failure (`if 'validation
-  fails'` → 403, flow ends — no mint, no webhook, no workflow). The
-  registration-PATCH steps are gone.
-- `authz-data-need-based-request` (NEW — approval phase, §6.8): the access
-  need group comes from the embedded request (`getAuthorizationData` with
-  `accessRequestIri`), NOT from the app's client-id document or the
-  reciprocal registration; the authorize step navigates to the existing
-  `authorization` view (reused screen).
-
-The user confirms the flow + payloads; steps 1+ follow. The doc rows
-(`events.md`, `peer.md`, `activity-first-services.md` row 4i) align within
-the wiring steps below.
-
-**Step 1 — vocabulary + data types (no behavior).** `namespaces.ts`
-(`AccessRequestRegistry`, `hasAccessRequestRegistry`, `NeedBasedAccessRequest`,
-`NeedBasedAccessRequestSent`, `NeedBasedAccessRequestReceived`);
-`context.ts` terms + the TWO activity-class rows; `registry-set.ts`
-(`hasAccessRequestRegistry`, consistent with the existing registries);
-the data-model access-request module (`NeedBasedAccessRequestData` + the
-message gate + embedded-group typing; descriptions follow-up); `activities.ts`
-activity types (`NeedBasedAccessRequestSent` urn:uuid snapshot /
-`NeedBasedAccessRequestReceived` real-id object); api-messages projections. **Tests:** existing `packages` vitest suites stay green (no behavior
-changed).
-
-**Step 2 — the AccessRequestRegistry (template + seeds).**
-`templates/RegistrySet.ts` (`interop:hasAccessRequestRegistry
-<${id}access-request/>` + container graph) + `environments/data/registry.trig`
-for every registry set (acme, alice, bob, kim, yoyo, dan, …). **Tests:** the
-registry-set framing paths the existing org-context / agent-discovery
-`/test` suites exercise stay green.
-
-**Step 3 — Leg A: the endpoint branch.** `messages.ts`
-(`isNeedBasedAccessRequestMessage`) + `GrantIssuanceHandler` third branch
-(the §6.2 validations incl. the WHOLE-endpoint `application/ld+json` gate,
-mint + activity, **202 empty body**) + the owner-side workflow +
-`ActivityWebhookHandler` dispatch + `reconcileActivities` branch + events
-rows. **Tests:** `test/access-request.test.ts` rewritten as the **leg-A
-test** — Bob's UAS POSTs to `issuanceUrl(aliceId)` (header + embedded
-test-client group), expects 202 with an EMPTY body, waits for the owner-side
-`NeedBasedAccessRequestReceived` completion, asserts the stored AccessRequest fields
-(grantee/grantedBy/dataOwner/hasAccessNeedGroup) via SPARQL.
-`delegation-endpoint.test.ts` header updates green (whole-endpoint gate).
-
-**Step 4 — Leg B: the RPC leg.** `ShareResource` service-method rework
-(extract the access needs from the application's client-id document →
-activity-first; `grantee = grantedBy = ctx.webId`, `dataOwner` = the
-`agentId` argument — confirmed mapping 2026-09), api-messages success =
-`{ accepted: true, activityId }`, the requester-side workflow
-(`NeedBasedAccessRequestSent` — one dispatch branch per class, no
-form-sniffing). `ui/authorization` `store/app.ts` `requestAccess` call site
-stays with the current applicationId shape (the swap to the target
-`{ dataOwner, hasAccessNeedGroup }` shape rides the follow-up RPC, §6.4).
-**Tests:** the **leg-B test** (new) — Bob's UI cookie → RPC
-→ pending ack → the requester
-workflow POSTs → Alice's registry holds the request → requester activity
-completes.
-
-**Step 5 — the full-sequence test.** One test driving BOTH legs end-to-end
-and asserting they converge on Alice's AccessRequestRegistry with identical
-request fields, both sides' activities complete (quiescence). **Tests:** the
-full-sequence test green; the whole `/test` suite green.
-
-**Step 6 — the approval phase (phase 2, follow-up — §6.8).**
-`getDescriptions` `accessRequestIri` (+ the SocialAgent branch's
-reciprocal-registration source removal), the `ui/authorization` approval
-plumbing (`store/app.ts` `getAuthoriaztion` `accessRequestIri` pass-through;
-`activityLabels.ts`/`events.ts` rows; the `accessRequested` marker — now
-sourced from the AccessRequestRegistry listing — opening the existing
-authorization screen), the approval `/test` (Alice authorizes Bob's request
-→ DataAuthorizations + derived grants; the stored AccessRequest stays
-immutable). Reuses the §1 granting machinery — no new authorization
-workflow.
+- The **revocation leg** (`authorization-revocation.md`): UI revoke →
+  `AuthorizationRevoked` → grant revocation (the full delegation chain).
+- The **admin pair naming** (`admin-authorization-naming.md`).
+- The request leg's already-landed mechanics (`AccessRequestRegistry`,
+  endpoint validations) — documented in `docs/features.md`.

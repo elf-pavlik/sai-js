@@ -8,7 +8,7 @@ import {
   AdminAuthorizationRecorded,
   AdminAuthorizationRevoked,
   AgentRegistrationAdded,
-  AuthorizationRecorded,
+  AuthorizationGranted,
   AuthorizationRevoked,
   DelegatedGrantsUpdated,
   InvitationAccepted,
@@ -42,6 +42,7 @@ import {
 } from './temporal/workflows/admin.js'
 import {
   granteeActivitiesSignal,
+  processAuthorizationGranted,
   processGranteeActivities,
   processRoleDeletion,
   processRoleMembershipChange,
@@ -253,23 +254,35 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       return
     }
 
-    if (
-      isActivityClass(activity, 'AuthorizationRecorded') ||
-      isActivityClass(activity, 'AuthorizationRevoked')
-    ) {
-      // per-target consumer: deterministic workflowId per (webId, grantee).
-      // start-or-signal-or-restart — if a consumer is already running, signal
-      // it to wake up and drain the new activity; if it just terminated, the
-      // signal fails and we start a fresh consumer (Phase 4.1). The grantee is
-      // read from the object (parties ride the object; kind via the store):
-      // granted → the first live-link DataAuthorization; denied → the
-      // embedded structure snapshot (no DataAuthorization is created).
-      const decoded = isActivityClass(activity, 'AuthorizationRecorded')
-        ? S.decodeUnknownSync(AuthorizationRecorded)(activity as never)
-        : S.decodeUnknownSync(AuthorizationRevoked)(activity as never)
-      const authorizationGrantee = Array.isArray(decoded.object)
-        ? await this.granteeFromDataAuthorization(decoded.object[0], session)
-        : await session.typeGrantee((decoded.object as { grantee: string }).grantee)
+    if (isActivityClass(activity, 'AuthorizationGranted')) {
+      // dedicated workflow (decision — architecture.md §4): the RPC pre-minted
+      // the DataAuthorization id(s) and embedded the POJOs; the workflow
+      // materializes them at those ids (find-first), then regenerates grants.
+      // One run per activity — no deterministic workflowId, no consumer.
+      const decoded = S.decodeUnknownSync(AuthorizationGranted)(activity as never)
+      await client.workflow.start(processAuthorizationGranted, {
+        taskQueue: 'create-grants',
+        args: [
+          socialAgentRef(channel.webId),
+          decoded.object as never,
+          { id: activity.id, type: [...decoded.type] },
+        ],
+        workflowId: crypto.randomUUID(),
+      })
+      return
+    }
+
+    if (isActivityClass(activity, 'AuthorizationRevoked')) {
+      // per-target consumer (no producer today — revocation plan): deterministic
+      // workflowId per (webId, grantee); start-or-signal-or-restart. The grantee
+      // is read from the object (the live-link set; kind via the store).
+      const decoded = S.decodeUnknownSync(AuthorizationRevoked)(activity as never)
+      // the revoked object is always the live-link set — grantee via the
+      // first DataAuthorization (kind resolved in the store)
+      const authorizationGrantee = await this.granteeFromDataAuthorization(
+        decoded.object[0],
+        session
+      )
       if (!authorizationGrantee) return
       const workflowId = `grantee:${channel.webId}:${authorizationGrantee.id}`
       const args: [CreateGrantsInput] = [

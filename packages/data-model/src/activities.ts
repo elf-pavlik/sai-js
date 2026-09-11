@@ -1,5 +1,5 @@
-import type { AuthorizationStructure, ShareDataInstanceStructure } from './authorization-structures'
 import type { NeedBasedAccessRequestGroup } from './access-request'
+import type { DataAuthorizationData } from './data-authorization'
 import type { RoleData } from './role'
 import type { SocialAgentInvitationData } from './social-agent-invitation'
 
@@ -24,10 +24,10 @@ import type { SocialAgentInvitationData } from './social-agent-invitation'
 // object — they are NOT flat fields; consumers read them from the embedded
 // or linked POJO.
 //
-// `AuthorizationRequested`/`ShareRequested` stay flat (structure-based —
-// candidates, NOT adopted; their fate — use or drop — is decided by
-// authorization-granting.md Decision A, superseding the payload-contract
-// followup reference).
+// `AuthorizationRequested`/`ShareRequested` (the structure-based flat
+// candidates) were DROPPED — authorization-granting.md Decision A settled
+// the granting carrier as the term-covered `DataAuthorizationData` POJO(s)
+// embedded on `AuthorizationGranted` (no RPC structure rides the wire).
 // ──────────────────────────
 
 type ActivityBase = {
@@ -284,15 +284,16 @@ export type AdminAuthorizationRevokedId = {
 }
 
 /**
- * Embedded request-structure snapshot (the denied `AuthorizationRecorded`
- * object — minted `urn:uuid` node). A denied authorization creates NO
- * DataAuthorization resource (`recordAuthorizationFromStructure` returns []
- * for `granted: false`), so there is nothing to link — the structure's
- * `grantee` rides here (parties ride the object); `hasAccessNeedGroup` is
- * carried for completeness. Only fields with dataModelContext terms survive
- * the wire (agentType/granted are not encoded — the grantee kind resolves in
- * the store and `granted: false` is implied by the snapshot's existence).
- * The granted form keeps the live-link DataAuthorization set.
+ * Embedded request-structure snapshot (the denied `AuthorizationGranted`
+ * object — minted `urn:uuid` node; moves to `AuthorizationDenied` at the
+ * deny/revoke split, authorization-granting.md Step 4). A denied
+ * authorization creates NO DataAuthorization resource
+ * (`recordAuthorizationFromStructure` returns [] for `granted:false`), so
+ * there is nothing to link — the structure's `grantee` rides here (parties
+ * ride the object); `hasAccessNeedGroup` is carried for completeness. Only
+ * fields with dataModelContext terms survive the wire (agentType/granted
+ * are not encoded — the grantee kind resolves in the store and `granted:
+ * false` is implied by the snapshot's existence).
  */
 export type EmbeddedAuthorization = {
   id: string
@@ -301,19 +302,42 @@ export type EmbeddedAuthorization = {
   hasAccessNeedGroup?: string
 }
 
-/** Authorization recorded. `grantee` is read from the object — its kind is
- * resolved in the store (`getGrantees` routes by SPARQL), never baked into
- * the activity. */
-export type AuthorizationRecorded = ActivityBase & {
-  type: ['Activity', 'AuthorizationRecorded']
+/** Authorization granted (activity-first granting leg,
+ * authorization-granting.md Step 2). `grantee` is read from the object — its
+ * kind is resolved in the store (`getGrantees` routes by SPARQL), never
+ * baked into the activity. The granted object is the term-covered
+ * `DataAuthorizationData` POJO(s)-to-be, real-id embedded at the
+ * pre-minted id(s) — the `processAuthorizationGranted` workflow PUTs them
+ * find-first. Transient legacy forms: live-link `string[]` (pre-Step-3
+ * `shareResource`) and the deny snapshot (`EmbeddedAuthorization`, moves to
+ * `AuthorizationDenied` at Step 4). */
+export type AuthorizationGranted = ActivityBase & {
+  type: ['Activity', 'AuthorizationGranted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
   /** the AuthorizationRegistry */
   target: string
-  /** granted: the DataAuthorizations — live-link set (one activity per
-   *  grantee); denied (no resources are created): a urn:uuid snapshot of the
-   *  request structure carrying `grantee` */
-  object: string[] | EmbeddedAuthorization
+  /** granted: the DataAuthorizations-to-be (embedded POJOs) — one activity
+   *  per grantee; transient: live-link set (share) or urn:uuid snapshot */
+  object: DataAuthorizationData[] | string[] | EmbeddedAuthorization
+}
+
+/** Typed activity ref for the `processAuthorizationGranted` workflow's
+ * completion — the XId pattern for temporal inputs (refs stay TS-level,
+ * never on the wire). */
+export type AuthorizationGrantedId = {
+  id: string
+  type: AuthorizationGranted['type']
+}
+
+/** Authorization denied (decline — silent, forward-only;
+ * authorization-granting.md Step 4). `target` dropped: nothing is consumed. */
+export type AuthorizationDenied = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'AuthorizationDenied']
+  /** as:actor — plain IRI (the registry owner) */
+  actor: string
+  /** the request-structure snapshot (urn:uuid) carrying `grantee` */
+  object: EmbeddedAuthorization
 }
 
 /** Authorization revoked (grantee kind resolved in the store). */
@@ -407,26 +431,6 @@ export type DelegatedGrantsUpdated = ActivityBase & {
   object: string
 }
 
-/** Authorization requested via RPC (future — activity-first step 2). */
-export type AuthorizationRequested = ActivityBase & {
-  type: ['Activity', 'AuthorizationRequested']
-  /** as:actor — plain IRI (the registry owner) */
-  actor: string
-  /** the requested authorization structure (plain-IRI fields only) */
-  authorization: AuthorizationStructure
-}
-
-/** Resource sharing requested via RPC (future — activity-first step 3). */
-export type ShareRequested = ActivityBase & {
-  type: ['Activity', 'ShareRequested']
-  /** as:actor — plain IRI (the registry owner) */
-  actor: string
-  /** the share request structure (plain-IRI fields only) */
-  authorization: ShareDataInstanceStructure
-  /** the sharing application — plain IRI */
-  applicationId: string
-}
-
 /** Completion marker — no own fields; `target` is the completed activity IRI. */
 export type ActivityCompleted = ActivityBase & {
   type: ['Activity', 'ActivityCompleted']
@@ -446,14 +450,13 @@ export type ActivityData =
   | NeedBasedAccessRequestSent
   | AdminAuthorizationRecorded
   | AdminAuthorizationRevoked
-  | AuthorizationRecorded
+  | AuthorizationGranted
+  | AuthorizationDenied
   | AuthorizationRevoked
   | RoleMembershipChanged
   | RoleDeleted
   | RoleCreated
   | DelegatedGrantsUpdated
-  | AuthorizationRequested // candidate — flat carrier (authorization-granting.md: use or drop)
-  | ShareRequested // candidate — flat carrier (authorization-granting.md: use or drop)
   | ActivityCompleted
 
 /**

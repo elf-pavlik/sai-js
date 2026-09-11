@@ -47,6 +47,7 @@ export {
   labelFromNode,
 } from './data-instance'
 export { loadDataAuthorization } from './data-authorization'
+export { compactNodeToDataAuthorizationData } from './data-authorization'
 export type { AdminAuthorizationData } from './admin-authorization'
 export * as AdminAuthorization from './admin-authorization'
 export { loadAdminAuthorization } from './admin-authorization'

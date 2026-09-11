@@ -16,5 +16,8 @@ export { accessNeed } from './access-need'
 export { accessNeedGroup } from './access-need-group'
 export * from './access-description-set'
 export { loadDataInstance, computeChildren } from './data-instance'
-export { createApplicationRegistration } from './application-registration'
+export {
+  createApplicationRegistration,
+  ensureApplicationRegistration,
+} from './application-registration'
 export { createDataRegistration } from './data-registration'

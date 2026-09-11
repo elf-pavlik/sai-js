@@ -39,9 +39,25 @@ export type DataAuthorizationData = DataAuthorizationId & {
 export type FinalDataAuthorizationData = DataAuthorizationData &
   Required<Pick<DataAuthorizationData, 'id'>>
 
-// ──────────────────────────
-// Read path: JSON-LD → DataAuthorizationData
-// ──────────────────────────
+function nodeId(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const node = value as { id?: unknown; '@id'?: unknown }
+    if (typeof node.id === 'string') return node.id
+    if (typeof node['@id'] === 'string') return node['@id']
+  }
+  return ''
+}
+
+function nodeIds(value: unknown): string[] {
+  if (value === undefined || value === null) return []
+  return (Array.isArray(value) ? value : [value]).map(nodeId)
+}
+
+/**
+ * Read path: JSON-LD → DataAuthorizationData
+ * ──────────────────────────
+ */
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
@@ -60,24 +76,36 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<DataAuthoriz
  * DataAuthorizationData POJO.
  *
  * The framed output uses compacted form with @type: @id on all properties,
- * so values are plain IRI strings (or null/undefined when absent).
+ * so values are plain IRI strings — or, when the referenced node lives in
+ * the SAME framed document (the `AuthorizationGranted` activity object
+ * POJOs-to-be; children re-link the parent), embedded nodes that must be
+ * unwrapped to their `id`.
+ *
+ * Also used by the Activity Registry decode (`authorization-agent`
+ * `loadActivity` → the `AuthorizationGranted` object POJOs-to-be), so one
+ * normalization serves both the per-resource and the embedded paths.
  */
-function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
+export function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    grantee: node.grantee,
-    grantedBy: node.grantedBy,
-    registeredShapeTree: node.registeredShapeTree,
-    scopeOfAuthorization: node.scopeOfAuthorization,
-    dataOwner: node.dataOwner ?? undefined,
-    hasDataRegistration: node.hasDataRegistration ?? undefined,
-    satisfiesAccessNeed: node.satisfiesAccessNeed ?? undefined,
-    inheritsFromAuthorization: node.inheritsFromAuthorization ?? undefined,
-    accessMode: node.accessMode ?? [],
-    creatorAccessMode: node.creatorAccessMode ?? [],
-    hasDataInstance: node.hasDataInstance ?? [],
-    hasInheritingAuthorization: node.hasInheritingAuthorization ?? [],
+    type: nodeIds(node.type),
+    grantee: nodeId(node.grantee),
+    grantedBy: nodeId(node.grantedBy),
+    registeredShapeTree: nodeId(node.registeredShapeTree),
+    scopeOfAuthorization: nodeId(node.scopeOfAuthorization),
+    dataOwner: node.dataOwner === undefined ? undefined : nodeId(node.dataOwner),
+    hasDataRegistration:
+      node.hasDataRegistration === undefined ? undefined : nodeId(node.hasDataRegistration),
+    satisfiesAccessNeed:
+      node.satisfiesAccessNeed === undefined ? undefined : nodeId(node.satisfiesAccessNeed),
+    inheritsFromAuthorization:
+      node.inheritsFromAuthorization === undefined
+        ? undefined
+        : nodeId(node.inheritsFromAuthorization),
+    accessMode: nodeIds(node.accessMode),
+    creatorAccessMode: nodeIds(node.creatorAccessMode),
+    hasDataInstance: nodeIds(node.hasDataInstance),
+    hasInheritingAuthorization: nodeIds(node.hasInheritingAuthorization),
   }
 }
 

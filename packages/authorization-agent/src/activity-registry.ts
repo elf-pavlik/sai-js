@@ -8,6 +8,7 @@ import {
   type EmbeddedSocialAgentInvitation,
   type EmbeddedSocialAgentRegistration,
   type RoleData,
+  compactNodeToDataAuthorizationData,
   dataModelContext,
   isActivityClass,
 } from '@janeirodigital/interop-data-model'
@@ -283,25 +284,56 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           ),
         },
       }
-    case 'AuthorizationRecorded':
+    case 'AuthorizationGranted': {
+      // cast once per object (the NeedBasedAccessRequest pattern) — the
+      // object may be an array of embedded DataAuthorization POJOs, a single
+      // live-link string, a SINGLE embedded node (frames as an object, not
+      // an array — jsonld.md gotcha 1: detect by the DA rdf:type), or the
+      // deny snapshot (transient; moves to AuthorizationDenied at Step 4)
+      const embedded = node.object as EmbeddedAuthorization | undefined
       return {
         ...base,
-        type: canonicalType as ['Activity', 'AuthorizationRecorded'],
+        type: canonicalType as ['Activity', 'AuthorizationGranted'],
         actor,
-        // granted: live-link set; denied: the embedded structure snapshot
         object: Array.isArray(node.object)
-          ? asStringArray(node.object)
+          ? node.object.map((member) =>
+              typeof member === 'string'
+                ? member
+                : compactNodeToDataAuthorizationData(member)
+            )
           : typeof node.object === 'string'
             ? [node.object]
-            : {
-                id: asString((node.object as EmbeddedAuthorization)?.id),
-                type: asStringArray((node.object as EmbeddedAuthorization)?.type),
-                grantee: asString((node.object as EmbeddedAuthorization)?.grantee),
-                hasAccessNeedGroup: (node.object as EmbeddedAuthorization)?.hasAccessNeedGroup
-                  ? asString((node.object as EmbeddedAuthorization)?.hasAccessNeedGroup)
-                  : undefined,
-              },
+            : asStringArray(embedded?.type).some((type) => type === INTEROP.DataAuthorization)
+              ? [compactNodeToDataAuthorizationData(node.object)]
+              : {
+                  id: asString(embedded?.id),
+                  type: asStringArray(embedded?.type),
+                  grantee: asString(embedded?.grantee),
+                  hasAccessNeedGroup: embedded?.hasAccessNeedGroup
+                    ? asString(embedded?.hasAccessNeedGroup)
+                    : undefined,
+                },
       }
+    }
+    case 'AuthorizationDenied': {
+      // decline — no `target`; the request-structure snapshot (urn:uuid)
+      // carrying `grantee` rides the object; cast once per object
+      const embedded = node.object as EmbeddedAuthorization | undefined
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'AuthorizationDenied'],
+        actor,
+        object: {
+          id: asString(embedded?.id),
+          type: asStringArray(embedded?.type),
+          grantee: asString(embedded?.grantee),
+          hasAccessNeedGroup: embedded?.hasAccessNeedGroup
+            ? asString(embedded?.hasAccessNeedGroup)
+            : undefined,
+        },
+      }
+    }
     case 'AuthorizationRevoked':
       return {
         ...base,

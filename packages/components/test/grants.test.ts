@@ -46,7 +46,12 @@ vi.mock('fetch-sparql-endpoint', () => ({
   },
 }))
 
-import { findAffectedGrantees, findRoleUsage, resolveActivityGrantee } from '../src/temporal/activities/grants.js'
+import {
+  findAffectedGrantees,
+  findRoleUsage,
+  groupAuthorizationDataAuthorizations,
+  resolveActivityGrantee,
+} from '../src/temporal/activities/grants.js'
 
 // ──────────────────────────
 // Fixtures
@@ -336,5 +341,51 @@ describe('resolveActivityGrantee — object-carried grantee', () => {
     const grantee = await resolveActivityGrantee({ activity })
 
     expect(grantee).toEqual({ id: GRANTEE, type: [INTEROP.SocialAgent] })
+  })
+})
+
+describe('groupAuthorizationDataAuthorizations', () => {
+  const da = (id: string, grantee: string) => ({
+    id,
+    type: [INTEROP.DataAuthorization],
+    grantee,
+    grantedBy: 'https://id/alice',
+    registeredShapeTree: 'https://data/shapetrees/trees/Project',
+    scopeOfAuthorization: INTEROP.SelectedFromRegistry,
+    dataOwner: 'https://id/alice',
+    accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
+  })
+
+  test('groups embedded DAs by grantee — a parent + its child stay together', () => {
+    const groups = groupAuthorizationDataAuthorizations([
+      da('https://registry/alice/authorization/p-kim', 'https://id/kim'),
+      da('https://registry/alice/authorization/c-kim', 'https://id/kim'),
+      da('https://registry/alice/authorization/p-bob', 'https://id/bob'),
+    ])
+    expect(groups).toHaveLength(2)
+    const ids = groups.map((group) =>
+      Array.isArray(group) ? group.map((member) => member.id).sort() : []
+    )
+    expect(ids).toEqual([
+      ['https://registry/alice/authorization/c-kim', 'https://registry/alice/authorization/p-kim'],
+      ['https://registry/alice/authorization/p-bob'],
+    ])
+  })
+
+  test('a single DA yields one group', () => {
+    const groups = groupAuthorizationDataAuthorizations([
+      da('https://registry/alice/authorization/p-kim', 'https://id/kim'),
+    ])
+    expect(groups).toHaveLength(1)
+    expect(Array.isArray(groups[0])).toBe(true)
+  })
+
+  test('the deny snapshot stays a single-grantee group', () => {
+    const snapshot = {
+      id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
+      type: [INTEROP.AuthorizationStructure],
+      grantee: 'https://id/bob',
+    }
+    expect(groupAuthorizationDataAuthorizations(snapshot)).toEqual([snapshot])
   })
 })

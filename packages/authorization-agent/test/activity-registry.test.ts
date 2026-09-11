@@ -28,7 +28,21 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       '@type': ["AuthorizationGranted", "Activity"],
       actor: 'https://id/alice',
       target: 'https://registry/alice/authorization/',
-      object: ['https://registry/alice/authorization/o1'],
+      // embedded single-DA form (the legacy live-link string[] form was
+      // dropped — refinement §5.1)
+      object: [
+        {
+          '@id': 'https://registry/alice/authorization/o1',
+          '@type': ['http://www.w3.org/ns/solid/interop#DataAuthorization'],
+          grantee: 'https://id/bob',
+          grantedBy: 'https://id/alice',
+          registeredShapeTree: 'https://data/shapetrees/trees/Project',
+          scopeOfAuthorization: 'http://www.w3.org/ns/solid/interop#SelectedFromRegistry',
+          dataOwner: 'https://id/alice',
+          hasDataRegistration: 'https://data/alice-home/',
+          accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
+        },
+      ],
       createdAt: '2024-01-01T00:00:00.000Z',
     }
     const activity = await ActivityRegistry.loadActivity(
@@ -37,7 +51,9 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     )
     expect(activity.type).toEqual(['Activity', 'AuthorizationGranted'])
     expect(activity.actor).toBe('https://id/alice')
-    expect(activity.object).toEqual(['https://registry/alice/authorization/o1'])
+    expect(activity.object).toEqual([
+      expect.objectContaining({ id: 'https://registry/alice/authorization/o1' }),
+    ])
   })
 
   test('reorders an ASV-bearing reversed tuple (class first, not position-bound)', async () => {

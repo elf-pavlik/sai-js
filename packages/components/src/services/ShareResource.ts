@@ -162,12 +162,13 @@ export const shareResource = async (
       accessMode: [...child.accessMode],
     })),
   }
-  // activity-first (step 3): build the DataAuthorizations-to-be WITHOUT
-  // writing — ids PRE-MINTED by the AA (`buildShareDataAuthorizations`); one
-  // `AuthorizationGranted` per deduped grantee with the EMBEDDED POJOs. The
-  // `processAuthorizationGranted` workflow materializes them with the
-  // context/org session (`getSession(ctx.webId)`) — fixing the org-context
-  // debt (`shareDataInstance` wrote against the session's own registry set).
+  // activity-first (step 3 + refinement §5.1): build the
+  // DataAuthorizations-to-be WITHOUT writing — ids PRE-MINTED by the AA
+  // (`buildShareDataAuthorizations`); write ONE `AuthorizationGranted` for
+  // ALL grantees (grantee rides every DA). The `processAuthorizationGranted`
+  // parent groups by grantee and fans out one child workflow per grantee
+  // (Temporal owns retry/resume per child); the RPC only writes the single
+  // activity — no synchronous mutation.
   const recorded = await ctx.session.buildShareDataAuthorizations(
     structure,
     ctx.webId,
@@ -179,21 +180,16 @@ export const shareResource = async (
     ctx.session.fetch
   )
 
-  // grantees are social agents in the share flow (roles are not share targets)
-  const grantees = [...new Set(recorded.map((dataAuthorization) => dataAuthorization.grantee))]
-
-  // one AuthorizationGranted per deduped grantee → one notification, one
-  // workflow run per grantee (sequential PUTs — CSS SPARQL backend races on
-  // concurrent PUTs in the same container). Parties ride the object: the
-  // embedded DataAuthorizations carry the grantee.
-  const activityRegistry = ctx.registrySet.hasActivityRegistry
-  if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  for (const grantee of grantees) {
+  // nothing to grant (owner-only / all already-have-access) → no activity,
+  // matching the previous per-grantee empty-loop behavior
+  if (recorded.length > 0) {
+    const activityRegistry = ctx.registrySet.hasActivityRegistry
+    if (!activityRegistry) throw new Error('activity registry not found in registry set')
     const activity: Omit<AuthorizationGranted, 'id'> = {
       type: ['Activity', 'AuthorizationGranted'],
       actor: ctx.webId,
       target: ctx.registrySet.hasAuthorizationRegistry.id,
-      object: recorded.filter((dataAuthorization) => dataAuthorization.grantee === grantee),
+      object: recorded,
       createdAt: new Date().toISOString(),
     }
     await ActivityRegistry.createActivity(

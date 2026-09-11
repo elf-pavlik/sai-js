@@ -141,6 +141,35 @@ not a request.
 > A **requester**-initiated "give me *this instance*" is a *request*, not a
 > share — it rides the request axis (§6).
 
+### 5.1 Single-activity share + per-grantee child fan-out (**✅ DONE**)
+
+Decided 2026-09 (implemented): one share = **ONE `AuthorizationGranted` activity** (object =
+**all grantees'** DataAuthorization-to-be POJOs — grantee rides every DA,
+parents and children alike) → **one** webhook `Add` → **one** parent
+`processAuthorizationGranted` → the parent **always fans out one child
+`processGranteeAuthorization` per grantee** (materialize at the pre-minted
+ids → regenerate) → **single completion at the parent** after ALL children
+succeed (children never mark done).
+
+- **Service thinness:** the per-grantee `createActivity` loop leaves
+  `shareResource`; grouping moves into the workflow. Temporal owns retry /
+  resume per child (find-first idempotent PUTs, full regeneration).
+- **Always fan out** (single grantee included — uniform, no inline fast path).
+- **Drop the legacy live-link `string[]` object form** (its last producer was
+  pre-refinement share) — ✅ done: the handler, workflow, `reconcileActivities`
+  and the decoder handle the embedded POJO form only; `test/reconciliation.test.ts`
+  and the activity-registry fixtures moved to the embedded single-DA form.
+  The deny snapshot form stays until Step 4.
+- `recordAuthorization` is unaffected (single grantee); reconcile passes the
+  whole object — grouping happens inside the workflow.
+- **c4:** the `share-resource` view merged `share-resource-get-data` into it
+  (that view is removed); the fan-out is drawn as child workflows
+  (`docs/temporal.c4` — validated).
+- **Verification (done):** packages build 7/7; vitest green (components 41 —
+  new `groupAuthorizationDataAuthorizations` tests; authorization-agent 83 —
+  embedded-form fixtures). **`/test` re-run pending (user):** share, roles,
+  authorization, reconciliation.
+
 ## 6. Specific-instance requests (`hasDataInstance` on `AccessNeed`)
 
 Today `AccessNeedData` (`data-model/src/access-need.ts`) carries
@@ -268,7 +297,9 @@ vs `data-model/src/data-authorization.ts` `compactNodeToDataAuthorizationData`).
 **✅ DONE** (2026-09): `compactNodeToDataAuthorizationData` is exported + hardened
 (same-doc embedded-node unwrap) in `data-model`; the activity decode reuses it.
 
-**Step 3 — `shareResource` unification. ✅ DONE**
+**Step 3 — `shareResource` unification. ✅ DONE** (per-grantee activities are
+being refined by §5.1 — single activity + child fan-out, **planned**, awaiting
+review)
 - `shareResource` builds the same `AuthorizationGranted` carrier from the
   share selection via a new AA build method (`AuthorizationAgent
   .buildShareDataAuthorizations` — owner-excluded + already-have-access

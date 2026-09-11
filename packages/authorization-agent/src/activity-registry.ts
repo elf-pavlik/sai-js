@@ -286,33 +286,28 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
       }
     case 'AuthorizationGranted': {
       // cast once per object (the NeedBasedAccessRequest pattern) — the
-      // object may be an array of embedded DataAuthorization POJOs, a single
-      // live-link string, a SINGLE embedded node (frames as an object, not
-      // an array — jsonld.md gotcha 1: detect by the DA rdf:type), or the
-      // deny snapshot (transient; moves to AuthorizationDenied at Step 4)
+      // object is the array of embedded DataAuthorization POJOs (ALL
+      // grantees) or the deny snapshot (transient; moves to
+      // AuthorizationDenied at Step 4). A SINGLE embedded node frames as an
+      // object, not an array (jsonld.md gotcha 1: detect by the DA
+      // rdf:type and wrap)
       const embedded = node.object as EmbeddedAuthorization | undefined
       return {
         ...base,
         type: canonicalType as ['Activity', 'AuthorizationGranted'],
         actor,
         object: Array.isArray(node.object)
-          ? node.object.map((member) =>
-              typeof member === 'string'
-                ? member
-                : compactNodeToDataAuthorizationData(member)
-            )
-          : typeof node.object === 'string'
-            ? [node.object]
-            : asStringArray(embedded?.type).some((type) => type === INTEROP.DataAuthorization)
-              ? [compactNodeToDataAuthorizationData(node.object)]
-              : {
-                  id: asString(embedded?.id),
-                  type: asStringArray(embedded?.type),
-                  grantee: asString(embedded?.grantee),
-                  hasAccessNeedGroup: embedded?.hasAccessNeedGroup
-                    ? asString(embedded?.hasAccessNeedGroup)
-                    : undefined,
-                },
+          ? node.object.map((member) => compactNodeToDataAuthorizationData(member))
+          : asStringArray(embedded?.type).some((type) => type === INTEROP.DataAuthorization)
+            ? [compactNodeToDataAuthorizationData(node.object)]
+            : {
+                id: asString(embedded?.id),
+                type: asStringArray(embedded?.type),
+                grantee: asString(embedded?.grantee),
+                hasAccessNeedGroup: embedded?.hasAccessNeedGroup
+                  ? asString(embedded?.hasAccessNeedGroup)
+                  : undefined,
+              },
       }
     }
     case 'AuthorizationDenied': {

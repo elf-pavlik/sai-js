@@ -5127,105 +5127,361 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
     }
   }
 
-  dynamic view share-resource-get-data {
-    title: 'Share resource - get data'
-
-    include Alice, App
-    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data
-
-    style Alice {
-      color: green
-    }
-
-    style App {
-      color: gray
-    }
-
-    App.UI -> Alice.AUI 'redirect' {
-      notes'''
-        indicate `resource`
-      '''
-    }
-    Alice.AUI -> Alice.UAS 'POST (RPC) getResource' {
-        notes'''
-          uses cookie session
-        '''
-    }
-    Alice.UAS -> Alice.Data 'GET indicated resource [Data]'
-    Alice.Data -> Alice.UAS '200 OK'
-    Alice.UAS -> Alice.Registry 'find social agents with access [Authorization][Agent]'
-    Alice.Registry -> Alice.UAS '200 OK - list'
-    Alice.UAS -> Alice.AUI 'OK relevant data'
-    Alice.AUI -> Alice.UAS 'share resource' {
-      navigateTo share-resource
-    }
-  }
-
   dynamic view share-resource {
-    title: 'Share resource'
+      title: 'Share resource'
 
-    include Alice, App, Peers
-    include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Peers.UAS
+      include Alice, App, Peers
+      include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Peers.UAS
 
-    style Alice {
-      color: green
-    }
-
-    style App {
-      color: gray
-    }
-
-    style Peers.UAS {
-      multiple: true
-    }
-
-    App.UI -> Alice.AUI 'redirect' {
-      notes'''
-        indicate `resource`
-      '''
-    }
-    Alice.AUI -> Alice.UAS 'get resource data' {
-      navigateTo share-resource-get-data
-    }
-    Alice.AUI -> Alice.UAS 'POST (RPC) shareResource' {
-        notes'''
-          uses cookie session
-          includes list of agents and access modes
-        '''
-    }
-    Alice.UAS -> Alice.Registry 'share data instance creates data authorizations [Authorization]' {
-        notes'''
-          synchronous
-        '''
-    }
-    Alice.Registry -> Alice.UAS 'data authorizations'
-    Alice.UAS -> Alice.Registry 'PUT authorizationRecorded activity [Activity]' {
-        notes'''
-          one per grantee
-        '''
-    }
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start per-grantee consumer (processGranteeActivities)'
-    Alice.UAS -> Alice.AUI 'OK confirmation' {
-        notes'''
-          callbackEndpoint in the payload
-        '''
-    }
-    Alice.AUI -> App.UI 'redirect back'
-    Alice.Temporal -> Alice.Worker '(workflow) run processGranteeActivities'
-    parallel {
-      Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
-        notes'''
-          durable execution should ensure consistency
-        '''
+      style Alice {
+        color: green
       }
-      Alice.Registry -> Alice.Worker 'OK'
-      Alice.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)'
-      Peers.UAS -> Alice.Worker 'grant IRIs'
-    }
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
-  }
 
+      style App {
+        color: gray
+      }
+
+      style Peers.UAS {
+        multiple: true
+      }
+
+      App.UI -> Alice.AUI 'redirect' {
+          notes'''
+            #### redirect
+            >[!NOTE]
+            >share.test.ts > shares a data instance with a social agent
+
+            >[!TIP]
+            > indicates the `resource` on the share window
+          '''
+      }
+      Alice.AUI -> Alice.UAS 'POST (RPC) getResource' {
+          notes'''
+            #### POST (RPC) getResource
+            >[!NOTE]
+            >share.test.ts > Alice loads the indicated resource
+
+            >[!IMPORTANT]
+            > Auth: CSS cookie session as `alice`
+
+            ```http
+            POST https://auth/.sai/api
+            Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+            ```
+          '''
+      }
+      Alice.UAS -> Alice.Data 'GET indicated resource [Data]' {
+          notes'''
+            #### GET indicated resource [Data]
+            >[!NOTE]
+            >share.test.ts > the resource document at the indicated id
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `alice`
+
+            ```http
+            GET https://data/alice-home/x1n3cm/n8k3wp
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 200 OK
+            Content-Type: application/ld+json
+            ```
+          '''
+      }
+      Alice.UAS -> Alice.Registry 'find social agents with access [Authorization][Agent]' {
+          notes'''
+            #### find social agents with access [Authorization][Agent]
+            >[!NOTE]
+            >share.test.ts > the share window filters the agent list
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `alice`
+
+            >[!TIP]
+            > SPARQL over the authorization registry — scope-matched against the
+            > indicated resource (`matchesScope`)
+            ```
+          '''
+      }
+      Alice.UAS -> Alice.AUI 'OK relevant data' {
+          notes'''
+            #### OK relevant data
+            >[!NOTE]
+            >share.test.ts > the share window renders (agents with access folded
+            > into the response)
+          '''
+      }
+      Alice.AUI -> Alice.UAS 'POST (RPC) shareResource' {
+          notes'''
+            #### POST (RPC) shareResource
+            >[!NOTE]
+            >share.test.ts > shares a data instance with a social agent
+
+            >[!IMPORTANT]
+            > Auth: CSS cookie session as `alice`
+
+            >[!TIP]
+            > activity-first: the RPC builds the DataAuthorizations-to-be
+            > (`buildShareDataAuthorizations` — owner excluded, already-have-access
+            > filtered, ids pre-minted) and writes ONE activity for ALL grantees —
+            > no synchronous mutation, no per-grantee loop
+
+            ```http
+            POST https://auth/.sai/api
+            Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+            ```
+
+            ```json
+            [
+              {
+                "request": {
+                  "_tag": "ShareResource",
+                  "authorization": {
+                    "applicationId": "https://data/test-client/public/id",
+                    "resource": "https://data/alice-home/x1n3cm/n8k3wp",
+                    "agents": ["https://id/kim", "https://id/bob"],
+                    "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
+                    "children": []
+                  },
+                  "context": "https://id/alice"
+                }
+              }
+            ]
+            ```
+          '''
+      }
+      Alice.UAS -> Alice.Registry 'PUT authorizationGranted activity [Activity]' {
+          notes'''
+            #### PUT authorizationGranted activity [Activity]
+            >[!NOTE]
+            >share.test.ts > ONE activity carries ALL grantees' DAs (the workflow
+            > groups by grantee). Diagram shows two grantees (kim, bob) to
+            > illustrate the fan-out; share.test.ts exercises a single grantee.
+
+            >[!IMPORTANT]
+            > Auth: Solid OIDC access token as `alice`
+
+            >[!TIP]
+            > each `as:object` member is a term-covered DataAuthorization-to-be at
+            > its PRE-MINTED id — grantee rides the POJO (parents and children)
+
+            ```http
+            PUT https://registry/alice/activity/2e9d5b31-6b7a-4f0e-9c3d-8a1b2c4d5e6f
+            Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+            ```
+
+            ```json
+            {
+              "@context": ["in reality payload uses Expanded JSON-LD"],
+              "id": "https://registry/alice/activity/2e9d5b31-6b7a-4f0e-9c3d-8a1b2c4d5e6f",
+              "type": ["Activity", "AuthorizationGranted"],
+              "as:actor": "https://id/alice",
+              "as:target": "https://registry/alice/authorization/",
+              "as:object": [
+                {
+                  "id": "https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                  "type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                  "grantee": "https://id/kim",
+                  "grantedBy": "https://id/alice",
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                  "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
+                  "dataOwner": "https://id/alice",
+                  "hasDataRegistration": "https://data/alice-home/",
+                  "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
+                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                },
+                {
+                  "id": "https://registry/alice/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+                  "type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                  "grantee": "https://id/bob",
+                  "grantedBy": "https://id/alice",
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                  "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
+                  "dataOwner": "https://id/alice",
+                  "hasDataRegistration": "https://data/alice-home/",
+                  "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
+                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                }
+              ],
+              "interop:createdAt": "2024-01-01T10:00:00.000Z"
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 201 Created
+            ```
+          '''
+      }
+      Alice.UAS -> Alice.AUI 'OK confirmation' {
+          notes'''
+            #### OK confirmation
+            >[!NOTE]
+            >share.test.ts > the callback endpoint in the payload
+
+            ```http
+            HTTP/1.1 200 OK
+            ```
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "callbackEndpoint": "https://test-client"
+              }
+            }
+            ```
+          '''
+      }
+      Alice.AUI -> App.UI 'redirect back' {
+          notes'''
+            #### redirect back
+            >[!NOTE]
+            >share.test.ts > the app receives the callback
+          '''
+      }
+      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+          notes'''
+            #### notify Add activity (subscription webhook) [Activity]
+            >[!NOTE]
+            >share.test.ts > ONE webhook delivery — the single activity
+
+            >[!IMPORTANT]
+            > Auth: Capability URL
+
+            ```json
+            {
+              "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                "https://www.w3.org/ns/solid/notifications-context/v1"
+              ],
+              "id": "urn:uuid:5f3d8b21-9c4e-4a7d-b2e6-1a0c8f3d7e9b",
+              "type": "Add",
+              "object": "https://registry/alice/activity/2e9d5b31-6b7a-4f0e-9c3d-8a1b2c4d5e6f",
+              "target": "https://registry/alice/activity/",
+              "published": "2024-01-01T10:00:00.328Z"
+            }
+            ```
+          '''
+      }
+      Alice.ActivityWebhookHandler -> Alice.Temporal 'start processAuthorizationGranted workflow' {
+          notes'''
+            #### start processAuthorizationGranted workflow
+            >[!NOTE]
+            >share.test.ts > dedicated parent workflow — one per activity
+
+            >[!TIP]
+            > gRPC
+
+            ```json
+            [
+              { "id": "https://id/alice", "type": ["http://www.w3.org/ns/solid/interop#SocialAgent"] },
+              [
+                {
+                  "id": "https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                  "type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                  "grantee": "https://id/kim",
+                  "grantedBy": "https://id/alice",
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                  "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
+                  "dataOwner": "https://id/alice",
+                  "hasDataRegistration": "https://data/alice-home/",
+                  "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
+                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                },
+                {
+                  "id": "https://registry/alice/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
+                  "type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                  "grantee": "https://id/bob",
+                  "grantedBy": "https://id/alice",
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                  "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
+                  "dataOwner": "https://id/alice",
+                  "hasDataRegistration": "https://data/alice-home/",
+                  "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
+                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                }
+              ],
+              {
+                "id": "https://registry/alice/activity/2e9d5b31-6b7a-4f0e-9c3d-8a1b2c4d5e6f",
+                "type": ["Activity", "AuthorizationGranted"]
+              }
+            ]
+            ```
+          '''
+      }
+      Alice.Temporal -> Alice.Worker '(workflow) run processAuthorizationGranted' {
+          notes'''
+            #### (workflow) run processAuthorizationGranted
+            >[!NOTE]
+            >share.test.ts > groups the embedded DAs by grantee — one child per
+            > agent (always fan out); children never mark done
+          '''
+      }
+      parallel {
+        loop 'grantees.each' {
+          Alice.Worker -> Alice.Temporal '(child workflows) start processGranteeAuthorization per grantee'
+          Alice.Temporal -> Alice.Worker '(workflow) run processGranteeAuthorization'
+          Alice.Worker -> Alice.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
+              notes'''
+                #### (activity) PUT DataAuthorizations at the pre-minted ids [Authorization]
+                >[!NOTE]
+                >share.test.ts > child body — find-first idempotent (`If-None-Match: *`)
+
+                >[!IMPORTANT]
+                > Auth: Solid OIDC access token as `alice`
+
+                ```http
+                PUT https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c
+                Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+                ```
+                ---
+
+                ```http
+                HTTP/1.1 201 Created
+                ```
+              '''
+          }
+          parallel {
+            loop 'grants.each' {
+              Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
+                  notes'''
+                    #### (activity) create grants [Grant]
+                    >[!NOTE]
+                    >share.test.ts > the registration update signals the outcome
+
+                    >[!TIP]
+                    > durable execution should ensure consistency
+                  '''
+              }
+            }
+            loop 'delegatedGrants.each' {
+              Alice.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)' {
+                  notes'''
+                    #### (activity) request delegated grants (AccessRequest)
+                    >[!NOTE]
+                    >share.test.ts > the peer mirror for the shared instance
+
+                    >[!IMPORTANT]
+                    > Auth: Solid OIDC access token as `alice`
+                  '''
+              }
+              Peers.UAS -> Alice.Worker 'grant IRIs'
+            }
+          }
+      }
+    }
+      Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]' {
+          notes'''
+            #### (activity) create activityCompleted [Activity]
+            >[!NOTE]
+            >share.test.ts > single completion at the PARENT after ALL children succeed
+          '''
+      }
+    }
   dynamic view request-access {
     title: 'Request access'
 

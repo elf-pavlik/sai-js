@@ -513,16 +513,16 @@ export const EmbeddedDataAuthorization = S.Struct({
 })
 
 /** Authorization granted — the granting class (authorization-granting.md
- * Step 2): object = the DataAuthorizations-to-be (real-id embedded POJOs);
- * transient legacy forms: live-link `string[]` (pre-Step-3 share) and the
- * deny snapshot (moves to `AuthorizationDenied` at Step 4). */
+ * Step 2/§5.1): object = the DataAuthorizations-to-be (real-id embedded
+ * POJOs, ALL grantees in one activity); the deny snapshot (transient —
+ * moves to `AuthorizationDenied` at Step 4). */
 export const AuthorizationGranted = S.Struct({
   ...activityBaseFields,
   type: S.Tuple(S.Literal('Activity'), S.Literal('AuthorizationGranted')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
-  /** the DataAuthorizations-to-be (embedded) or the legacy forms */
-  object: S.Union(S.Array(S.String), S.Array(EmbeddedDataAuthorization), EmbeddedAuthorization),
+  /** the DataAuthorizations-to-be (embedded) or the deny snapshot */
+  object: S.Union(S.Array(EmbeddedDataAuthorization), EmbeddedAuthorization),
 })
 
 /** Pending acknowledgment of an approved authorization (activity-first step

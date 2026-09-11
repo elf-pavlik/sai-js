@@ -24,13 +24,33 @@ describe('reconciliation sweep', () => {
     // the activity stays unprocessed until the sweep processes it. The
     // grantee rides the object (the seeded DataAuthorization for alice).
     const registry = acmeSession.registrySet.hasActivityRegistry!
-    // live-link object form (pre-step-3 share); the dedicated workflow
-    // regenerates from the store for the object's grantee (seeded DA k9m4vp)
+    // embedded single-DA form (refinement §5.1) — the seed DA `k9m4vp` (a
+    // real-id embedded projection; the materialize step find-first skips the
+    // already-existing resource) rides the object; the parent groups by
+    // grantee → one child regenerates alice's grants
     const activity: Omit<AuthorizationGranted, 'id'> = {
       type: ['Activity', 'AuthorizationGranted'],
       actor: acmeId,
       target: acmeSession.registrySet.hasAuthorizationRegistry.id,
-      object: ['https://registry/acme/authorization/k9m4vp'],
+      object: [
+        {
+          id: 'https://registry/acme/authorization/k9m4vp',
+          type: [INTEROP.DataAuthorization],
+          grantee: aliceId,
+          grantedBy: acmeId,
+          registeredShapeTree: 'https://data/shapetrees/trees/Project',
+          scopeOfAuthorization: INTEROP.SelectedFromRegistry,
+          dataOwner: acmeId,
+          hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+          accessMode: [
+            'http://www.w3.org/ns/auth/acl#Read',
+            'http://www.w3.org/ns/auth/acl#Create',
+            'http://www.w3.org/ns/auth/acl#Update',
+            'http://www.w3.org/ns/auth/acl#Delete',
+          ],
+          hasDataInstance: ['https://data/acme-rnd/reb39k/pbh2yw'],
+        },
+      ],
       createdAt: new Date().toISOString(),
     }
     const created = await ActivityRegistry.createActivity(

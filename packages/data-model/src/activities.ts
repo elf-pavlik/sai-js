@@ -303,23 +303,25 @@ export type EmbeddedAuthorization = {
 }
 
 /** Authorization granted (activity-first granting leg,
- * authorization-granting.md Step 2). `grantee` is read from the object — its
- * kind is resolved in the store (`getGrantees` routes by SPARQL), never
+ * authorization-granting.md Step 2/§5.1). `grantee` is read from the object —
+ * its kind is resolved in the store (`getGrantees` routes by SPARQL), never
  * baked into the activity. The granted object is the term-covered
- * `DataAuthorizationData` POJO(s)-to-be, real-id embedded at the
- * pre-minted id(s) — the `processAuthorizationGranted` workflow PUTs them
- * find-first. Transient legacy forms: live-link `string[]` (pre-Step-3
- * `shareResource`) and the deny snapshot (`EmbeddedAuthorization`, moves to
- * `AuthorizationDenied` at Step 4). */
+ * `DataAuthorizationData` POJO(s)-to-be, real-id embedded at the PRE-MINTED
+ * id(s) — ONE activity carries ALL grantees' DAs (grantee rides every POJO,
+ * parents and children alike; the `processAuthorizationGranted` parent
+ * groups by grantee and fans out one child workflow per grantee). A single
+ * embedded DA frames as an object (jsonld.md gotcha 1 — the decoder wraps
+ * it). The deny snapshot (`EmbeddedAuthorization`, transient — moves to
+ * `AuthorizationDenied` at Step 4) is the single-grantee fallback. */
 export type AuthorizationGranted = ActivityBase & {
   type: ['Activity', 'AuthorizationGranted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
   /** the AuthorizationRegistry */
   target: string
-  /** granted: the DataAuthorizations-to-be (embedded POJOs) — one activity
-   *  per grantee; transient: live-link set (share) or urn:uuid snapshot */
-  object: DataAuthorizationData[] | string[] | EmbeddedAuthorization
+  /** the DataAuthorizations-to-be (embedded POJOs, all grantees) or the
+   *  deny snapshot */
+  object: DataAuthorizationData[] | EmbeddedAuthorization
 }
 
 /** Typed activity ref for the `processAuthorizationGranted` workflow's

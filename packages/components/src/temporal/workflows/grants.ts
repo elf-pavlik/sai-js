@@ -5,6 +5,7 @@ import type {
   AdminAuthorizationRevoked,
   AuthorizationGranted,
   AuthorizationGrantedId,
+  DataAuthorizationData,
   DelegatedGrantsUpdated,
   FinalDataAuthorizationData,
   FinalGrantData,
@@ -188,38 +189,63 @@ export async function createGrantsForAuthorization(
 }
 
 /**
- * The dedicated granting workflow (architecture.md §4) — activity-first step
- * 2 (authorization-granting.md): materialize the embedded DataAuthorizations
- * at the pre-minted ids (find-first), then regenerate the grantee's grants
- * (registry-state full regeneration — identical end-state to today), then
- * single completion via the activity ref. The live-link / deny-snapshot object
- * forms (transient) have nothing to materialize — regeneration alone (to
- * empty, for the snapshot) preserves the current behavior until Step 3/4.
+ * The dedicated granting parent (architecture.md §4, authorization-granting.md
+ * §5.1): group the embedded DataAuthorizations by grantee and fan out ONE
+ * child workflow per agent (`processGranteeAuthorization` — materialize +
+ * regenerate; always fan out, single grantee included), then a SINGLE parent
+ * completion once ALL children succeed (children never mark done). A child
+ * failure fails the parent → Temporal retries/resumes; children are
+ * idempotent (find-first PUTs, full regeneration).
  */
 export async function processAuthorizationGranted(
   webId: SocialAgentId,
   dataAuthorizations: AuthorizationGranted['object'],
   activity: AuthorizationGrantedId
 ): Promise<void> {
-  if (
-    Array.isArray(dataAuthorizations) &&
-    dataAuthorizations.length > 0 &&
-    typeof dataAuthorizations[0] === 'object'
-  ) {
+  // sandbox-safe grouping (mirror of activities.groupAuthorizationDataAuthorizations)
+  const groups: AuthorizationGranted['object'][] = []
+  if (Array.isArray(dataAuthorizations)) {
+    const byGrantee = new Map<string, DataAuthorizationData[]>()
+    for (const dataAuthorization of dataAuthorizations) {
+      const group = byGrantee.get(dataAuthorization.grantee) ?? []
+      group.push(dataAuthorization)
+      byGrantee.set(dataAuthorization.grantee, group)
+    }
+    for (const group of byGrantee.values()) groups.push(group)
+  } else {
+    // deny snapshot (transient, Step 4) — single-grantee group
+    groups.push(dataAuthorizations)
+  }
+  await Promise.all(
+    groups.map((group) =>
+      executeChild(processGranteeAuthorization, {
+        args: [{ webId, dataAuthorizations: group }],
+      })
+    )
+  )
+  await markActivitiesDone({ webId, activities: [activity] })
+}
+
+/**
+ * One grantee's leg of a granted authorization (child of
+ * `processAuthorizationGranted`, refinement §5.1): materialize the group's
+ * DataAuthorizations at the pre-minted ids (find-first) → regenerate the
+ * grantee's grants (registry-state full regeneration). No completion — the
+ * parent owns it after ALL children succeed.
+ */
+export async function processGranteeAuthorization(
+  input: activities.ProcessGranteeAuthorizationInput
+): Promise<void> {
+  const { webId, dataAuthorizations } = input
+  if (Array.isArray(dataAuthorizations) && dataAuthorizations.length > 0) {
     await storeAuthorizationGranted({
       webId,
       dataAuthorizations: dataAuthorizations as FinalDataAuthorizationData[],
     })
   }
-  const authorizationGrantee = await resolveAuthorizationGrantee({
-    webId,
-    object: dataAuthorizations,
-  })
+  const authorizationGrantee = await resolveAuthorizationGrantee({ webId, object: dataAuthorizations })
   if (!authorizationGrantee) return
-  // role → members expansion + per-member regeneration — the same step the
-  // per-grantee consumer ran (createGrantsForAgent only handles agents)
   await createGrantsForAuthorization({ webId, authorizationGrantee })
-  await markActivitiesDone({ webId, activities: [activity] })
 }
 
 export async function updateDelegatedGrants(

@@ -605,15 +605,44 @@ export interface AuthorizationGrantedObjectInput {
   object: AuthorizationGranted['object']
 }
 
+export interface ProcessGranteeAuthorizationInput {
+  webId: SocialAgentId
+  /** one grantee's DataAuthorizations-to-be (a group) or the deny snapshot */
+  dataAuthorizations: AuthorizationGranted['object']
+}
+
+/**
+ * Split an `AuthorizationGranted` object into per-grantee groups — one child
+ * workflow per agent (refinement §5.1, authorization-granting.md). Members
+ * are the flat DataAuthorization POJOs (parents + children; every member
+ * carries its `grantee`); the deny snapshot (transient, Step 4) stays a
+ * single-grantee group. The workflow (workflows/grants.ts) keeps a
+ * sandbox-safe inline mirror — see the NOTE at its top (no runtime imports
+ * of this module inside the Temporal sandbox).
+ */
+export function groupAuthorizationDataAuthorizations(
+  object: AuthorizationGranted['object']
+): AuthorizationGranted['object'][] {
+  if (Array.isArray(object)) {
+    const byGrantee = new Map<string, DataAuthorizationData[]>()
+    for (const dataAuthorization of object) {
+      const group = byGrantee.get(dataAuthorization.grantee) ?? []
+      group.push(dataAuthorization)
+      byGrantee.set(dataAuthorization.grantee, group)
+    }
+    return [...byGrantee.values()]
+  }
+  return [object]
+}
+
 /**
  * The grantee of an `AuthorizationGranted` object — kind via the store
- * (`session.typeGrantee`). Object forms: embedded POJO(s) → the first DA's
+ * (`session.typeGrantee`). Forms: embedded POJO(s) → the first DA's
  * `grantee` (no deref — the resources do not exist until the workflow PUTs
- * them); live-link set (pre-Step-3 share) → dereference the first DA
- * (404-tolerant); deny snapshot → the embedded `grantee`. An unresolvable
- * grantee = an unregistered agent → only applications are auto-registered
- * at grant time (`ensureApplicationRegistration`, then re-check); the
- * grantee kind cannot ride the wire (no `agentType` term).
+ * them); deny snapshot → the embedded `grantee`. An unresolvable grantee =
+ * an unregistered agent → only applications are auto-registered at grant
+ * time (`ensureApplicationRegistration`, then re-check); the grantee kind
+ * cannot ride the wire (no `agentType` term).
  */
 export async function resolveAuthorizationGrantee(
   payload: AuthorizationGrantedObjectInput
@@ -621,22 +650,7 @@ export async function resolveAuthorizationGrantee(
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const object = payload.object
-  let granteeIri: string | undefined
-  if (Array.isArray(object)) {
-    const first = object[0]
-    if (typeof first === 'string') {
-      try {
-        const authorization = await loadDataAuthorization(first, session.fetch)
-        granteeIri = authorization.grantee
-      } catch {
-        // 404-tolerant — an intervening deny may have deleted the DA
-      }
-    } else {
-      granteeIri = first?.grantee
-    }
-  } else {
-    granteeIri = object.grantee
-  }
+  const granteeIri = Array.isArray(object) ? object[0]?.grantee : object.grantee
   if (!granteeIri) return undefined
   try {
     return await session.typeGrantee(granteeIri)

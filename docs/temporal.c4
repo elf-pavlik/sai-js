@@ -120,7 +120,7 @@ model {
 }
 
 views {
-  dynamic view reciprocalUpdate {
+  dynamic view reciprocal-registration-update {
     title: 'Reciprocal registration update'
 
     include Alice, ACME
@@ -147,37 +147,6 @@ views {
       Alice.Temporal -> Alice.Worker 'run update grants workflow'
       Alice.Worker -> DelegationIssuance '(activity) register delegation with resource owner'
       DelegationIssuance -> Alice.Worker 'OK'
-      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]'
-      Alice.Registry -> Alice.Worker 'OK'
-    }
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
-  }
-
-  dynamic view delegationAfterNotification {
-    title: 'Delegation after notification'
-
-    include Bob, Alice
-    include Bob.Registry, Bob.WebhookSender, Alice.WebhookReceiver, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
-
-    style Alice {
-      color: green
-    }
-
-    style Bob {
-      color: indigo
-    }
-
-    Bob.WebhookSender -> Alice.WebhookReceiver 'notify'
-    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]'
-    Alice.WebhookReceiver -> Bob.WebhookSender 'OK'
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow'
-    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
-    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
-    Alice.Worker -> Alice.Registry 'find affected authorizations [Authorization]'
-    parallel {
-      Alice.Worker -> Alice.Temporal '(child workflows) start update grants workflows'
-      Alice.Temporal -> Alice.Worker '(workflow) run update grants workflow'
       Alice.Worker -> Alice.Registry '(activity) update registration [Agent]'
       Alice.Registry -> Alice.Worker 'OK'
     }
@@ -412,9 +381,9 @@ views {
           > the AdminAuthorization there later
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRecorded activity [Activity]' {
+    Dan.UAS -> YoYo.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
         notes'''
-          #### PUT adminAuthorizationRecorded activity [Activity]
+          #### PUT AdminAuthorizationGranted activity [Activity]
           >[!NOTE]
           >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
 
@@ -841,9 +810,9 @@ views {
           > the workflow re-checks via `syncAdminAcr`
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT adminAuthorizationRevoked activity [Activity]' {
+    Dan.UAS -> YoYo.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
         notes'''
-          #### PUT adminAuthorizationRevoked activity [Activity]
+          #### PUT AdminAuthorizationRevoked activity [Activity]
           >[!NOTE]
           >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
 
@@ -1111,7 +1080,9 @@ views {
     YoYo.Registry -> Dan.UAS 'list'
     Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
   }
+}
 
+views "Authorization" {
   dynamic view authorization-data-app {
     title: 'Authorization data (app)'
 
@@ -1175,26 +1146,185 @@ views {
     }
     Bob.AUI -> Bob.UAS 'POST (RPC) authorization' {
         notes'''
-          uses cookie session with User Authorization Server
+          #### POST (RPC) authorization
+          >[!NOTE]
+          >authorization.test.ts > the grant leg (AuthorizeApp)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > the RPC is a VALIDATION + WRITE-ONLY endpoint: the
+          > DataAuthorizations-to-be are PRE-MINTED by the AA rules and ride
+          > the activity as embedded POJOs (the enum structure's term-gap) —
+          > NO synchronous mutation (activity-first, authorization-granting.md
+          > Step 2/§5.1)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AuthorizeApp",
+                "authorization": {
+                  "grantee": "https://data/test-client/public/id",
+                  "agentType": "http://www.w3.org/ns/solid/interop#Application",
+                  "accessNeedGroup": "https://data/test-client/public/access-needs#need-group-pm",
+                  "dataAuthorizations": [
+                    {
+                      "accessNeed": "https://data/test-client/public/access-needs#need-project",
+                      "scope": "AllFromAgent",
+                      "dataOwner": "https://id/bob"
+                    },
+                    { "accessNeed": "https://data/test-client/public/access-needs#need-task", "scope": "Inherited" },
+                    { "accessNeed": "https://data/test-client/public/access-needs#need-image", "scope": "Inherited" },
+                    { "accessNeed": "https://data/test-client/public/access-needs#need-file", "scope": "Inherited" }
+                  ],
+                  "granted": true
+                },
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
         '''
     }
-    Bob.UAS -> Bob.Registry 'create Access Authorization [Authorization]'
-    Bob.UAS -> Bob.Registry '(ensure) application registration if does not exist [Agent]'
-    Bob.UAS -> Bob.Registry 'PUT authorizationRecorded activity [Activity]'
-    Bob.UAS -> Bob.AUI '202 Accepted'
-    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Bob.ActivityWebhookHandler -> Bob.Temporal 'start per-grantee consumer (processGranteeActivities)'
-    Bob.Temporal -> Bob.ActivityWebhookHandler 'OK'
-    Bob.Temporal -> Bob.Worker '(workflow) run processGranteeActivities'
-    parallel {
-      Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
-          notes'''
-            durable execution should ensure consistency
-          '''
-      }
-      Bob.Registry -> Bob.Worker 'OK'
+    Bob.UAS -> Bob.Registry 'PUT AuthorizationGranted activity (embedded DAs at pre-minted ids) [Activity]' {
+        notes'''
+          #### PUT AuthorizationGranted activity (embedded DAs at pre-minted ids)
+          >[!NOTE]
+          >authorization.test.ts > the activity-first granting (Step 2)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > ONE activity carries ALL grantees' DAs (the parent groups them —
+          > grantee rides every POJO); the DAs are embedded at their
+          > PRE-MINTED ids (find-first PUT by the child workflow); a decline
+          > (granted:false) is a separate `AuthorizationDenied` activity
+          > (Step 4 — forward-only, no delete)
+
+          ```http
+          PUT https://registry/bob/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          If-None-Match: *
+          ```
+
+          ```json
+          {
+            "@context": "https://www.w3.org/ns/solid/interp/v1",
+            "@id": "https://registry/bob/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b",
+            "@type": ["Activity", "AuthorizationGranted"],
+            "actor": "https://id/bob",
+            "target": "https://registry/bob/authorization/",
+            "object": [
+              {
+                "@id": "https://registry/bob/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                "@type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                "grantee": "https://data/test-client/public/id",
+                "grantedBy": "https://id/bob",
+                "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#AllFromAgent",
+                "dataOwner": "https://id/bob",
+                "accessMode": ["http://www.w3.org/ns/auth/acl#Read"]
+              }
+            ],
+            "createdAt": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
     }
-    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]'
+    Bob.UAS -> Bob.AUI '202 (pending) — ids + activityId' {
+        notes'''
+          #### 202 (pending) — ids + activityId
+          >[!NOTE]
+          >authorization.test.ts > the pending ack (AuthorizationGrantedMessage)
+
+          >[!TIP]
+          > the ack echoes the pre-minted DataAuthorization ids (pending
+          > handles) + the triggering activity id (the uniform UI claim
+          > anchor — the done-row refresh arrives via `events.ts`)
+
+          ```json
+          {
+            "id": "https://registry/bob/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+            "activityId": "https://registry/bob/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b"
+          }
+          ```
+        '''
+    }
+    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
+    Bob.ActivityWebhookHandler -> Bob.Temporal 'start processAuthorizationGranted workflow'
+    Bob.Temporal -> Bob.ActivityWebhookHandler 'OK'
+    Bob.Temporal -> Bob.Worker '(workflow) run processAuthorizationGranted' {
+        notes'''
+          #### (workflow) run processAuthorizationGranted
+          >[!NOTE]
+          >authorization.test.ts > the parent groups the embedded DAs by
+          > grantee — ONE child per agent (always fan out, single grantee
+          > included); children never mark done
+        '''
+    }
+    parallel {
+      loop 'grantees.each' {
+        Bob.Worker -> Bob.Temporal '(child workflows) start processGranteeAuthorization per grantee'
+        Bob.Temporal -> Bob.Worker '(workflow) run processGranteeAuthorization'
+        Bob.Worker -> Bob.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
+            notes'''
+              #### (activity) PUT DataAuthorizations at the pre-minted ids
+              >[!NOTE]
+              >authorization.test.ts > the child body — find-first idempotent
+              > (`If-None-Match: *`), session ensure-application-registration
+
+              >[!IMPORTANT]
+              > Auth: Solid OIDC access token as `bob`
+
+              ```http
+              PUT https://registry/bob/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c
+              Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+              ```
+              ---
+
+              ```http
+              HTTP/1.1 201 Created
+              ```
+            '''
+        }
+        parallel {
+          loop 'grants.each' {
+            Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
+                notes'''
+                  #### (activity) create grants [Grant]
+                  >[!NOTE]
+                  >authorization.test.ts > the registration update signals the outcome
+
+                  >[!TIP]
+                  > durable execution should ensure consistency
+                '''
+            }
+          }
+        }
+      }
+    }
+    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >authorization.test.ts > a SINGLE completion at the PARENT after
+          > ALL children succeed (§5.1 — no per-grantee completions)
+        '''
+    }
     Bob.ActivityWebhookHandler -> Bob.AUI 'done'
     Bob.AUI -> App 'redirect back'
     App .overview Bob.UAS 'discover application registration' {
@@ -1203,7 +1333,9 @@ views {
     App -> Bob.Registry 'GET Application Registration [Agent]'
     Bob.Registry -> App 'Application Registration'
   }
+}
 
+views {
   dynamic view invitation {
     title: 'Invitation / Dan invites Kim'
 
@@ -5126,7 +5258,9 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
   }
+}
 
+views "Authorization" {
   dynamic view share-resource {
       title: 'Share resource'
 
@@ -5501,7 +5635,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!IMPORTANT]
           > Auth: CSS cookie session as `bob`
@@ -5520,7 +5654,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### POST (RPC) requestAccessUsingApplicationNeeds
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!IMPORTANT]
           > Auth: CSS cookie session as `bob`
@@ -5572,7 +5706,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `bob`
@@ -5637,7 +5771,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### OK (pending)
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           ```http
           HTTP/1.1 200 OK
@@ -5666,7 +5800,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!IMPORTANT]
           > Auth: Capability URL
@@ -5690,7 +5824,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### start requester-side workflow (NeedBasedAccessRequestSent)
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!TIP]
           >gRPC
@@ -5739,7 +5873,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### (workflow) run requester-side NeedBasedAccessRequestSent workflow
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!TIP]
           >gRPC
@@ -5749,7 +5883,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
           >[!NOTE]
-          >access-request-rpc.test.ts > leg B (RPC)
+          >access-request.test.ts > leg B (RPC)
 
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `bob` (client = Bob's UAS)
@@ -5929,7 +6063,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           notes'''
             #### (activity) PUT activityCompleted [Activity]
             >[!NOTE]
-            >access-request-rpc.test.ts > leg B (RPC)
+            >access-request.test.ts > leg B (RPC)
 
             >[!IMPORTANT]
             > Auth: Solid OIDC access token as `bob`
@@ -5962,7 +6096,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
-            >access-request-rpc.test.ts > leg B (RPC)
+            >access-request.test.ts > leg B (RPC)
 
             >[!IMPORTANT]
             > Auth: Capability URL
@@ -5989,7 +6123,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           notes'''
             #### done
             >[!NOTE]
-            >access-request-rpc.test.ts > leg B (RPC)
+            >access-request.test.ts > leg B (RPC)
 
             >[!TIP]
             > NDJSON - formatted here for readability
@@ -6124,7 +6258,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### POST (RPC) getAuthorizationData
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
 
           >[!IMPORTANT]
           > Auth: CSS cookie session as `alice`
@@ -6157,7 +6291,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### find the AccessRequest [AccessRequest registry]
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
 
           >[!IMPORTANT]
           > Auth: Solid OIDC access token as `alice`
@@ -6180,14 +6314,14 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### find relevant data registrations [Data]
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
         '''
     }
     Alice.UAS -> Common.Shapetrees 'GET shapetrees descriptions' {
         notes'''
           #### GET shapetrees descriptions
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
 
           ```http
           GET https://shapetrees.acme/shapetrees
@@ -6198,7 +6332,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### OK authorization data
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
         '''
     }
     Alice.AUI .overview Alice.UAS 'authorize' {
@@ -6206,7 +6340,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### authorize
           >[!NOTE]
-          >access-request.test.ts > approval phase
+          >authorization.test.ts > approval phase
 
           >[!TIP]
           > reuses the existing authorization screen (`AuthorizeApp.vue`) + `recordAuthorization` — the request stays immutable, the authorization references it

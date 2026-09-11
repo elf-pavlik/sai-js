@@ -378,13 +378,18 @@ messages, producer/handler/reconcile/admin workflows, UI labels/claims, tests
 and docs/c4 (the dev-only RDF-term break was accepted — see
 [`admin-authorization-naming.md`](admin-authorization-naming.md) §4).
 
-**Step 7 — docs alignment.**
-`docs/events.md` rows per class (`AuthorizationGranted` / `AuthorizationDenied`
-/ `AuthorizationRevoked`; drop `AuthorizationRequested` / `ShareRequested`);
-`docs/features.md` (activity table, trigger classification, view coverage);
-`docs/peer.md` if it repeats the producer/consumer rows; `activity-first-services.md`
-step 4 cross-refs.
-**Verify:** docs reviewed; `likec4 validate` clean.
+**Step 7 — docs alignment ✅ DONE.** `docs/events.md` rows per class
+(`AuthorizationGranted` / `AuthorizationDenied` / `AuthorizationRevoked`;
+`AuthorizationRequested` / `ShareRequested` dropped; admin pair
+`AdminAuthorizationGranted` / `AdminAuthorizationRevoked`, both activity-first);
+`docs/features.md` (activity table incl. `AuthorizationDenied`, trigger
+classification, view coverage — 17 views, `share-resource-get-data` folded
+to `share-resource`, `authorization` refreshed to the activity-first
+fan-out shape in `docs/temporal.c4`); `docs/peer.md` producer/consumer rows +
+the `AuthorizeApp` arc; `activity-first-services.md` step-4 cross-refs +
+re-pins; `docs/plans/index.md` catalogue rows.
+**Verify:** docs reviewed; `likec4 validate` clean (`valid: true`,
+`filteredErrors: 0`).
 
 ## 10. Testing
 

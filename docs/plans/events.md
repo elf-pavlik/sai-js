@@ -13,21 +13,30 @@ PATCH / immutable append, `immutable-activities.md`). `ActivityWebhookHandler`
 receives the webhook `Add`, loads the activity, forwards it to the events bus
 (keyed by the channel's webId), and dispatches:
 
-- **per-grantee consumer** (`GRANTEE_ACTIVITY_TYPES`): `authorizationRecorded`,
-  `authorizationRevoked` → `processGranteeActivities` (start-or-signal, one
-  consumer per (webId, grantee));
-- **one workflow per type** (`activityWorkflows` map): `roleMembershipChanged`,
+- **dedicated workflows** (one run per activity): `AuthorizationGranted` →
+  `processAuthorizationGranted` (the parent — groups the embedded
+  DataAuthorization POJOs by grantee and fans out one
+  `processGranteeAuthorization` child per grantee; authorization-granting.md
+  §5.1); `AdminAuthorizationGranted` / `AdminAuthorizationRevoked` → the
+  org-admin workflows (grants + ACR rewrite); `roleMembershipChanged`,
   `roleDeleted`, `roleCreated`, `agentRegistrationAdded`, `invitationAccepted`,
-  `invitationCreated`, `delegatedGrantsUpdated` → matching
-  Temporal workflow on its task queue;
+  `invitationCreated`, `delegatedGrantsUpdated` → matching Temporal workflow
+  on its task queue;
+- **per-grantee consumer** (`processGranteeActivities`, start-or-signal, one
+  consumer per (webId, grantee)): `AuthorizationRevoked` only — no producer
+  yet (the revocation plan);
+- `AuthorizationDenied` is **forward-only** (authorization-granting.md Step 4
+  — silent decline): no workflow; the reconcile sweep closes the outbox row
+  (`markActivitiesDone`);
 - completions (`activityCompleted`) never dispatch, only forward.
 
 ## Existing activity types
 
 | activityType | Producer | Consumer |
 |---|---|---|
-| `authorizationRecorded` | `services/Authorization.ts`, `services/ShareResource.ts` | per-grantee consumer (`processGranteeActivities`) |
-| `authorizationRevoked` | deny path (see `authorization-revoked.md`, not yet landed) | per-grantee consumer |
+| `AuthorizationGranted` | `services/Authorization.ts` (`AuthorizeApp` — grant), `services/ShareResource.ts` | `processAuthorizationGranted` → per-grantee `processGranteeAuthorization` children (dedicated parent + fan-out) |
+| `AuthorizationDenied` | `services/Authorization.ts` (`AuthorizeApp` — decline; a pure decline — no delete, no grant clear) | — forward-only (Step 4): no workflow; the reconcile sweep marks it done |
+| `AuthorizationRevoked` | none yet (see [`authorization-revocation.md`](authorization-revocation.md)) | per-grantee consumer (`processGranteeActivities`) |
 | `roleMembershipChanged` | `services/RoleRegistry.ts` — **activity-only (step 2)**: the RPC writes the intended change (object = the role-to-be `RoleData`); the `updateRole` workflow PATCHes the role, derives the affected diff, regenerates grants | `processRoleMembershipChange` (workflow, `create-grants` queue) |
 | `roleDeleted` | `services/RoleRegistry.ts` — **activity-only (step 3)**: the RPC writes the role-to-be-deleted (object = the real-id embedded `RoleData`); the `deleteRole` workflow DELETEs the role + its authorizations and regenerates grants | `processRoleDeletion` (workflow, `create-grants` queue) |
 | `roleCreated` | `services/RoleRegistry.ts` — **activity-only (step 9)**: the RPC mints the role id + writes the role-to-be (object = the real-id embedded `RoleData` at the minted id); the `createRole` workflow PUTs the role there and completes (no derived work — the PUT is the create) | `createRole` (workflow, `create-grants` queue) |
@@ -43,24 +52,25 @@ receives the webhook `Add`, loads the activity, forwards it to the events bus
 The `AddAdmin` / `RemoveAdmin` RPC writes a **domain activity** to the org's
 Activity Registry; `ActivityWebhookHandler` routes it to workflows that
 materialize the side effects (AdminAuthorization write/delete, grants + ACR
-matchers). `AddAdmin` is **activity-first (step 5 — R1 re-decision)**: the RPC
-keeps the validation reads and pre-mints the AdminAuthorization id; the
-`addAdmin` workflow PUTs the resource, then grants + ACR. `RemoveAdmin` still
-records/deletes synchronously until step 6. Activities are **typed classes**
-(the payload-contract flip: `webId` → `actor`, parties ride the `as:object`):
+matchers). Both are **activity-first** (steps 5–6 — R1 re-decision): the RPC
+keeps the validation reads (registered + already-admin; last-admin guard on
+remove) and pre-mints (add) or reads (remove) the AdminAuthorization id; the
+workflows PUT/DELETE the resource, then grants + ACR. Activities are **typed
+classes** (the payload-contract flip: `webId` → `actor`, parties ride the
+`as:object`):
 
 ```
-type:   ['Activity', 'AdminAuthorizationGranted']          (`AddAdmin` — step 5)
-      / ['Activity', 'AdminAuthorizationRevoked']           (`RemoveAdmin` — until step 6)
+type:   ['Activity', 'AdminAuthorizationGranted']
+      / ['Activity', 'AdminAuthorizationRevoked']
 as:actor:  the org webId (the registry owner)
-as:target: (dropped — steps 5–6; the records' ids ride `object.id`)
-as:object: (recorded: the AA-to-be at the PRE-MINTED id; revoked: the
+as:target: dropped — the records' ids ride `object.id`
+as:object: (granted: the AA-to-be at the PRE-MINTED id; revoked: the
             existing AA at its real id — both real-id embedded projections) —
             the admin's grantee is read from it in both forms
 ```
 
 Add vs. remove is distinguished by the `activityType` itself (mirroring the
-`authorizationRecorded` / `authorizationRevoked` pair).
+`AuthorizationGranted` / `AuthorizationRevoked` pair).
 
 - **Producer:** `AddAdmin`/`RemoveAdmin` RPC service (`services/Admin.ts`):
   add — validation reads (registered + already-admin) + pre-mint the
@@ -73,11 +83,11 @@ Add vs. remove is distinguished by the `activityType` itself (mirroring the
   activity pair**; add and remove are distinguished by `activityType`
   (decided — distinct shapes, no `granted` flag), and the workflows **diverge
   after the trigger**:
-  - `adminAuthorizationRecorded` → `createAdminGrants` (from the
+  - `AdminAuthorizationGranted` → `createAdminGrants` (from the
     AdminAuthorization: one `scopeOfAdminGrant interop:RegistrySet`
     registration-linked admin marker + one `interop:DataRegistry` per data
     registry in the RegistrySet, Read-only, for the engine) + `syncAdminAcr`;
-  - `adminAuthorizationRevoked` → `revokeAdminGrants` (delete the admin's
+  - `AdminAuthorizationRevoked` → `revokeAdminGrants` (delete the admin's
     AdminGrants, unlink `hasAdminGrant`, remove their ACRs) + `syncAdminAcr`.
   `syncAdminAcr` — rewrite the org's `#fullAdminAccess` matchers in the
   registries-server ACR from the admin list (derived artifact, idempotent
@@ -97,8 +107,8 @@ Add vs. remove is distinguished by the `activityType` itself (mirroring the
   regeneration) when registry-set mutation is implemented. **TODO — not part of
   Phase 1.**
 - **Admin removal event (decided).** `RemoveAdmin` writes a **distinct**
-  `adminAuthorizationRevoked` activity (own shape; no `granted: false` reuse of
-  `adminAuthorizationRecorded`), mirroring the `authorizationRevoked`
+  `AdminAuthorizationRevoked` activity (own shape; no `granted: false` reuse of
+  `AdminAuthorizationGranted`), mirroring the `AuthorizationRevoked`
   precedent. The revocation boundary (`GrantRevocationHandler`) should also
   handle admin revocation (`revokeAdminGrants`) and the last-admin guard.
 - **Admin-authorization iteration is deferred** (see `org-admin-feature.md`

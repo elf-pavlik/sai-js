@@ -65,12 +65,12 @@ State is never mutated; a transition is a new log entry.
 
 | Producer (`createActivity`) | activityType | synchronous writes done before/with the PUT |
 |---|---|---|
-| `services/Authorization.ts` `recordAuthorization` | `authorizationRecorded` | data authorizations, application registration |
-| `services/ShareResource.ts` `shareResource` | `authorizationRecorded` (one per deduped grantee) | data-instance sharing |
+| `services/Authorization.ts` `recordAuthorization` | `AuthorizationGranted` (grant) / `AuthorizationDenied` (decline — pure, no delete) | none in production paths (activity-first) |
+| `services/ShareResource.ts` `shareResource` | `AuthorizationGranted` (ONE activity — all grantees' DAs) | none in production paths (activity-first) |
 | `services/RoleRegistry.ts` `updateRole` / `deleteRole` | `roleMembershipChanged` / `roleDeleted` | role resource mutation (only if affected members) |
 | `InvitationHandler` | `agentRegistrationAdded` | invitee registration |
 | `ReciprocalWebhookHandler` (peer `Update`) | `delegatedGrantsUpdated` | — (peer-driven; own registration PATCH) |
-| `services/Admin.ts` `addAdmin` / `removeAdmin` | `adminAuthorizationRecorded` / `adminAuthorizationRevoked` | AdminAuthorization create/delete (synchronous, §7) |
+| `services/Admin.ts` `addAdmin` / `removeAdmin` | `AdminAuthorizationGranted` / `AdminAuthorizationRevoked` | none in production paths (activity-first — steps 5–6) |
 
 The producer PUTs into the registry set the request operates in — the **org's**
 Activity Registry in an org context (§7), with the org as the activity's `webId`
@@ -80,12 +80,14 @@ owner.
 
 | activityType | Workflow | Queue |
 |---|---|---|
-| `authorizationRecorded` / `authorizationRevoked` | per-grantee consumer `processGranteeActivities` (drain + coalesce + mark done) | `create-grants` |
+| `AuthorizationGranted` | `processAuthorizationGranted` (dedicated parent — groups by grantee) → per-grantee `processGranteeAuthorization` children | `create-grants` |
+| `AuthorizationDenied` | — forward-only (Step 4): no workflow; the reconcile sweep marks it done | — |
+| `AuthorizationRevoked` | per-grantee consumer `processGranteeActivities` (no producer yet) | `create-grants` |
 | `roleMembershipChanged` / `roleDeleted` | `processRoleMembershipChange` / `processRoleDeletion` (pre-deletion usage scan) | `create-grants` |
 | `agentRegistrationAdded` | `establishReciprocal` (explicit retry: 5s→60s, ≤10 attempts; then mark done) | `reciprocal-registration` |
 | `delegatedGrantsUpdated` | `updateDelegatedGrants` | `create-grants` |
-| `adminAuthorizationRecorded` | `createAdminGrants` + `syncAdminAcr` (parallel) | `create-grants` |
-| `adminAuthorizationRevoked` | `revokeAdminGrants` + `syncAdminAcr` (parallel) | `create-grants` |
+| `AdminAuthorizationGranted` | `createAdminGrants` + `syncAdminAcr` (parallel) | `create-grants` |
+| `AdminAuthorizationRevoked` | `revokeAdminGrants` + `syncAdminAcr` (parallel) | `create-grants` |
 
 Admin activities are dispatched by the **org's owner channel**; admin channels
 never dispatch (§7) — the org's AA runs the org's workflows (C2).
@@ -98,11 +100,11 @@ which lets `reconcileActivities` (the sweep backstop) safely re-enter any
 ## 3. The full arc (one example: `AuthorizeApp`)
 
 1. UI submits → `effect.authorizeApp(authorization)` (RPC).
-2. `ApiHandler`: cookie → webId → session; `recordAuthorization` writes authorizations + registration, PUTs the `authorizationRecorded` activity, **returns the recorded authorizations** — the RPC resolves with *intent committed*, not outcome.
-3. Container `Add` → `ActivityWebhookHandler`: loads the activity, emits `pending` to the `ActivityEvents` bus, routes to the per-grantee consumer (start-or-signal, deterministic `workflowId grantee:{webId}:{grantee}`).
-4. Consumer drains → `createGrantsForAgent` per grantee (store grants + ACRs, request delegations, PATCH registration) → `markActivitiesDone` → completion PUT.
+2. `ApiHandler`: cookie → webId → session; `recordAuthorization` **writes the activity only** — `AuthorizationGranted` (embedded DataAuthorization POJOs at pre-minted ids) or `AuthorizationDenied` (decline) — and returns the **pending ack** (ids + `activityId`); the RPC resolves with *intent committed*, not outcome (workflows materialize).
+3. Container `Add` → `ActivityWebhookHandler`: loads the activity, emits `pending` to the `ActivityEvents` bus, dispatches `processAuthorizationGranted` (dedicated parent; a `AuthorizationDenied` is forward-only — no dispatch).
+4. Parent groups the DAs by grantee → one `processGranteeAuthorization` child per grantee (always fan out) → `createGrantsForAuthorization` per grantee (store DAs + grants + ACRs, request delegations, PATCH registration); the parent writes the single completion.
 5. Completion `Add` → webhook handler loads the completed activity via `target`, emits `done` (enriched with the original `activityType`/`payload`).
-6. UI `events.ts` maps `done(activityType)` → list refetches: `authorizationRecorded` → `listApplications`/`listSocialAgents` by grantee type; `role*` → `listSocialAgents`+`listRoles`; `agentRegistrationAdded` → `listSocialAgents`+invitations; `delegatedGrantsUpdated` → `listSocialAgents`; org-admin `adminAuthorizationRecorded`/`adminAuthorizationRevoked` → `listSocialAgents` (refresh is context-scoped — §7).
+6. UI `events.ts` maps `done(activityType)` → list refetches: `AuthorizationGranted` → `listApplications`/`listSocialAgents` by grantee type (`AuthorizationDenied` is silent — no done-row refresh); `role*` → `listSocialAgents`+`listRoles`; `agentRegistrationAdded` → `listSocialAgents`+invitations; `delegatedGrantsUpdated` → `listSocialAgents`; org-admin `AdminAuthorizationGranted`/`AdminAuthorizationRevoked` → `listSocialAgents` (refresh is context-scoped — §7).
 
 ## 4. UI-side machines
 

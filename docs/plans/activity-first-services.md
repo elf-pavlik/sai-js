@@ -156,17 +156,17 @@ AuthorizationAgent; no org session is minted in RPCs**).
   `agentRegistrationAdded` (real-id embedded object) only; the workflow PUTs
   the registration at `object.id` + discovers the reciprocal (completion via
   the `AgentRegistrationAddedId` ref).
-- `addAdmin` (`Admin.ts`) — **step 5 (R1 re-decision)**: the RPC keeps the
+- `addAdmin` (`Admin.ts`) — **step 5 (landed)**: the RPC keeps the
   validation reads (registered + already-admin) and pre-mints the
-  AdminAuthorization id, then writes `adminAuthorizationRecorded` (`target`
+  AdminAuthorization id, then writes `AdminAuthorizationGranted` (`target`
   dropped — object = the AdminAuthorization-to-be at the pre-minted id,
   real-id embedded projection) + returns a pending ack (pre-minted id +
   `activityId`); the `addAdmin` workflow PUTs the resource there
   (`recordAdminAuthorizationAtId`, find-first idempotent), materializes
   `createAdminGrants` + `syncAdminAcr`, then completes.
-- `removeAdmin` (`Admin.ts`) — **step 6 (R1 re-decided in full)**: the RPC
+- `removeAdmin` (`Admin.ts`) — **step 6 (landed)**: the RPC
   keeps the validation reads (registered, admin-exists, last-admin guard)
-  and writes `adminAuthorizationRevoked` (`target` dropped — object = the
+  and writes `AdminAuthorizationRevoked` (`target` dropped — object = the
   EXISTING AdminAuthorization as a real-id embedded projection at its id) +
   returns a pending ack (revoked id + `activityId`); the `removeAdmin`
   workflow DELETEs the resource there (`deleteAdminAuthorizationAtId`,
@@ -174,11 +174,17 @@ AuthorizationAgent; no org session is minted in RPCs**).
   the last admin via `syncAdminAcr`), then completes.
 - `ReciprocalWebhookHandler` — writes `delegatedGrantsUpdated` → `updateDelegatedGrants`.
 
-### 2.2 Partial — RPC mutates synchronously, then activity → workflow does derived work
-- `recordAuthorization` (`Authorization.ts:281`) and `shareResource`
-  (`ShareResource.ts:164`) — **extracted to
-  [`authorization-granting.md`](authorization-granting.md)** (the
-  structure-based granting pair, steps 7–8 there; see §4a/4b).
+### 2.2 Fully activity-first — no synchronous mutation
+- `recordAuthorization` (`Authorization.ts`) and `shareResource`
+  (`ShareResource.ts`) — **fully activity-first (landed —
+  [`authorization-granting.md`](authorization-granting.md) Steps 2–3)**: the
+  RPC writes ONE `AuthorizationGranted` activity (the term-covered
+  `DataAuthorizationData` POJOs at PRE-MINTED ids, embedded) and returns a
+  pending ack; the `processAuthorizationGranted` parent groups by grantee
+  and fans out one `processGranteeAuthorization` child per grantee, which
+  materializes + regenerates (the parent writes the single completion). A
+  decline (`granted:false`) writes `AuthorizationDenied` (Step 4) —
+  forward-only, no workflow.
 
 ### 2.3 Fully synchronous — no activity at all
 - `revokeGrants` (`Revocation.ts`) — the revocation-leg RPC: today calls
@@ -339,9 +345,9 @@ Companion tasks (handler rows, reconcile branches, workflow bundles,
 | **1. `createInvitation`** | `CreateInvitation` | **first move** — best-documented leg in `docs/temporal.c4`. RPC: mint the invitation id (`iriForContained`), write `invitationCreated` (actor + `as:object` = the invitation-to-be `CreateInvitationPojo`, **no capabilityUrl**), return pending ack; workflow (`createInvitation`): PUT the invitation at the minted id with the context session, **generate the capabilityUrl there**, then complete. Update the `invitation` + `admin-invitation-send` **send legs** in c4; `/test` invitation suites become wait-for; UI: indicator + list refresh on done | 4g |
 | **2. `updateRole`** | `UpdateRole` | **✅ EXECUTED** — the role's *intended* change rides `as:object` as a **real-id embedded projection of the role-to-be** (`{ id, type: [Role], label, members }` — the InvitationCreated form; **`target` removed**, `roleId` reads `object.id`, `as:Update`); the RPC keeps a read-side existence guard + writes the activity + returns a pending ack (echoes the role-to-be + `activityId`); the `updateRole` workflow PATCHes the role (`updateRoleInRegistry` — find-first idempotent) → derives the affected diff from the before-image → regenerates → completes; `role-membership-change` c4 view + UI (claim + done-row) | 4c |
 | **3. `deleteRole`** | `DeleteRole` | **✅ EXECUTED** — `as:object` = the role-to-be-deleted as a **real-id embedded projection** (the full `RoleData`, alive at write; **`target` removed**, `roleId` reads `object.id`); the RPC keeps a read-side guard (existence, yields the snapshot) + writes the activity + returns a pending ack (`RoleDeletedMessage` = deleted role id + `activityId`); the `deleteRole` workflow scans usage **before** the deletions, deleteAuthorizations, DELETEs the role (`deleteRoleFromRegistry` — find-first, 404-tolerant, idempotent under retries), derives the affected set from the **embedded members** (the retry backstop — unrecoverable from the store after the role + its role-grantee authorizations are gone), regenerates, completes; same c4 view + UI (claim + done-row) | 4c |
-| **4. Grant-revocation cleanup** | — (no RPC move) | **✅ EXECUTED — retire the dormant grant-revocation artifacts** — `grantsRevoked` (activity class + api-messages projection + `loadActivity` case + handler/reconcile branches + `events.ts`/`events.md` rows) and `processGrantsRevocation` (+ `requestGrantRevocation` / `removeDataGrantsFromRegistration`, its only callees): none have a producer (grants are only revoked via the issuance endpoint and from workflows — `revoke-delegation-chain.md`; the `authorizationRevoked` **leg** is extracted to [`authorization-revocation.md`](authorization-revocation.md), worked later). The revocation boundary (`GrantRevocationHandler`) and the derived role-change regeneration (steps 2–3) stay. | 4d |
+| **4. Grant-revocation cleanup** | — (no RPC move) | **✅ EXECUTED — retire the dormant grant-revocation artifacts** — `grantsRevoked` (activity class + api-messages projection + `loadActivity` case + handler/reconcile branches + `events.ts`/`events.md` rows) and `processGrantsRevocation` (+ `requestGrantRevocation` / `removeDataGrantsFromRegistration`, its only callees): none have a producer (grants are only revoked via the issuance endpoint and from workflows — `revoke-delegation-chain.md`; the `AuthorizationRevoked` **leg** is extracted to [`authorization-revocation.md`](authorization-revocation.md), worked later). The revocation boundary (`GrantRevocationHandler`) and the derived role-change regeneration (steps 2–3) stay. | 4d |
 | **5. `addAdmin`** | `AddAdmin` | **✅ EXECUTED** — activity = `actor`, `as:object` = the AdminAuthorization-to-be as a **real-id embedded projection** at the PRE-MINTED id (**`target` removed** — nothing consumes the registry container); **R1 re-decided (§9)**: the RPC keeps the validation reads (registered + already-admin) + pre-mints the id + writes the activity + returns `AdminAuthorizationGrantedMessage` (pre-minted id + `activityId`); the `addAdmin` workflow PUTs the AdminAuthorization at the pre-minted id (`recordAdminAuthorizationAtId` — find-first idempotent), materializes grants + the ACR rewrite, then completes; `org-admin-add` c4 + toggle-admin UI (claim + done-row) | 4e |
-| **6. `removeAdmin`** | `RemoveAdmin` | **✅ EXECUTED** — same re-decision, distinct `adminAuthorizationRevoked` (`as:object` = the EXISTING AdminAuthorization as a **real-id embedded projection** at its real id — the workflow DELETEs; **`target` removed**); the RPC keeps the validation reads (registered, admin-exists, **last-admin guard**) + writes the activity + returns `AdminAuthorizationRevokedMessage` (revoked id + `activityId`); the `removeAdmin` workflow DELETEs the resource at `object.id` (`deleteAdminAuthorizationAtId` — find-first 404-tolerant, idempotent), revokes grants + the ACR rewrite (the last-admin guard rides `syncAdminAcr` — RPC re-check), then completes; `org-admin-remove` c4 + toggle-admin UI (claim + done-row) | 4e |
+| **6. `removeAdmin`** | `RemoveAdmin` | **✅ EXECUTED** — same re-decision, distinct `AdminAuthorizationRevoked` (`as:object` = the EXISTING AdminAuthorization as a **real-id embedded projection** at its real id — the workflow DELETEs; **`target` removed**); the RPC keeps the validation reads (registered, admin-exists, **last-admin guard**) + writes the activity + returns `AdminAuthorizationRevokedMessage` (revoked id + `activityId`); the `removeAdmin` workflow DELETEs the resource at `object.id` (`deleteAdminAuthorizationAtId` — find-first 404-tolerant, idempotent), revokes grants + the ACR rewrite (the last-admin guard rides `syncAdminAcr` — RPC re-check), then completes; `org-admin-remove` c4 + toggle-admin UI (claim + done-row) | 4e |
 | **7–8. `recordAuthorization` + `shareResource`** | — | **extracted to [`authorization-granting.md`](authorization-granting.md)** (the structure-based granting leg — the `AuthorizationStructure`/`DataAuthorizationStructure`/`ShareDataInstanceStructure` term-gap, Decision A settles the carrier first). This plan keeps only the verify-only keepers (9–10), the housekeeping note and the docs alignment (11) | 4a, 4b |
 | **9. `createRole`** | `CreateRole` | **✅ EXECUTED** — the `createInvitation` pattern: the RPC mints the role id (`iriForContained`) + writes `roleCreated` (object = the role-to-be, real-id embedded at the minted id, `as:Add`; a NEW class: data-model term + `RoleCreatedId` + api-messages + handler/reconcile/UI rows) + returns `RoleCreatedMessage` (role-to-be + `activityId`); the `createRole` workflow PUTs the role at the minted id (`createRoleAtId` — find-first `If-None-Match: *` idempotent) and completes. No derived work — no authorizations can exist before the role exists (the PUT IS the create) | 4f |
 | **10. `requestAccessUsingApplicationNeeds`** | — | **moved to [`authorization-granting.md`](authorization-granting.md)** (the granting plan — the access-request leg: a new class + workflow performing the `setAccessNeedGroup` PATCH) | 4i |
@@ -448,7 +454,7 @@ sketches):
     minus what the workflow generates — `CreateInvitationPojo` pattern).
     The activity-graph `rdf:type` claim never surfaces as authoritative:
     classification reads self-graph-filter (`docs/sparql.md` —
-    `FILTER(?g = ?s)`, adopted with step 1). Re-pins: `AuthorizationRecorded`
+    `FILTER(?g = ?s)`, adopted with step 1). Re-pins: `AuthorizationGranted`
     (+`Revoked`), `AdminAuthorizationGranted` (+`Revoked`),
     `RoleMembershipChanged`/`RoleDeleted` (the *intended* change rides the
     role-to-be).
@@ -471,7 +477,7 @@ sketches):
   pre-minted id rides `object.id`),
   `AdminAuthorizationRevoked` (**step 6 landed** — the existing AA at its
   real id rides `object.id`; the workflow DELETEs),
-  `AuthorizationRecorded`/`Revoked` (the granting pair —
+  `AuthorizationGranted`/`AuthorizationRevoked` (the granting pair —
   [`authorization-granting.md`](authorization-granting.md)). Kept for
   the classes whose `target` is a delivered dispatch value
   (`DelegatedGrantsUpdated` — the peer) or the completion target
@@ -520,9 +526,10 @@ sketches):
   lives in the workflow. The handler passes the **decoded object verbatim**
   as the workflow's data arg (single source: the shared pojo type lives in
   `data-model`). New workflows bundle on the `create-grants` worker (§6.5).
-- **Not adopted:** `as:result`; structure-based classes
-  (`AuthorizationRequested`/`ShareRequested`) stay flat — followup in
-  `payload-contract-alignment.md` §5.
+- **Not adopted:** `as:result`; the structure-based carrier classes
+  (`AuthorizationRequested`/`ShareRequested`) were **dropped** (Step 1,
+  authorization-granting.md) — the granting pair rides the typed classes
+  `AuthorizationGranted`/`AuthorizationDenied`; see `payload-contract-alignment.md` §5.
 
 ### Per-step contract checklist (every activity-first step does ALL of these —
 updated to the step-1/`invitationCreated` template)

@@ -14,6 +14,7 @@ import {
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
+  type AuthorizationDenied,
   type AuthorizationGranted,
   type EmbeddedAuthorization,
   type GrantData,
@@ -348,8 +349,8 @@ export const recordAuthorization = async (
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
 
   // the deny snapshot carrier (no DataAuthorization is created — grantee rides
-  // here; term-covered subset). Transient on `AuthorizationGranted` until Step 4
-  // moves the decline to `AuthorizationDenied`.
+  // here; term-covered subset). Written as the `AuthorizationDenied` activity
+  // (Step 4 — pure decline: no delete, no grant clear).
   const snapshot = (): EmbeddedAuthorization => ({
     id: `urn:uuid:${ctx.session.randomUUID()}`,
     type: [INTEROP.AuthorizationStructure],
@@ -378,9 +379,10 @@ export const recordAuthorization = async (
       type: ['Activity', 'AuthorizationGranted'],
       actor: ctx.webId,
       target: ctx.registrySet.hasAuthorizationRegistry.id,
-      // all-filtered (self-grant) collapses to the snapshot — same as the
-      // synchronous path's empty result
-      object: dataAuthorizations.length > 0 ? dataAuthorizations : snapshot(),
+      // always the array (possibly [] — an all-filtered/self-grant writes no
+      // DAs; the child workflow skips empty groups). Declines are
+      // `AuthorizationDenied` (Step 4) — never a snapshot here.
+      object: dataAuthorizations,
       createdAt: new Date().toISOString(),
     }
     const created = await ActivityRegistry.createActivity(
@@ -396,22 +398,12 @@ export const recordAuthorization = async (
     })
   }
 
-  // denied (transient — until Step 4): the synchronous
-  // `recordAuthorizationFromStructure` deletes the grantee's authorizations
-  // (the accidental revoke) and returns []; the snapshot activity still routes
-  // regeneration-to-empty. Step 4 replaces this with a pure
-  // `AuthorizationDenied` (no delete, no regeneration).
-  await ctx.session.recordAuthorizationFromStructure(
-    structure,
-    ctx.webId,
-    ctx.registrySet,
-    false,
-    accessNeedGroupData
-  )
-  const activity: Omit<AuthorizationGranted, 'id'> = {
-    type: ['Activity', 'AuthorizationGranted'],
+  // declined (Step 4): a PURE decline — `AuthorizationDenied`, forward-only,
+  // no DataAuthorization delete, no grant clear, no workflow (the accidental
+  // delete behavior is the revocation plan's revoke action).
+  const activity: Omit<AuthorizationDenied, 'id'> = {
+    type: ['Activity', 'AuthorizationDenied'],
     actor: ctx.webId,
-    target: ctx.registrySet.hasAuthorizationRegistry.id,
     object: snapshot(),
     createdAt: new Date().toISOString(),
   }

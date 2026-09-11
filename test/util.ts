@@ -255,7 +255,7 @@ export async function awaitGrantCompletion(
  * `'AgentRegistrationAdded'`) in the session's Activity Registry has a
  * completion referencing it (the producer's workflow marked it done).
  */
-async function waitForActivityCompletion(session: AuthorizationAgent, cls: string): Promise<void> {
+export async function waitForActivityCompletion(session: AuthorizationAgent, cls: string): Promise<void> {
   const registry = session.registrySet.hasActivityRegistry!
   await waitFor(
     async () => {

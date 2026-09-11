@@ -159,15 +159,21 @@ succeed (children never mark done).
   pre-refinement share) — ✅ done: the handler, workflow, `reconcileActivities`
   and the decoder handle the embedded POJO form only; `test/reconciliation.test.ts`
   and the activity-registry fixtures moved to the embedded single-DA form.
-  The deny snapshot form stays until Step 4.
+  The deny snapshot form is gone too (Step 4): declines are `AuthorizationDenied`,
+  and an empty/all-filtered grant writes `[]` (the child skips empty groups).
+  and the decoder handle the embedded POJO form only; `test/reconciliation.test.ts`
+  and the activity-registry fixtures moved to the embedded single-DA form.
+  The deny snapshot form is gone too (Step 4): declines are `AuthorizationDenied`,
+  and an empty/all-filtered grant writes `[]` (the child skips empty groups).
 - `recordAuthorization` is unaffected (single grantee); reconcile passes the
   whole object — grouping happens inside the workflow.
 - **c4:** the `share-resource` view merged `share-resource-get-data` into it
   (that view is removed); the fan-out is drawn as child workflows
   (`docs/temporal.c4` — validated).
-- **Verification (done):** packages build 7/7; vitest green (components 41 —
-  new `groupAuthorizationDataAuthorizations` tests; authorization-agent 83 —
-  embedded-form fixtures). **`/test` re-run pending (user):** share, roles,
+- **Verification (done):** packages build 7/7; vitest green (components 40 —
+  grouping + object-carried-grantee tests; authorization-agent 83 — embedded-form
+  fixtures incl. the `AuthorizationDenied` snapshot round-trip). **`/test`
+  re-run pending (user):** share, roles,
   authorization, reconciliation.
 
 ## 6. Specific-instance requests (`hasDataInstance` on `AccessNeed`)
@@ -319,13 +325,27 @@ review)
 (response `callbackEndpoint` + grants unchanged); org-context share suite
 green.
 
-**Step 4 — decline only; revoke deferred (DECIDED, option 2 + decision c).**
+**Step 4 — decline only; revoke deferred. ✅ DONE (code + packages-verified;
+`/test` re-run pending: user).** The deny snapshot is gone from
+`AuthorizationGranted` (object = the embedded-POJO array only; decoder wraps
+singleton DAs, no snapshot detection; `groupAuthorizationDataAuthorizations` /
+`resolveAuthorizationGrantee` / the parent mirror lost the snapshot branch;
+an empty/all-filtered grant writes `[]` — the child skips). Decline = a pure
+`AuthorizationDenied` (forward-only, no delete). Tests: activity-registry deny
+fixture moved to `AuthorizationDenied` (round-trip incl. the single-`@type`
+scalar normalization); the components grouping snapshot case dropped;
+`resolveActivityGrantee` repinned to the first-DA POJO path;
+`test/authorization.test.ts` deny end-state flipped to **grant + grants
+UNTOUCHED**. (`/test` note: the deny leg cannot await the registration
+Update — a pure decline changes nothing; it runs the reconcile sweep
+explicitly and awaits the `AuthorizationDenied` completion instead.)
 - `recordAuthorization`: `granted:true` → `AuthorizationGranted`;
   `granted:false` → `AuthorizationDenied` (**pure decline — no
   DataAuthorization delete, no grant clear**; the old delete was accidental).
 - `ActivityWebhookHandler` + `reconcileActivities`: add the
   `AuthorizationDenied` branch (forward-only — no workflow, no
-  regeneration); `AuthorizationRevoked` routing stays (no producer here).
+  regeneration; the handler returns before dispatch, reconcile completes the
+  outbox row); `AuthorizationRevoked` routing stays (no producer here).
 - **No revoke producer in this plan.** The regression window is accepted:
   until [`authorization-revocation.md`](authorization-revocation.md) lands the
   revoke action (its designated home), the UI has no withdrawal path.

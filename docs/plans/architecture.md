@@ -143,3 +143,10 @@ no change happens on the basis of this list alone.
    `shareResource` unification (Step 3) it has no prod caller; only the AA
    unit test (`authorization-agent.test.ts` `describe('shareDataInstance')`)
    keeps it. Decide when the sync granting path is fully gone.
+7. **Retire the synchronous `recordAuthorizationFromStructure` session method**
+   (`authorization-agent/src/authorization-agent.ts`) — after Step 4 no prod
+   caller exists in components (granting is the activity-first workflow;
+   declines are `AuthorizationDenied`); only docs and the data-model
+   structures reference it. Decide when the sync authorization path is fully
+   gone (it also owns the accidental-delete deny behavior — keep it out of
+   reach until the revocation action lands).

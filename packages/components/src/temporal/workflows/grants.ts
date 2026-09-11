@@ -203,19 +203,13 @@ export async function processAuthorizationGranted(
   activity: AuthorizationGrantedId
 ): Promise<void> {
   // sandbox-safe grouping (mirror of activities.groupAuthorizationDataAuthorizations)
-  const groups: AuthorizationGranted['object'][] = []
-  if (Array.isArray(dataAuthorizations)) {
-    const byGrantee = new Map<string, DataAuthorizationData[]>()
-    for (const dataAuthorization of dataAuthorizations) {
-      const group = byGrantee.get(dataAuthorization.grantee) ?? []
-      group.push(dataAuthorization)
-      byGrantee.set(dataAuthorization.grantee, group)
-    }
-    for (const group of byGrantee.values()) groups.push(group)
-  } else {
-    // deny snapshot (transient, Step 4) — single-grantee group
-    groups.push(dataAuthorizations)
+  const byGrantee = new Map<string, DataAuthorizationData[]>()
+  for (const dataAuthorization of dataAuthorizations) {
+    const group = byGrantee.get(dataAuthorization.grantee) ?? []
+    group.push(dataAuthorization)
+    byGrantee.set(dataAuthorization.grantee, group)
   }
+  const groups = [...byGrantee.values()]
   await Promise.all(
     groups.map((group) =>
       executeChild(processGranteeAuthorization, {
@@ -237,7 +231,7 @@ export async function processGranteeAuthorization(
   input: activities.ProcessGranteeAuthorizationInput
 ): Promise<void> {
   const { webId, dataAuthorizations } = input
-  if (Array.isArray(dataAuthorizations) && dataAuthorizations.length > 0) {
+  if (dataAuthorizations.length > 0) {
     await storeAuthorizationGranted({
       webId,
       dataAuthorizations: dataAuthorizations as FinalDataAuthorizationData[],
@@ -428,6 +422,11 @@ export async function reconcileActivities(payload: {
       await executeChild(processAuthorizationGranted, {
         args: [payload.webId, granted.object, { id: activity.id, type: [...granted.type] }],
       })
+      await markActivitiesDone({ webId: payload.webId, activities: [activity] })
+    } else if (isActivityClass(activity, 'AuthorizationDenied')) {
+      // silent decline (Step 4) — forward-only, nothing to materialize or
+      // regenerate; no workflow ever completes it, so the sweep closes the
+      // outbox row (UI sees a done event — silent, no claim/refresh)
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
     } else if (isActivityClass(activity, 'AuthorizationRevoked')) {
       // no producer today (revocation plan) — keep the per-grantee consumer

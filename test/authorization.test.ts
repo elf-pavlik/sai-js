@@ -1,8 +1,12 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
 import { LDP, linkedIrisJsonLd } from '@janeirodigital/interop-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
 import {
   awaitGrantCompletion,
+  waitForActivityCompletion,
   waitForNeedBasedAccessRequestReceivedCompletion,
 } from './util'
 
@@ -167,20 +171,34 @@ describe('denied', () => {
       (await session.findApplicationRegistration(clientId))?.hasDataGrant?.length
     ).toBeGreaterThan(0)
 
-    // deny — grants revoked (single registration Update)
-    await awaitGrantCompletion(session.fetch, registration.id, [bobId], async () => {
-      const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
-      // transient deny: still an activity + ack (snapshot object), no DAs minted
-      expect(denied.activityId).toBeDefined()
-      expect(denied.ids).toHaveLength(0)
+    // deny — SILENT DECLINE (Step 4, authorization-granting.md): a
+    // `AuthorizationDenied`, forward-only — no delete, no grant clear, no
+    // workflow. The RPC is the same pending ack (the denial activity id; no
+    // DAs minted — ids []). A pure decline produces NO registration Update,
+    // so the activity's only terminal is the reconcile sweep: run it and
+    // await the completion (the sweep's `reconcileActivities` marks the
+    // `AuthorizationDenied` row done — Step 4 branch).
+    const denied = await rpcCall(rpcPayload(deniedAuthorization), bobCookie)
+    expect(denied.activityId).toBeDefined()
+    expect(denied.ids).toHaveLength(0)
+    const connection = await Connection.connect({
+      address: process.env.TEMPORAL_ADDRESS ?? 'temporal:7233',
     })
+    const client = new Client({ connection })
+    await client.workflow.execute('reconcileActivities', {
+      taskQueue: 'create-grants',
+      args: [{ webId: { id: bobId, type: [INTEROP.SocialAgent] } }],
+      workflowId: 'authorization-deny-sweep',
+    })
+    await waitForActivityCompletion(session, 'AuthorizationDenied')
 
-    // the grantee's authorizations read via the registry plane (the data-model
-    // HTTP `findDataAuthorizations` was removed in the final cleanup)
+    // grant and grants remain UNTOUCHED (the old "grant → deny → grants
+    // cleared" behavior was the accidental delete — now the revocation
+    // plan's revoke action; this assertion moved to authorization-revocation)
     const authorizations = await session.findAuthorizationsForAgent(clientId)
-    expect(authorizations.length).toBe(0)
+    expect(authorizations.length).toBeGreaterThan(0)
     const regAfterDeny = await session.findApplicationRegistration(clientId)
-    expect((regAfterDeny?.hasDataGrant ?? []).length).toBe(0)
+    expect((regAfterDeny?.hasDataGrant ?? []).length).toBeGreaterThan(0)
   })
 })
 

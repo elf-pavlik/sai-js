@@ -305,23 +305,21 @@ export type EmbeddedAuthorization = {
 /** Authorization granted (activity-first granting leg,
  * authorization-granting.md Step 2/§5.1). `grantee` is read from the object —
  * its kind is resolved in the store (`getGrantees` routes by SPARQL), never
- * baked into the activity. The granted object is the term-covered
+ * baked into the activity. The object is the term-covered
  * `DataAuthorizationData` POJO(s)-to-be, real-id embedded at the PRE-MINTED
  * id(s) — ONE activity carries ALL grantees' DAs (grantee rides every POJO,
  * parents and children alike; the `processAuthorizationGranted` parent
  * groups by grantee and fans out one child workflow per grantee). A single
  * embedded DA frames as an object (jsonld.md gotcha 1 — the decoder wraps
- * it). The deny snapshot (`EmbeddedAuthorization`, transient — moves to
- * `AuthorizationDenied` at Step 4) is the single-grantee fallback. */
+ * it). Sync/decline (no grant) is `AuthorizationDenied` (Step 4). */
 export type AuthorizationGranted = ActivityBase & {
   type: ['Activity', 'AuthorizationGranted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
   /** the AuthorizationRegistry */
   target: string
-  /** the DataAuthorizations-to-be (embedded POJOs, all grantees) or the
-   *  deny snapshot */
-  object: DataAuthorizationData[] | EmbeddedAuthorization
+  /** the DataAuthorizations-to-be (embedded POJOs, all grantees) */
+  object: DataAuthorizationData[]
 }
 
 /** Typed activity ref for the `processAuthorizationGranted` workflow's

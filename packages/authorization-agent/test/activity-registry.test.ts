@@ -121,13 +121,12 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     ).toBe('https://id/bob')
   })
 
-  test('embeds the denied-authorization structure snapshot (no DataAuthorization created)', async () => {
+  test('embeds the denied-authorization structure snapshot (AuthorizationDenied — Step 4)', async () => {
     const doc = {
       '@context': dataModelContext,
       '@id': 'https://registry/bob/activity/deny',
-      '@type': ['Activity', 'AuthorizationGranted'],
+      '@type': ['Activity', 'AuthorizationDenied'],
       actor: 'https://id/bob',
-      target: 'https://registry/bob/authorization/',
       object: {
         '@id': 'urn:uuid:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
         '@type': ['http://www.w3.org/ns/solid/interop#AuthorizationStructure'],
@@ -140,7 +139,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       'https://registry/bob/activity/deny',
       mockFetch(doc)
     )
-    expect(activity.type).toEqual(['Activity', 'AuthorizationGranted'])
+    expect(activity.type).toEqual(['Activity', 'AuthorizationDenied'])
     // a single rdf:type frames as a scalar — normalized back to string[]
     expect((activity as { object: { type: string[] } }).object.type).toEqual([
       'http://www.w3.org/ns/solid/interop#AuthorizationStructure',

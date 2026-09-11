@@ -534,11 +534,14 @@ export async function resolveActivityGrantee(payload: {
     const authorizationActivity = payload.activity as
       | AuthorizationGranted
       | AuthorizationRevoked
-    // granted → the first live-link DataAuthorization; denied → the embedded
-    // structure snapshot (a denied authorization creates no resource)
-    const grantee = Array.isArray(authorizationActivity.object)
-      ? await granteeFromObject(authorizationActivity.object[0], session)
-      : authorizationActivity.object.grantee
+    // granted → the first embedded DataAuthorization POJO (no deref — the
+    // resource does not exist until the workflow PUTs it); revoked → the
+    // first live-link DataAuthorization (deref). `granteeFromObject` handles
+    // both. (Declines are `AuthorizationDenied` — forward-only, no dispatch.)
+    const grantee = await granteeFromObject(
+      (authorizationActivity.object as (string | DataAuthorizationData)[])[0],
+      session
+    )
     if (!grantee) return undefined
     return session.typeGrantee(grantee)
   }
@@ -607,7 +610,7 @@ export interface AuthorizationGrantedObjectInput {
 
 export interface ProcessGranteeAuthorizationInput {
   webId: SocialAgentId
-  /** one grantee's DataAuthorizations-to-be (a group) or the deny snapshot */
+  /** one grantee's DataAuthorizations-to-be (a group from the parent) */
   dataAuthorizations: AuthorizationGranted['object']
 }
 
@@ -615,42 +618,37 @@ export interface ProcessGranteeAuthorizationInput {
  * Split an `AuthorizationGranted` object into per-grantee groups — one child
  * workflow per agent (refinement §5.1, authorization-granting.md). Members
  * are the flat DataAuthorization POJOs (parents + children; every member
- * carries its `grantee`); the deny snapshot (transient, Step 4) stays a
- * single-grantee group. The workflow (workflows/grants.ts) keeps a
+ * carries its `grantee`). The workflow (workflows/grants.ts) keeps a
  * sandbox-safe inline mirror — see the NOTE at its top (no runtime imports
  * of this module inside the Temporal sandbox).
  */
 export function groupAuthorizationDataAuthorizations(
   object: AuthorizationGranted['object']
 ): AuthorizationGranted['object'][] {
-  if (Array.isArray(object)) {
-    const byGrantee = new Map<string, DataAuthorizationData[]>()
-    for (const dataAuthorization of object) {
-      const group = byGrantee.get(dataAuthorization.grantee) ?? []
-      group.push(dataAuthorization)
-      byGrantee.set(dataAuthorization.grantee, group)
-    }
-    return [...byGrantee.values()]
+  const byGrantee = new Map<string, DataAuthorizationData[]>()
+  for (const dataAuthorization of object) {
+    const group = byGrantee.get(dataAuthorization.grantee) ?? []
+    group.push(dataAuthorization)
+    byGrantee.set(dataAuthorization.grantee, group)
   }
-  return [object]
+  return [...byGrantee.values()]
 }
 
 /**
  * The grantee of an `AuthorizationGranted` object — kind via the store
- * (`session.typeGrantee`). Forms: embedded POJO(s) → the first DA's
- * `grantee` (no deref — the resources do not exist until the workflow PUTs
- * them); deny snapshot → the embedded `grantee`. An unresolvable grantee =
- * an unregistered agent → only applications are auto-registered at grant
- * time (`ensureApplicationRegistration`, then re-check); the grantee kind
- * cannot ride the wire (no `agentType` term).
+ * (`session.typeGrantee`). The object is the embedded DataAuthorization
+ * POJO(s)-to-be: the grantee is read from the first DA (no deref — the
+ * resources do not exist until the workflow PUTs them). An unresolvable
+ * grantee = an unregistered agent → only applications are auto-registered at
+ * grant time (`ensureApplicationRegistration`, then re-check); the grantee
+ * kind cannot ride the wire (no `agentType` term).
  */
 export async function resolveAuthorizationGrantee(
   payload: AuthorizationGrantedObjectInput
 ): Promise<AgentOrRoleId | undefined> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  const object = payload.object
-  const granteeIri = Array.isArray(object) ? object[0]?.grantee : object.grantee
+  const granteeIri = payload.object[0]?.grantee
   if (!granteeIri) return undefined
   try {
     return await session.typeGrantee(granteeIri)

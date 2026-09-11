@@ -300,14 +300,15 @@ describe('findAffectedGrantees — delegation sweep via SPARQL', () => {
 
 // ──────────────────────────
 // resolveActivityGrantee — the grantee rides the object (parties ride the
-// object; payload-contract-alignment). Denied authorizations create no
-// DataAuthorization — the producer embeds a urn:uuid structure snapshot, and
-// the grantee is read from it (no deref). This pins the deny dispatch (the
-// authorization.test.ts regression).
+// object; payload-contract-alignment). Granted authorizations embed the
+// DataAuthorization POJO(s)-to-be — the grantee is read from the first DA
+// (no deref — the resource does not exist until the workflow PUTs it).
+// (The old deny-snapshot dispatch moved out of this path in Step 4 —
+// declines are `AuthorizationDenied`, forward-only.)
 // ──────────────────────────
 
 describe('resolveActivityGrantee — object-carried grantee', () => {
-  test('denied authorization: grantee from the embedded structure snapshot', async () => {
+  test('granted authorization: grantee from the first embedded DataAuthorization POJO', async () => {
     const GRANTEE = 'https://bob.example/#id'
     sessionMock.setSession(fakeSession())
 
@@ -325,17 +326,23 @@ describe('resolveActivityGrantee — object-carried grantee', () => {
     }
 
     const activity = {
-      id: 'https://registry/alice/activity/deny',
+      id: 'https://registry/alice/activity/grant',
       type: ['Activity', 'AuthorizationGranted'],
       target: AUTHZ_REGISTRY,
       createdAt: '2024-01-01T00:00:00.000Z',
       actor: ALICE,
-      object: {
-        id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
-        type: [INTEROP.AuthorizationStructure],
-        grantee: GRANTEE,
-        hasAccessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
-      },
+      object: [
+        {
+          id: 'https://registry/alice/authorization/da-granted',
+          type: [INTEROP.DataAuthorization],
+          grantee: GRANTEE,
+          grantedBy: ALICE,
+          registeredShapeTree: 'https://data/shapetrees/trees/Project',
+          scopeOfAuthorization: INTEROP.SelectedFromRegistry,
+          dataOwner: ALICE,
+          accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
+        },
+      ],
     }
 
     const grantee = await resolveActivityGrantee({ activity })
@@ -378,14 +385,5 @@ describe('groupAuthorizationDataAuthorizations', () => {
     ])
     expect(groups).toHaveLength(1)
     expect(Array.isArray(groups[0])).toBe(true)
-  })
-
-  test('the deny snapshot stays a single-grantee group', () => {
-    const snapshot = {
-      id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
-      type: [INTEROP.AuthorizationStructure],
-      grantee: 'https://id/bob',
-    }
-    expect(groupAuthorizationDataAuthorizations(snapshot)).toEqual([snapshot])
   })
 })

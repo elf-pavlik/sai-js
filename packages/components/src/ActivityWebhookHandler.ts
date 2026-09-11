@@ -151,6 +151,12 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
   ): Promise<void> {
     const client = temporal.client!
 
+    if (isActivityClass(activity, 'AuthorizationDenied')) {
+      // silent decline (Step 4) — forward-only: `handle()` already forwarded
+      // it to the events bus; no workflow, no regeneration
+      return
+    }
+
     if (isActivityClass(activity, 'InvitationAccepted')) {
       // the acceptor's AA runs the accept itself (POST the opaque capabilityUrl,
       // build acceptor → inviter + reciprocal) — personal and org contexts alike.

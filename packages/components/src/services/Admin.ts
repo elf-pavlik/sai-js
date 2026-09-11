@@ -1,10 +1,10 @@
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type {
-  AdminAuthorizationRecorded,
+  AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
 import {
-  AdminAuthorizationRecordedMessage,
+  AdminAuthorizationGrantedMessage,
   AdminAuthorizationRevokedMessage,
   IRI,
 } from '@janeirodigital/sai-api-messages'
@@ -26,7 +26,7 @@ import type { ResolvedContext } from './Context.js'
 export const addAdmin = async (
   ctx: ResolvedContext,
   webId: S.Schema.Type<typeof IRI>
-): Promise<S.Schema.Type<typeof AdminAuthorizationRecordedMessage>> => {
+): Promise<S.Schema.Type<typeof AdminAuthorizationGrantedMessage>> => {
   const registration = await findSocialAgentRegistrationInContext(ctx, webId)
   if (!registration) throw new Error(`Social Agent Registration for ${webId} not found`)
 
@@ -40,8 +40,8 @@ export const addAdmin = async (
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  const activity: Omit<AdminAuthorizationRecorded, 'id'> = {
-    type: ['Activity', 'AdminAuthorizationRecorded'],
+  const activity: Omit<AdminAuthorizationGranted, 'id'> = {
+    type: ['Activity', 'AdminAuthorizationGranted'],
     actor: ctx.webId,
     object: {
       id: authorizationId,
@@ -59,7 +59,7 @@ export const addAdmin = async (
   )
   // pending ack — echoes the pre-minted AdminAuthorization id (pending
   // handle) + the triggering activity id (the uniform UI claim anchor)
-  return AdminAuthorizationRecordedMessage.make({
+  return AdminAuthorizationGrantedMessage.make({
     id: IRI.make(authorizationId),
     activityId: IRI.make(created.id),
   })

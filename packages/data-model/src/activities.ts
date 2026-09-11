@@ -231,8 +231,8 @@ export type AgentRegistrationAddedId = {
  * PRE-MINTED id — the `addAdmin` workflow PUTs the resource there, then
  * grants + ACR rewrite, then completes (R1 re-decision: validation reads
  * stay in the RPC, the write moves to the workflow). */
-export type AdminAuthorizationRecorded = Omit<ActivityBase, 'target'> & {
-  type: ['Activity', 'AdminAuthorizationRecorded']
+export type AdminAuthorizationGranted = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'AdminAuthorizationGranted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
   /** the AdminAuthorization-to-be — real-id embedded projection at the
@@ -242,9 +242,9 @@ export type AdminAuthorizationRecorded = Omit<ActivityBase, 'target'> & {
 
 /** Typed activity ref for the `addAdmin` workflow's completion — the XId
  * pattern for temporal inputs (refs stay TS-level, never on the wire). */
-export type AdminAuthorizationRecordedId = {
+export type AdminAuthorizationGrantedId = {
   id: string
-  type: AdminAuthorizationRecorded['type']
+  type: AdminAuthorizationGranted['type']
 }
 
 /**
@@ -448,7 +448,7 @@ export type ActivityData =
   | AgentRegistrationAdded
   | NeedBasedAccessRequestReceived
   | NeedBasedAccessRequestSent
-  | AdminAuthorizationRecorded
+  | AdminAuthorizationGranted
   | AdminAuthorizationRevoked
   | AuthorizationGranted
   | AuthorizationDenied

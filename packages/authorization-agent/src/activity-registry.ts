@@ -246,14 +246,14 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
               : asString((node.object as EmbeddedSocialAgentRegistration)?.note),
         },
       }
-    case 'AdminAuthorizationRecorded':
+    case 'AdminAuthorizationGranted':
       // target dropped (step 5) — the AdminAuthorization-to-be (real-id
       // embedded projection at the pre-minted id) rides the object; the
       // addAdmin workflow PUTs the resource at object.id
       return {
         id,
         createdAt: asString(node.createdAt),
-        type: canonicalType as ['Activity', 'AdminAuthorizationRecorded'],
+        type: canonicalType as ['Activity', 'AdminAuthorizationGranted'],
         actor,
         object: {
           id: asString((node.object as EmbeddedAdminAuthorization)?.id),

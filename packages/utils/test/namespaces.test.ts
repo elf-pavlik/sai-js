@@ -37,8 +37,8 @@ describe('vocabularies', () => {
     expect(INTEROP.AgentRegistrationAdded).toBe(
       'http://www.w3.org/ns/solid/interop#AgentRegistrationAdded'
     )
-    expect(INTEROP.AdminAuthorizationRecorded).toBe(
-      'http://www.w3.org/ns/solid/interop#AdminAuthorizationRecorded'
+    expect(INTEROP.AdminAuthorizationGranted).toBe(
+      'http://www.w3.org/ns/solid/interop#AdminAuthorizationGranted'
     )
     expect(INTEROP.AdminAuthorizationRevoked).toBe(
       'http://www.w3.org/ns/solid/interop#AdminAuthorizationRevoked'

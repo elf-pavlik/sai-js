@@ -17,7 +17,7 @@ export const INTEROP = createVocabulary(
   'ActivityCompleted',
   'ActivityRegistry',
   'AdminAuthorization',
-  'AdminAuthorizationRecorded',
+  'AdminAuthorizationGranted',
   'AdminAuthorizationRevoked',
   'AdminGrant',
   'AgentRegistrationAdded',

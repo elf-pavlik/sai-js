@@ -384,12 +384,12 @@ export const useAppStore = defineStore('app', () => {
     if (admin) {
       // activity-first (step 5): the AdminAuthorization is PUT by the addAdmin
       // workflow later (the ack echoes the pre-minted id + activityId) — the
-      // AdminAuthorizationRecorded done-row (events.ts) refreshes the agent
+      // AdminAuthorizationGranted done-row (events.ts) refreshes the agent
       // list; the snackbar claims the activity by the ack-echoed activityId
       const result = await effect.addAdmin(webId, currentContext())
       claimActivity({
         context: currentContext(),
-        type: 'AdminAuthorizationRecorded',
+        type: 'AdminAuthorizationGranted',
         activityId: result.activityId,
       })
     } else {

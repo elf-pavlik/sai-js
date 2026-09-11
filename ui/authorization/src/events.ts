@@ -120,7 +120,7 @@ function handleActivity(activity: ActivityEvent) {
   } else if (
     // org-admin (Phase 1/3): the admin marker lands via the grant workflow —
     // refresh the context's agent list so toggle-admin flags stay current
-    activity.type.includes('AdminAuthorizationRecorded') ||
+    activity.type.includes('AdminAuthorizationGranted') ||
     activity.type.includes('AdminAuthorizationRevoked')
   ) {
     appStore.listSocialAgents(true)

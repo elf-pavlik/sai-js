@@ -67,7 +67,7 @@ per-grantee consumer):
   `getSession(ctx.webId)`) → regenerate grants → single `ActivityCompleted`.
 - `processAuthorizationRevoked` — symmetric (revocation plan).
 - Rationale: matches the one-workflow-per-class convention (`createRole`,
-  `processRoleMembershipChange`, `processAdminAuthorizationRecorded`,
+  `processRoleMembershipChange`, `processAdminAuthorizationGranted`,
   `createInvitation`, `processNeedBasedAccessRequest*`); keeps services
   thin (no mutation at all); regeneration stays in one module. The per-grantee
   consumer's fate (retire vs keep as regenerator) is an open item (§6).

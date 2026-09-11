@@ -1,9 +1,9 @@
 # Admin authorization naming — `AdminAuthorizationGranted`
 
-> **Status: design (companion to [`authorization-granting.md`](authorization-granting.md) §8).**
-> Pure naming alignment — no behavior change. Aligns the org-admin activity
-> pair with the authorization terminology decided in
-> `authorization-granting.md` §1.
+> **Status: ✅ DONE (implemented + packages/UI verified; `/test` admin-events
+> re-run pending: user).** Pure naming alignment — no behavior change.
+> Aligns the org-admin activity pair with the authorization terminology
+> decided in `authorization-granting.md` §1.
 
 ## 1. Decision
 
@@ -60,14 +60,14 @@ asserts the new class; handler/reconcile branch tests updated.
 **Verify:** `ui/authorization` `vue-tsc --noEmit`; `likec4 validate` clean;
 `test/admin-events.test.ts` (user-run) green.
 
-## 4. Open decision
+## 4. Decision (made) — RDF-term back-compat
 
-- **Back-compat of the RDF term.** Existing Activity Registry resources typed
-  `interop:AdminAuthorizationRecorded` (dev seeds / in-flight runs) would no
-  longer be recognized by the decoder. Options: (a) accept a dev-only break
-  (recommended — the seeds are regenerated), or (b) keep the old term as a
-  decode alias for a transition window and write only the new term. Decide
-  before Step 1.
+**Accepted the dev-only break (option a — the codebase stays clean, no alias).**
+Existing Activity Registry resources typed `interop:AdminAuthorizationRecorded`
+(dev seeds / in-flight runs) no longer decode; the in-repo seeds and the
+`/test` envs are regenerated per run, so nothing stale survives. The decoder
+handles only `AdminAuthorizationGranted`; a decode alias was deliberately NOT
+added.
 
 ## 5. Out of scope
 

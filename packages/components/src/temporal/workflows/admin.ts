@@ -1,6 +1,6 @@
 import type {
   AgentId,
-  AdminAuthorizationRecordedId,
+  AdminAuthorizationGrantedId,
   AdminAuthorizationRevokedId,
   EmbeddedAdminAuthorization,
   SocialAgentId,
@@ -110,10 +110,10 @@ export async function syncAdminAcr(payload: {
  * createAdminGrants-masks-syncAdminAcr hazard). The triggering activity
  * rides as a typed ref for a traceable completion.
  */
-export async function processAdminAuthorizationRecorded(
+export async function processAdminAuthorizationGranted(
   webId: SocialAgentId,
   authorization: EmbeddedAdminAuthorization,
-  activity: AdminAuthorizationRecordedId
+  activity: AdminAuthorizationGrantedId
 ): Promise<void> {
   await recordAdminAuthorizationAtId({ webId, authorization })
   await executeChild(createAdminGrants, {

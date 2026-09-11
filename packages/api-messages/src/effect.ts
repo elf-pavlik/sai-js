@@ -282,7 +282,7 @@ export const RoleCreatedMessage = S.Struct({
  * the pre-minted id (pending handle) + the triggering activity id (the
  * uniform UI claim anchor).
  */
-export const AdminAuthorizationRecordedMessage = S.Struct({
+export const AdminAuthorizationGrantedMessage = S.Struct({
   /** the pre-minted AdminAuthorization IRI the workflow will PUT at */
   id: IRI,
   /** the triggering `adminAuthorizationRecorded` activity's IRI */
@@ -454,12 +454,12 @@ export const EmbeddedAdminAuthorization = S.Struct({
 /** Admin authorization recorded (org context, activity-first step 5) —
  * `target` dropped; the AdminAuthorization-to-be rides `object` as a real-id
  * embedded projection at the pre-minted id. */
-export const AdminAuthorizationRecorded = S.Struct({
+export const AdminAuthorizationGranted = S.Struct({
   id: S.String,
   /** no `target` — the changed record's id rides `object.id` (the embedded
    *  AdminAuthorization-to-be); the changed container is not consumed */
   createdAt: S.String,
-  type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationRecorded')),
+  type: S.Tuple(S.Literal('Activity'), S.Literal('AdminAuthorizationGranted')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
   /** the AdminAuthorization-to-be — real-id embedded projection */
@@ -946,7 +946,7 @@ export class RevokeGrants extends S.TaggedRequest<RevokeGrants>()('RevokeGrants'
 
 export class AddAdmin extends S.TaggedRequest<AddAdmin>()('AddAdmin', {
   failure: S.Never,
-  success: AdminAuthorizationRecordedMessage,
+  success: AdminAuthorizationGrantedMessage,
   payload: { webId: IRI, context: IRI },
 }) {}
 
@@ -1048,7 +1048,7 @@ export class SaiService extends Context.Tag('SaiService')<
       context: IRI
     ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
     readonly addAdmin: (webId: IRI, context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof AdminAuthorizationRecordedMessage>
+      S.Schema.Type<typeof AdminAuthorizationGrantedMessage>
     >
     readonly removeAdmin: (webId: IRI, context: IRI) => Effect.Effect<
       S.Schema.Type<typeof AdminAuthorizationRevokedMessage>

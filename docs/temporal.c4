@@ -435,7 +435,7 @@ views {
           {
             "@context": ["in reality payload uses Expanded JSON-LD"],
             "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
-            "type": ["Activity", "AdminAuthorizationRecorded"],
+            "type": ["Activity", "AdminAuthorizationGranted"],
             "as:actor": "https://id/yoyo",
             "as:object": {
               "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
@@ -504,9 +504,9 @@ views {
           '''
       }
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationRecorded workflow' {
+    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationGranted workflow' {
         notes'''
-          #### start processAdminAuthorizationRecorded workflow
+          #### start processAdminAuthorizationGranted workflow
           >[!NOTE]
           >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
 
@@ -529,16 +529,16 @@ views {
             },
             {
               "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
-              "type": ["Activity", "AdminAuthorizationRecorded"]
+              "type": ["Activity", "AdminAuthorizationGranted"]
             }
           ]
           ```
         '''
     }
     YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
-    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationRecorded' {
+    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationGranted' {
         notes'''
-          #### (workflow) run processAdminAuthorizationRecorded
+          #### (workflow) run processAdminAuthorizationGranted
           >[!NOTE]
           >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
         '''
@@ -694,7 +694,7 @@ views {
             "type": "activity",
             "activity": {
               "id": "https://registry/yoyo/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
-              "type": ["Activity", "AdminAuthorizationRecorded"],
+              "type": ["Activity", "AdminAuthorizationGranted"],
               "actor": "https://id/yoyo",
               "object": {
                 "id": "https://registry/yoyo/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",

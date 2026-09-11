@@ -38,7 +38,7 @@ missed-delivery backstop (same routing).
 | `RoleCreated` | ✅ | **UI → RPC** | `createRole` (`services/RoleRegistry.ts`) | `createRole` |
 | `RoleMembershipChanged` | ✅ | **UI → RPC** | `updateRole` (`services/RoleRegistry.ts`) | `processRoleMembershipChange` |
 | `RoleDeleted` | ✅ | **UI → RPC** | `deleteRole` (`services/RoleRegistry.ts`) | `processRoleDeletion` |
-| `AdminAuthorizationRecorded` | ✅ | **UI → RPC** | `addAdmin` (`services/Admin.ts`) | `processAdminAuthorizationRecorded` → (`createAdminGrants` + `syncAdminAcr`) |
+| `AdminAuthorizationGranted` | ✅ | **UI → RPC** | `addAdmin` (`services/Admin.ts`) | `processAdminAuthorizationGranted` → (`createAdminGrants` + `syncAdminAcr`) |
 | `AdminAuthorizationRevoked` | ✅ | **UI → RPC** | `removeAdmin` (`services/Admin.ts`) | `processAdminAuthorizationRevoked` → (`revokeAdminGrants` + `syncAdminAcr`) |
 | `AuthorizationRecorded` | ⚠️ | **UI → RPC** | `recordAuthorization` (`AuthorizeApp`) and `shareResource` (`services/Authorization.ts`, `services/ShareResource.ts`) | `processGranteeActivities` (per-grantee consumer) |
 | `AuthorizationRevoked` | 🧪 | **UI → RPC** (deny via `AuthorizeApp`, planned) | *none yet* (`authorization-revoked.md`) | `processGranteeActivities` (routing ready) |
@@ -84,7 +84,7 @@ accept + reciprocal → **`reciprocal-registration`**; push → **`forward-to-pu
 
 `InvitationCreated`, `InvitationAccepted`, `NeedBasedAccessRequestSent`,
 `RoleCreated`, `RoleMembershipChanged`, `RoleDeleted`,
-`AdminAuthorizationRecorded`, `AdminAuthorizationRevoked`,
+`AdminAuthorizationGranted`, `AdminAuthorizationRevoked`,
 `AuthorizationRecorded` (record + share), and planned `AuthorizationRevoked`.
 
 ### B. Triggered from other endpoints / webhooks / activities (not `services/`)
@@ -146,7 +146,7 @@ the `/`-grouped titles:
 | `RoleMembershipChanged` | `role-membership-change` | — |
 | `RoleDeleted` | `role-deletion` | — |
 | `RoleCreated` | — | ❌ **no view** |
-| `AdminAuthorizationRecorded` | `org-admin-add` | — |
+| `AdminAuthorizationGranted` | `org-admin-add` | — |
 | `AdminAuthorizationRevoked` | `org-admin-remove` | — |
 | `AuthorizationRecorded` | `authorization` (record), `share-resource` (share) | ⚠️ both show the **synchronous** RPC + consumer; not the planned activity-first `authorization-granting.md` shape |
 | `AuthorizationRevoked` | — | ❌ **no view** (producer not landed) |
@@ -173,7 +173,7 @@ activity-first granting shape (`activity-first-services.md` / `authorization-gra
 | `RoleCreated` | `createRole` | `create-grants` |
 | `RoleMembershipChanged` | `processRoleMembershipChange` | `create-grants` |
 | `RoleDeleted` | `processRoleDeletion` | `create-grants` |
-| `AdminAuthorizationRecorded` | `processAdminAuthorizationRecorded` → `createAdminGrants` + `syncAdminAcr` | `create-grants` |
+| `AdminAuthorizationGranted` | `processAdminAuthorizationGranted` → `createAdminGrants` + `syncAdminAcr` | `create-grants` |
 | `AdminAuthorizationRevoked` | `processAdminAuthorizationRevoked` → `revokeAdminGrants` + `syncAdminAcr` | `create-grants` |
 | `DelegatedGrantsUpdated` | `updateDelegatedGrants` | `create-grants` |
 | `NeedBasedAccessRequestSent` | `processNeedBasedAccessRequest` | `create-grants` |

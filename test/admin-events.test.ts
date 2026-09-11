@@ -88,7 +88,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
+        message.activity?.type?.includes('AdminAuthorizationGranted') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -330,7 +330,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
+        message.activity?.type?.includes('AdminAuthorizationGranted') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -364,7 +364,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
+        message.activity?.type?.includes('AdminAuthorizationGranted') &&
         message.activity.status === 'pending',
       { close: false }
     )
@@ -400,7 +400,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       stream,
       (message) =>
         message.type === 'activity' &&
-        message.activity?.type?.includes('AdminAuthorizationRecorded') &&
+        message.activity?.type?.includes('AdminAuthorizationGranted') &&
         message.activity.status === 'pending',
       { close: false }
     )

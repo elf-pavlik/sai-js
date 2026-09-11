@@ -100,7 +100,7 @@ export const dataModelContext: JsonLdContext = {
   InvitationAccepted: { '@id': INTEROP.InvitationAccepted },
   InvitationCreated: { '@id': INTEROP.InvitationCreated },
   AgentRegistrationAdded: { '@id': INTEROP.AgentRegistrationAdded },
-  AdminAuthorizationRecorded: { '@id': INTEROP.AdminAuthorizationRecorded },
+  AdminAuthorizationGranted: { '@id': INTEROP.AdminAuthorizationGranted },
   AdminAuthorizationRevoked: { '@id': INTEROP.AdminAuthorizationRevoked },
   AuthorizationDenied: { '@id': INTEROP.AuthorizationDenied },
   AuthorizationGranted: { '@id': INTEROP.AuthorizationGranted },

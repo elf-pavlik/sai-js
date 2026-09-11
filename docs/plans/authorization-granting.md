@@ -176,7 +176,14 @@ succeed (children never mark done).
   re-run pending (user):** share, roles,
   authorization, reconciliation.
 
-## 6. Specific-instance requests (`hasDataInstance` on `AccessNeed`)
+## 6. Specific-instance requests (`hasDataInstance` on `AccessNeed`) — **DEFERRED**
+
+> **Status: deferred (future work).** Decided out of the current pass — the
+> request side (`AccessNeed`/`NeedBasedAccessRequest*`) has no instance
+> selection anywhere today, and the SAI-internal overload of the grant-side
+> term needs the §11 decision. Owner-side instance selection already works
+> (`ShareResource` → `SelectedFromRegistry` DAs). Revisit with the UI request
+> flow.
 
 Today `AccessNeedData` (`data-model/src/access-need.ts`) carries
 `registeredShapeTree` / `accessMode` / `inheritsFromNeed` but **no instance
@@ -228,7 +235,7 @@ Consequences:
 
 ## 8. Admin authorization naming (companion plan)
 
-`AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` shares the same
+`AdminAuthorizationGranted` / `AdminAuthorizationRevoked` shares the same
 `Recorded`-vs-`Revoked` asymmetry. Since an `AdminAuthorization` is also an
 authorization, align it to **`AdminAuthorizationGranted`** /
 `AdminAuthorizationRevoked`. Captured separately (it is org-admin surface, not
@@ -354,15 +361,22 @@ explicitly and awaits the `AuthorizationDenied` completion instead.)
 cleared" expectation is **dropped here and moves to the revocation plan** as
 the revoke test.
 
-**Step 5 — specific-instance requests (`hasDataInstance` on `AccessNeed`).**
+**Step 5 — specific-instance requests (`hasDataInstance` on `AccessNeed`).
+⏸️ DEFERRED (future work — see §6 status).** Not part of the current pass:
+no request-side caller exists (grant-side `hasDataInstance` is fully wired);
+proceed when the UI request flow lands.
 - Extend the need data type + context + embedded round-trip (§6).
 - Approval prefills `SelectedFromRegistry` + instance from the need.
 **Verify:** `test/access-request.test.ts` — a request naming an instance;
 approval records `SelectedFromRegistry` + `hasDataInstance`; the stored request
 stays immutable.
 
-**Step 6 — admin authorization naming** (companion plan, may run in parallel).
-**Verify:** see [`admin-authorization-naming.md`](admin-authorization-naming.md).
+**Step 6 — admin authorization naming ✅ DONE (code + packages + UI verified;
+`/test` admin-events re-run pending: user).** `AdminAuthorizationGranted`
+replaces `AdminAuthorizationRecorded` across vocab, data-model, decoder, RPC
+messages, producer/handler/reconcile/admin workflows, UI labels/claims, tests
+and docs/c4 (the dev-only RDF-term break was accepted — see
+[`admin-authorization-naming.md`](admin-authorization-naming.md) §4).
 
 **Step 7 — docs alignment.**
 `docs/events.md` rows per class (`AuthorizationGranted` / `AuthorizationDenied`

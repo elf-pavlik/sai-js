@@ -50,7 +50,7 @@ records/deletes synchronously until step 6. Activities are **typed classes**
 (the payload-contract flip: `webId` → `actor`, parties ride the `as:object`):
 
 ```
-type:   ['Activity', 'AdminAuthorizationRecorded']          (`AddAdmin` — step 5)
+type:   ['Activity', 'AdminAuthorizationGranted']          (`AddAdmin` — step 5)
       / ['Activity', 'AdminAuthorizationRevoked']           (`RemoveAdmin` — until step 6)
 as:actor:  the org webId (the registry owner)
 as:target: (dropped — steps 5–6; the records' ids ride `object.id`)

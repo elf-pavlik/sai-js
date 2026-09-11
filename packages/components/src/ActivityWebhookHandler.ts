@@ -5,7 +5,7 @@ import type { ActivityCompleted, ActivityData } from '@janeirodigital/interop-da
 import { isActivityClass, loadDataAuthorization } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
-  AdminAuthorizationRecorded,
+  AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
   AgentRegistrationAdded,
   AuthorizationGranted,
@@ -37,7 +37,7 @@ import type { CreateGrantsInput } from './temporal/activities/grants.js'
 import type { ReciprocalWebhookInput } from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
 import {
-  processAdminAuthorizationRecorded,
+  processAdminAuthorizationGranted,
   processAdminAuthorizationRevoked,
 } from './temporal/workflows/admin.js'
 import {
@@ -323,16 +323,16 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
     }
 
     if (
-      isActivityClass(activity, 'AdminAuthorizationRecorded') ||
+      isActivityClass(activity, 'AdminAuthorizationGranted') ||
       isActivityClass(activity, 'AdminAuthorizationRevoked')
     ) {
-      if (isActivityClass(activity, 'AdminAuthorizationRecorded')) {
+      if (isActivityClass(activity, 'AdminAuthorizationGranted')) {
         // step 5 — the object IS the AdminAuthorization-to-be (real-id
         // embedded projection at the PRE-MINTED id); the decoded object
         // passes verbatim into the workflow input (the schema decodes
         // arrays as readonly — spread to mutable)
-        const decoded = S.decodeUnknownSync(AdminAuthorizationRecorded)(activity as never)
-        await client.workflow.start(processAdminAuthorizationRecorded, {
+        const decoded = S.decodeUnknownSync(AdminAuthorizationGranted)(activity as never)
+        await client.workflow.start(processAdminAuthorizationGranted, {
           taskQueue: 'create-grants',
           args: [
             socialAgentRef(channel.webId),

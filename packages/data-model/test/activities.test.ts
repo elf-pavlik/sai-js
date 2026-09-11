@@ -4,7 +4,7 @@ import { describe, expect, expectTypeOf, test } from 'vitest'
 import {
   type ActivityCompleted,
   type ActivityData,
-  type AdminAuthorizationRecorded,
+  type AdminAuthorizationGranted,
   type AgentRegistrationAdded,
   type AuthorizationRecorded,
   type InvitationAccepted,
@@ -21,7 +21,7 @@ describe('ActivityData typed union', () => {
     expectTypeOf<InvitationAccepted>().toMatchTypeOf<ActivityData>()
     expectTypeOf<InvitationCreated>().toMatchTypeOf<ActivityData>()
     expectTypeOf<AgentRegistrationAdded>().toMatchTypeOf<ActivityData>()
-    expectTypeOf<AdminAuthorizationRecorded>().toMatchTypeOf<ActivityData>()
+    expectTypeOf<AdminAuthorizationGranted>().toMatchTypeOf<ActivityData>()
     expectTypeOf<AuthorizationRecorded>().toMatchTypeOf<ActivityData>()
     expectTypeOf<RoleMembershipChanged>().toMatchTypeOf<ActivityData>()
     expectTypeOf<ActivityCompleted>().toMatchTypeOf<ActivityData>()

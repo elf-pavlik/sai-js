@@ -12,7 +12,7 @@ import {
   type AccessRequestMessage,
   type ActivityCompleted,
   type ActivityData,
-  type AdminAuthorizationRecorded,
+  type AdminAuthorizationGranted,
   type AdminAuthorizationRevoked,
   type AgentId,
   type AgentOrRoleId,
@@ -546,12 +546,12 @@ export async function resolveActivityGrantee(payload: {
     return session.typeGrantee(grantee)
   }
   if (
-    isActivityClass(payload.activity, 'AdminAuthorizationRecorded') ||
+    isActivityClass(payload.activity, 'AdminAuthorizationGranted') ||
     isActivityClass(payload.activity, 'AdminAuthorizationRevoked')
   ) {
     // both admin forms embed the AdminAuthorization snapshot — the RPC
     // records/deletes the resource synchronously, so nothing is dereferenced
-    const adminActivity = payload.activity as AdminAuthorizationRecorded | AdminAuthorizationRevoked
+    const adminActivity = payload.activity as AdminAuthorizationGranted | AdminAuthorizationRevoked
     return { id: adminActivity.object.grantee, type: [INTEROP.SocialAgent] }
   }
   return undefined

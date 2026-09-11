@@ -1,7 +1,7 @@
 import type {
   AgentId,
   ActivityData,
-  AdminAuthorizationRecorded,
+  AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
   AuthorizationGranted,
   AuthorizationGrantedId,
@@ -32,7 +32,7 @@ import {
 } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 import {
-  processAdminAuthorizationRecorded,
+  processAdminAuthorizationGranted,
   processAdminAuthorizationRevoked,
 } from './admin.js'
 import type { AdminWorkflowInput } from './admin.js'
@@ -483,13 +483,13 @@ export async function reconcileActivities(payload: {
         args: [payload.webId, created.object, { id: activity.id, type: [...created.type] }],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })
-    } else if (isActivityClass(activity, 'AdminAuthorizationRecorded')) {
+    } else if (isActivityClass(activity, 'AdminAuthorizationGranted')) {
       // step 5 — the workflow PUTs the AdminAuthorization at the pre-minted
       // id, materializes grants + the ACR rewrite, then completes
       // (self-completing; the outer markActivitiesDone is the accepted
       // duplicate for a reconcile re-run)
-      const recorded = activity as AdminAuthorizationRecorded
-      await executeChild(processAdminAuthorizationRecorded, {
+      const recorded = activity as AdminAuthorizationGranted
+      await executeChild(processAdminAuthorizationGranted, {
         args: [payload.webId, recorded.object, { id: activity.id, type: [...recorded.type] }],
       })
       await markActivitiesDone({ webId: payload.webId, activities: [activity] })

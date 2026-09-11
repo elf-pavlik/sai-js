@@ -219,7 +219,7 @@ effect-free and must not import `api-messages`. ⇒ the canonical shapes live in
 Add to `INTEROP` (`packages/utils/src/namespaces.ts`) and `dataModelContext`
 (`data-model/src/context.ts`):
 - **class terms**: `InvitationAccepted`, `InvitationCreated`,
-  `AgentRegistrationAdded`, `AdminAuthorizationRecorded`,
+  `AgentRegistrationAdded`, `AdminAuthorizationGranted`,
   `AdminAuthorizationRevoked`, `AuthorizationRecorded`,
   `AuthorizationRevoked`, `RoleMembershipChanged`, `RoleDeleted`,
   `DelegatedGrantsUpdated`, `GrantsRevoked`, `AuthorizationRequested`,
@@ -255,7 +255,7 @@ export type ActivityData =
   | InvitationAccepted
   | InvitationCreated
   | AgentRegistrationAdded
-  | AdminAuthorizationRecorded
+  | AdminAuthorizationGranted
   | AdminAuthorizationRevoked
   | AuthorizationRecorded
   | AuthorizationRevoked
@@ -389,7 +389,7 @@ anchor) or the completion target keeps it. Removed: `InvitationCreated`
 legs aligned to the template). Scheduled removals with their re-pins:
 `AuthorizationRecorded`/`Revoked` (steps 2–3),
 `RoleMembershipChanged`/`RoleDeleted` (steps 4–5),
-`AdminAuthorizationRecorded`/`Revoked` (steps 7–8). Kept:
+`AdminAuthorizationGranted`/`Revoked` (steps 7–8). Kept:
 `DelegatedGrantsUpdated` (consumed as `peerId`), `ActivityCompleted` (the
 completion machinery's payload).
 
@@ -403,7 +403,7 @@ in §5).
 | `InvitationAccepted` | `actor: string; object: EmbeddedSocialAgentInvitation` (minted `urn:uuid` snapshot — full `SocialAgentInvitationData`: `type` incl. `SocialAgentInvitation`, `capabilityUrl`†, `label`, `note`); `type: ['Activity', 'InvitationAccepted', 'as:Accept']` — **no `target`** (the acceptor's registry-set id was never consumed; id-unknown-at-write keeps the snapshot form) | `acceptInvitation` (SocialAgentRegistry.ts) | `acceptInvitation` workflow — the decoded object passes verbatim; completion rides the `InvitationAcceptedId` ref |
 | `InvitationCreated` *(new — activity-first step 1)* | `actor: string; object: CreateInvitationPojo` — the invitation-to-be at the REAL pre-minted id: `{ id, type: [SocialAgentInvitation], label, note? }` (embedded projection with `type` — the sparql.md self-graph read rule keeps activity-graph type claims out of authoritative queries; **no `capabilityUrl` in the activity** — the workflow generates it when creating the invitation, so the UI can't learn it before the invitation exists and the activity completed); `type: ['Activity', 'InvitationCreated', 'as:Create']` | `createInvitation` RPC (activity only — mints the invitation id, writes the activity) | `createInvitation` workflow (new) — PUTs the invitation at the minted id (the passed object), generates the capabilityUrl, then completes |
 | `AgentRegistrationAdded` | `actor: string; object: EmbeddedSocialAgentRegistration` — the registration-to-be at the REAL pre-minted id (the handler pre-mints via `iriForContained`; `registeredAgent` — the peer, `label`, `note`); `type: ['Activity', 'AgentRegistrationAdded', 'as:Add']` — **no `target`** (the changed record's id rides `object.id`, the InvitationCreated form); the `establishReciprocal` workflow PUTs the registration there (the synchronous handler create moved into the workflow) | `InvitationHandler` (pre-mints the registration id via `iriForContained`, writes the activity) | `establishReciprocal` — workflow PUTs the registration at `object.id` (find-first), discovers the reciprocal; completion rides the `AgentRegistrationAddedId` ref |
-| `AdminAuthorizationRecorded` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
+| `AdminAuthorizationGranted` / `AdminAuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <AdminAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Admin.ts` `addAdmin`/`removeAdmin` (activity only) | `processAdminChange` — reads `grantee` from the object |
 **Re-pin (steps 7–8, InvitationCreated form):** once the workflow materializes/deletes the AdminAuthorization, the object becomes the **real-id embedded projection** (`{ id, type: [AdminAuthorization], grantee, grantedBy, scopeOfAuthorization }` at the pre-minted/existing id) — dispatch must not dereference a not-yet-PUT (Recorded) or already-deleted (Revoked) resource; the handler/consumer reads `grantee` from the embedded projection (today the RPC records/deletes synchronously and the object is an urn snapshot — execution notes). **`target` is REMOVED with that re-pin** (steps 7–8) — nothing consumes the container and the id rides `object.id` (InvitationCreated precedent). |
 | `AuthorizationRecorded` / `AuthorizationRevoked` | `actor: string; target: <AuthorizationRegistry>; object: <DataAuthorization IRI>` (Recorded: pre-minted — the workflow PUTs it; Revoked: the existing id — the workflow DELETEs) | `Authorization.ts` `recordAuthorization`, `ShareResource.ts` `shareResource` | per-grantee consumer / `CreateGrantsInput` — reads `grantee` from the object |
 **Re-pin (steps 2–3, InvitationCreated form):** when the workflow records the authorization at the pre-minted id, the object becomes the **real-id embedded projection of the DataAuthorization-to-be** (`{ id, type: [DataAuthorization], grantee, … }`) — the grantee resolves from the embedded fields, never by dereferencing (the live-link set + 404-tolerant `granteeFromDataAuthorization` is the current synchronous-RPC fallback, execution notes). One activity per deduped grantee — share writes several. Denied stays an urn snapshot (execution notes) until its long-term home in `AuthorizationRevoked`. **`target` is REMOVED with that re-pin** (steps 2–3) — nothing consumes the container (grantee rides the object) and the id rides `object.id`. |

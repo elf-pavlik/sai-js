@@ -106,6 +106,8 @@ const acp = {
   AccessControl: 'http://www.w3.org/ns/solid/acp#AccessControl',
   anyOf: 'http://www.w3.org/ns/solid/acp#anyOf',
   apply: 'http://www.w3.org/ns/solid/acp#apply',
+  accessControl: 'http://www.w3.org/ns/solid/acp#accessControl',
+  memberAccessControl: 'http://www.w3.org/ns/solid/acp#memberAccessControl',
 }
 const ACL_READ_WRITE_CONTROL = 'acl:Read, acl:Write, acl:Control'
 
@@ -265,19 +267,23 @@ export async function deleteAdminGrants(payload: {
 }
 
 /**
- * Rewrite the org's registry-set `.acr` `#fullAdminAccess` access control from
- * the current admin list (idempotent derived rewrite; the org's
- * AuthorizationRegistry is the single source of truth). Refuses to produce an
- * adminless access control — last-admin guard at workflow time.
+ * Rewrite the registry-set `.acr` `#fullAdminAccess` access control from the
+ * current admin list (idempotent derived rewrite; the AuthorizationRegistry
+ * is the single source of truth). Also wires the control into the access
+ * control resource's `#root` (`acp:accessControl`/`acp:memberAccessControl`)
+ * so it applies to the registry set and its members — contexts whose seed
+ * never wired it (e.g. a personal registry set) get the enforcement on the
+ * first promotion. An EMPTY admin list is legitimate for the personal
+ * context (Phase 5 — the owner remains the operator after demoting their
+ * only admin): the rewrite then removes the `#fullAdminAccess` control
+ * entirely. For orgs the RPC last-admin guard prevents reaching this state
+ * through the UI.
  */
 export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
 
   const admins = await session.adminAuthorizations(session.registrySet.hasAuthorizationRegistry)
-  if (admins.length === 0) {
-    throw new Error('refusing to write an adminless #fullAdminAccess')
-  }
 
   const matchers: string[] = []
   for (const admin of admins) {
@@ -302,7 +308,9 @@ export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<v
   const acrResponse = await session.fetch(acrId, { headers: { Accept: 'text/turtle' } })
   const store = await parseTurtle(await acrResponse.text(), acrId)
 
-  // remove the current #fullAdminAccess access control (its policies and matchers)
+  // remove the current #fullAdminAccess access control (its policies and
+  // matchers) and its #root wiring (acp:accessControl / acp:memberAccessControl
+  // refs) — both are re-added below exactly once (idempotent remove-then-add)
   const toRemove = new Set<string>()
   for (const quad of store) {
     if (
@@ -327,11 +335,38 @@ export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<v
       }
     }
   }
+  const fullAdminAccess = `${acrId}#fullAdminAccess`
   for (const quad of [...store]) {
-    if (toRemove.has(quad.subject.value)) store.delete(quad)
+    if (
+      (quad.subject.value === `${acrId}#root` &&
+        (quad.predicate.value === acp.accessControl ||
+          quad.predicate.value === acp.memberAccessControl) &&
+        quad.object.value === fullAdminAccess) ||
+      toRemove.has(quad.subject.value)
+    ) {
+      store.delete(quad)
+    }
   }
 
   const base = await serializeTurtle(store)
+
+  if (admins.length === 0) {
+    // personal-context last-admin demotion (Phase 5): zero admins → zero
+    // admin access — write the ACR with the #fullAdminAccess control removed
+    // entirely (the owner of a personal registry set remains an operator)
+    const response = await session.fetch(acrId, {
+      method: 'PUT',
+      body: base,
+      headers: {
+        'content-type': 'text/turtle',
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`${response.status} - ${acrId}`)
+    }
+    return
+  }
+
   const body = `PREFIX acl: <http://www.w3.org/ns/auth/acl#>
 PREFIX acp: <http://www.w3.org/ns/solid/acp#>
 
@@ -340,6 +375,10 @@ ${base}
   a acp:AccessControl;
   acp:apply
 ${matchers.join(',\n')}.
+
+<${acrId}#root>
+  acp:accessControl <${acrId}#fullAdminAccess>;
+  acp:memberAccessControl <${acrId}#fullAdminAccess>.
 `
 
   const response = await session.fetch(acrId, {

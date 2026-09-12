@@ -17,10 +17,12 @@
       </v-card-subtitle>
       <v-card-actions>
         <v-spacer />
-        <!-- org context only: promote/demote other admins (separate UI concept from the context switcher) -->
+        <!-- promote/demote admins: org context — fellow admins of the org;
+             personal context (Phase 5, org-admin-feature.md) — the user's
+             OWN admins, so a regular user can manage their own registry set.
+             `agent.admin` is the direct marker in both contexts. -->
         <v-btn
-          v-if="inOrgContext"
-          :disabled="agent.admin && adminCount <= 1"
+          :disabled="inOrgContext && agent.admin && adminCount <= 1"
           :prepend-icon="agent.admin ? 'mdi-shield-remove-outline' : 'mdi-shield-plus-outline'"
           @click="appStore.toggleAdmin(agent.id, !agent.admin)"
         >
@@ -129,12 +131,15 @@ appStore.listSocialAgents()
 appStore.listSocialAgentInvitations()
 const showAdd = ref(false)
 
-/** switching contexts re-targets the list — the toggle only applies to an org context */
+/** switching contexts re-targets the list; the last-admin disable applies to
+ *  an org context only (Phase 5: in the personal context the owner remains —
+ *  the RPC guard is skipped there, so demoting the last admin is allowed) */
 const inOrgContext = computed(
   () => !!appStore.context && appStore.context !== coreStore.userId
 )
 
-/** last-admin guard: refuse to demote the only remaining admin (the RPC enforces it too) */
+/** last-admin guard: refuse to demote the only remaining admin in an org
+ *  context (the RPC enforces it there too) */
 const adminCount = computed(() => appStore.socialAgentList.filter((agent) => agent.admin).length)
 
 function copyCapabilityUrl(invitation: S.Schema.Type<typeof SocialAgentInvitation>) {

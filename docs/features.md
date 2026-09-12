@@ -114,8 +114,12 @@ In an org context the admin acts **as** the org (the org is `dataOwner`/`granted
 and the ACR owner); the user only authenticates. So there is no operation that
 is owner-but-not-admin within an org — the gate to an org context *is* the admin
 marker. `AddAdmin`/`RemoveAdmin` follow the same rule — run by the **data owner**
-in a personal context and by the **org admin** in an org context; the
-last-admin guard still prevents an org from ending up admin-less.
+in a personal context (Phase 5 of `org-admin-feature.md` — a regular user
+promotes/demotes their **own** admins, the `admin` flag drives the toggle there
+too) and by the **org admin** in an org context; the last-admin guard still
+prevents an **org** from ending up admin-less. In the personal context the owner
+always remains the operator, so the guard is skipped — a regular user can demote
+their only admin (the ACR `#fullAdminAccess` is then removed entirely).
 
 ## 5. Coverage of `docs/temporal.c4` dynamic views
 
@@ -144,8 +148,8 @@ the `/`-grouped titles:
 |---|---|
 | 🏢 `org-admin-add` | `admin-events.test.ts` — 'the admin receives org-context admin activities (pending + done)' |
 | 🏢 `org-admin-remove` | `admin-events.test.ts` — 'demotion removes the admin from the ACR while keeping the remaining admin' |
-| 👤 `org-admin-add` (personal) 🧪 | |
-| 👤 `org-admin-remove` (personal) 🧪 | |
+| 👤 `org-admin-add` (personal) ✅ | `personal-admin.test.ts` — 'AddAdmin in the personal context materializes the AA, grants, marker and ACR' |
+| 👤 `org-admin-remove` (personal) ✅ | `personal-admin.test.ts` — 'RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)' |
 
 ### Invitation
 
@@ -185,7 +189,7 @@ the `/`-grouped titles:
 
 | View | Test |
 |---|---|
-| `reciprocal-registration-update` | `reciprocal-webhook.test.ts` — 'id' + 'emits pending and done events for the delegatedGrantsUpdated activity' |
+| `reciprocal-registration-update` | `reciprocal-webhook.test.ts` — 'id' + 'emits pending and done events for the delegatedGrantsUpdated activity' + `personal-admin.test.ts` — "Alice's UI learns about the promotion via the reciprocal channel" |
 
 > [!NOTE] The reciprocal registration update is driven by the peer's webhook —
 > the admin plays no role, so the 👤/🏢 distinction does not apply.
@@ -201,8 +205,8 @@ the `/`-grouped titles:
 | `RoleMembershipChanged` | `role-membership-change` |
 | `RoleDeleted` | `role-deletion` |
 | `RoleCreated` | — |
-| `AdminAuthorizationGranted` | `org-admin-add` |
-| `AdminAuthorizationRevoked` | `org-admin-remove` |
+| `AdminAuthorizationGranted` | `org-admin-add`, `org-admin-add-personal` |
+| `AdminAuthorizationRevoked` | `org-admin-remove`, `org-admin-remove-personal` |
 | `AuthorizationGranted` | `authorization` (record), `share-resource` (share) |
 | `AuthorizationDenied` | — |
 | `AuthorizationRevoked` | — |

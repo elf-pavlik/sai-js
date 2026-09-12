@@ -37,7 +37,10 @@ single-store assumptions the engine path relies on):
 - **Registry storage stays ACP.** `fullAdminAccess` (Read+Write+Control)
   matchers remain the enforcement for structural registries. Matchers become a
   **derived artifact**: rewritten from the admin list by the ACR workflow
-  (idempotent rewrite, not incremental patch). The data server's
+  (idempotent rewrite, not incremental patch) — **Phase 5**: the rewrite also
+  wires the control into the `.acr` `#root` (`acp:accessControl`/
+  `acp:memberAccessControl`) and, for an EMPTY admin list (personal-context
+  last-admin demotion), removes it entirely. The data server's
   `AdminPermissionReader` owner fast-path is unchanged — admins are not owners,
   they fall through to the engine.
 - **Pipeline.** `AddAdmin`/`RemoveAdmin` (RPC from the UI) synchronously
@@ -364,10 +367,14 @@ The activity payload (org `webId` + `admin` webId) feeds both paths; the
 workflows diverge on the activity `activityType`. No delegation or inheritance
 for admin grants.
 
-**Last-admin guard (decided — both, [Q2]):** at RPC time `RemoveAdmin` refuses
-when the org's AuthorizationRegistry holds exactly one `AdminAuthorization`;
-at workflow time `syncAdminAcr` refuses to produce an adminless
-`#fullAdminAccess` (AuthorizationRegistry as single source of truth).
+**Last-admin guard (decided — both, [Q2]; amended by Phase 5):** at RPC time
+`RemoveAdmin` refuses when an ORG's AuthorizationRegistry holds exactly one
+`AdminAuthorization`; at workflow time `syncAdminAcr` refuses to produce an
+adminless `#fullAdminAccess` (AuthorizationRegistry as single source of truth).
+**Phase 5:** in the PERSONAL context (`ctx.webId === ctx.userWebId`) the owner
+remains the operator — the RPC guard is skipped, and `syncAdminAcr` with an
+EMPTY admin list removes the `#fullAdminAccess` access control entirely
+(derived rewrite: zero admins → zero admin access) instead of refusing.
 
 **Workflow specs — outcome / producer / test verification (decided [Q4];
 revisit after implementation).**
@@ -690,9 +697,16 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   - if `context` is an org other than the user: `admin` is read from **that
     org's registration** of the agent directly.
   Check `context === webId` to select which side applies.
+
+  > **Phase 5 amendment (landed).** The reciprocal read moved to a NEW
+  > `SocialAgent.adminOf` field — "the signed-in user is an admin of this
+  > agent" (the switcher source). `admin` is now the **direct** marker in BOTH
+  > contexts — the context owner's registration of the agent carries a non-empty
+  > `hasAdminGrant` — so a regular user's personal-context list also drives the
+  > toggle-admin button (their OWN admins, Phase 5).
 - The UI derives the **switcher list** from that personal-context list: personal
-  context (own webId) + each agent where `admin === true`. The **label** shown in
-  the switcher is the same `label` as the social agent's. *(Q6 — decided)*
+  context (own webId) + each agent where `adminOf === true`. The **label** shown
+  in the switcher is the same `label` as the social agent's. *(Q6 — decided)*
 - `ListSocialAgents` in the personal context is therefore the discovery call. It
   also lets the UI re-validate that a chosen context is still allowed.
 
@@ -706,7 +720,9 @@ Today services derive *both* the target and the owner from `saiSession.webId` +
   `CheckHandle`, `GetWebId`, `RegisterPushSubscription`, and the discovery call
   (personal-context `ListSocialAgents` used to compute contexts). *(C3 —
   starting list, refine in next iteration.)*
-- `ListSocialAgents` returns `SocialAgent[]` with the new `admin` boolean.
+- `ListSocialAgents` returns `SocialAgent[]` with the `admin` boolean (direct
+  marker, both contexts) and the `adminOf` boolean (reciprocal marker — the
+  switcher source, Phase 5).
 
 ### 2.4 Backend / service refactor (`packages/components/src/services/*`, `ApiHandler`)
 
@@ -900,7 +916,7 @@ Everything below is what **landed** in Phase 2; where it conflicts with §2.1–
 - **Temporal worker registration — Phase-1 gap found in Phase 2.** The admin workflows (`createAdminGrants`/`revokeAdminGrants`/`syncAdminAcr`) were never registered on any worker, so `ActivityWebhookHandler` scheduled them into a queue nothing polled. The `create-grants` queue now bundles a combined module `temporal/workflows/create-grants.ts` (grants + admin) with the merged activities set. Extending §3.7's test-infra note: any workflow module used by the handler must be added to that bundle + activities.
 - **Q5 — no views excluded.** All registry-backed views re-target the switched context; push-subscription/settings remain personal by design. Revisit per-view exclusions later if org-context data views need it.
 - **§2.8 data-registry access — engine item moved to step 2.8 (§2.10).** The data service's `SaiPermissionsEngine` admin branch (`TargetType.Registry` TODO) is now its own step before Phase 3 — needed for *admin-credentialed* access to the org's data (org-context service reads already run as the org owner; validate that owner-side read in 2.8/Phase 4).
-- **UI.** Switcher derives from personal-context `ListSocialAgents.admin` + label; toggle-admin lives in the org context with the last-admin disable — as planned (§2.5).
+- **UI.** Switcher derives from personal-context `ListSocialAgents.adminOf` + label; toggle-admin lives in the org context with the last-admin disable — as planned (§2.5). **Phase 5 amendment:** the toggle also renders in the personal context (a regular user promotes/demotes their own admins); the last-admin disable stays org-only (`admin` is the direct marker there too).
 
 ### 2.10 Step 2.8 spec — org data access via the permission engine (R1 pickup)  *(implemented)*
 
@@ -1129,3 +1145,45 @@ reflect only what the feature *breaks* or leaves undefined.
   admin link.
 - Confirm the resolved events/outbox story (peer.md item 2) is reflected in
   both documents so they do not silently drift from the implementation.
+
+---
+
+## Phase 5 — personal-context add/remove (a regular user manages their own admins)  *(implemented)*
+
+`AddAdmin`/`RemoveAdmin` now work for a **regular user** in their personal
+context (features.md §4: the data owner runs them in the personal context —
+`resolveContext` allows it without any admin marker). Kim promotes Alice
+(registered agent `plp3a3` in Kim's registry) to admin of Kim's registry set;
+the owner (Kim) remains the operator afterwards. E2e: `personal-admin.test.ts`.
+
+- **RPC — the last-admin guard is owner-aware.** `removeAdmin`
+  (`packages/components/src/services/Admin.ts`) keeps the guard for ORG
+  contexts (`ctx.webId !== ctx.userWebId` — the org must never end up
+  admin-less) and skips it in the personal context: the owner always remains
+  the operator of their own registry set, so demoting the only admin is
+  legitimate.
+- **Workflow — `syncAdminAcr` handles the empty admin list**
+  (`packages/components/src/temporal/activities/admin.ts`): an EMPTY list
+  writes the ACR with the `#fullAdminAccess` access control removed entirely
+  (derived rewrite: zero admins → zero admin access; a personal last-admin
+  demotion must not leave the activity stuck `pending` by refusing). For orgs
+  the RPC guard prevents reaching this state through the UI.
+- **ACR wiring is now part of the derived rewrite.** The rewritten
+  `#fullAdminAccess` is wired into the `.acr` `#root`
+  (`acp:accessControl` + `acp:memberAccessControl`), remove-then-add
+  idempotent — a context whose seed never wired it (e.g. Kim's personal `.acr`,
+  which only holds `#fullOwnerAccess`) gets the enforcement on the first
+  promotion; demotion removes both the control and its wiring.
+- **`SocialAgent.admin` semantics changed; new `SocialAgent.adminOf` field.**
+  `admin` is now the DIRECT marker in BOTH contexts (the context owner's
+  registration of the agent carries a non-empty `hasAdminGrant`) — the
+  toggle-admin state everywhere. The RECIPROCAL marker (the agent's
+  registration of the user) moved to `adminOf` — the personal-context switcher
+  source (orgs the user administers, §2.2). UI: `listSocialAgents` filters the
+  switcher on `adminOf`; the toggle-admin button renders in the personal
+  context too (its org-only last-admin disable stays).
+- **ListSocialAgents-driven state.** After an `AdminAuthorizationGranted`/
+  `Revoked` done-row refresh, the personal list shows the promoted/demoted
+  agent with `admin` flipped. The reciprocal `adminOf` never flips on a
+  promotion of the user's OWN admin — the switcher is untouched by it (no
+  `delegatedGrantsUpdated` churn).

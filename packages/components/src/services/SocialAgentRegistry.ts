@@ -75,22 +75,27 @@ export const findSocialAgentRegistrationInContext = async (
   )
 }
 
-/**
- * Build the UI profile of a social agent from its registration.
- *
- * `personal` selects which side carries the admin marker (§2.2 asymmetry of
- * org-admin-feature.md):
- * - `true` (personal context) — `registration` is OUR registration of the
- *   agent; the admin marker lives on the AGENT'S registration of us (reached
- *   via `reciprocalRegistration`, non-empty `hasAdminGrant`);
- * - `false` (org context) — `registration` is the ORG's registration of the
- *   agent; the admin marker is read directly from it.
- */
 /** The owner's pending access requests keyed by grantee — the
  *  `accessRequested` marker + the approval entry (the request IRI opens the
  *  authorization screen, §6.8). */
 export type AccessRequestsByGrantee = Map<string, { id: string }>
 
+/**
+ * Build the UI profile of a social agent from its registration.
+ *
+ * Two distinct admin markers (§2.2 asymmetry + Phase 5 of
+ * org-admin-feature.md):
+ * - `admin` — the DIRECT marker: the context's registration of the agent
+ *   carries a non-empty `hasAdminGrant` — the agent administers the current
+ *   context's registry set. Read from the org's registration of the agent in
+ *   an org context, from the signed-in user's OWN registration of the agent
+ *   in the personal context (Phase 5 — a regular user promotes/demotes their
+ *   own admins, so the direct marker is the toggle-admin state everywhere);
+ * - `adminOf` — the RECIPROCAL marker: the agent's registration of the user
+ *   (reached via `reciprocalRegistration`) carries a non-empty
+ *   `hasAdminGrant` — the signed-in user is an admin of the agent. Only
+ *   meaningful in the personal context; the context switcher source.
+ */
 export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
   ctx: ResolvedContext,
@@ -101,12 +106,13 @@ export const buildSocialAgentProfile = async (
   const reciprocal = registration.reciprocalRegistration
     ? await getReciprocalRegistration(ctx, registration)
     : undefined
-  let admin = false
-  if (personal && reciprocal) {
-    admin = getAdminGrantIris(reciprocal).length > 0
-  } else if (!personal) {
-    admin = getAdminGrantIris(registration).length > 0
-  }
+  // Phase 5: the direct marker is read the same way in BOTH contexts — from
+  // the context's registration of the agent (org: the org's registration;
+  // personal: the user's own registration — the owner's admins)
+  const admin = getAdminGrantIris(registration).length > 0
+  // the reciprocal marker — the agent's registration of the user (the
+  // "orgs I administer" discovery flag; the switcher source, §2.2)
+  const adminOf = reciprocal ? getAdminGrantIris(reciprocal).length > 0 : false
 
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
   return SocialAgent.make({
@@ -122,6 +128,7 @@ export const buildSocialAgentProfile = async (
       ? IRI.make(accessRequestsByGrantee.get(registration.registeredAgent)!.id)
       : undefined,
     admin,
+    adminOf,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
     accessGrant: getDataGrantIris(registration)[0],
@@ -193,6 +200,7 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
           accessRequested: false,
           // no registration in this registry — no admin marker can be read
           admin: false,
+          adminOf: false,
         })
       )
     }

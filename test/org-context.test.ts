@@ -78,17 +78,21 @@ async function expectRpcError(payload: unknown, cookie: string): Promise<void> {
 }
 
 describe('org context — discovery (2.1/2.2)', () => {
-  test('personal ListSocialAgents flags the orgs the user administers', async () => {
-    const agents = await rpcCall<{ id: string; admin: boolean }[]>(
+  test('personal ListSocialAgents flags the orgs the user administers (reciprocal `adminOf`)', async () => {
+    const agents = await rpcCall<{ id: string; admin: boolean; adminOf: boolean }[]>(
       rpcPayload({ _tag: 'ListSocialAgents', context: danId }),
       danCookie
     )
     const yoyo = agents.find((agent) => agent.id === yoyoId)
     expect(yoyo).toBeDefined()
-    expect(yoyo!.admin).toBe(true)
-    // a plain peer is not flagged
+    // the RECIPROCAL marker — the switcher source (orgs the user administers)
+    expect(yoyo!.adminOf).toBe(true)
+    // Phase 5: `admin` is the DIRECT marker in the personal context too —
+    // Dan never made YoYo HIS admin, so it stays false here
+    expect(yoyo!.admin).toBe(false)
+    // a plain peer is not flagged either way
     const bob = agents.find((agent) => agent.id === bobId)
-    if (bob) expect(bob.admin).toBe(false)
+    if (bob) expect(bob.adminOf).toBe(false)
   })
 
   test('org-context ListSocialAgents reads the org registry directly (admin marker on the org registration)', async () => {

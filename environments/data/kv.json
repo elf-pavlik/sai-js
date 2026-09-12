@@ -17,6 +17,14 @@
     "sendTo": "https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b",
     "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/jc5gt6/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b\"}",
     "id": "cb950007-7b6b-427f-8d8b-f96458bfbba3"
+   },
+   "8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f": {
+    "webId": "https://id/alice",
+    "peerId": "https://id/kim",
+    "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e",
+    "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/kim/social-agent/plp3a3/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e\"}",
+    "id": "8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f"
    }
   },
   "**password**": {
@@ -91,6 +99,15 @@
   "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
  ],
  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Falice": [
+  "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+ ],
+ "accounts/index/reciprocalWebhook/8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f": [
+  "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+ ],
+ "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fkim": [
+  "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+ ],
+ "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fb4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e": [
   "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
  ],
  "accounts/index/reciprocalWebhook/6e535a99-6762-429b-b93c-10925885519d": [
@@ -678,6 +695,15 @@
  },
  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fjc5gt6%2F": [
   "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c"
+ ],
+ "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b": {
+  "id": "https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b",
+  "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+  "topic": "https://registry/kim/social-agent/plp3a3/",
+  "sendTo": "https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e"
+ },
+ "notifications/https%3A%2F%2Fregistry%2Fkim%2Fsocial-agent%2Fplp3a3%2F": [
+  "https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b"
  ],
  "accounts/index/activityWebhook/5eb86482-3c89-435f-945e-6b5db56cc518": [
   "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"

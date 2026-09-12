@@ -88,12 +88,18 @@ export const removeAdmin = async (
 
   // last-admin guard — the org must never end up adminless; sails as a
   // RPC-time validation read (R1 re-decision) and is re-checked by the
-  // workflow's syncAdminAcr
+  // workflow's syncAdminAcr. OWNER exception (Phase 5): in the personal
+  // context (ctx.webId === ctx.userWebId) the signed-in user always remains
+  // the operator of their own registry set, so demoting the only admin is
+  // legitimate — the guard only protects org contexts from ending up
+  // admin-less.
   let count = 0
   for (const _adminAuthorization of await ctx.session.adminAuthorizations(authorizationRegistry)) {
     count += 1
   }
-  if (count === 1) throw new Error('can not remove the last admin')
+  if (ctx.webId !== ctx.userWebId && count === 1) {
+    throw new Error('can not remove the last admin')
+  }
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')

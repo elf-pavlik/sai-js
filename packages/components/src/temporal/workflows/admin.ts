@@ -89,10 +89,13 @@ export async function revokeAdminGrants(payload: AdminWorkflowInput): Promise<vo
 }
 
 /**
- * Both — rewrite the org's `.acr` `#fullAdminAccess` matchers from the
- * current admin list (idempotent derived rewrite; the AuthorizationRegistry is
- * the source of truth, last-admin guard inside the activity). Completion is
- * recorded by the caller (see createAdminGrants).
+ * Both — rewrite the registry-set `.acr` `#fullAdminAccess` matchers from
+ * the current admin list + wire the control into `#root` (idempotent derived
+ * rewrite; the AuthorizationRegistry is the source of truth). An EMPTY admin
+ * list writes the ACR with the control removed entirely — legitimate in the
+ * personal context (Phase 5: the owner remains the operator after demoting
+ * their only admin; for orgs the RPC last-admin guard prevents the state).
+ * Completion is recorded by the caller (see createAdminGrants).
  */
 export async function syncAdminAcr(payload: {
   webId: SocialAgentId

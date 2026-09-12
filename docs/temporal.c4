@@ -1080,6 +1080,550 @@ views {
     YoYo.Registry -> Dan.UAS 'list'
     Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
   }
+
+  dynamic view org-admin-add-personal {
+    title: 'Personal / Kim promotes Alice to her admin'
+
+    include Kim, Alice
+    // mirrored pair order (invitation-view convention): Kim forward
+    // AUI → Worker, Alice reversed Worker → AUI; WebhookReceiver is Alice's
+    // inbound edge (the reciprocal Update enters there)
+    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Registry, Kim.Temporal, Kim.Worker, Alice.Worker, Alice.Temporal, Alice.ActivityWebhookHandler, Alice.Registry, Alice.UAS, Alice.AUI, Alice.WebhookReceiver
+
+    style Kim {
+      color: indigo
+    }
+
+    style Alice {
+      color: sky
+    }
+
+    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > response stays alive for streaming
+
+          ```http
+          GET https://auth/.sai/events
+          Accept: application/x-ndjson
+          ```
+        '''
+    }
+    Kim.AUI -> Kim.UAS 'POST (RPC) AddAdmin — { webId: alice, context: kim }' {
+        notes'''
+          #### POST (RPC) AddAdmin - { webId: alice, context: kim }
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > Phase 5 — a REGULAR user manages her OWN admins: the personal
+          > context passes `resolveContext` without any admin marker and needs
+          > NO org registry-set discovery; Kim stays the data owner (`webId`)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AddAdmin",
+                "webId": "https://id/alice",
+                "context": "https://id/kim"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'find Social Agent Registration [Agent]' {
+        notes'''
+          #### find Social Agent Registration [Agent]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > guard read — the promoted agent must already be registered in
+          > Kim's social agent registry (`plp3a3`)
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'pre-mint AdminAuthorization id (validation reads)' {
+        notes'''
+          #### pre-mint AdminAuthorization id (validation reads)
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > step 5 (R1 re-decision): the registered + already-admin checks
+          > stay RPC-side (error on duplicate); the resource id is PRE-MINTED
+          > via `iriForContained` — no synchronous record
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
+        notes'''
+          #### PUT AdminAuthorizationGranted activity [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          > `as:object` = the AA-to-be at the PRE-MINTED id (real-id embedded
+          > projection); `target` dropped — the id rides object.id
+
+          ```http
+          PUT https://registry/kim/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/kim/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c",
+            "type": ["Activity", "AdminAuthorizationGranted"],
+            "as:actor": "https://id/kim",
+            "as:object": {
+              "id": "https://registry/kim/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+              "type": ["AdminAuthorization"],
+              "grantee": "https://id/alice",
+              "grantedBy": "https://id/kim",
+              "scopeOfAuthorization": "interop:All"
+            },
+            "interop:createdAt": "2024-01-01T10:00:00.000Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    parallel {
+      Kim.UAS -> Kim.AUI 'OK (pending) — pre-minted AA id + activityId' {
+          notes'''
+            #### OK (pending) - pre-minted AA id + activityId
+            >[!NOTE]
+            >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+            ```json
+            {
+              "_tag": "Success",
+              "value": {
+                "id": "https://registry/kim/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                "activityId": "https://registry/kim/activity/2e9c5aa1-7d3b-4f8b-a6c4-9d0e1f2a3b4c"
+              }
+            }
+            ```
+          '''
+      }
+      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+          notes'''
+            #### notify Add activity (owner channel - dispatch) [Activity]
+            >[!NOTE]
+            >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+            >[!TIP]
+            > Kim's OWNER channel on her own Activity Registry — forward AND
+            > dispatch (no separate admin channel in the personal context)
+          '''
+      }
+    }
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start processAdminAuthorizationGranted workflow' {
+        notes'''
+          #### start processAdminAuthorizationGranted workflow
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          >gRPC
+
+          >[!TIP]
+          > the decoded object passes verbatim (the workflow's data arg); the
+          > triggering activity rides as a typed ref — traceable completion
+        '''
+    }
+    Kim.Temporal -> Kim.ActivityWebhookHandler 'OK'
+    Kim.Temporal -> Kim.Worker '(workflow) run processAdminAuthorizationGranted' {
+        notes'''
+          #### (workflow) run processAdminAuthorizationGranted
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) PUT AdminAuthorization [Authorization]' {
+        notes'''
+          #### (activity) PUT AdminAuthorization [Authorization]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          > `recordAdminAuthorizationAtId`: at the PRE-MINTED id — find-first
+          > idempotent (a retry sees the resource already materialized and
+          > skips)
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(child workflow) createAdminGrants [Grant]' {
+        notes'''
+          #### (child workflow) createAdminGrants [Grant]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > store a RegistrySet-scoped AdminGrant + one Read-only
+          > DataRegistry-scoped grant per data registry (kim-red, kim-blue),
+          > each with its own ACR — 3 grants in Kim's GrantRegistry
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) replace hasAdminGrant link [Agent]' {
+        notes'''
+          #### (activity) replace hasAdminGrant link [Agent]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          > single PATCH — one Update on KIM'S registration of Alice
+          > (`plp3a3`); data registries are reached through the RegistrySet
+
+          ```http
+          PATCH https://registry/kim/social-agent/plp3a3/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+        '''
+    }
+    Kim.Registry -> Alice.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
+        notes'''
+          #### notify Update - hasAdminGrant PATCH on the reciprocal [Agent]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Alice's reciprocal webhook channel on Kim's registration of her
+          > (`registry/kim/social-agent/plp3a3/` — the Phase 5 seed in
+          > environments/data/kv.json) delivers the PATCH `Update` — Alice
+          > holds NO channel on Kim's ACTIVITY registry, so this is how she
+          > learns about the promotion
+
+          ```json
+          {
+            "id": "urn:uuid:6a4b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+            "type": "Update",
+            "object": "https://registry/kim/social-agent/plp3a3/",
+            "published": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+        '''
+    }
+    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
+        notes'''
+          #### PUT delegatedGrantsUpdated activity [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          >[!TIP]
+          > outbox only — the mirror maintenance runs as the
+          > `updateDelegatedGrants` workflow (started by ActivityWebhookHandler);
+          > `actor` = alice, as:target = kim (the peer whose reciprocal
+          > registration changed)
+        '''
+    }
+    Alice.WebhookReceiver -> Kim.Registry 'OK'
+    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+        notes'''
+          #### notify Add activity (owner channel - dispatch) [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Alice's OWNER channel on her own Activity Registry — forward AND
+          > dispatch (the uniform outbox path)
+        '''
+    }
+    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          >gRPC
+        '''
+    }
+    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
+    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
+    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.ActivityWebhookHandler -> Alice.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row
+          > refreshes Alice's personal agent list (events.ts) — Kim's
+          > `adminOf` flag flips on, so Kim appears in Alice's context
+          > switcher
+        '''
+    }
+    Alice.AUI -> Alice.UAS 'POST (RPC) ListSocialAgents (context: alice) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: alice) - refresh
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+        '''
+    }
+    Alice.UAS -> Alice.Registry 'list social agents with admin flag [Agent]'
+    Alice.Registry -> Alice.UAS 'list'
+    Alice.UAS -> Alice.AUI 'OK — Kim adminOf flag flips on'
+    Kim.Worker -> Kim.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+        notes'''
+          #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > Phase 5: the derived rewrite CREATES the control AND wires it into
+          > the `.acr` `#root` (`acp:accessControl`/`acp:memberAccessControl`)
+          > — Kim's personal `.acr` carried only `#fullOwnerAccess`, so Alice's
+          > full-admin matcher is applied for the first time
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > only after grants AND ACR rewrite succeeded — single completion
+        '''
+    }
+    Kim.ActivityWebhookHandler -> Kim.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - the AdminAuthorizationGranted
+          > done-row refreshes the personal agent list — Alice's direct
+          > `admin` flag flips on (Phase 5)
+        '''
+    }
+    Kim.AUI -> Kim.UAS 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: kim) - refresh
+          >[!NOTE]
+          >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'list social agents with admin flag [Agent]'
+    Kim.Registry -> Kim.UAS 'list'
+    Kim.UAS -> Kim.AUI 'OK — agents with admin flag'
+  }
+
+  dynamic view org-admin-remove-personal {
+    title: 'Personal / Kim demotes Alice'
+
+    include Kim, Alice
+    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Registry, Kim.Temporal, Kim.Worker, Alice.UAS
+
+    style Kim {
+      color: indigo
+    }
+
+    style Alice {
+      color: sky
+    }
+
+    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+        notes'''
+          #### Connect to the notifications stream
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > response stays alive for streaming
+        '''
+    }
+    Kim.AUI -> Kim.UAS 'POST (RPC) RemoveAdmin — { webId: alice, context: kim }' {
+        notes'''
+          #### POST (RPC) RemoveAdmin - { webId: alice, context: kim }
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `kim`
+
+          >[!TIP]
+          > Phase 5: the LAST-ADMIN guard is SKIPPED in the personal context
+          > (the owner remains the operator — org contexts keep the guard);
+          > activity-first step 6: validation reads + activity write only
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'find Social Agent Registration [Agent]' {
+        notes'''
+          #### find Social Agent Registration [Agent]
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'find AdminAuthorization (no last-admin guard)' {
+        notes'''
+          #### find AdminAuthorization (no last-admin guard)
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          > admin-exists validation read only — Alice is Kim's ONLY
+          > AdminAuthorization and that is legitimate here (Kim stays the
+          > owner; an org would refuse at this point)
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
+        notes'''
+          #### PUT AdminAuthorizationRevoked activity [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          > the object is the EXISTING AdminAuthorization (real-id embedded
+          > projection at its real id — the workflow DELETEs it)
+        '''
+    }
+    parallel {
+      Kim.UAS -> Kim.AUI 'OK (pending) — revoked AA id + activityId' {
+          notes'''
+            #### OK (pending) - revoked AA id + activityId
+            >[!NOTE]
+            >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+          '''
+      }
+      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+          notes'''
+            #### notify Add activity (owner channel - dispatch) [Activity]
+            >[!NOTE]
+            >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+          '''
+      }
+    }
+    Kim.ActivityWebhookHandler -> Kim.Temporal 'start processAdminAuthorizationRevoked workflow' {
+        notes'''
+          #### start processAdminAuthorizationRevoked workflow
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          >gRPC
+        '''
+    }
+    Kim.Temporal -> Kim.ActivityWebhookHandler 'OK'
+    Kim.Temporal -> Kim.Worker '(workflow) run processAdminAuthorizationRevoked' {
+        notes'''
+          #### (workflow) run processAdminAuthorizationRevoked
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
+        notes'''
+          #### (activity) DELETE AdminAuthorization [Authorization]
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          >[!TIP]
+          > `deleteAdminAuthorizationAtId`: at the EXISTING id — find-first
+          > 404-tolerant (a retry after a crash skips)
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(child workflow) revokeAdminGrants [Grant]' {
+        notes'''
+          #### (child workflow) revokeAdminGrants [Grant]
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          > find + delete the AdminGrants (resources + ACRs) and unlink
+          > `hasAdminGrant` — single PATCH on Kim's registration of Alice
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(child workflow) syncAdminAcr — empty admin list removes #fullAdminAccess' {
+        notes'''
+          #### (child workflow) syncAdminAcr - empty admin list removes #fullAdminAccess
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          > Phase 5: a PERSONAL last-admin demotion leaves the admin list
+          > EMPTY — the rewrite removes the `#fullAdminAccess` access control
+          > and its `#root` wiring entirely (zero admins → zero admin access)
+          > instead of refusing; orgs never reach this state (RPC guard)
+        '''
+    }
+    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          > only after the DELETE + grants + ACR rewrite ALL succeeded —
+          > single completion
+        '''
+    }
+    Kim.ActivityWebhookHandler -> Kim.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+
+          >[!TIP]
+          > the AdminAuthorizationRevoked done-row refreshes the personal agent
+          > list — Alice's direct `admin` flag flips off (Phase 5)
+        '''
+    }
+    Kim.AUI -> Kim.UAS 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: kim) - refresh
+          >[!NOTE]
+          >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
+        '''
+    }
+    Kim.UAS -> Kim.Registry 'list social agents with admin flag [Agent]'
+    Kim.Registry -> Kim.UAS 'list'
+    Kim.UAS -> Kim.AUI 'OK — agents with admin flag'
+  }
 }
 
 views "Authorization" {

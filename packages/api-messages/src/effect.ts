@@ -145,13 +145,23 @@ export const SocialAgent = S.Struct({
   accessRequest: S.optional(IRI),
   accessGrant: S.optional(S.String),
   /**
-   * True when the agent holds an admin marker in the *current context's*
-   * registry. Asymmetry (§2.2 of org-admin-feature.md): in the personal
-   * context it is read from the agent's registration of the signed-in user
-   * (reached via `reciprocalRegistration`); in an org context it is read from
-   * the org's registration of the agent directly (non-empty `hasAdminGrant`).
+   * True when the agent is an admin of the *current context's* registry set
+   * — the DIRECT admin marker (non-empty `hasAdminGrant`) on the context
+   * owner's registration of the agent: the org's registration of the agent in
+   * an org context, the signed-in user's own registration of the agent in the
+   * personal context (Phase 5 of org-admin-feature.md — a regular user
+   * promotes/demotes their own admins). Drives the toggle-admin button.
    */
   admin: S.Boolean,
+  /**
+   * True when the signed-in user is an admin of THIS agent's registry set —
+   * the RECIPROCAL admin marker: the agent's registration of the user
+   * (reached via `reciprocalRegistration`) carries a non-empty
+   * `hasAdminGrant`. Only meaningful in the personal context — the context
+   * switcher source (the orgs the user administers, §2.2 of
+   * org-admin-feature.md).
+   */
+  adminOf: S.Boolean,
   //authorizationDate: S.String, // interop:registeredAt TODO: rename to not imply access
   //lastUpdateDate: S.optional(S.String), // interop:updatedAt
 })

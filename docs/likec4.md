@@ -21,6 +21,29 @@ Conventions established while working on the invitation views (`invitation`,
 - Include order: **acceptor first, then the inviter party, then the admin**
   (`Bob, Alice` / `Bob, YoYo, Dan`); per agent the component order is
   `AUI, UAS, Registry, ActivityWebhookHandler, Temporal, Worker`.
+- **Mirrored include ordering (two-party views).** The invitation-pair views
+  list the parties' components as mirror images around the center: party 1
+  forward (`AUI, UAS, ActivityWebhookHandler, Registry, Temporal, Worker`),
+  party 2 reversed (`Worker, Temporal, ActivityWebhookHandler, Registry, UAS,
+  AUI`):
+
+  ```c4
+  include Kim, Dan
+  include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, Dan.Worker, Dan.Registry, Dan.Temporal, Dan.ActivityWebhookHandler, Dan.UAS, Dan.AUI
+  ```
+
+  `org-admin-add-personal` follows the same mirror — Alice's components are
+  the reverse of Kim's; her `WebhookReceiver` is appended as the inbound edge
+  (the invitation views have no receiver component to pattern after).
+- **Two peers + a third admin — less clear (⚠️ admin includes to be
+  finalized).** In `admin-invitation-send` / `admin-invitation-receive` the
+  first peer (Kim) stays forward and the middle party (YoYo, an org — no
+  `AUI`) is reversed (`YoYo.Worker, YoYo.Registry, YoYo.Temporal,
+  YoYo.ActivityWebhookHandler, YoYo.UAS`), but the third party (Dan, the
+  admin) is NOT mirrored — his subset is `Dan.AUI, Dan.ActivityWebhookHandler,
+  Dan.UAS`. No firm rule yet for the admin section in admin-heavy views; treat
+  the admin include ordering as **to be finalized** until those views settle
+  one.
 - Colors: `green` inviter/org owner, `indigo` admin, `sky` acceptor/peer.
 
 ## Notes & callouts
@@ -145,3 +168,22 @@ Notifications `Add` JSON-LD) → admin-channel forward → `forward done event`
     }
   }
   ```
+
+## View coverage per social agent (17 dynamic views)
+
+Party-level `include` per view (recomputed when views change — `grep '^    include'`
+inside each `dynamic view` block and map the dot-less tokens onto the model
+securities). **Kim appears in the fewest diagrams (5); Alice in the most (8).**
+
+| Social agent | Count | Diagrams |
+|---|---|---|
+| **Kim** | 5 | `org-admin-add-personal`, `org-admin-remove-personal`, `invitation`, `admin-invitation-send`, `admin-invitation-receive` |
+| **YoYo** (org) | 5 | `org-registry-set-discovery`, `org-admin-add`, `org-admin-remove`, `admin-invitation-send`, `admin-invitation-receive` |
+| **Dan** | 6 | `org-registry-set-discovery`, `org-admin-add`, `org-admin-remove`, `invitation`, `admin-invitation-send`, `admin-invitation-receive` |
+| **Bob** | 7 | `social-agent-registration-discovery`, `org-registry-set-discovery`, `org-admin-add`, `org-admin-remove`, `authorization`, `role-deletion`, `request-access` |
+| **Alice** | 8 | `reciprocal-registration-update`, `application-registration-discovery`, `social-agent-registration-discovery`, `org-admin-add-personal`, `org-admin-remove-personal`, `authorization-data-app`, `role-membership-change`, `request-access` |
+
+Non-agent parties for reference: `App` 3 (`application-registration-discovery`,
+`authorization-data-app`, `authorization`), `ACME` 1
+(`reciprocal-registration-update`), `Common` 1 (`authorization-data-app`);
+`Others` / `Peers` appear in no view.

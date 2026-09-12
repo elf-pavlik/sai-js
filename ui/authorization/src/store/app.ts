@@ -170,12 +170,14 @@ export const useAppStore = defineStore('app', () => {
   async function listSocialAgents(force = false) {
     if (!socialAgentList.value.length || force) {
       socialAgentList.value = await effect.listSocialAgents(currentContext())
-      // discovery: in the personal context the `admin` flags power the switcher
+      // discovery: the reciprocal `adminOf` flags power the switcher — the
+      // orgs that made the signed-in user their admin (Phase 5: `admin` is
+      // now the DIRECT marker — the agents the user made their own admins)
       if (currentContext() === coreStore.userId) {
         contexts.value = [
           { webId: coreStore.userId, label: coreStore.userId },
           ...socialAgentList.value
-            .filter((agent) => agent.admin)
+            .filter((agent) => agent.adminOf)
             .map((agent) => ({ webId: agent.id, label: agent.label })),
         ]
       }
@@ -379,7 +381,9 @@ export const useAppStore = defineStore('app', () => {
     return result
   }
 
-  /** Promote/demote an agent in the current (org) context — §2.6 toggle-admin. */
+  /** Promote/demote an agent in the current context — §2.6 toggle-admin.
+   *  Org context: fellow admins; personal context (Phase 5): the user's own
+   *  admins — a regular user manages their own registry set. */
   async function toggleAdmin(webId: string, admin: boolean): Promise<void> {
     if (admin) {
       // activity-first (step 5): the AdminAuthorization is PUT by the addAdmin

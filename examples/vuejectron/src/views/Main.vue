@@ -77,7 +77,7 @@ const newAgent = ref<Agent>()
 
 const title = computed(() => {
   if (route.query.agent) {
-    return route.query.project ? appStore.currentProject?.label : appStore.currentAgent?.label
+    return route.query.project ? appStore.currentProject?.prefLabel : appStore.currentAgent?.label
   }
   return 'Vuejectron'
 })

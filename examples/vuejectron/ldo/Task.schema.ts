@@ -26,7 +26,7 @@ export const TaskSchema: Schema = {
             },
             {
               type: 'TripleConstraint',
-              predicate: 'http://www.w3.org/2000/01/rdf-schema#label',
+              predicate: 'http://www.w3.org/2004/02/skos/core#prefLabel',
               valueExpr: {
                 type: 'NodeConstraint',
                 datatype: 'http://www.w3.org/2001/XMLSchema#string',

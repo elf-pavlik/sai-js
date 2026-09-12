@@ -17,8 +17,8 @@ export const FileContext: LdoJsonldContext = {
         '@id': '@type',
         '@isCollection': true,
       },
-      label: {
-        '@id': 'http://www.w3.org/2000/01/rdf-schema#label',
+      prefLabel: {
+        '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel',
         '@type': 'http://www.w3.org/2001/XMLSchema#string',
       },
       fileName: {
@@ -31,8 +31,8 @@ export const FileContext: LdoJsonldContext = {
       },
     },
   },
-  label: {
-    '@id': 'http://www.w3.org/2000/01/rdf-schema#label',
+  prefLabel: {
+    '@id': 'http://www.w3.org/2004/02/skos/core#prefLabel',
     '@type': 'http://www.w3.org/2001/XMLSchema#string',
   },
   fileName: {

@@ -11,7 +11,7 @@
     ],
     "http://www.w3.org/ns/shapetrees#describesInstance": [
       {
-        "@id": "http://www.w3.org/2000/01/rdf-schema#label"
+        "@id": "http://www.w3.org/2004/02/skos/core#prefLabel"
       }
     ]
   },

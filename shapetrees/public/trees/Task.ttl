@@ -1,5 +1,5 @@
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX shapetrees: <http://www.w3.org/ns/shapetrees#>
 PREFIX solidshapes: <https://shapetrees.hackers4peace.net/shapes/>
 PREFIX solidtrees: <https://shapetrees.hackers4peace.net/trees/>
@@ -8,7 +8,7 @@ solidtrees:Task
   a shapetrees:ShapeTree ;
   shapetrees:expectsType shapetrees:Resource ;
   shapetrees:shape solidshapes:Task ;
-  shapetrees:describesInstance rdfs:label .
+  shapetrees:describesInstance skos:prefLabel .
 
 solidtrees:desc-en\#Task
   shapetrees:inDescriptionSet solidtrees:desc-en ;

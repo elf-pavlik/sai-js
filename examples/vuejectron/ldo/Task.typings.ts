@@ -15,5 +15,5 @@ export interface Task {
   type: LdSet<{
     '@id': 'Task'
   }>
-  label: string
+  prefLabel: string
 }

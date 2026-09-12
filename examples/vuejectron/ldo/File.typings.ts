@@ -15,7 +15,7 @@ export interface File {
   type: LdSet<{
     '@id': 'File'
   }>
-  label: string
+  prefLabel: string
   fileName: string
   format: string
 }

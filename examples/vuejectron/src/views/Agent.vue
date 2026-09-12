@@ -14,7 +14,7 @@
             <router-link
               :to="{ name: 'project', query: { ...route.query, resourceServer: resourceServer.id, project: project['@id'] } }"
             >
-              {{ project.label }}
+              {{ project.prefLabel }}
             </router-link>
           </v-list-item>
         </v-list>

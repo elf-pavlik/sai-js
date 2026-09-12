@@ -17,8 +17,8 @@
           v-for="task of (appStore.currentProject.hasTask as LdSet<Task>)"
           :key="task['@id']"
         >
-          <v-card v-if="task.label">
-            <v-card-title>{{ task.label }}</v-card-title>
+          <v-card v-if="task.prefLabel">
+            <v-card-title>{{ task.prefLabel }}</v-card-title>
             <v-card-actions>
               <v-btn
                 v-if="appStore.canUpdate(task['@id']!)"
@@ -87,7 +87,7 @@
         </v-list-item>
       </v-list>
       <input-dialog
-        :text="selectedTask?.label"
+        :text="selectedTask?.prefLabel"
         :dialog="dialog"
         @cancel="dialog = false"
         @save="updateTask"
@@ -172,7 +172,7 @@ async function updateTask(label: string) {
     const createdTask = await appStore.draftTask(appStore.currentProject!['@id']!)
     cTask = appStore.changeData(createdTask)
   }
-  cTask.label = label
+  cTask.prefLabel = label
   appStore.updateTask(cTask)
   selectedTask.value = null
   dialog.value = false

@@ -15,7 +15,7 @@ export interface Project {
   type: LdSet<{
     '@id': 'Project'
   }>
-  label: string
+  prefLabel: string
   hasTask?: LdSet<{
     '@id': string
   }>

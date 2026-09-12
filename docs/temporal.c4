@@ -22,87 +22,95 @@ model {
     }
   }
   security Alice {
-    component WebhookReceiver 'ReciprocalWebhookHandler' 'auth' {
-    }
-    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
+    component UAS 'User Authorization Server' 'auth' {
+      component UiApi 'UI RPC+Events API' 'auth' {
+      }
+      component Temporal 'Temporal' {
+      }
+      component WebhookReceiver 'WebhookReceiver' 'auth' {
+      }
+      component Discovery 'Discovery' 'auth' {
+      }
     }
     component WebhookSender 'WebhookSender' 'reg' {
     }
     component StreamingHTTPSender 'StreamingHTTPSender' 'reg' {
     }
-    component Temporal 'Temporal Server' {
-    }
-    component Worker 'Temporal Worker' {
-    }
     component Registry 'Registry' 'registry' {
     }
     component Data 'Data Registry' 'data' {
-    }
-    component UAS 'User Authorization Server' 'auth' {
     }
     component AUI 'Authorization UI' 'ui' {
     }
   }
   security Bob {
+    component UAS 'User Authorization Server' 'auth' {
+      component UiApi 'UI RPC+Events API' 'auth' {
+      }
+      component Temporal 'Temporal' {
+      }
+      component WebhookReceiver 'WebhookReceiver' 'auth' {
+      }
+      component Discovery 'Discovery' 'auth' {
+      }
+    }
     component WebhookSender 'WebhookSender' 'registry' {
-    }
-    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
-    }
-    component Temporal 'Temporal Server' {
-    }
-    component Worker 'Temporal Worker' {
     }
     component Registry 'Registry' 'registry' {
     }
     component Data 'Data Registry' 'data' {
-    }
-    component UAS 'User Authorization Server' 'auth' {
     }
     component AUI 'Authorization UI' 'ui' {
     }
   }
   security Kim {
-    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
-    }
-    component Temporal 'Temporal Server' {
-    }
-    component Worker 'Temporal Worker' {
+    component UAS 'User Authorization Server' 'auth' {
+      component UiApi 'UI RPC+Events API' 'auth' {
+      }
+      component Temporal 'Temporal' {
+      }
+      component WebhookReceiver 'WebhookReceiver' 'auth' {
+      }
+      component Discovery 'Discovery' 'auth' {
+      }
     }
     component Registry 'Registry' 'registry' {
-    }
-    component UAS 'User Authorization Server' 'auth' {
     }
     component AUI 'Authorization UI' 'ui' {
     }
   }
   security Dan {
-    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
-    }
-    component Temporal 'Temporal Server' {
-    }
-    component Worker 'Temporal Worker' {
+    component UAS 'User Authorization Server' 'auth' {
+      component UiApi 'UI RPC+Events API' 'auth' {
+      }
+      component Temporal 'Temporal' {
+      }
+      component WebhookReceiver 'WebhookReceiver' 'auth' {
+      }
+      component Discovery 'Discovery' 'auth' {
+      }
     }
     component Registry 'Registry' 'registry' {
     }
     component Data 'Data Registry' 'data' {
-    }
-    component UAS 'User Authorization Server' 'auth' {
     }
     component AUI 'Authorization UI' 'ui' {
     }
   }
   security YoYo {
-    component ActivityWebhookHandler 'ActivityWebhookHandler' 'auth' {
-    }
-    component Temporal 'Temporal Server' {
-    }
-    component Worker 'Temporal Worker' {
+    component UAS 'User Authorization Server' 'auth' {
+      component UiApi 'UI RPC+Events API' 'auth' {
+      }
+      component Temporal 'Temporal' {
+      }
+      component WebhookReceiver 'WebhookReceiver' 'auth' {
+      }
+      component Discovery 'Discovery' 'auth' {
+      }
     }
     component Registry 'Registry' 'registry' {
     }
     component Data 'Data Registry' 'data' {
-    }
-    component UAS 'User Authorization Server' 'auth' {
     }
   }
   security Peers {
@@ -124,7 +132,7 @@ views {
     title: 'Reciprocal registration update'
 
     include Alice, ACME
-    include DelegationIssuance, ACME.WebhookSender, Alice.WebhookReceiver, Alice.ActivityWebhookHandler, Alice.Registry, Alice.Temporal, Alice.Worker
+    include DelegationIssuance, ACME.WebhookSender, Alice.UAS, Alice.UAS.Temporal, Alice.UAS.WebhookReceiver, Alice.Registry
 
     style Alice {
       color: green
@@ -134,30 +142,44 @@ views {
       color: indigo
     }
 
-    ACME.WebhookSender -> Alice.WebhookReceiver 'notify'
-    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]'
-    Alice.WebhookReceiver -> ACME.WebhookSender 'OK'
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow'
-    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
-    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
-    Alice.Worker -> Alice.Registry 'find affected authorizations [Authorization]'
-    parallel {
-      Alice.Worker -> Alice.Temporal '(child workflows) start update grants workflows'
-      Alice.Temporal -> Alice.Worker 'run update grants workflow'
-      Alice.Worker -> DelegationIssuance '(activity) register delegation with resource owner'
-      DelegationIssuance -> Alice.Worker 'OK'
-      Alice.Worker -> Alice.Registry '(activity) update registration [Agent]'
-      Alice.Registry -> Alice.Worker 'OK'
+    ACME.WebhookSender -> Alice.UAS.WebhookReceiver 'notify'
+    Alice.UAS.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]'
+    Alice.UAS.WebhookReceiver -> ACME.WebhookSender 'OK'
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+    Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >reciprocal-webhook.test.ts > emits pending and done events for the delegatedGrantsUpdated activity
+
+          >[!TIP]
+          >gRPC
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
     }
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Alice.UAS.Temporal -> Alice.Registry 'find affected authorizations [Authorization]'
+    parallel {
+      Alice.UAS.Temporal -> Alice.UAS.Temporal '(child workflows) start update grants workflows'
+      Alice.UAS.Temporal -> Alice.UAS.Temporal 'run update grants workflow'
+      Alice.UAS.Temporal -> DelegationIssuance '(activity) register delegation with resource owner'
+      DelegationIssuance -> Alice.UAS.Temporal 'OK'
+      Alice.UAS.Temporal -> Alice.Registry '(activity) update registration [Agent]'
+      Alice.Registry -> Alice.UAS.Temporal 'OK'
+    }
+    Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]'
   }
 
   dynamic view application-registration-discovery {
     title: 'Discovery / Application Registration'
 
     include Alice, App
-    include Alice.UAS, Alice.Registry
+    include Alice.UAS, Alice.UAS.Discovery, Alice.Registry
 
     style Alice {
       color: green
@@ -167,26 +189,26 @@ views {
       color: gray
     }
 
-    App -> Alice.UAS 'HEAD authorization agent id' {
+    App -> Alice.UAS.Discovery 'HEAD authorization agent id' {
         notes'''
           with credentials
         '''
     }
-    Alice.UAS -> Alice.Registry 'Find Application Registration [Agent]' {
+    Alice.UAS.Discovery -> Alice.Registry 'Find Application Registration [Agent]' {
         notes'''
           since webid in credentials is the same as authorization agent owner
           it will search for application registration
         '''
     }
-    Alice.Registry -> Alice.UAS 'Application Registration'
-    Alice.UAS -> App 'OK with Link in a header to application registration'
+    Alice.Registry -> Alice.UAS.Discovery 'Application Registration'
+    Alice.UAS.Discovery -> App 'OK with Link in a header to application registration'
   }
 
   dynamic view social-agent-registration-discovery {
     title: 'Discovery / Social Agent Registration'
 
     include Bob, Alice
-    include Bob.UAS, Alice.UAS, Alice.Registry
+    include Bob.UAS, Bob.UAS.Discovery, Alice.UAS, Alice.UAS.Discovery, Alice.Registry
 
     style Alice {
       color: green
@@ -196,26 +218,26 @@ views {
       color: indigo
     }
 
-    Bob.UAS -> Alice.UAS 'HEAD authorization agent id' {
+    Bob.UAS.Discovery -> Alice.UAS.Discovery 'HEAD authorization agent id' {
         notes'''
           with credentials
         '''
     }
-    Alice.UAS -> Alice.Registry 'Find Social Agent Registration [Agent]' {
+    Alice.UAS.Discovery -> Alice.Registry 'Find Social Agent Registration [Agent]' {
         notes'''
           since webid in credentials is different than authorization agent owner
           it will search for application registration
         '''
     }
-    Alice.Registry -> Alice.UAS 'Social Agent Registration'
-    Alice.UAS -> Bob.UAS 'OK with Link in a header to social agent registration'
+    Alice.Registry -> Alice.UAS.Discovery 'Social Agent Registration'
+    Alice.UAS.Discovery -> Bob.UAS.Discovery 'OK with Link in a header to social agent registration'
   }
 
   dynamic view org-registry-set-discovery {
     title: 'Discovery / Registry Set'
 
-    include Dan, YoYo, Bob
-    include Dan.UAS, YoYo.UAS, YoYo.Registry
+    include Dan, YoYo
+    include Dan.UAS, Dan.UAS.Discovery, YoYo.UAS, YoYo.UAS.Discovery, YoYo.Registry
 
     style YoYo {
       color: green
@@ -225,50 +247,66 @@ views {
       color: indigo
     }
 
-    style Bob {
-      color: gray
-    }
-
-    Dan.UAS -> YoYo.UAS 'HEAD authorization agent id' {
+    Dan.UAS.Discovery -> YoYo.UAS.Discovery 'HEAD authorization agent id' {
         notes'''
           with credentials
         '''
     }
-    YoYo.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
+    YoYo.UAS.Discovery -> YoYo.Registry 'find Social Agent Registration [Agent]' {
         notes'''
           admin marker — hasAdminGrant on the org's registration of the caller
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "id": "https://registry/yoyo/social-agent/z3k7wm/",
+            "type": ["SocialAgentRegistration"],
+            "registeredAgent": "https://id/dan",
+            "hasAdminGrant": ["https://registry/yoyo/grant/a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d"]
+          }
+          ```
         '''
     }
-    YoYo.Registry -> YoYo.UAS 'Social Agent Registration'
-    YoYo.UAS -> Dan.UAS 'OK with Link in a header to registry set' {
-        notes'''
-          rel=interop:hasRegistrySet — admin only, evaluated against request credentials
-        '''
+    alt {
+      if 'non-admin — no admin marker' {
+        // early return — the request terminates here; illustrates the same
+        // request when Dan is NOT an admin of YoYo
+        YoYo.UAS.Discovery -> Dan.UAS.Discovery '200 OK without hasRegistrySet link'
+      }
+      else 'admin — hasAdminGrant' {
+        YoYo.UAS.Discovery -> Dan.UAS.Discovery 'OK with Link in a header to registry set' {
+            notes'''
+              rel=interop:hasRegistrySet — admin only, evaluated against request credentials
+            '''
+        }
+        Dan.UAS.Discovery -> YoYo.Registry 'resolve RegistrySet' {
+            notes'''
+              load registry set — agent registry, role registry, grant registry, data registries
+            '''
+        }
+        Dan.UAS.Discovery -> YoYo.Registry 'read org registries - role registry [Role]' {
+            notes'''
+              admin session reads with own credentials
+              ---
+
+              ```http
+              HTTP/1.1 200 OK
+              ```
+            '''
+        }
+      }
     }
-    Dan.UAS -> YoYo.Registry 'resolve RegistrySet' {
-        notes'''
-          load registry set — agent registry, role registry, grant registry, data registries
-        '''
-    }
-    Dan.UAS -> YoYo.Registry 'read org registries - role registry [Role]' {
-        notes'''
-          admin session reads with own credentials
-        '''
-    }
-    YoYo.Registry -> Dan.UAS 'roles'
-    Bob.UAS -> YoYo.UAS 'HEAD authorization agent id' {
-        notes'''
-          non-admin — no admin marker
-        '''
-    }
-    YoYo.UAS -> Bob.UAS '200 OK without hasRegistrySet link'
   }
 
   dynamic view org-admin-add {
     title: 'Admin / Dan promotes Bob in YoYo'
 
-    include Dan, YoYo, Bob
-    include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
+    include Bob, YoYo, Dan
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.UAS.Discovery, Bob.Registry, YoYo.UAS, YoYo.UAS.Temporal, YoYo.UAS.WebhookReceiver, YoYo.UAS.Discovery, YoYo.Registry, Dan.UAS, Dan.UAS.Discovery, Dan.UAS.WebhookReceiver, Dan.UAS.UiApi, Dan.AUI
 
     style YoYo {
       color: green
@@ -282,7 +320,7 @@ views {
       color: sky
     }
 
-    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+    Dan.AUI -> Dan.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -300,7 +338,7 @@ views {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) AddAdmin — { webId: bob, context: yoyo }' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) AddAdmin — { webId: bob, context: yoyo }' {
         navigateTo org-registry-set-discovery
         notes'''
           #### POST (RPC) AddAdmin - { webId: bob, context: yoyo }
@@ -332,7 +370,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+    Dan.UAS.Discovery -> YoYo.UAS.Discovery 'discover org registry set' {
         navigateTo org-registry-set-discovery
         notes'''
           #### discover org registry set
@@ -358,7 +396,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'find Social Agent Registration [Agent]' {
         notes'''
           #### find Social Agent Registration [Agent]
           >[!NOTE]
@@ -368,7 +406,7 @@ views {
           > guard read — the promoted agent must already be registered
         '''
     }
-    Dan.UAS -> YoYo.Registry 'pre-mint AdminAuthorization id (validation reads)' {
+    Dan.UAS.UiApi -> YoYo.Registry 'pre-mint AdminAuthorization id (validation reads)' {
         notes'''
           #### pre-mint AdminAuthorization id (validation reads)
           >[!NOTE]
@@ -381,7 +419,7 @@ views {
           > the AdminAuthorization there later
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
         notes'''
           #### PUT AdminAuthorizationGranted activity [Activity]
           >[!NOTE]
@@ -424,7 +462,7 @@ views {
         '''
     }
     parallel {
-      Dan.UAS -> Dan.AUI 'OK (pending) — pre-minted AA id + activityId' {
+      Dan.UAS.UiApi -> Dan.AUI 'OK (pending) — pre-minted AA id + activityId' {
           notes'''
             #### OK (pending) - pre-minted AA id + activityId
             >[!NOTE]
@@ -451,7 +489,7 @@ views {
             * no AdminAuthorization resource yet — the workflow PUTs it
           '''
       }
-      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+      YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
           notes'''
             #### notify Add activity (owner channel - dispatch) [Activity]
             >[!NOTE]
@@ -473,7 +511,7 @@ views {
           '''
       }
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationGranted workflow' {
+    YoYo.UAS.WebhookReceiver -> YoYo.UAS.Temporal 'start processAdminAuthorizationGranted workflow' {
         notes'''
           #### start processAdminAuthorizationGranted workflow
           >[!NOTE]
@@ -502,17 +540,21 @@ views {
             }
           ]
           ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
         '''
     }
-    YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
-    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationGranted' {
+    YoYo.UAS.Temporal -> YoYo.UAS.Temporal '(workflow) run processAdminAuthorizationGranted' {
         notes'''
           #### (workflow) run processAdminAuthorizationGranted
           >[!NOTE]
           >admin-events.test.ts > the admin receives org-context admin activities (pending + done) on their stream
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) PUT AdminAuthorization [Authorization]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) PUT AdminAuthorization [Authorization]' {
         notes'''
           #### (activity) PUT AdminAuthorization [Authorization]
           >[!NOTE]
@@ -548,7 +590,7 @@ views {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(child workflow) createAdminGrants [Grant]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(child workflow) createAdminGrants [Grant]' {
         notes'''
           #### (child workflow) createAdminGrants [Grant]
           >[!NOTE]
@@ -559,7 +601,7 @@ views {
           > with its own ACR
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) replace hasAdminGrant link [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) replace hasAdminGrant link [Agent]' {
         notes'''
           #### (activity) replace hasAdminGrant link [Agent]
           >[!NOTE]
@@ -594,7 +636,28 @@ views {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+    YoYo.Registry -> Bob.UAS.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
+        notes'''
+          #### notify Update — hasAdminGrant PATCH on the reciprocal [Agent]
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+          >[!TIP]
+          > Bob holds a reciprocal webhook on YoYo's registration of him — the hasAdminGrant PATCH `Update` on `registry/yoyo/social-agent/<bob>/` is how he learns about the promotion (no channel on YoYo's ACTIVITY registry)
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> Bob.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
+        notes'''
+          #### PUT delegatedGrantsUpdated activity [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+          >[!IMPORTANT]
+          > Auth: Capability URL
+          >[!TIP]
+          > outbox only — the mirror maintenance runs as the `updateDelegatedGrants` workflow (started by ActivityWebhookHandler); `actor` = bob, as:target = yoyo (the peer whose reciprocal registration changed)
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> YoYo.Registry 'OK'
+    YoYo.UAS.Temporal -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
         notes'''
           #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
           >[!NOTE]
@@ -606,7 +669,7 @@ views {
           > truth; last-admin guard inside the activity)
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -638,7 +701,7 @@ views {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel - forward only) [Activity]
           >[!NOTE]
@@ -649,7 +712,7 @@ views {
           > with the typed activity — the UI reads the embedded object)
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'stream activity events (pending → done)' {
         notes'''
           #### stream activity events (pending - done)
           >[!NOTE]
@@ -679,7 +742,7 @@ views {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
         notes'''
           #### POST (RPC) ListSocialAgents (context: yoyo) - refresh
           >[!NOTE]
@@ -687,18 +750,118 @@ views {
 
           >[!TIP]
           > triggered by the done event — reload the org context agent list
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": [
+              {
+                "id": "https://registry/yoyo/social-agent/z3k7wm/",
+                "label": "Bob",
+                "accessRequested": false,
+                "admin": true,
+                "adminOf": false
+              }
+            ]
+          }
+          ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'list social agents with admin flag [Agent]'
-    YoYo.Registry -> Dan.UAS 'list'
-    Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
+        notes'''
+          #### notify Add activity (owner channel — dispatch) [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+          >[!TIP]
+          > Bob's OWNER channel on his own Activity Registry — forward AND dispatch (the uniform outbox path)
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+          >[!TIP]
+          >gRPC
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Bob.UAS.Temporal -> Bob.Registry '(activity) create activityCompleted [Activity]'
+    Bob.UAS.WebhookReceiver -> Bob.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending → done)
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+          >[!TIP]
+          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row refreshes Bob's personal agent list (events.ts) — YoYo's `adminOf` flag flips on, so YoYo appears in Bob's context switcher
+        '''
+    }
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) ListSocialAgents (context: bob) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: bob) — refresh
+          >[!NOTE]
+          >admin-events.test.ts > the promoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > the DelegatedGrantsUpdated done-row refreshes Bob's personal agent
+          > list — YoYo's `adminOf` flag flips on (Bob now administers the
+          > org's registry set)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
   }
 
   dynamic view org-admin-remove {
     title: 'Admin / Dan demotes Bob in YoYo'
 
-    include Dan, YoYo, Bob
-    include Dan.AUI, Dan.UAS, Dan.ActivityWebhookHandler, YoYo.UAS, YoYo.Registry, YoYo.ActivityWebhookHandler, YoYo.Temporal, YoYo.Worker
+    include Bob, YoYo, Dan
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.UAS.Discovery, Bob.Registry, YoYo.UAS, YoYo.UAS.Temporal, YoYo.UAS.WebhookReceiver, YoYo.UAS.Discovery, YoYo.Registry, Dan.UAS, Dan.UAS.Discovery, Dan.UAS.WebhookReceiver, Dan.UAS.UiApi, Dan.AUI
 
     style YoYo {
       color: green
@@ -712,7 +875,7 @@ views {
       color: sky
     }
 
-    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+    Dan.AUI -> Dan.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -730,7 +893,7 @@ views {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) RemoveAdmin — { webId: bob, context: yoyo }' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) RemoveAdmin — { webId: bob, context: yoyo }' {
         navigateTo org-registry-set-discovery
         notes'''
           #### POST (RPC) RemoveAdmin - { webId: bob, context: yoyo }
@@ -763,7 +926,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+    Dan.UAS.Discovery -> YoYo.UAS.Discovery 'discover org registry set' {
         navigateTo org-registry-set-discovery
         notes'''
           #### discover org registry set
@@ -788,7 +951,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'find Social Agent Registration [Agent]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'find Social Agent Registration [Agent]' {
         notes'''
           #### find Social Agent Registration [Agent]
           >[!NOTE]
@@ -798,7 +961,7 @@ views {
           > guard read — the demoted agent must be registered
         '''
     }
-    Dan.UAS -> YoYo.Registry 'find AdminAuthorization + last-admin guard' {
+    Dan.UAS.UiApi -> YoYo.Registry 'find AdminAuthorization + last-admin guard' {
         notes'''
           #### find AdminAuthorization + last-admin guard
           >[!NOTE]
@@ -810,7 +973,7 @@ views {
           > the workflow re-checks via `syncAdminAcr`
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
         notes'''
           #### PUT AdminAuthorizationRevoked activity [Activity]
           >[!NOTE]
@@ -853,7 +1016,7 @@ views {
         '''
     }
     parallel {
-      Dan.UAS -> Dan.AUI 'OK (pending) — revoked AA id + activityId' {
+      Dan.UAS.UiApi -> Dan.AUI 'OK (pending) — revoked AA id + activityId' {
           notes'''
             #### OK (pending) - revoked AA id + activityId
             >[!NOTE]
@@ -880,7 +1043,7 @@ views {
             * the AdminAuthorization still exists — the workflow DELETEs it
           '''
       }
-      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+      YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
           notes'''
             #### notify Add activity (owner channel - dispatch) [Activity]
             >[!NOTE]
@@ -902,7 +1065,7 @@ views {
           '''
       }
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start processAdminAuthorizationRevoked workflow' {
+    YoYo.UAS.WebhookReceiver -> YoYo.UAS.Temporal 'start processAdminAuthorizationRevoked workflow' {
         notes'''
           #### start processAdminAuthorizationRevoked workflow
           >[!NOTE]
@@ -931,17 +1094,21 @@ views {
             }
           ]
           ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
         '''
     }
-    YoYo.Temporal -> YoYo.ActivityWebhookHandler 'OK'
-    YoYo.Temporal -> YoYo.Worker '(workflow) run processAdminAuthorizationRevoked' {
+    YoYo.UAS.Temporal -> YoYo.UAS.Temporal '(workflow) run processAdminAuthorizationRevoked' {
         notes'''
           #### (workflow) run processAdminAuthorizationRevoked
           >[!NOTE]
           >admin-events.test.ts > demotion removes the admin from the ACR while keeping the remaining admin
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
         notes'''
           #### (activity) DELETE AdminAuthorization [Authorization]
           >[!NOTE]
@@ -966,7 +1133,7 @@ views {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(child workflow) revokeAdminGrants [Grant]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(child workflow) revokeAdminGrants [Grant]' {
         notes'''
           #### (child workflow) revokeAdminGrants [Grant]
           >[!NOTE]
@@ -978,7 +1145,35 @@ views {
           > the org's registration of the admin
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+    YoYo.Registry -> Bob.UAS.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
+        notes'''
+          #### notify Update - hasAdminGrant PATCH on the reciprocal [Agent]
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > the demotion unlinks `hasAdminGrant` with a single PATCH on
+          > YoYo's registration of Bob (`registry/yoyo/social-agent/<bob>/`)
+          > — the reciprocal webhook delivers the `Update`, so Bob learns he is
+          > no longer an admin
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> Bob.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
+        notes'''
+          #### PUT delegatedGrantsUpdated activity [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          >[!TIP]
+          > outbox only — the mirror maintenance runs as the `updateDelegatedGrants`
+          > workflow; `actor` = bob, as:target = yoyo
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> YoYo.Registry 'OK'
+    YoYo.UAS.Temporal -> YoYo.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
         notes'''
           #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
           >[!NOTE]
@@ -990,7 +1185,7 @@ views {
           > the remaining admins stay); last-admin re-guard inside the activity
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -1021,7 +1216,7 @@ views {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel - forward only) [Activity]
           >[!NOTE]
@@ -1032,7 +1227,7 @@ views {
           > with the typed activity — the UI reads the embedded object)
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'stream activity events (pending → done)' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'stream activity events (pending → done)' {
         notes'''
           #### stream activity events (pending - done)
           >[!NOTE]
@@ -1066,7 +1261,7 @@ views {
           > agent list (events.ts) — bob's admin flag flips off
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) ListSocialAgents (context: yoyo) — refresh' {
         notes'''
           #### POST (RPC) ListSocialAgents (context: yoyo) - refresh
           >[!NOTE]
@@ -1074,21 +1269,127 @@ views {
 
           >[!TIP]
           > triggered by the done event — reload the org context agent list
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=4f8fe6e4-4a5a-4318-93f6-d8645778fc28
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/yoyo"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+
+          ```json
+          {
+            "_tag": "Success",
+            "value": [
+              {
+                "id": "https://registry/yoyo/social-agent/z3k7wm/",
+                "label": "Bob",
+                "accessRequested": false,
+                "admin": false,
+                "adminOf": false
+              }
+            ]
+          }
+          ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'list social agents with admin flag [Agent]'
-    YoYo.Registry -> Dan.UAS 'list'
-    Dan.UAS -> Dan.AUI 'OK — agents with admin flag'
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
+        notes'''
+          #### notify Add activity (owner channel - dispatch) [Activity]
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Bob's OWNER channel on his own Activity Registry — forward AND
+          > dispatch (the uniform outbox path)
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          >gRPC
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Bob.UAS.Temporal -> Bob.Registry '(activity) create activityCompleted [Activity]'
+    Bob.UAS.WebhookReceiver -> Bob.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row
+          > refreshes Bob's personal agent list (events.ts) — YoYo's `adminOf`
+          > flag flips OFF, so YoYo drops out of Bob's admin contexts
+        '''
+    }
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) ListSocialAgents (context: bob) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: bob) — refresh
+          >[!NOTE]
+          >admin-events.test.ts > the demoted agent learns via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > the DelegatedGrantsUpdated done-row refreshes Bob's personal agent
+          > list — YoYo's `adminOf` flag flips off
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
   }
 
   dynamic view org-admin-add-personal {
-    title: 'Personal / Kim promotes Alice to her admin'
+    title: 'Admin / Kim promotes Alice to her admin'
 
     include Kim, Alice
     // mirrored pair order (invitation-view convention): Kim forward
     // AUI → Worker, Alice reversed Worker → AUI; WebhookReceiver is Alice's
     // inbound edge (the reciprocal Update enters there)
-    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Registry, Kim.Temporal, Kim.Worker, Alice.Worker, Alice.Temporal, Alice.ActivityWebhookHandler, Alice.Registry, Alice.UAS, Alice.AUI, Alice.WebhookReceiver
+    include Kim.AUI, Kim.UAS, Kim.UAS.UiApi, Kim.UAS.Temporal, Kim.UAS.WebhookReceiver, Kim.Registry, Alice.Registry, Alice.UAS.WebhookReceiver, Alice.UAS.Temporal, Alice.UAS.UiApi, Alice.UAS, Alice.AUI
 
     style Kim {
       color: indigo
@@ -1098,7 +1399,7 @@ views {
       color: sky
     }
 
-    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+    Kim.AUI -> Kim.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -1116,7 +1417,7 @@ views {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) AddAdmin — { webId: alice, context: kim }' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) AddAdmin — { webId: alice, context: kim }' {
         notes'''
           #### POST (RPC) AddAdmin - { webId: alice, context: kim }
           >[!NOTE]
@@ -1148,7 +1449,7 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'find Social Agent Registration [Agent]' {
+    Kim.UAS.UiApi -> Kim.Registry 'find Social Agent Registration [Agent]' {
         notes'''
           #### find Social Agent Registration [Agent]
           >[!NOTE]
@@ -1159,7 +1460,7 @@ views {
           > Kim's social agent registry (`plp3a3`)
         '''
     }
-    Kim.UAS -> Kim.Registry 'pre-mint AdminAuthorization id (validation reads)' {
+    Kim.UAS.UiApi -> Kim.Registry 'pre-mint AdminAuthorization id (validation reads)' {
         notes'''
           #### pre-mint AdminAuthorization id (validation reads)
           >[!NOTE]
@@ -1171,7 +1472,7 @@ views {
           > via `iriForContained` — no synchronous record
         '''
     }
-    Kim.UAS -> Kim.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
+    Kim.UAS.UiApi -> Kim.Registry 'PUT AdminAuthorizationGranted activity [Activity]' {
         notes'''
           #### PUT AdminAuthorizationGranted activity [Activity]
           >[!NOTE]
@@ -1213,7 +1514,7 @@ views {
         '''
     }
     parallel {
-      Kim.UAS -> Kim.AUI 'OK (pending) — pre-minted AA id + activityId' {
+      Kim.UAS.UiApi -> Kim.AUI 'OK (pending) — pre-minted AA id + activityId' {
           notes'''
             #### OK (pending) - pre-minted AA id + activityId
             >[!NOTE]
@@ -1230,7 +1531,7 @@ views {
             ```
           '''
       }
-      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+      Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
           notes'''
             #### notify Add activity (owner channel - dispatch) [Activity]
             >[!NOTE]
@@ -1242,7 +1543,7 @@ views {
           '''
       }
     }
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start processAdminAuthorizationGranted workflow' {
+    Kim.UAS.WebhookReceiver -> Kim.UAS.Temporal 'start processAdminAuthorizationGranted workflow' {
         notes'''
           #### start processAdminAuthorizationGranted workflow
           >[!NOTE]
@@ -1254,17 +1555,21 @@ views {
           >[!TIP]
           > the decoded object passes verbatim (the workflow's data arg); the
           > triggering activity rides as a typed ref — traceable completion
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
         '''
     }
-    Kim.Temporal -> Kim.ActivityWebhookHandler 'OK'
-    Kim.Temporal -> Kim.Worker '(workflow) run processAdminAuthorizationGranted' {
+    Kim.UAS.Temporal -> Kim.UAS.Temporal '(workflow) run processAdminAuthorizationGranted' {
         notes'''
           #### (workflow) run processAdminAuthorizationGranted
           >[!NOTE]
           >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) PUT AdminAuthorization [Authorization]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) PUT AdminAuthorization [Authorization]' {
         notes'''
           #### (activity) PUT AdminAuthorization [Authorization]
           >[!NOTE]
@@ -1279,7 +1584,7 @@ views {
           > skips)
         '''
     }
-    Kim.Worker -> Kim.Registry '(child workflow) createAdminGrants [Grant]' {
+    Kim.UAS.Temporal -> Kim.Registry '(child workflow) createAdminGrants [Grant]' {
         notes'''
           #### (child workflow) createAdminGrants [Grant]
           >[!NOTE]
@@ -1291,7 +1596,7 @@ views {
           > each with its own ACR — 3 grants in Kim's GrantRegistry
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) replace hasAdminGrant link [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) replace hasAdminGrant link [Agent]' {
         notes'''
           #### (activity) replace hasAdminGrant link [Agent]
           >[!NOTE]
@@ -1310,7 +1615,7 @@ views {
           ```
         '''
     }
-    Kim.Registry -> Alice.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
+    Kim.Registry -> Alice.UAS.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
         notes'''
           #### notify Update - hasAdminGrant PATCH on the reciprocal [Agent]
           >[!NOTE]
@@ -1333,7 +1638,7 @@ views {
           ```
         '''
     }
-    Alice.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
+    Alice.UAS.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
         notes'''
           #### PUT delegatedGrantsUpdated activity [Activity]
           >[!NOTE]
@@ -1349,55 +1654,8 @@ views {
           > registration changed)
         '''
     }
-    Alice.WebhookReceiver -> Kim.Registry 'OK'
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
-        notes'''
-          #### notify Add activity (owner channel - dispatch) [Activity]
-          >[!NOTE]
-          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
-
-          >[!TIP]
-          > Alice's OWNER channel on her own Activity Registry — forward AND
-          > dispatch (the uniform outbox path)
-        '''
-    }
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start updateDelegatedGrants workflow' {
-        notes'''
-          #### start updateDelegatedGrants workflow
-          >[!NOTE]
-          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
-
-          >[!TIP]
-          >gRPC
-        '''
-    }
-    Alice.Temporal -> Alice.ActivityWebhookHandler 'OK'
-    Alice.Temporal -> Alice.Worker '(workflow) run updateDelegatedGrants'
-    Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
-    Alice.ActivityWebhookHandler -> Alice.AUI 'stream activity events (pending → done)' {
-        notes'''
-          #### stream activity events (pending - done)
-          >[!NOTE]
-          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
-
-          >[!TIP]
-          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row
-          > refreshes Alice's personal agent list (events.ts) — Kim's
-          > `adminOf` flag flips on, so Kim appears in Alice's context
-          > switcher
-        '''
-    }
-    Alice.AUI -> Alice.UAS 'POST (RPC) ListSocialAgents (context: alice) — refresh' {
-        notes'''
-          #### POST (RPC) ListSocialAgents (context: alice) - refresh
-          >[!NOTE]
-          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
-        '''
-    }
-    Alice.UAS -> Alice.Registry 'list social agents with admin flag [Agent]'
-    Alice.Registry -> Alice.UAS 'list'
-    Alice.UAS -> Alice.AUI 'OK — Kim adminOf flag flips on'
-    Kim.Worker -> Kim.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
+    Alice.UAS.WebhookReceiver -> Kim.Registry 'OK'
+    Kim.UAS.Temporal -> Kim.Registry '(child workflow) syncAdminAcr — rewrite .acr #fullAdminAccess' {
         notes'''
           #### (child workflow) syncAdminAcr - rewrite .acr #fullAdminAccess
           >[!NOTE]
@@ -1410,7 +1668,7 @@ views {
           > full-admin matcher is applied for the first time
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -1420,7 +1678,7 @@ views {
           > only after grants AND ACR rewrite succeeded — single completion
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.AUI 'stream activity events (pending → done)' {
+    Kim.UAS.WebhookReceiver -> Kim.AUI 'stream activity events (pending → done)' {
         notes'''
           #### stream activity events (pending - done)
           >[!NOTE]
@@ -1432,23 +1690,97 @@ views {
           > `admin` flag flips on (Phase 5)
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
         notes'''
           #### POST (RPC) ListSocialAgents (context: kim) - refresh
           >[!NOTE]
           >personal-admin.test.ts > AddAdmin in the personal context materializes the AA, grants, marker and ACR
         '''
     }
-    Kim.UAS -> Kim.Registry 'list social agents with admin flag [Agent]'
-    Kim.Registry -> Kim.UAS 'list'
-    Kim.UAS -> Kim.AUI 'OK — agents with admin flag'
+    Kim.UAS.UiApi -> Kim.Registry 'list social agents with admin flag [Agent]'
+    Kim.Registry -> Kim.UAS.UiApi 'list'
+    Kim.UAS.UiApi -> Kim.AUI 'OK — agents with admin flag'
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
+        notes'''
+          #### notify Add activity (owner channel - dispatch) [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Alice's OWNER channel on her own Activity Registry — forward AND
+          > dispatch (the uniform outbox path)
+        '''
+    }
+    Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          >gRPC
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.UAS.WebhookReceiver -> Alice.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row
+          > refreshes Alice's personal agent list (events.ts) — Kim's
+          > `adminOf` flag flips on, so Kim appears in Alice's context
+          > switcher
+        '''
+    }
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) ListSocialAgents (context: alice) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: alice) - refresh
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the promotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > the DelegatedGrantsUpdated done-row refreshes Alice's personal
+          > agent list — Kim's `adminOf` flag flips on, so Kim appears in
+          > Alice's context switcher
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
   }
 
   dynamic view org-admin-remove-personal {
-    title: 'Personal / Kim demotes Alice'
+    title: 'Admin / Kim demotes Alice'
 
     include Kim, Alice
-    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Registry, Kim.Temporal, Kim.Worker, Alice.UAS
+    include Kim.AUI, Kim.UAS, Kim.UAS.UiApi, Kim.UAS.Temporal, Kim.UAS.WebhookReceiver, Kim.Registry, Alice.Registry, Alice.UAS.WebhookReceiver, Alice.UAS.Temporal, Alice.UAS.UiApi, Alice.UAS, Alice.AUI
 
     style Kim {
       color: indigo
@@ -1458,7 +1790,7 @@ views {
       color: sky
     }
 
-    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+    Kim.AUI -> Kim.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -1471,7 +1803,7 @@ views {
           > response stays alive for streaming
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) RemoveAdmin — { webId: alice, context: kim }' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) RemoveAdmin — { webId: alice, context: kim }' {
         notes'''
           #### POST (RPC) RemoveAdmin - { webId: alice, context: kim }
           >[!NOTE]
@@ -1486,14 +1818,14 @@ views {
           > activity-first step 6: validation reads + activity write only
         '''
     }
-    Kim.UAS -> Kim.Registry 'find Social Agent Registration [Agent]' {
+    Kim.UAS.UiApi -> Kim.Registry 'find Social Agent Registration [Agent]' {
         notes'''
           #### find Social Agent Registration [Agent]
           >[!NOTE]
           >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
         '''
     }
-    Kim.UAS -> Kim.Registry 'find AdminAuthorization (no last-admin guard)' {
+    Kim.UAS.UiApi -> Kim.Registry 'find AdminAuthorization (no last-admin guard)' {
         notes'''
           #### find AdminAuthorization (no last-admin guard)
           >[!NOTE]
@@ -1505,7 +1837,7 @@ views {
           > owner; an org would refuse at this point)
         '''
     }
-    Kim.UAS -> Kim.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
+    Kim.UAS.UiApi -> Kim.Registry 'PUT AdminAuthorizationRevoked activity [Activity]' {
         notes'''
           #### PUT AdminAuthorizationRevoked activity [Activity]
           >[!NOTE]
@@ -1520,14 +1852,14 @@ views {
         '''
     }
     parallel {
-      Kim.UAS -> Kim.AUI 'OK (pending) — revoked AA id + activityId' {
+      Kim.UAS.UiApi -> Kim.AUI 'OK (pending) — revoked AA id + activityId' {
           notes'''
             #### OK (pending) - revoked AA id + activityId
             >[!NOTE]
             >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
           '''
       }
-      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (owner channel — dispatch) [Activity]' {
+      Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
           notes'''
             #### notify Add activity (owner channel - dispatch) [Activity]
             >[!NOTE]
@@ -1535,7 +1867,7 @@ views {
           '''
       }
     }
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start processAdminAuthorizationRevoked workflow' {
+    Kim.UAS.WebhookReceiver -> Kim.UAS.Temporal 'start processAdminAuthorizationRevoked workflow' {
         notes'''
           #### start processAdminAuthorizationRevoked workflow
           >[!NOTE]
@@ -1543,17 +1875,21 @@ views {
 
           >[!TIP]
           >gRPC
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
         '''
     }
-    Kim.Temporal -> Kim.ActivityWebhookHandler 'OK'
-    Kim.Temporal -> Kim.Worker '(workflow) run processAdminAuthorizationRevoked' {
+    Kim.UAS.Temporal -> Kim.UAS.Temporal '(workflow) run processAdminAuthorizationRevoked' {
         notes'''
           #### (workflow) run processAdminAuthorizationRevoked
           >[!NOTE]
           >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) DELETE AdminAuthorization [Authorization]' {
         notes'''
           #### (activity) DELETE AdminAuthorization [Authorization]
           >[!NOTE]
@@ -1567,7 +1903,7 @@ views {
           > 404-tolerant (a retry after a crash skips)
         '''
     }
-    Kim.Worker -> Kim.Registry '(child workflow) revokeAdminGrants [Grant]' {
+    Kim.UAS.Temporal -> Kim.Registry '(child workflow) revokeAdminGrants [Grant]' {
         notes'''
           #### (child workflow) revokeAdminGrants [Grant]
           >[!NOTE]
@@ -1578,7 +1914,35 @@ views {
           > `hasAdminGrant` — single PATCH on Kim's registration of Alice
         '''
     }
-    Kim.Worker -> Kim.Registry '(child workflow) syncAdminAcr — empty admin list removes #fullAdminAccess' {
+    Kim.Registry -> Alice.UAS.WebhookReceiver 'notify Update — hasAdminGrant PATCH on the reciprocal [Agent]' {
+        notes'''
+          #### notify Update - hasAdminGrant PATCH on the reciprocal [Agent]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Kim's reciprocal webhook channel on her registration of Alice
+          > (`registry/kim/social-agent/plp3a3/` — the Phase 5 seed) delivers
+          > the PATCH `Update` removing the admin marker — Alice holds NO
+          > channel on Kim's ACTIVITY registry, so this is how she learns
+        '''
+    }
+    Alice.UAS.WebhookReceiver -> Alice.Registry 'PUT delegatedGrantsUpdated activity [Activity]' {
+        notes'''
+          #### PUT delegatedGrantsUpdated activity [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!IMPORTANT]
+          > Auth: Capability URL
+
+          >[!TIP]
+          > outbox only — the mirror maintenance runs as the
+          > `updateDelegatedGrants` workflow; `actor` = alice, as:target = kim
+        '''
+    }
+    Alice.UAS.WebhookReceiver -> Kim.Registry 'OK'
+    Kim.UAS.Temporal -> Kim.Registry '(child workflow) syncAdminAcr — empty admin list removes #fullAdminAccess' {
         notes'''
           #### (child workflow) syncAdminAcr - empty admin list removes #fullAdminAccess
           >[!NOTE]
@@ -1591,7 +1955,7 @@ views {
           > instead of refusing; orgs never reach this state (RPC guard)
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -1602,7 +1966,7 @@ views {
           > single completion
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.AUI 'stream activity events (pending → done)' {
+    Kim.UAS.WebhookReceiver -> Kim.AUI 'stream activity events (pending → done)' {
         notes'''
           #### stream activity events (pending - done)
           >[!NOTE]
@@ -1613,16 +1977,89 @@ views {
           > list — Alice's direct `admin` flag flips off (Phase 5)
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) ListSocialAgents (context: kim) — refresh' {
         notes'''
           #### POST (RPC) ListSocialAgents (context: kim) - refresh
           >[!NOTE]
           >personal-admin.test.ts > RemoveAdmin demotes the only admin — the owner remains (no last-admin lockout)
         '''
     }
-    Kim.UAS -> Kim.Registry 'list social agents with admin flag [Agent]'
-    Kim.Registry -> Kim.UAS 'list'
-    Kim.UAS -> Kim.AUI 'OK — agents with admin flag'
+    Kim.UAS.UiApi -> Kim.Registry 'list social agents with admin flag [Agent]'
+    Kim.Registry -> Kim.UAS.UiApi 'list'
+    Kim.UAS.UiApi -> Kim.AUI 'OK — agents with admin flag'
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (owner channel — dispatch) [Activity]' {
+        notes'''
+          #### notify Add activity (owner channel - dispatch) [Activity]
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > Alice's OWNER channel on her own Activity Registry — forward AND
+          > dispatch (the uniform outbox path)
+        '''
+    }
+    Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          >gRPC
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]'
+    Alice.UAS.WebhookReceiver -> Alice.AUI 'stream activity events (pending → done)' {
+        notes'''
+          #### stream activity events (pending - done)
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > /.sai/events NDJSON stream - the DelegatedGrantsUpdated done-row
+          > refreshes Alice's personal agent list (events.ts) — Kim's
+          > `adminOf` flag flips OFF
+        '''
+    }
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) ListSocialAgents (context: alice) — refresh' {
+        notes'''
+          #### POST (RPC) ListSocialAgents (context: alice) - refresh
+          >[!NOTE]
+          >personal-admin.test.ts > Alice's UI learns about the demotion via the reciprocal channel (delegatedGrantsUpdated)
+
+          >[!TIP]
+          > the DelegatedGrantsUpdated done-row refreshes Alice's personal agent
+          > list — Kim's `adminOf` flag flips off
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ListSocialAgents",
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
   }
 }
 
@@ -1631,7 +2068,7 @@ views "Authorization" {
     title: 'Authorization data (app)'
 
     include Alice, App, Common
-    include App.CID, App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Common.Shapetrees
+    include App.CID, App.UI, Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.Registry, Alice.Data, Common.Shapetrees
 
     style Alice {
       color: green
@@ -1646,18 +2083,18 @@ views "Authorization" {
     }
 
     App.UI -> Alice.AUI 'redirect'
-    Alice.AUI -> Alice.UAS 'POST (RPC) getAuthorizationData'
-    Alice.UAS -> App.CID 'GET discover access needs'
-    App.CID -> Alice.UAS '200 OK'
-    Alice.UAS -> Alice.Data 'find relevant data registrations [Data]'
-    Alice.Data -> Alice.UAS 'list'
-    Alice.UAS -> Alice.Registry 'find relevant grants to relevant data registrations [Grant]'
-    Alice.Registry -> Alice.UAS 'list'
-    Alice.UAS -> App.CID 'GET access needs descriptions'
-    App.CID -> Alice.UAS '200 OK'
-    Alice.UAS -> Common.Shapetrees 'GET shapetrees descriptions'
-    Common.Shapetrees -> Alice.UAS '200 OK'
-    Alice.UAS -> Alice.AUI 'OK authorization data'
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) getAuthorizationData'
+    Alice.UAS.UiApi -> App.CID 'GET discover access needs'
+    App.CID -> Alice.UAS.UiApi '200 OK'
+    Alice.UAS.UiApi -> Alice.Data 'find relevant data registrations [Data]'
+    Alice.Data -> Alice.UAS.UiApi 'list'
+    Alice.UAS.UiApi -> Alice.Registry 'find relevant grants to relevant data registrations [Grant]'
+    Alice.Registry -> Alice.UAS.UiApi 'list'
+    Alice.UAS.UiApi -> App.CID 'GET access needs descriptions'
+    App.CID -> Alice.UAS.UiApi '200 OK'
+    Alice.UAS.UiApi -> Common.Shapetrees 'GET shapetrees descriptions'
+    Common.Shapetrees -> Alice.UAS.UiApi '200 OK'
+    Alice.UAS.UiApi -> Alice.AUI 'OK authorization data'
     Alice.AUI .overview Alice.UAS 'authorize' {
         navigateTo authorization
         notes'''
@@ -1671,7 +2108,7 @@ views "Authorization" {
     title: 'Authorization'
 
     include Bob, App
-    include Bob.AUI, Bob.UAS, Bob.ActivityWebhookHandler, Bob.Registry, Bob.Temporal, Bob.Worker
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.Registry
 
     style Bob {
       color: indigo
@@ -1688,7 +2125,7 @@ views "Authorization" {
           needed to render the authorization screen
         '''
     }
-    Bob.AUI -> Bob.UAS 'POST (RPC) authorization' {
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) authorization' {
         notes'''
           #### POST (RPC) authorization
           >[!NOTE]
@@ -1737,7 +2174,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.UAS -> Bob.Registry 'PUT AuthorizationGranted activity (embedded DAs at pre-minted ids) [Activity]' {
+    Bob.UAS.UiApi -> Bob.Registry 'PUT AuthorizationGranted activity (embedded DAs at pre-minted ids) [Activity]' {
         notes'''
           #### PUT AuthorizationGranted activity (embedded DAs at pre-minted ids)
           >[!NOTE]
@@ -1789,7 +2226,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.UAS -> Bob.AUI '202 (pending) — ids + activityId' {
+    Bob.UAS.UiApi -> Bob.AUI '202 (pending) — ids + activityId' {
         notes'''
           #### 202 (pending) — ids + activityId
           >[!NOTE]
@@ -1808,10 +2245,24 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-    Bob.ActivityWebhookHandler -> Bob.Temporal 'start processAuthorizationGranted workflow'
-    Bob.Temporal -> Bob.ActivityWebhookHandler 'OK'
-    Bob.Temporal -> Bob.Worker '(workflow) run processAuthorizationGranted' {
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start processAuthorizationGranted workflow' {
+        notes'''
+          #### start processAuthorizationGranted workflow
+          >[!NOTE]
+          >authorization.test.ts > the activity-first granting (Step 2)
+
+          >[!TIP]
+          >gRPC
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run processAuthorizationGranted' {
         notes'''
           #### (workflow) run processAuthorizationGranted
           >[!NOTE]
@@ -1822,9 +2273,9 @@ views "Authorization" {
     }
     parallel {
       loop 'grantees.each' {
-        Bob.Worker -> Bob.Temporal '(child workflows) start processGranteeAuthorization per grantee'
-        Bob.Temporal -> Bob.Worker '(workflow) run processGranteeAuthorization'
-        Bob.Worker -> Bob.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
+        Bob.UAS.Temporal -> Bob.UAS.Temporal '(child workflows) start processGranteeAuthorization per grantee'
+        Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run processGranteeAuthorization'
+        Bob.UAS.Temporal -> Bob.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
             notes'''
               #### (activity) PUT DataAuthorizations at the pre-minted ids
               >[!NOTE]
@@ -1847,7 +2298,7 @@ views "Authorization" {
         }
         parallel {
           loop 'grants.each' {
-            Bob.Worker -> Bob.Registry '(activity) create grants [Grant]' {
+            Bob.UAS.Temporal -> Bob.Registry '(activity) create grants [Grant]' {
                 notes'''
                   #### (activity) create grants [Grant]
                   >[!NOTE]
@@ -1861,7 +2312,7 @@ views "Authorization" {
         }
       }
     }
-    Bob.Worker -> Bob.Registry '(activity) create activityCompleted [Activity]' {
+    Bob.UAS.Temporal -> Bob.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -1869,7 +2320,7 @@ views "Authorization" {
           > ALL children succeed (§5.1 — no per-grantee completions)
         '''
     }
-    Bob.ActivityWebhookHandler -> Bob.AUI 'done'
+    Bob.UAS.WebhookReceiver -> Bob.AUI 'done'
     Bob.AUI -> App 'redirect back'
     App .overview Bob.UAS 'discover application registration' {
         navigateTo application-registration-discovery
@@ -1884,7 +2335,7 @@ views {
     title: 'Invitation / Dan invites Kim'
 
     include Kim, Dan
-    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, Dan.Worker, Dan.Registry, Dan.Temporal, Dan.ActivityWebhookHandler, Dan.UAS, Dan.AUI
+    include Kim.AUI, Kim.UAS, Kim.UAS.UiApi, Kim.UAS.Temporal, Kim.UAS.WebhookReceiver, Kim.UAS.Discovery, Kim.Registry, Dan.Registry, Dan.UAS.Discovery, Dan.UAS.WebhookReceiver, Dan.UAS.Temporal, Dan.UAS.UiApi, Dan.UAS, Dan.AUI
 
     style Dan {
       color: sky
@@ -1894,7 +2345,7 @@ views {
       color: indigo
     }
 
-    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+    Dan.AUI -> Dan.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -1913,7 +2364,7 @@ views {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) createInvitation' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) createInvitation' {
         notes'''
           #### POST (RPC) createInvitation
           >[!NOTE]
@@ -1941,7 +2392,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'PUT invitationCreated activity [Activity]' {
+    Dan.UAS.UiApi -> Dan.Registry 'PUT invitationCreated activity [Activity]' {
         notes'''
           #### PUT invitationCreated activity [Activity]
           >[!NOTE]
@@ -1982,7 +2433,7 @@ views {
         '''
     }
     parallel {
-      Dan.UAS -> Dan.AUI 'OK (pending)' {
+      Dan.UAS.UiApi -> Dan.AUI 'OK (pending)' {
           notes'''
             #### OK (pending)
             >[!NOTE]
@@ -2014,7 +2465,7 @@ views {
             * no `capabilityUrl` in the response
           '''
       }
-      Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Dan.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -2039,7 +2490,7 @@ views {
           '''
       }
     }
-    Dan.ActivityWebhookHandler -> Dan.Temporal 'start createInvitation workflow' {
+    Dan.UAS.WebhookReceiver -> Dan.UAS.Temporal 'start createInvitation workflow' {
         notes'''
           #### start createInvitation workflow
           >[!NOTE]
@@ -2065,7 +2516,7 @@ views {
           ```
         '''
     }
-    Dan.Temporal -> Dan.Worker '(workflow) run createInvitation' {
+    Dan.UAS.Temporal -> Dan.UAS.Temporal '(workflow) run createInvitation' {
         notes'''
           #### (workflow) run createInvitation
           >[!NOTE]
@@ -2075,7 +2526,7 @@ views {
           >gRPC
         '''
     }
-    Dan.Worker -> Dan.Registry 'PUT invitation resource [Agent]' {
+    Dan.UAS.Temporal -> Dan.Registry 'PUT invitation resource [Agent]' {
         notes'''
           #### (activity) PUT invitation resource [Agent]
           >[!NOTE]
@@ -2110,7 +2561,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Dan.Registry 'PUT activityCompleted [Activity]' {
+    Dan.UAS.Temporal -> Dan.Registry 'PUT activityCompleted [Activity]' {
         notes'''
           #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
@@ -2140,7 +2591,7 @@ views {
           ```
         '''
     }
-    Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Dan.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -2161,7 +2612,7 @@ views {
           ```
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'done' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'done' {
         notes'''
           #### done
           >[!NOTE]
@@ -2209,7 +2660,7 @@ views {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+    Kim.AUI -> Kim.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -2227,7 +2678,7 @@ views {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) acceptInvitation' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) acceptInvitation' {
         notes'''
           #### POST (RPC) acceptInvitation
           >[!NOTE]
@@ -2256,7 +2707,7 @@ views {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
+    Kim.UAS.UiApi -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### PUT invitationAccepted activity [Activity]
           >[!NOTE]
@@ -2294,7 +2745,7 @@ views {
         '''
     }
     parallel {
-      Kim.UAS -> Kim.AUI 'OK (pending)' {
+      Kim.UAS.UiApi -> Kim.AUI 'OK (pending)' {
           notes'''
             #### OK (pending)
             >[!NOTE]
@@ -2314,7 +2765,7 @@ views {
             ```
           '''
       }
-      Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -2339,7 +2790,7 @@ views {
           '''
       }
     }
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start acceptInvitation workflow' {
+    Kim.UAS.WebhookReceiver -> Kim.UAS.Temporal 'start acceptInvitation workflow' {
         notes'''
           #### start acceptInvitation workflow
           >[!NOTE]
@@ -2367,7 +2818,7 @@ views {
           ```
         '''
     }
-    Kim.Temporal -> Kim.Worker '(workflow) run acceptInvitation' {
+    Kim.UAS.Temporal -> Kim.UAS.Temporal '(workflow) run acceptInvitation' {
         notes'''
           #### (workflow) run acceptInvitation
           >[!NOTE]
@@ -2395,7 +2846,7 @@ views {
           ```
         '''
     }
-    Kim.Worker -> Dan.UAS '(activity) POST capabilityUrl' {
+    Kim.UAS.Temporal -> Dan.UAS.Discovery '(activity) POST capabilityUrl' {
         notes'''
           #### (activity) POST capabilityUrl
           >[!NOTE]
@@ -2410,7 +2861,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'fetch Social Agent Invitation [Agent]' {
+    Dan.UAS.Discovery -> Dan.Registry 'fetch Social Agent Invitation [Agent]' {
         notes'''
           #### fetch Social Agent Invitation [Agent]
           >[!NOTE]
@@ -2435,7 +2886,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'update Social Agent Invitation [Agent]' {
+    Dan.UAS.Discovery -> Dan.Registry 'update Social Agent Invitation [Agent]' {
         notes'''
           #### update Social Agent Invitation [Agent]
           >[!NOTE]
@@ -2467,7 +2918,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> Dan.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+    Dan.UAS.Discovery -> Dan.Registry 'PUT agentRegistrationAdded activity [Activity]' {
         notes'''
           #### PUT agentRegistrationAdded activity [Activity]
           >[!NOTE]
@@ -2505,7 +2956,7 @@ views {
         '''
     }
     parallel {
-      Dan.UAS -> Kim.Worker 'WebId' {
+      Dan.UAS.Discovery -> Kim.UAS.Temporal 'WebId' {
           notes'''
             #### WebId
             >[!NOTE]
@@ -2521,7 +2972,7 @@ views {
             ```
           '''
       }
-      Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Dan.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -2546,7 +2997,7 @@ views {
           '''
       }
     }
-    Dan.ActivityWebhookHandler -> Dan.Temporal 'start establishReciprocal workflow' {
+    Dan.UAS.WebhookReceiver -> Dan.UAS.Temporal 'start establishReciprocal workflow' {
         notes'''
           #### start establishReciprocal workflow
           >[!NOTE]
@@ -2574,7 +3025,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Dan.Registry '(activity) create Social Agent Registration [Agent]' {
+    Dan.UAS.Temporal -> Dan.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
           #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
@@ -2609,7 +3060,7 @@ views {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
           #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
@@ -2643,7 +3094,7 @@ views {
           ```
         '''
     }
-    Kim.Worker -> Dan.UAS '(activity) discover reciprocal registration' {
+    Kim.UAS.Temporal -> Dan.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -2668,7 +3119,7 @@ views {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -2697,7 +3148,7 @@ views {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -2717,7 +3168,7 @@ views {
           ```
         '''
     }
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -2741,7 +3192,7 @@ views {
           ```
         '''
     }
-    Dan.Temporal -> Dan.Worker '(workflow) run establishReciprocal' {
+    Dan.UAS.Temporal -> Dan.UAS.Temporal '(workflow) run establishReciprocal' {
         notes'''
           #### (workflow) run establishReciprocal
           >[!NOTE]
@@ -2769,7 +3220,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Kim.UAS '(activity) discover reciprocal registration' {
+    Dan.UAS.Temporal -> Kim.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -2794,7 +3245,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Dan.Registry '(activity) update reciprocal registration [Agent]' {
+    Dan.UAS.Temporal -> Dan.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -2823,7 +3274,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Kim.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+    Dan.UAS.Temporal -> Kim.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
         notes'''
           #### (activity) subscribe webhook to reciprocal registration [Agent]
           >[!NOTE]
@@ -2848,7 +3299,7 @@ views {
           ```
         '''
     }
-    Dan.Worker -> Dan.Registry '(activity) create activityCompleted [Activity]' {
+    Dan.UAS.Temporal -> Dan.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -2868,7 +3319,7 @@ views {
           ```
         '''
     }
-    Dan.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Dan.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -2892,7 +3343,7 @@ views {
           ```
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+    Kim.UAS.WebhookReceiver -> Kim.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > personal
@@ -2921,7 +3372,7 @@ views {
           ```
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > personal
@@ -2956,7 +3407,7 @@ views {
     title: 'Invitation / Dan as YoYo admin invites Kim'
 
     include Kim, YoYo, Dan
-    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
+    include Kim.AUI, Kim.UAS, Kim.UAS.UiApi, Kim.UAS.Temporal, Kim.UAS.WebhookReceiver, Kim.UAS.Discovery, Kim.Registry, YoYo.Registry, YoYo.UAS.Discovery, YoYo.UAS.WebhookReceiver, YoYo.UAS.Temporal, YoYo.UAS, Dan.UAS, Dan.UAS.Discovery, Dan.UAS.WebhookReceiver, Dan.UAS.UiApi, Dan.AUI
 
     style YoYo {
       color: green
@@ -2970,7 +3421,7 @@ views {
       color: sky
     }
 
-    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+    Dan.AUI -> Dan.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -2988,7 +3439,7 @@ views {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) createInvitation' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) createInvitation' {
         notes'''
           #### POST (RPC) createInvitation
           >[!NOTE]
@@ -3016,7 +3467,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+    Dan.UAS.Discovery -> YoYo.UAS.Discovery 'discover org registry set' {
         navigateTo org-registry-set-discovery
         notes'''
           #### discover org registry set
@@ -3040,7 +3491,7 @@ views {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT invitationCreated activity [Activity]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'PUT invitationCreated activity [Activity]' {
         notes'''
           #### PUT invitationCreated activity [Activity]
           >[!NOTE]
@@ -3081,7 +3532,7 @@ views {
         '''
     }
     parallel {
-      Dan.UAS -> Dan.AUI 'OK (pending)' {
+      Dan.UAS.UiApi -> Dan.AUI 'OK (pending)' {
           notes'''
             #### OK (pending)
             >[!NOTE]
@@ -3113,7 +3564,7 @@ views {
             * no `capabilityUrl` in the response
           '''
       }
-      YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -3135,7 +3586,7 @@ views {
           '''
       }
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start createInvitation workflow' {
+    YoYo.UAS.WebhookReceiver -> YoYo.UAS.Temporal 'start createInvitation workflow' {
         notes'''
           #### start createInvitation workflow
           >[!NOTE]
@@ -3158,14 +3609,14 @@ views {
           ```
         '''
     }
-    YoYo.Temporal -> YoYo.Worker '(workflow) run createInvitation' {
+    YoYo.UAS.Temporal -> YoYo.UAS.Temporal '(workflow) run createInvitation' {
         notes'''
           #### (workflow) run createInvitation
           >[!NOTE]
           >invitation.test.ts > admin
         '''
     }
-    YoYo.Worker -> YoYo.Registry 'PUT invitation resource [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry 'PUT invitation resource [Agent]' {
         notes'''
           #### (activity) PUT invitation resource [Agent]
           >[!NOTE]
@@ -3199,7 +3650,7 @@ views {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry 'PUT activityCompleted [Activity]' {
+    YoYo.UAS.Temporal -> YoYo.Registry 'PUT activityCompleted [Activity]' {
         notes'''
           #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
@@ -3226,14 +3677,14 @@ views {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
           >invitation.test.ts > admin
         '''
     }
-    YoYo.ActivityWebhookHandler -> Dan.AUI 'done' {
+    YoYo.UAS.WebhookReceiver -> Dan.AUI 'done' {
         notes'''
           #### done
           >[!NOTE]
@@ -3280,7 +3731,7 @@ views {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+    Kim.AUI -> Kim.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -3299,7 +3750,7 @@ views {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) acceptInvitation' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) acceptInvitation' {
         notes'''
           #### POST (RPC) acceptInvitation
           >[!NOTE]
@@ -3328,7 +3779,7 @@ views {
           ```
         '''
     }
-Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
+Kim.UAS.UiApi -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### PUT invitationAccepted activity [Activity]
           >[!NOTE]
@@ -3365,7 +3816,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.AUI 'OK (pending)' {
+    Kim.UAS.UiApi -> Kim.AUI 'OK (pending)' {
         notes'''
           #### OK (pending)
           >[!NOTE]
@@ -3385,7 +3836,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -3409,7 +3860,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start acceptInvitation workflow' {
+    Kim.UAS.WebhookReceiver -> Kim.UAS.Temporal 'start acceptInvitation workflow' {
         notes'''
           #### start acceptInvitation workflow
           >[!NOTE]
@@ -3437,7 +3888,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Temporal -> Kim.Worker '(workflow) run acceptInvitation' {
+    Kim.UAS.Temporal -> Kim.UAS.Temporal '(workflow) run acceptInvitation' {
         notes'''
           #### (workflow) run acceptInvitation
           >[!NOTE]
@@ -3465,7 +3916,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> YoYo.UAS '(activity) POST capabilityUrl' {
+    Kim.UAS.Temporal -> YoYo.UAS.Discovery '(activity) POST capabilityUrl' {
         notes'''
           #### (activity) POST capabilityUrl
           >[!NOTE]
@@ -3480,7 +3931,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.UAS -> YoYo.Registry 'fetch Social Agent Invitation [Agent]' {
+    YoYo.UAS.Discovery -> YoYo.Registry 'fetch Social Agent Invitation [Agent]' {
         notes'''
           #### fetch Social Agent Invitation [Agent]
           >[!NOTE]
@@ -3505,7 +3956,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.UAS -> YoYo.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+    YoYo.UAS.Discovery -> YoYo.Registry 'PUT agentRegistrationAdded activity [Activity]' {
         notes'''
           #### PUT agentRegistrationAdded activity [Activity]
           >[!NOTE]
@@ -3542,7 +3993,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.UAS -> YoYo.Registry 'update Social Agent Invitation [Agent]' {
+    YoYo.UAS.Discovery -> YoYo.Registry 'update Social Agent Invitation [Agent]' {
         notes'''
           #### update Social Agent Invitation [Agent]
           >[!NOTE]
@@ -3574,7 +4025,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.UAS -> Kim.Worker 'WebId' {
+    YoYo.UAS.Discovery -> Kim.UAS.Temporal 'WebId' {
         notes'''
           #### WebId
           >[!NOTE]
@@ -3590,7 +4041,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel — forward only) [Activity]
           >[!NOTE]
@@ -3619,7 +4070,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -3648,7 +4099,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start establishReciprocal workflow' {
+    YoYo.UAS.WebhookReceiver -> YoYo.UAS.Temporal 'start establishReciprocal workflow' {
         notes'''
           #### start establishReciprocal workflow
           >[!NOTE]
@@ -3676,7 +4127,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create Social Agent Registration [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
           #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
@@ -3711,7 +4162,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
           #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
@@ -3742,7 +4193,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> YoYo.UAS '(activity) discover reciprocal registration' {
+    Kim.UAS.Temporal -> YoYo.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -3767,7 +4218,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -3796,7 +4247,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -3816,7 +4267,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -3840,7 +4291,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Temporal -> YoYo.Worker '(workflow) run establishReciprocal' {
+    YoYo.UAS.Temporal -> YoYo.UAS.Temporal '(workflow) run establishReciprocal' {
         notes'''
           #### (workflow) run establishReciprocal
           >[!NOTE]
@@ -3868,7 +4319,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> Kim.UAS '(activity) discover reciprocal registration' {
+    YoYo.UAS.Temporal -> Kim.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -3893,7 +4344,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -3922,7 +4373,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> Kim.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+    YoYo.UAS.Temporal -> Kim.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
         notes'''
           #### (activity) subscribe webhook to reciprocal registration [Agent]
           >[!NOTE]
@@ -3947,7 +4398,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -3967,7 +4418,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -3991,7 +4442,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel — forward only) [Activity]
           >[!NOTE]
@@ -4020,7 +4471,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > admin
@@ -4049,7 +4500,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+    Kim.UAS.WebhookReceiver -> Kim.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > admin
@@ -4084,7 +4535,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
     title: 'Invitation / Kim invites YoYo, accepted by Dan (YoYo admin)'
 
     include Kim, YoYo, Dan
-    include Kim.AUI, Kim.UAS, Kim.ActivityWebhookHandler, Kim.Temporal, Kim.Registry, Kim.Worker, YoYo.Worker, YoYo.Registry, YoYo.Temporal, YoYo.ActivityWebhookHandler, YoYo.UAS, Dan.AUI, Dan.ActivityWebhookHandler, Dan.UAS
+    include Kim.AUI, Kim.UAS, Kim.UAS.UiApi, Kim.UAS.Temporal, Kim.UAS.WebhookReceiver, Kim.UAS.Discovery, Kim.Registry, YoYo.Registry, YoYo.UAS.Discovery, YoYo.UAS.WebhookReceiver, YoYo.UAS.Temporal, YoYo.UAS, Dan.UAS, Dan.UAS.Discovery, Dan.UAS.WebhookReceiver, Dan.UAS.UiApi, Dan.AUI
 
     style YoYo {
       color: green
@@ -4098,7 +4549,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
       color: sky
     }
 
-    Kim.AUI -> Kim.UAS 'Connect to the notifications stream' {
+    Kim.AUI -> Kim.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -4117,7 +4568,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.AUI -> Kim.UAS 'POST (RPC) createInvitation' {
+    Kim.AUI -> Kim.UAS.UiApi 'POST (RPC) createInvitation' {
         notes'''
           #### POST (RPC) createInvitation
           >[!NOTE]
@@ -4145,7 +4596,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'PUT invitation resource [Agent]' {
+    Kim.UAS.UiApi -> Kim.Registry 'PUT invitation resource [Agent]' {
         notes'''
           #### PUT invitation resource [Agent]
           >[!NOTE]
@@ -4179,7 +4630,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.AUI 'OK' {
+    Kim.UAS.UiApi -> Kim.AUI 'OK' {
         notes'''
           #### OK
           >[!NOTE]
@@ -4212,7 +4663,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           >`https://auth/.sai/invitations/aHR0cHM6Ly9pZC9raW0.8f19934d-b6a6-4a73-9d27-8cd20ed0657f`
         '''
     }
-    Dan.AUI -> Dan.UAS 'Connect to the notifications stream' {
+    Dan.AUI -> Dan.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -4231,7 +4682,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.AUI -> Dan.UAS 'POST (RPC) acceptInvitation' {
+    Dan.AUI -> Dan.UAS.UiApi 'POST (RPC) acceptInvitation' {
         notes'''
           #### POST (RPC) acceptInvitation
           >[!NOTE]
@@ -4260,7 +4711,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.UAS -> YoYo.UAS 'discover org registry set' {
+    Dan.UAS.Discovery -> YoYo.UAS.Discovery 'discover org registry set' {
         navigateTo org-registry-set-discovery
         notes'''
           #### discover org registry set
@@ -4284,7 +4735,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.UAS -> YoYo.Registry 'PUT invitationAccepted activity [Activity]' {
+    Dan.UAS.UiApi -> YoYo.Registry 'PUT invitationAccepted activity [Activity]' {
         notes'''
           #### PUT invitationAccepted activity [Activity]
           >[!NOTE]
@@ -4324,7 +4775,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.UAS -> Dan.AUI 'OK (pending)' {
+    Dan.UAS.UiApi -> Dan.AUI 'OK (pending)' {
         notes'''
           #### OK (pending)
           >[!NOTE]
@@ -4344,7 +4795,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel — forward only) [Activity]
           >[!NOTE]
@@ -4373,7 +4824,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -4402,7 +4853,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.ActivityWebhookHandler -> YoYo.Temporal 'start acceptInvitation workflow' {
+    YoYo.UAS.WebhookReceiver -> YoYo.UAS.Temporal 'start acceptInvitation workflow' {
         notes'''
           #### start acceptInvitation workflow
           >[!NOTE]
@@ -4430,7 +4881,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Temporal -> YoYo.Worker '(workflow) run acceptInvitation' {
+    YoYo.UAS.Temporal -> YoYo.UAS.Temporal '(workflow) run acceptInvitation' {
         notes'''
           #### (workflow) run acceptInvitation
           >[!NOTE]
@@ -4458,7 +4909,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> Kim.UAS '(activity) POST capabilityUrl' {
+    YoYo.UAS.Temporal -> Kim.UAS.Discovery '(activity) POST capabilityUrl' {
         notes'''
           #### (activity) POST capabilityUrl
           >[!NOTE]
@@ -4473,7 +4924,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'fetch Social Agent Invitation [Agent]' {
+    Kim.UAS.Discovery -> Kim.Registry 'fetch Social Agent Invitation [Agent]' {
         notes'''
           #### fetch Social Agent Invitation [Agent]
           >[!NOTE]
@@ -4498,7 +4949,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'create Social Agent Registration [Agent]' {
+    Kim.UAS.Discovery -> Kim.Registry 'create Social Agent Registration [Agent]' {
         notes'''
           #### create Social Agent Registration [Agent]
           >[!NOTE]
@@ -4529,7 +4980,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]' {
+    Kim.UAS.Discovery -> Kim.Registry 'PUT agentRegistrationAdded activity [Activity]' {
         notes'''
           #### PUT agentRegistrationAdded activity [Activity]
           >[!NOTE]
@@ -4566,7 +5017,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> Kim.Registry 'update Social Agent Invitation [Agent]' {
+    Kim.UAS.Discovery -> Kim.Registry 'update Social Agent Invitation [Agent]' {
         notes'''
           #### update Social Agent Invitation [Agent]
           >[!NOTE]
@@ -4598,7 +5049,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.UAS -> YoYo.Worker 'WebId' {
+    Kim.UAS.Discovery -> YoYo.UAS.Temporal 'WebId' {
         notes'''
           #### WebId
           >[!NOTE]
@@ -4614,7 +5065,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -4638,7 +5089,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.ActivityWebhookHandler -> Kim.Temporal 'start establishReciprocal workflow' {
+    Kim.UAS.WebhookReceiver -> Kim.UAS.Temporal 'start establishReciprocal workflow' {
         notes'''
           #### start establishReciprocal workflow
           >[!NOTE]
@@ -4666,7 +5117,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create Social Agent Registration [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create Social Agent Registration [Agent]' {
         notes'''
           #### (activity) create Social Agent Registration [Agent]
           >[!NOTE]
@@ -4697,7 +5148,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> Kim.UAS '(activity) discover reciprocal registration' {
+    YoYo.UAS.Temporal -> Kim.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -4722,7 +5173,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -4751,7 +5202,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Worker -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
+    YoYo.UAS.Temporal -> YoYo.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -4771,7 +5222,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> YoYo.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    YoYo.Registry -> YoYo.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -4795,7 +5246,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    YoYo.Registry -> Dan.ActivityWebhookHandler 'notify Add activity (admin channel — forward only) [Activity]' {
+    YoYo.Registry -> Dan.UAS.WebhookReceiver 'notify Add activity (admin channel — forward only) [Activity]' {
         notes'''
           #### notify Add activity (admin channel — forward only) [Activity]
           >[!NOTE]
@@ -4824,7 +5275,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Dan.ActivityWebhookHandler -> Dan.AUI 'forward done event (NDJSON)' {
+    Dan.UAS.WebhookReceiver -> Dan.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > admin
@@ -4853,7 +5304,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Temporal -> Kim.Worker '(workflow) run establishReciprocal' {
+    Kim.UAS.Temporal -> Kim.UAS.Temporal '(workflow) run establishReciprocal' {
         notes'''
           #### (workflow) run establishReciprocal
           >[!NOTE]
@@ -4881,7 +5332,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> YoYo.UAS '(activity) discover reciprocal registration' {
+    Kim.UAS.Temporal -> YoYo.UAS.Discovery '(activity) discover reciprocal registration' {
         navigateTo social-agent-registration-discovery
         notes'''
           #### (activity) discover reciprocal registration [Agent]
@@ -4906,7 +5357,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) update reciprocal registration [Agent]' {
         notes'''
           #### (activity) update reciprocal registration [Agent]
           >[!NOTE]
@@ -4935,7 +5386,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> YoYo.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+    Kim.UAS.Temporal -> YoYo.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
         notes'''
           #### (activity) subscribe webhook to reciprocal registration [Agent]
           >[!NOTE]
@@ -4960,7 +5411,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Worker -> Kim.Registry '(activity) create activityCompleted [Activity]' {
+    Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
           >[!NOTE]
@@ -4980,7 +5431,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Kim.Registry -> Kim.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Kim.Registry -> Kim.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -5005,7 +5456,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
 
-    Kim.ActivityWebhookHandler -> Kim.AUI 'forward done event (NDJSON)' {
+    Kim.UAS.WebhookReceiver -> Kim.AUI 'forward done event (NDJSON)' {
         notes'''
           >[!NOTE]
           >invitation.test.ts > admin
@@ -5040,13 +5491,13 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
     title: 'Roles / Alice updates members of the Chums role'
 
     include Alice
-    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker
+    include Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.UAS.Temporal, Alice.UAS.WebhookReceiver, Alice.Registry
 
     style Alice {
       color: green
     }
 
-    Alice.AUI -> Alice.UAS 'Connect to the notifications stream' {
+    Alice.AUI -> Alice.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -5064,7 +5515,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Alice.AUI -> Alice.UAS 'POST (RPC) updateRole' {
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) updateRole' {
         notes'''
           #### POST (RPC) updateRole
           >[!NOTE]
@@ -5097,7 +5548,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Alice.UAS -> Alice.Registry 'PUT roleMembershipChanged activity [Activity]' {
+    Alice.UAS.UiApi -> Alice.Registry 'PUT roleMembershipChanged activity [Activity]' {
         notes'''
           #### PUT roleMembershipChanged activity [Activity]
           >[!NOTE]
@@ -5138,7 +5589,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
     parallel {
-      Alice.Registry -> Alice.UAS 'pending ack (role-to-be + activityId)' {
+      Alice.Registry -> Alice.UAS.UiApi 'pending ack (role-to-be + activityId)' {
           notes'''
             #### pending ack (role-to-be + activityId)
             >[!NOTE]
@@ -5171,7 +5622,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             * no synchronous PATCH — the role is updated by the workflow
           '''
       }
-      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -5193,7 +5644,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           '''
       }
     }
-    Alice.ActivityWebhookHandler -> Alice.Temporal 'start processRoleMembershipChange workflow' {
+    Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start processRoleMembershipChange workflow' {
         notes'''
           #### start processRoleMembershipChange workflow
           >[!NOTE]
@@ -5223,14 +5674,14 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Alice.Temporal -> Alice.Worker '(workflow) run processRoleMembershipChange' {
+    Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run processRoleMembershipChange' {
         notes'''
           #### (workflow) run processRoleMembershipChange
           >[!NOTE]
           >roles.test.ts > update role chums remove kim add bob
         '''
     }
-    Alice.Worker -> Alice.Registry '(activity) load role before-image + PUT role [Role]' {
+    Alice.UAS.Temporal -> Alice.Registry '(activity) load role before-image + PUT role [Role]' {
         notes'''
           #### (activity) load role before-image + PUT role [Role]
           >[!NOTE]
@@ -5265,7 +5716,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Alice.Worker -> Alice.Registry 'find role usage [Authorization]' {
+    Alice.UAS.Temporal -> Alice.Registry 'find role usage [Authorization]' {
         notes'''
           #### find role usage [Authorization]
           >[!NOTE]
@@ -5277,7 +5728,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
     parallel {
-      Alice.Worker -> Alice.Temporal '(child workflows) start create grants for each affected agent' {
+      Alice.UAS.Temporal -> Alice.UAS.Temporal '(child workflows) start create grants for each affected agent' {
           notes'''
             #### (child workflows) start create grants for each affected agent
             >[!NOTE]
@@ -5288,8 +5739,8 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             > dataOwner authorizations
           '''
       }
-      Alice.Temporal -> Alice.Worker 'run createGrantsForAgent'
-      Alice.Worker -> Alice.Registry '(activity) replace grants + registration [Grant]' {
+      Alice.UAS.Temporal -> Alice.UAS.Temporal 'run createGrantsForAgent'
+      Alice.UAS.Temporal -> Alice.Registry '(activity) replace grants + registration [Grant]' {
           notes'''
             #### (activity) replace grants + registration [Grant]
             >[!NOTE]
@@ -5322,9 +5773,9 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             ```
           '''
       }
-      Alice.Registry -> Alice.Worker 'OK'
+      Alice.Registry -> Alice.UAS.Temporal 'OK'
     }
-    Alice.Worker -> Alice.Registry 'PUT activityCompleted [Activity]' {
+    Alice.UAS.Temporal -> Alice.Registry 'PUT activityCompleted [Activity]' {
         notes'''
           #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
@@ -5351,14 +5802,14 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
           >roles.test.ts > update role chums remove kim add bob
         '''
     }
-    Alice.ActivityWebhookHandler -> Alice.AUI 'done' {
+    Alice.UAS.WebhookReceiver -> Alice.AUI 'done' {
         notes'''
           #### done
           >[!NOTE]
@@ -5393,13 +5844,13 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
     title: 'Roles / Bob deletes the Whiz role'
 
     include Bob
-    include Bob.AUI, Bob.UAS, Bob.Registry, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.Registry
 
     style Bob {
       color: green
     }
 
-    Bob.AUI -> Bob.UAS 'Connect to the notifications stream' {
+    Bob.AUI -> Bob.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -5417,7 +5868,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.AUI -> Bob.UAS 'POST (RPC) deleteRole' {
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) deleteRole' {
         notes'''
           #### POST (RPC) deleteRole
           >[!NOTE]
@@ -5449,7 +5900,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.UAS -> Bob.Registry 'GET role — guard read + snapshot source [Role]' {
+    Bob.UAS.UiApi -> Bob.Registry 'GET role — guard read + snapshot source [Role]' {
         notes'''
           #### GET role - guard read + snapshot source [Role]
           >[!NOTE]
@@ -5485,7 +5936,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.UAS -> Bob.Registry 'PUT roleDeleted activity [Activity]' {
+    Bob.UAS.UiApi -> Bob.Registry 'PUT roleDeleted activity [Activity]' {
         notes'''
           #### PUT roleDeleted activity [Activity]
           >[!NOTE]
@@ -5527,7 +5978,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
     parallel {
-      Bob.Registry -> Bob.UAS 'pending ack (deleted role id + activityId)' {
+      Bob.Registry -> Bob.UAS.UiApi 'pending ack (deleted role id + activityId)' {
           notes'''
             #### pending ack (deleted role id + activityId)
             >[!NOTE]
@@ -5554,7 +6005,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             * no synchronous DELETE — the role is deleted by the workflow
           '''
       }
-      Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -5576,7 +6027,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           '''
       }
     }
-    Bob.ActivityWebhookHandler -> Bob.Temporal 'start processRoleDeletion workflow' {
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start processRoleDeletion workflow' {
         notes'''
           #### start processRoleDeletion workflow
           >[!NOTE]
@@ -5606,7 +6057,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.Temporal -> Bob.Worker '(workflow) run processRoleDeletion' {
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run processRoleDeletion' {
         notes'''
           #### (workflow) run processRoleDeletion
           >[!NOTE]
@@ -5618,7 +6069,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           > while the authorizations still exist
         '''
     }
-    Bob.Worker -> Bob.Registry 'find role usage [Authorization]' {
+    Bob.UAS.Temporal -> Bob.Registry 'find role usage [Authorization]' {
         notes'''
           #### find role usage [Authorization]
           >[!NOTE]
@@ -5632,7 +6083,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           > are gone, e.g. on a retry)
         '''
     }
-    Bob.Worker -> Bob.Registry 'DELETE matched authorizations [Authorization]' {
+    Bob.UAS.Temporal -> Bob.Registry 'DELETE matched authorizations [Authorization]' {
         notes'''
           #### (activity) DELETE matched authorizations [Authorization]
           >[!NOTE]
@@ -5652,7 +6103,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.Worker -> Bob.Registry '(activity) delete role [Role]' {
+    Bob.UAS.Temporal -> Bob.Registry '(activity) delete role [Role]' {
         notes'''
           #### (activity) delete role [Role]
           >[!NOTE]
@@ -5680,7 +6131,7 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
         '''
     }
     parallel {
-      Bob.Worker -> Bob.Temporal '(child workflows) start create grants for each affected agent' {
+      Bob.UAS.Temporal -> Bob.UAS.Temporal '(child workflows) start create grants for each affected agent' {
           notes'''
             #### (child workflows) start create grants for each affected agent
             >[!NOTE]
@@ -5692,8 +6143,8 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             > the usage scan)
           '''
       }
-      Bob.Temporal -> Bob.Worker 'run createGrantsForAgent'
-      Bob.Worker -> Bob.Registry '(activity) replace grants + registration [Grant]' {
+      Bob.UAS.Temporal -> Bob.UAS.Temporal 'run createGrantsForAgent'
+      Bob.UAS.Temporal -> Bob.Registry '(activity) replace grants + registration [Grant]' {
           notes'''
             #### (activity) replace grants + registration [Grant]
             >[!NOTE]
@@ -5727,9 +6178,9 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
             ```
           '''
       }
-      Bob.Registry -> Bob.Worker 'OK'
+      Bob.Registry -> Bob.UAS.Temporal 'OK'
     }
-    Bob.Worker -> Bob.Registry 'PUT activityCompleted [Activity]' {
+    Bob.UAS.Temporal -> Bob.Registry 'PUT activityCompleted [Activity]' {
         notes'''
           #### (activity) PUT activityCompleted [Activity]
           >[!NOTE]
@@ -5760,14 +6211,14 @@ Kim.UAS -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
-    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
           >roles.test.ts > delete grantee role
         '''
     }
-    Bob.ActivityWebhookHandler -> Bob.AUI 'done' {
+    Bob.UAS.WebhookReceiver -> Bob.AUI 'done' {
         notes'''
           #### done
           >[!NOTE]
@@ -5809,7 +6260,7 @@ views "Authorization" {
       title: 'Share resource'
 
       include Alice, App, Peers
-      include App.UI, Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Peers.UAS
+      include App.UI, Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.UAS.Temporal, Alice.UAS.WebhookReceiver, Alice.Registry, Alice.Data, Peers.UAS
 
       style Alice {
         color: green
@@ -5833,7 +6284,7 @@ views "Authorization" {
             > indicates the `resource` on the share window
           '''
       }
-      Alice.AUI -> Alice.UAS 'POST (RPC) getResource' {
+      Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) getResource' {
           notes'''
             #### POST (RPC) getResource
             >[!NOTE]
@@ -5848,7 +6299,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.UAS -> Alice.Data 'GET indicated resource [Data]' {
+      Alice.UAS.UiApi -> Alice.Data 'GET indicated resource [Data]' {
           notes'''
             #### GET indicated resource [Data]
             >[!NOTE]
@@ -5869,7 +6320,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.UAS -> Alice.Registry 'find social agents with access [Authorization][Agent]' {
+      Alice.UAS.UiApi -> Alice.Registry 'find social agents with access [Authorization][Agent]' {
           notes'''
             #### find social agents with access [Authorization][Agent]
             >[!NOTE]
@@ -5884,7 +6335,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.UAS -> Alice.AUI 'OK relevant data' {
+      Alice.UAS.UiApi -> Alice.AUI 'OK relevant data' {
           notes'''
             #### OK relevant data
             >[!NOTE]
@@ -5892,7 +6343,7 @@ views "Authorization" {
             > into the response)
           '''
       }
-      Alice.AUI -> Alice.UAS 'POST (RPC) shareResource' {
+      Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) shareResource' {
           notes'''
             #### POST (RPC) shareResource
             >[!NOTE]
@@ -5931,7 +6382,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.UAS -> Alice.Registry 'PUT authorizationGranted activity [Activity]' {
+      Alice.UAS.UiApi -> Alice.Registry 'PUT authorizationGranted activity [Activity]' {
           notes'''
             #### PUT authorizationGranted activity [Activity]
             >[!NOTE]
@@ -5994,7 +6445,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.UAS -> Alice.AUI 'OK confirmation' {
+      Alice.UAS.UiApi -> Alice.AUI 'OK confirmation' {
           notes'''
             #### OK confirmation
             >[!NOTE]
@@ -6021,7 +6472,7 @@ views "Authorization" {
             >share.test.ts > the app receives the callback
           '''
       }
-      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -6045,7 +6496,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.ActivityWebhookHandler -> Alice.Temporal 'start processAuthorizationGranted workflow' {
+      Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start processAuthorizationGranted workflow' {
           notes'''
             #### start processAuthorizationGranted workflow
             >[!NOTE]
@@ -6091,7 +6542,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.Temporal -> Alice.Worker '(workflow) run processAuthorizationGranted' {
+      Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run processAuthorizationGranted' {
           notes'''
             #### (workflow) run processAuthorizationGranted
             >[!NOTE]
@@ -6101,9 +6552,9 @@ views "Authorization" {
       }
       parallel {
         loop 'grantees.each' {
-          Alice.Worker -> Alice.Temporal '(child workflows) start processGranteeAuthorization per grantee'
-          Alice.Temporal -> Alice.Worker '(workflow) run processGranteeAuthorization'
-          Alice.Worker -> Alice.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
+          Alice.UAS.Temporal -> Alice.UAS.Temporal '(child workflows) start processGranteeAuthorization per grantee'
+          Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run processGranteeAuthorization'
+          Alice.UAS.Temporal -> Alice.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
               notes'''
                 #### (activity) PUT DataAuthorizations at the pre-minted ids [Authorization]
                 >[!NOTE]
@@ -6125,7 +6576,7 @@ views "Authorization" {
           }
           parallel {
             loop 'grants.each' {
-              Alice.Worker -> Alice.Registry '(activity) create grants [Grant]' {
+              Alice.UAS.Temporal -> Alice.Registry '(activity) create grants [Grant]' {
                   notes'''
                     #### (activity) create grants [Grant]
                     >[!NOTE]
@@ -6137,7 +6588,7 @@ views "Authorization" {
               }
             }
             loop 'delegatedGrants.each' {
-              Alice.Worker -> Peers.UAS '(activity) request delegated grants (AccessRequest)' {
+              Alice.UAS.Temporal -> Peers.UAS '(activity) request delegated grants (AccessRequest)' {
                   notes'''
                     #### (activity) request delegated grants (AccessRequest)
                     >[!NOTE]
@@ -6147,12 +6598,12 @@ views "Authorization" {
                     > Auth: Solid OIDC access token as `alice`
                   '''
               }
-              Peers.UAS -> Alice.Worker 'grant IRIs'
+              Peers.UAS -> Alice.UAS.Temporal 'grant IRIs'
             }
           }
       }
     }
-      Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]' {
+      Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]' {
           notes'''
             #### (activity) create activityCompleted [Activity]
             >[!NOTE]
@@ -6164,8 +6615,8 @@ views "Authorization" {
     title: 'Request access'
 
     include Bob, Alice
-    include Bob.AUI, Bob.UAS, Bob.ActivityWebhookHandler, Bob.Temporal, Bob.Worker, Bob.Registry
-    include Alice.UAS, Alice.ActivityWebhookHandler, Alice.Temporal, Alice.Worker, Alice.Registry
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.Registry
+    include Alice.UAS, Alice.UAS.Temporal, Alice.UAS.WebhookReceiver, Alice.UAS.Discovery, Alice.Registry
 
     style Alice {
       color: green
@@ -6175,7 +6626,7 @@ views "Authorization" {
       color: indigo
     }
 
-    Bob.AUI -> Bob.UAS 'Connect to the notifications stream' {
+    Bob.AUI -> Bob.UAS.UiApi 'Connect to the notifications stream' {
         notes'''
           #### Connect to the notifications stream
           >[!NOTE]
@@ -6194,7 +6645,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.AUI -> Bob.UAS 'POST (RPC) requestAccessUsingApplicationNeeds' {
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) requestAccessUsingApplicationNeeds' {
         notes'''
           #### POST (RPC) requestAccessUsingApplicationNeeds
           >[!NOTE]
@@ -6246,7 +6697,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.UAS -> Bob.Registry 'PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]' {
+    Bob.UAS.UiApi -> Bob.Registry 'PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]' {
         notes'''
           #### PUT NeedBasedAccessRequestSent activity (urn:uuid snapshot) [Activity]
           >[!NOTE]
@@ -6311,7 +6762,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.UAS -> Bob.AUI 'OK (pending)' {
+    Bob.UAS.UiApi -> Bob.AUI 'OK (pending)' {
         notes'''
           #### OK (pending)
           >[!NOTE]
@@ -6340,7 +6791,7 @@ views "Authorization" {
           * no `id` in the response (no resource is minted requester-side)
         '''
     }
-    Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
         notes'''
           #### notify Add activity (subscription webhook) [Activity]
           >[!NOTE]
@@ -6364,7 +6815,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.ActivityWebhookHandler -> Bob.Temporal 'start requester-side workflow (NeedBasedAccessRequestSent)' {
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start requester-side workflow (NeedBasedAccessRequestSent)' {
         notes'''
           #### start requester-side workflow (NeedBasedAccessRequestSent)
           >[!NOTE]
@@ -6413,7 +6864,7 @@ views "Authorization" {
           ```
         '''
     }
-    Bob.Temporal -> Bob.Worker '(workflow) run requester-side NeedBasedAccessRequestSent workflow' {
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run requester-side NeedBasedAccessRequestSent workflow' {
         notes'''
           #### (workflow) run requester-side NeedBasedAccessRequestSent workflow
           >[!NOTE]
@@ -6423,7 +6874,7 @@ views "Authorization" {
           >gRPC
         '''
     }
-    Bob.Worker -> Alice.UAS 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
+    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
         notes'''
           #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
           >[!NOTE]
@@ -6481,7 +6932,7 @@ views "Authorization" {
           > the group content mirrors the seeded access needs (`environments/data/registry.trig` #need-group-pm) — Project + inherited Task only in this view's payload; FRESH urn:uuid ids; FIRST PASS carries NO description literals (en/es descriptions follow up)
         '''
     }
-    Alice.UAS -> Alice.Registry 'find social agent registration of Bob [Agent]' {
+    Alice.UAS.Discovery -> Alice.Registry 'find social agent registration of Bob [Agent]' {
         notes'''
           #### find social agent registration of Bob [Agent]
           >[!NOTE]
@@ -6507,7 +6958,7 @@ views "Authorization" {
     }
     alt {
       if 'validation fails' {
-        Alice.UAS -> Bob.Worker '403 Forbidden' {
+        Alice.UAS.Discovery -> Bob.UAS.Temporal '403 Forbidden' {
             notes'''
               #### 403 Forbidden
               >[!NOTE]
@@ -6522,7 +6973,7 @@ views "Authorization" {
             '''
         }      }
       else 'registered' {
-        Alice.UAS -> Alice.Registry 'mint AccessRequest id + PUT NeedBasedAccessRequestReceived activity [Activity]' {
+        Alice.UAS.Discovery -> Alice.Registry 'mint AccessRequest id + PUT NeedBasedAccessRequestReceived activity [Activity]' {
             notes'''
               #### mint AccessRequest id + PUT NeedBasedAccessRequestReceived activity [Activity]
               >[!NOTE]
@@ -6588,7 +7039,7 @@ views "Authorization" {
               ```
             '''
         }
-        Alice.UAS -> Bob.Worker '202 Accepted (empty body)' {
+        Alice.UAS.Discovery -> Bob.UAS.Temporal '202 Accepted (empty body)' {
             notes'''
               #### 202 Accepted (empty body)
               >[!NOTE]
@@ -6602,8 +7053,8 @@ views "Authorization" {
               ```
             '''
         }
-      Alice.Registry -> Alice.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]'
-      Bob.Worker -> Bob.Registry 'PUT activityCompleted [Activity]' {
+      Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+      Bob.UAS.Temporal -> Bob.Registry 'PUT activityCompleted [Activity]' {
           notes'''
             #### (activity) PUT activityCompleted [Activity]
             >[!NOTE]
@@ -6636,7 +7087,7 @@ views "Authorization" {
             ```
           '''
       }
-      Bob.Registry -> Bob.ActivityWebhookHandler 'notify Add activity (subscription webhook) [Activity]' {
+      Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]' {
           notes'''
             #### notify Add activity (subscription webhook) [Activity]
             >[!NOTE]
@@ -6663,7 +7114,7 @@ views "Authorization" {
             ```
           '''
       }
-      Bob.ActivityWebhookHandler -> Bob.AUI 'done' {
+      Bob.UAS.WebhookReceiver -> Bob.AUI 'done' {
           notes'''
             #### done
             >[!NOTE]
@@ -6715,9 +7166,9 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.ActivityWebhookHandler -> Alice.Temporal 'start owner-side workflow (NeedBasedAccessRequestReceived)'
-      Alice.Temporal -> Alice.Worker '(workflow) run owner-side NeedBasedAccessRequestReceived workflow'
-      Alice.Worker -> Alice.Registry '(activity) PUT AccessRequest at the minted id [AccessRequest registry]' {
+      Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start owner-side workflow (NeedBasedAccessRequestReceived)'
+      Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run owner-side NeedBasedAccessRequestReceived workflow'
+      Alice.UAS.Temporal -> Alice.Registry '(activity) PUT AccessRequest at the minted id [AccessRequest registry]' {
           notes'''
             #### (activity) PUT AccessRequest at the minted id [AccessRequest registry]
             >[!NOTE]
@@ -6776,7 +7227,7 @@ views "Authorization" {
             ```
           '''
       }
-      Alice.Worker -> Alice.Registry '(activity) create activityCompleted [Activity]'
+      Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]'
       }
     }
 
@@ -6784,7 +7235,7 @@ views "Authorization" {
     title: 'Authorization data (need based access request)'
 
     include Alice, Bob, Common
-    include Alice.AUI, Alice.UAS, Alice.Registry, Alice.Data, Common.Shapetrees
+    include Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.Registry, Alice.Data, Common.Shapetrees
 
     style Alice {
       color: green
@@ -6798,7 +7249,7 @@ views "Authorization" {
       color: slate
     }
 
-    Alice.AUI -> Alice.UAS 'POST (RPC) getAuthorizationData' {
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) getAuthorizationData' {
         notes'''
           #### POST (RPC) getAuthorizationData
           >[!NOTE]
@@ -6831,7 +7282,7 @@ views "Authorization" {
           ```
         '''
     }
-    Alice.UAS -> Alice.Registry 'find the AccessRequest [AccessRequest registry]' {
+    Alice.UAS.UiApi -> Alice.Registry 'find the AccessRequest [AccessRequest registry]' {
         notes'''
           #### find the AccessRequest [AccessRequest registry]
           >[!NOTE]
@@ -6854,14 +7305,14 @@ views "Authorization" {
           ```
         '''
     }
-    Alice.UAS -> Alice.Data 'find relevant data registrations [Data]' {
+    Alice.UAS.UiApi -> Alice.Data 'find relevant data registrations [Data]' {
         notes'''
           #### find relevant data registrations [Data]
           >[!NOTE]
           >authorization.test.ts > approval phase
         '''
     }
-    Alice.UAS -> Common.Shapetrees 'GET shapetrees descriptions' {
+    Alice.UAS.UiApi -> Common.Shapetrees 'GET shapetrees descriptions' {
         notes'''
           #### GET shapetrees descriptions
           >[!NOTE]
@@ -6872,7 +7323,7 @@ views "Authorization" {
           ```
         '''
     }
-    Alice.UAS -> Alice.AUI 'OK authorization data' {
+    Alice.UAS.UiApi -> Alice.AUI 'OK authorization data' {
         notes'''
           #### OK authorization data
           >[!NOTE]

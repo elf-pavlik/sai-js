@@ -34,5 +34,8 @@
   },
   "optionalDependencies": {
     "@biomejs/cli-linux-x64": "^2.3.11"
+  },
+  "overrides": {
+    "@solid/access-token-verifier": "github:elf-pavlik/access-token-verifier#cid"
   }
 }

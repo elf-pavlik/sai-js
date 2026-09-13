@@ -1,3 +1,4 @@
+import { DataFactory } from 'n3'
 import { expect, test } from 'vitest'
 import { parseJsonld } from '../src'
 
@@ -28,4 +29,38 @@ test('uses DefaultGraph is none is provided', async () => {
   for (const quad of dataset) {
     expect(quad.graph.termType).toEqual('DefaultGraph')
   }
+})
+
+test('parses a CID document with the embedded cid context', async () => {
+  const cid = JSON.stringify({
+    '@context': ['https://www.w3.org/ns/cid/v1'],
+    id: 'https://id.example/alice',
+    service: [
+      {
+        type: 'https://www.w3.org/ns/lws#OpenIdProvider',
+        serviceEndpoint: 'https://auth.example/',
+      },
+    ],
+  })
+  const dataset = await parseJsonld(cid)
+  const { namedNode, quad } = DataFactory
+  const serviceTriples = [...dataset].filter(
+    (q) => q.predicate.value === 'https://www.w3.org/ns/did#service'
+  )
+  expect(serviceTriples).toHaveLength(1)
+  const serviceNode = serviceTriples[0].object
+  expect([...dataset]).toContainEqual(
+    quad(
+      serviceNode,
+      namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+      namedNode('https://www.w3.org/ns/lws#OpenIdProvider')
+    )
+  )
+  expect([...dataset]).toContainEqual(
+    quad(
+      serviceNode,
+      namedNode('https://www.w3.org/ns/did#serviceEndpoint'),
+      namedNode('https://auth.example/')
+    )
+  )
 })

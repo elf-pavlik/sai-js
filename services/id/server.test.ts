@@ -77,18 +77,40 @@ describe('id', () => {
   })
 })
 describe('doc', () => {
-  test('request doc without subdomain', async () => {
+  test('request doc without subdomain for unknown webid returns 404', async () => {
     const res = await app.request('/somehandle', {
       headers: {
         Host: `${docOrigin}`,
       },
     })
-    expect(res.status).toBe(200)
-    expect(res.headers.get('Content-Type')).toBe('text/turtle')
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe('not found')
     expect(mockFetchTriples).toHaveBeenCalledWith(
       sparqlEndpoint,
       expect.stringContaining(`GRAPH <https://${docOrigin}/somehandle>`)
     )
+  })
+  test('request doc as turtle', async () => {
+    mockFetchTriples.mockResolvedValue({
+      toArray: vi
+        .fn()
+        .mockResolvedValue([
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+            DataFactory.literal('Alice')
+          ),
+        ]),
+    })
+    const res = await app.request('/somehandle', {
+      headers: {
+        Host: docOrigin,
+        Accept: 'text/turtle',
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('text/turtle')
+    expect(await res.text()).toContain('rdfs:label')
   })
   test('request doc with subdomain', async () => {
     const res = await app.request('/anotherhandle', {
@@ -99,20 +121,101 @@ describe('doc', () => {
     expect(res.status).toBe(400)
     expect(await res.text()).toBe('wrong doc origin')
   })
+  test('request doc as cid', async () => {
+    mockFetchTriples.mockResolvedValue({
+      toArray: vi
+        .fn()
+        .mockResolvedValue([
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+            DataFactory.literal('Alice')
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/ns/solid/terms#oidcIssuer'),
+            DataFactory.namedNode(`https://${idOrigin}`)
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/ns/solid/interop#hasAuthorizationAgent'),
+            DataFactory.namedNode(
+              `https://${idOrigin}/.sai/agents/aHR0cHM6Ly9kb2MubmV0L3NvbWVoYW5kbGU`
+            )
+          ),
+        ]),
+    })
+    const res = await app.request('/somehandle', {
+      headers: {
+        Host: docOrigin,
+        Accept: 'application/cid',
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/cid')
+    expect(await res.json()).toEqual({
+      '@context': 'https://www.w3.org/ns/cid/v1',
+      id: `https://${docOrigin}/somehandle`,
+      service: [
+        {
+          type: 'https://www.w3.org/ns/lws#OpenIdProvider',
+          serviceEndpoint: `https://${idOrigin}`,
+        },
+        {
+          type: 'http://www.w3.org/ns/solid/interop#AuthorizationAgent',
+          serviceEndpoint: `https://${idOrigin}/.sai/agents/aHR0cHM6Ly9kb2MubmV0L3NvbWVoYW5kbGU`,
+        },
+      ],
+    })
+  })
+  test('request doc as cid when profile subject differs from resource url', async () => {
+    // mirrors the docker setup: resource https://id.docker/alice serves a
+    // profile whose triples are anchored on https://alice.id.docker
+    mockFetchTriples.mockResolvedValue({
+      toArray: vi
+        .fn()
+        .mockResolvedValue([
+          DataFactory.quad(
+            DataFactory.namedNode(`http://alice.${docOrigin}`),
+            DataFactory.namedNode('http://www.w3.org/ns/solid/terms#oidcIssuer'),
+            DataFactory.namedNode(`https://${idOrigin}`)
+          ),
+        ]),
+    })
+    const res = await app.request('/somehandle', {
+      headers: {
+        Host: docOrigin,
+        Accept: 'application/cid',
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      '@context': 'https://www.w3.org/ns/cid/v1',
+      id: `http://alice.${docOrigin}`,
+      service: [
+        {
+          type: 'https://www.w3.org/ns/lws#OpenIdProvider',
+          serviceEndpoint: `https://${idOrigin}`,
+        },
+      ],
+    })
+  })
   test('request doc as jsonld', async () => {
     mockFetchTriples.mockResolvedValue({
-      toArray: vi.fn().mockResolvedValue([
-        DataFactory.quad(
-          DataFactory.namedNode(`https://${docOrigin}/somehandle`),
-          DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
-          DataFactory.literal('Alice')
-        ),
-        DataFactory.quad(
-          DataFactory.namedNode(`https://${docOrigin}/somehandle`),
-          DataFactory.namedNode('http://www.w3.org/ns/solid/terms#oidcIssuer'),
-          DataFactory.namedNode(`https://${idOrigin}`)
-        ),
-      ]),
+      toArray: vi
+        .fn()
+        .mockResolvedValue([
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+            DataFactory.literal('Alice')
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('http://www.w3.org/ns/solid/terms#oidcIssuer'),
+            DataFactory.namedNode(`https://${idOrigin}`)
+          ),
+        ]),
     })
     const res = await app.request('/somehandle', {
       headers: {

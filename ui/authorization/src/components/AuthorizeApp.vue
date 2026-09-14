@@ -550,11 +550,15 @@ function setScopeForAgents(scope: PropagatingScope): void {
 // TODO: make propagation independent of DOM
 onMounted(() => {
   initRolesIndex()
-  // set default to current user
+  // set default to current user (they may not own data in this authorization,
+  // e.g. approving an access request in an org context)
   if (props.agent || props.role) {
     topLevelScope.value = 'agent'
     setScopeForAgents('none')
-    agentsIndex[coreStore.userId!].scope = 'all'
+    const user = agentsIndex[coreStore.userId!]
+    if (user) {
+      user.scope = 'all'
+    }
     panelsOpened.value = ['top']
   }
 })
@@ -834,19 +838,23 @@ function authorize(granted = true) {
   }
 }
 
+// activity-first: the store claims the AuthorizationGranted activity the
+// moment the RPC ack resolves (the app-shell snackbar then tracks pending →
+// done) — navigate away from the authorization screen at that point; the
+// store's eager post-RPC list refetch plus the done-event fullRefresh keep
+// the target list fresh
 watch(
-  () => appStore.accessAuthorization,
-  async (accessAuthorization) => {
-    if (accessAuthorization) {
-      if (props.redirect) {
-        window.location.href = await coreStore.consent()
-      } else if (props.authorizationData.agentType === AgentType.SocialAgent) {
-        router.push({ name: 'social-agent-list' })
-      } else if (props.authorizationData.agentType === AgentType.Role) {
-        router.push({ name: 'role-list' })
-      } else {
-        router.push({ name: 'application-list' })
-      }
+  () => appStore.activitySnackbar.claim,
+  async (claim) => {
+    if (claim?.type !== 'AuthorizationGranted') return
+    if (props.redirect) {
+      window.location.href = await coreStore.consent()
+    } else if (props.authorizationData.agentType === AgentType.SocialAgent) {
+      router.push({ name: 'social-agent-list' })
+    } else if (props.authorizationData.agentType === AgentType.Role) {
+      router.push({ name: 'role-list' })
+    } else {
+      router.push({ name: 'application-list' })
     }
   }
 )

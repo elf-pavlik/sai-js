@@ -1,6 +1,5 @@
 import * as effect from '@/effect'
 import type {
-  AccessAuthorization,
   AgentType,
   ApplicationList,
   Authorization,
@@ -40,7 +39,6 @@ export const useAppStore = defineStore('app', () => {
   > | null>(null)
   const authorizationData = ref<S.Schema.Type<typeof AuthorizationData> | null>(null)
   const accessRequestIriRef = ref<string | undefined>()
-  const accessAuthorization = ref<S.Schema.Type<typeof AccessAuthorization> | null>(null)
   const socialAgentList = ref<S.Schema.Type<typeof SocialAgentList>>([])
   const roleList = ref<S.Schema.Type<typeof RoleList>>([])
   const application = ref<S.Schema.Type<typeof UnregisteredApplication>>()
@@ -417,7 +415,6 @@ export const useAppStore = defineStore('app', () => {
     contexts,
     resource,
     authorizationData,
-    accessAuthorization,
     loadedDataInstances,
     socialAgentList,
     roleList,

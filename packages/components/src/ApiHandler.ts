@@ -19,12 +19,15 @@ import type { SessionManager } from './SessionManager'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 import type { AccountService } from './services/Account.js'
 import { addAdmin, removeAdmin } from './services/Admin.js'
-import { resolveContext } from './services/Context.js'
 import { getApplications, getUnregisteredApplication } from './services/ApplicationRegistry.js'
-import { acceptInvitation, getSocialAgents } from './services/SocialAgentRegistry.js'
-import { createInvitation, getSocialAgentInvitations } from './services/InvitationRegistry.js'
-import { getDescriptions, recordAuthorization } from './services/Authorization.js'
+import {
+  archiveAccessRequest,
+  getDescriptions,
+  recordAuthorization,
+} from './services/Authorization.js'
+import { resolveContext } from './services/Context.js'
 import { getDataRegistries, listDataInstances } from './services/DataRegistry.js'
+import { createInvitation, getSocialAgentInvitations } from './services/InvitationRegistry.js'
 import { revokeGrants } from './services/Revocation.js'
 import { createRole, deleteRole, getRoles, updateRole } from './services/RoleRegistry.js'
 import {
@@ -33,6 +36,7 @@ import {
   requestAccessUsingApplicationNeeds,
   shareResource,
 } from './services/ShareResource.js'
+import { acceptInvitation, getSocialAgents } from './services/SocialAgentRegistry.js'
 
 export class ApiHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -135,7 +139,14 @@ export class ApiHandler extends OperationHttpHandler {
         ) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return getDescriptions(ctx, agentId, agentType, lang, accessNeedGroupIri, accessRequestIri)
+            return getDescriptions(
+              ctx,
+              agentId,
+              agentType,
+              lang,
+              accessNeedGroupIri,
+              accessRequestIri
+            )
           }),
         authorizeApp: (authorization, accessRequestIri, context) =>
           Effect.promise(async () => {
@@ -180,6 +191,11 @@ export class ApiHandler extends OperationHttpHandler {
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
             return requestAccessUsingAccessNeeds(ctx, dataOwner, hasAccessNeedGroup)
+          }),
+        archiveAccessRequest: (request, context) =>
+          Effect.promise(async () => {
+            const ctx = await resolveContext(session, context)
+            return archiveAccessRequest(ctx, request)
           }),
         createInvitation: (label, note, context) =>
           Effect.promise(async () => {

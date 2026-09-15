@@ -1,17 +1,27 @@
-import { proxyActivities } from '@temporalio/workflow'
 import type {
   EmbeddedNeedBasedAccessRequest,
   NeedBasedAccessRequestReceivedId,
   NeedBasedAccessRequestSentId,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
+import { proxyActivities } from '@temporalio/workflow'
 import type * as accessRequestActivities from '../activities/access-request.js'
 import type * as grantsActivities from '../activities/grants.js'
 
-const { forwardNeedBasedAccessRequest, materializeNeedBasedAccessRequest } =
-  proxyActivities<typeof accessRequestActivities>({
-    startToCloseTimeout: '1 minute',
-  })
+const { forwardNeedBasedAccessRequest, materializeNeedBasedAccessRequest } = proxyActivities<
+  typeof accessRequestActivities
+>({
+  startToCloseTimeout: '1 minute',
+})
+
+// the granted-detection activity — destructured under an alias so the
+// workflow function below can carry the `detectGrantedRequests` name
+// (the diagram + `startChild` label)
+const { detectGrantedRequests: detectAndRecordGrantedRequests } = proxyActivities<
+  typeof accessRequestActivities
+>({
+  startToCloseTimeout: '1 minute',
+})
 
 const { markActivitiesDone } = proxyActivities<typeof grantsActivities>({
   startToCloseTimeout: '1 minute',
@@ -58,4 +68,20 @@ export async function processNeedBasedAccessRequestReceived(
     webId: { id: dataOwner.id, type: dataOwner.type },
     activities: [activity],
   })
+}
+
+/**
+ * The granted-request detector (access-request-tracking.md §3): started as
+ * a FIRE-AND-FORGET child at the end of the `updateDelegatedGrants` workflow
+ * (the trigger that leaves the requester-side received-grant view fresh) —
+ * `startChild` with `ParentClosePolicy.ABANDON` (the default TERMINATE
+ * policy would kill it when the parent closes) + a derived workflowId (a
+ * parent retry re-issues the same StartChild command — deduped by Temporal).
+ * Reads the open sent requests × the requester's received grants and writes
+ * `AccessRequestGranted` per match — TERMINAL resolution, no completion.
+ * The child carries its own retry policy, so transient worker failures
+ * re-run the detection itself.
+ */
+export async function detectGrantedRequests(requester: SocialAgentId): Promise<void> {
+  await detectAndRecordGrantedRequests({ requester })
 }

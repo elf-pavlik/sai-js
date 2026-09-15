@@ -13,9 +13,9 @@ import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
   findSocialAgentRegistration as findRegistrationFromSparql,
-  getAccessRequestsOnRegistry,
-  getSentAccessRequestsByDataOwner,
   getDataGrant as getDataGrantFromSparql,
+  getOpenAccessRequestsOnRegistry,
+  getOpenSentAccessRequests,
   getSocialAgentRegistration as getRegistrationFromSparql,
   listContained,
   sparqlTransportFor,
@@ -75,10 +75,14 @@ export const findSocialAgentRegistrationInContext = async (
   )
 }
 
-/** The owner's pending access requests keyed by grantee — the approval
- *  entry (`accessRequest` — the request IRI opens the authorization screen,
- *  §6.8). */
-export type AccessRequestsByGrantee = Map<string, { id: string }>
+/** The owner's OPEN access requests keyed by grantee — the approval entries
+ *  (access-request-tracking.md §4.1 — the request IRIs open the
+ *  authorization screen, §6.8). */
+export type AccessRequestsByGrantee = Map<string, string[]>
+
+/** The requester's OPEN sent requests keyed by dataOwner — the archive
+ *  targets (access-request-tracking.md §4.1 — the snapshot ids). */
+export type SentAccessRequestsByDataOwner = Map<string, string[]>
 
 /**
  * Build the UI profile of a social agent from its registration.
@@ -101,7 +105,7 @@ export const buildSocialAgentProfile = async (
   ctx: ResolvedContext,
   personal = true,
   accessRequestsByGrantee: AccessRequestsByGrantee = new Map(),
-  sentAccessRequestsByDataOwner: Set<string> = new Set()
+  sentAccessRequestsByDataOwner: SentAccessRequestsByDataOwner = new Map()
 ) => {
   const reciprocal = registration.reciprocalRegistration
     ? await getReciprocalRegistration(ctx, registration)
@@ -121,13 +125,16 @@ export const buildSocialAgentProfile = async (
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    // outgoing only — the requester side (Alice) has a pending request to
-    // this agent; the owner-side incoming case is `accessRequest` (the
-    // approval entry). Drives the "request access" card + the data badge.
-    accessRequested: sentAccessRequestsByDataOwner.has(registration.registeredAgent),
-    accessRequest: accessRequestsByGrantee.get(registration.registeredAgent)
-      ? IRI.make(accessRequestsByGrantee.get(registration.registeredAgent)!.id)
-      : undefined,
+    // access-request-tracking.md §4.1 — the open-request collections:
+    // incoming (owner side — approval entries) / outgoing (requester side —
+    // archive targets); granted/denied/archived drop the entries, so these
+    // finally clear (the "never clears" cause)
+    accessRequestsReceived: (accessRequestsByGrantee.get(registration.registeredAgent) ?? []).map(
+      (id) => IRI.make(id)
+    ),
+    accessRequestsSent: (sentAccessRequestsByDataOwner.get(registration.registeredAgent) ?? []).map(
+      (id) => IRI.make(id)
+    ),
     admin,
     adminOf,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
@@ -141,22 +148,31 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
   const transport = sparqlTransportFor(ctx)
   const registrations = await listSocialAgentRegistrations(ctx)
 
-  // the owner's pending access requests (grantee → request) — the approval
-  // entry (`accessRequest`, §6.8)
-  const accessRequests = ctx.registrySet.hasAccessRequestRegistry
-    ? await getAccessRequestsOnRegistry(transport, ctx.registrySet.hasAccessRequestRegistry.id)
+  // the owner's OPEN access requests (grantee → request IRIs) — the approval
+  // entries (`accessRequestsReceived`, §6.8 — resolved requests excluded §3.1)
+  const openAccessRequests = ctx.registrySet.hasAccessRequestRegistry
+    ? await getOpenAccessRequestsOnRegistry(transport, ctx.registrySet.hasAccessRequestRegistry.id)
     : []
-  const accessRequestsByGrantee = new Map(
-    accessRequests.map((request) => [request.grantee, { id: request.id }])
-  )
+  const accessRequestsByGrantee: AccessRequestsByGrantee = new Map()
+  for (const request of openAccessRequests) {
+    const list = accessRequestsByGrantee.get(request.grantee) ?? []
+    list.push(request.id)
+    accessRequestsByGrantee.set(request.grantee, list)
+  }
 
-  // the requester's sent access requests (dataOwner → true) — set the
-  // accessRequested marker on the requester side (Alice) so the UI hides the
-  // "request access" button for agents she already asked (§6.4 / events.ts).
-  // Only meaningful in the personal context; org contexts don't send requests.
-  const sentAccessRequestsByDataOwner = personal && ctx.registrySet.hasActivityRegistry
-    ? await getSentAccessRequestsByDataOwner(transport)
-    : new Set<string>()
+  // the requester's OPEN sent access requests (dataOwner → snapshot ids) —
+  // the archive targets + the "request access" card gate. Only meaningful in
+  // the personal context; org contexts don't send requests.
+  const openSentAccessRequests =
+    personal && ctx.registrySet.hasActivityRegistry
+      ? await getOpenSentAccessRequests(transport)
+      : []
+  const sentAccessRequestsByDataOwner: SentAccessRequestsByDataOwner = new Map()
+  for (const request of openSentAccessRequests) {
+    const list = sentAccessRequestsByDataOwner.get(request.dataOwner) ?? []
+    list.push(request.request)
+    sentAccessRequestsByDataOwner.set(request.dataOwner, list)
+  }
 
   const profiles = []
   for (const registration of registrations) {
@@ -197,7 +213,10 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
         SocialAgent.make({
           id: ownerIri,
           label,
-          accessRequested: false,
+          // no registration in this registry — nothing to approve for, and
+          // the owner-of-grants has no sent request from us here
+          accessRequestsReceived: [],
+          accessRequestsSent: [],
           // no registration in this registry — no admin marker can be read
           admin: false,
           adminOf: false,

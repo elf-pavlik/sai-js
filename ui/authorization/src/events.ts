@@ -29,9 +29,7 @@ export interface ActivityEvent {
   status: 'pending' | 'done'
 }
 
-type StreamMessage =
-  | { type: 'activity'; activity: ActivityEvent }
-  | { type: 'heartbeat' }
+type StreamMessage = { type: 'activity'; activity: ActivityEvent } | { type: 'heartbeat' }
 
 const HEARTBEAT_INTERVAL_MS = 30_000
 const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * 3
@@ -73,15 +71,30 @@ function handleActivity(activity: ActivityEvent) {
   // track every activity (pending → done) — the step-0 tracker; claims bind
   // a user-triggered action to its activity (create: the echoed as:object id)
   appStore.recordActivity(activity)
+  // terminal resolutions (access-request-tracking.md §6) — the class IS the
+  // outcome and never gets an `activityCompleted`, so react to the row at
+  // ANY status: the REQUESTER's outgoing badge/list clears as soon as the
+  // granted/archived Add lands (no done-row to wait for)
+  const owner = registryOwner(activity)
+  if (
+    activity.type.includes('AccessRequestGranted') ||
+    activity.type.includes('AccessRequestArchived')
+  ) {
+    if (owner && appStore.currentContext() !== owner) return
+    appStore.listSocialAgents(true)
+    return
+  }
   if (activity.status !== 'done') return
   // org-context events arrive on the admin's stream for every org the user
   // administers — refresh only the context that owns the activity; switching
   // contexts already performs a full refresh (switchContext)
-  const owner = registryOwner(activity)
   if (owner && appStore.currentContext() !== owner) return
   // dispatch on the type discriminant — the grantee kind is resolved in the
   // store, so authorization done-rows refresh both lists (cheap, idempotent)
-  if (activity.type.includes('AuthorizationGranted') || activity.type.includes('AuthorizationRevoked')) {
+  if (
+    activity.type.includes('AuthorizationGranted') ||
+    activity.type.includes('AuthorizationRevoked')
+  ) {
     appStore.listApplications(true)
     appStore.listSocialAgents(true)
   } else if (

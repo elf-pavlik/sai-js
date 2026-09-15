@@ -1,4 +1,11 @@
 import {
+  ActivityRegistry,
+  type OpenSentAccessRequest,
+  getDataGrantsForGrantee,
+  getOpenSentAccessRequests,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import {
   type EmbeddedNeedBasedAccessRequest,
   type NeedBasedAccessRequestReceivedId,
   type NeedBasedAccessRequestSentId,
@@ -74,4 +81,76 @@ export async function materializeNeedBasedAccessRequest(
   if (existing.status === 200) return
   const doc = withContext(dataModelContext, input.request)
   await putJsonLd(input.request.id, session.fetch, doc, { 'If-None-Match': '*' })
+}
+
+// ──────────────────────────
+// Granted-request detection (access-request-tracking.md §3)
+// ──────────────────────────
+
+/**
+ * The best-effort intersection of §3.3: an open request `r` is granted iff
+ * ∃ received grant with `grant.grantedBy === r.dataOwner` (the owner) AND
+ * `grant.shapeTree ∈ r.shapeTrees` (the need-group intersection — Inherited
+ * child grants carry the child tree and match child needs).
+ *
+ * The `grant.grantee` anchor is bound at QUERY level
+ * (`getDataGrantsForGrantee` — grants arriving for this requester), so a
+ * per-grant check is redundant here: requests made by this requester always
+ * carry `grantedBy === requester` (self-requests included). Returns the
+ * snapshot ids of the requests to close.
+ */
+export function matchGrantedRequests(
+  requests: OpenSentAccessRequest[],
+  grants: Array<{ grant: string; grantedBy: string; shapeTree: string }>
+): Set<string> {
+  const granted = new Set<string>()
+  for (const r of requests) {
+    const covered = grants.some(
+      (g) => g.grantedBy === r.dataOwner && r.shapeTrees.includes(g.shapeTree)
+    )
+    if (covered) granted.add(r.request)
+  }
+  return granted
+}
+
+export interface DetectGrantedRequestsInput {
+  requester: SocialAgentId
+}
+
+/**
+ * The detector (access-request-tracking.md §3): runs on the requester's
+ * plane — reads the OPEN sent requests and the requester's received grants
+ * (shared-store shortcut, federation.md §1), matches them best-effort and
+ * writes an `AccessRequestGranted` activity per match (light `{ id, type }`
+ * ref — `id` = the Sent activity's SNAPSHOT id). TERMINAL resolution — no
+ * `ActivityCompleted` written (the class IS the outcome, §1).
+ */
+export async function detectGrantedRequests(input: DetectGrantedRequestsInput): Promise<void> {
+  const manager = buildSessionManager()
+  const session = await manager.getSession(input.requester.id)
+  const transport = localSparqlTransport(session.sparqlEndpoint)
+  const open = await getOpenSentAccessRequests(transport)
+  if (open.length === 0) return
+  const grants = await getDataGrantsForGrantee(transport, input.requester.id)
+  const matched = matchGrantedRequests(open, grants)
+  if (matched.size === 0) return
+  const registry = session.registrySet.hasActivityRegistry
+  if (!registry) return
+  for (const request of open) {
+    if (!matched.has(request.request)) continue
+    const activity: Omit<import('@janeirodigital/interop-data-model').AccessRequestGranted, 'id'> =
+      {
+        type: ['Activity', 'AccessRequestGranted'],
+        actor: input.requester.id,
+        // the light ref — the Sent activity's SNAPSHOT id (the open-set query
+        // joins `outcome.object.id → sent.object.id`)
+        object: { id: request.request, type: [INTEROP.NeedBasedAccessRequest] },
+        createdAt: new Date().toISOString(),
+      }
+    await ActivityRegistry.createActivity(
+      registry,
+      { fetch: session.fetch, randomUUID: session.randomUUID },
+      activity
+    )
+  }
 }

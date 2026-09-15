@@ -153,6 +153,53 @@ export type NeedBasedAccessRequestReceivedId = {
   type: NeedBasedAccessRequestReceived['type']
 }
 
+/**
+ * Light request ref — the `{ id, type }` projection carried by the
+ * requester-side resolution activities (`AccessRequestGranted` /
+ * `AccessRequestArchived`): `id` = the `NeedBasedAccessRequestSent`
+ * activity's SNAPSHOT id (urn:uuid — the archive/grant targets). The full
+ * snapshot (grantee, grantedBy, dataOwner, need group + per-need
+ * registeredShapeTree) lives ONCE on the Sent activity — the open-set
+ * queries join `outcome.object.id → sent.object.id` inside the same
+ * Activity Registry (access-request-tracking.md §1.1/§3.1).
+ */
+export type EmbeddedAccessRequestRef = {
+  id: string
+  type: string[]
+}
+
+/**
+ * Requester-side resolution: an open sent request was GRANTED (the
+ * detector — a fire-and-forget child at the end of the `updateDelegatedGrants`
+ * workflow — observed the new grant and wrote this, access-request-tracking.md
+ * §3). `target` dropped: the object is the light ref (the Sent activity's
+ * SNAPSHOT id). No owner→requester notification needed — the outcome is
+ * observed from the received-grant view. TERMINAL resolution — no
+ * `ActivityCompleted`.
+ */
+export type AccessRequestGranted = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'AccessRequestGranted']
+  /** as:actor — plain IRI (the registry owner — the requester) */
+  actor: string
+  /** the Sent activity's snapshot id + type (urn:uuid) */
+  object: EmbeddedAccessRequestRef
+}
+
+/**
+ * Requester-side user close: an open sent request was ARCHIVED (the
+ * `archiveAccessRequest` RPC — access-request-tracking.md §4.2). `target`
+ * dropped: the object is the light ref (the Sent activity's SNAPSHOT id —
+ * stable forever, so the archive works at any future point). Direct write +
+ * ownership check — no workflow. TERMINAL resolution — no `ActivityCompleted`.
+ */
+export type AccessRequestArchived = Omit<ActivityBase, 'target'> & {
+  type: ['Activity', 'AccessRequestArchived']
+  /** as:actor — plain IRI (the registry owner — the requester) */
+  actor: string
+  /** the Sent activity's snapshot id + type (urn:uuid) */
+  object: EmbeddedAccessRequestRef
+}
+
 /** Invitation created via RPC (activity-first step 1).
  *
  * Note (target dropped with the embedded-object form): the class has NO
@@ -316,6 +363,10 @@ export type AuthorizationGranted = ActivityBase & {
   type: ['Activity', 'AuthorizationGranted']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
+  /** the resolved need-based access request (activity-level back-link — the
+   *  owner-span close, access-request-tracking.md §5). Optional: direct
+   *  approvals without a request carry none */
+  satisfiesAccessRequest?: string
   /** the AuthorizationRegistry */
   target: string
   /** the DataAuthorizations-to-be (embedded POJOs, all grantees) */
@@ -336,6 +387,10 @@ export type AuthorizationDenied = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'AuthorizationDenied']
   /** as:actor — plain IRI (the registry owner) */
   actor: string
+  /** the resolved need-based access request (activity-level back-link — the
+   *  owner-span close, access-request-tracking.md §5). Optional: direct
+   *  declines without a request carry none */
+  satisfiesAccessRequest?: string
   /** the request-structure snapshot (urn:uuid) carrying `grantee` */
   object: EmbeddedAuthorization
 }
@@ -446,6 +501,8 @@ export type ActivityData =
   | InvitationAccepted
   | InvitationCreated
   | AgentRegistrationAdded
+  | AccessRequestGranted
+  | AccessRequestArchived
   | NeedBasedAccessRequestReceived
   | NeedBasedAccessRequestSent
   | AdminAuthorizationGranted

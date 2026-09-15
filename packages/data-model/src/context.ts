@@ -59,6 +59,7 @@ export const dataModelContext: JsonLdContext = {
   scopeOfAdminGrant: iriTermDef(INTEROP, 'scopeOfAdminGrant'),
   scopeOfAuthorization: iriTermDef(INTEROP, 'scopeOfAuthorization'),
   satisfiesAccessNeed: iriTermDef(INTEROP, 'satisfiesAccessNeed'),
+  satisfiesAccessRequest: iriTermDef(INTEROP, 'satisfiesAccessRequest'),
   inheritsFromGrant: iriTermDef(INTEROP, 'inheritsFromGrant'),
   delegationOfGrant: iriTermDef(INTEROP, 'delegationOfGrant'),
   inheritsFromAuthorization: iriTermDef(INTEROP, 'inheritsFromAuthorization'),
@@ -97,6 +98,8 @@ export const dataModelContext: JsonLdContext = {
   // activity classes — rdf:type values compact to these bare terms so the
   // typed ActivityData unions frame as `type: ['Activity', '<Class>', <as:*>]`.
   Activity: { '@id': INTEROP.Activity },
+  AccessRequestArchived: { '@id': INTEROP.AccessRequestArchived },
+  AccessRequestGranted: { '@id': INTEROP.AccessRequestGranted },
   InvitationAccepted: { '@id': INTEROP.InvitationAccepted },
   InvitationCreated: { '@id': INTEROP.InvitationCreated },
   AgentRegistrationAdded: { '@id': INTEROP.AgentRegistrationAdded },

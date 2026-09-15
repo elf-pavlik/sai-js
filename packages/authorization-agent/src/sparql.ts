@@ -108,14 +108,13 @@ export async function graphDoc(transport: SparqlTransport, iri: string): Promise
 }
 
 /**
- * Children of a registry container — the registration listing. Reads both
- * the container graph and its `meta:` graph for the server-managed
- * `ldp:contains` quads (seeds/HTTP-served containers store membership in
- * the meta graph, runtime-created ones in the plain graph via
- * `SparqlDataAccessor`). One query for every dedicated registry: grants,
- * roles, authorizations, and the three agent registries (social-agent,
- * application, invitation — the former `has*Registration` interop
- * predicates are gone).
+ * Children of a registry container — the registration listing. Reads the
+ * server-managed `ldp:contains` quads from the container's REGULAR graph
+ * (the single membership home — `meta:` graphs hold type declarations only,
+ * access-request-tracking.md §6; docs/sparql.md graph scoping). One query
+ * for every dedicated registry: grants, roles, authorizations, and the three
+ * agent registries (social-agent, application, invitation — the former
+ * `has*Registration` interop predicates are gone).
  */
 export async function listContained(
   transport: SparqlTransport,
@@ -229,7 +228,6 @@ export async function findSocialAgentInvitation(
   }
 }
 
-
 /**
  * Data registration body from its graph — framed via the data-model's own
  * `DataRegistration.fromJsonLd` (same POJO as `factory.dataRegistration`):
@@ -273,11 +271,12 @@ export async function getDataAuthorization(
 /**
  * Role IRIs in the given role registry whose membership includes `member`
  * (`interop:hasMember`). One SELECT (docs/sparql.md step 2): the container
- * membership — `ldp:contains` in both `GRAPH <container>` and
- * `GRAPH <meta:container>` — is joined with the `hasMember` triple living
- * in each role's own graph, so the result is scoped to this registry set's
- * roles (the store is shared across owners). The roles listing would be N
- * graph reads, so this is deliberately a new query, not pure reuse.
+ * membership — `ldp:contains` in the container's REGULAR graph (the single
+ * membership home, access-request-tracking.md §6 — no `meta:` read) — is
+ * joined with the `hasMember` triple living in each role's own graph, so the
+ * result is scoped to this registry set's roles (the store is shared across
+ * owners). The roles listing would be N graph reads, so this is deliberately
+ * a new query, not pure reuse.
  * The `FILTER(?g = ?role)` self-graph guard is the authoritative-read
  * convention (docs/sparql.md — graph scoping): WITHOUT it, a real-id
  * embedded projection inside an activity graph (step 2 — the role-to-be on
@@ -293,8 +292,6 @@ export async function findRolesWithMember(
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?role WHERE {
   { GRAPH <${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
-  UNION
-  { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
   { GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> } }
   FILTER(?g = ?role)
 }`
@@ -453,55 +450,133 @@ export async function findDelegableGrant(
   return bindings.length > 0
 }
 
+/**
+ * One open sent access request (requester plane — §3.1 of
+ * access-request-tracking.md): the `NeedBasedAccessRequestSent` activity WITH
+ * its embedded request snapshot (grantee/grantedBy/dataOwner + the per-need
+ * registeredShapeTrees) that has NO referencing resolution activity
+ * (`AccessRequestGranted`/`AccessRequestArchived`). The open-set source for
+ * `accessRequestsSent` and the `detectGrantedRequests` detector.
+ *
+ * The FILTER NOT EXISTS is the "open" guard: a resolution activity in ANY
+ * graph referencing the same snapshot id (the join anchor — the resolution
+ * object is the light `{ id, type }` projection of the Sent activity's
+ * SNAPSHOT id) closes the span, so the request drops out of the set.
+ */
+export type OpenSentAccessRequest = {
+  /** the Sent activity IRI */
+  sent: string
+  /** the request SNAPSHOT id (urn:uuid) — the stable archive/grant target */
+  request: string
+  grantee: string
+  grantedBy: string
+  dataOwner: string
+  /** the request's registered shape trees (need-group intersection) */
+  shapeTrees: string[]
+}
+
+export async function getOpenSentAccessRequests(
+  transport: SparqlTransport
+): Promise<OpenSentAccessRequest[]> {
+  const query = `
+SELECT DISTINCT ?sent ?request ?grantee ?grantedBy ?dataOwner ?shapeTree WHERE {
+  GRAPH ?g {
+    ?sent a <${INTEROP.NeedBasedAccessRequestSent}> ;
+          <${AS.object}> ?request .
+    ?request a <${INTEROP.NeedBasedAccessRequest}> ;
+             <${INTEROP.grantee}> ?grantee ;
+             <${INTEROP.grantedBy}> ?grantedBy ;
+             <${INTEROP.dataOwner}> ?dataOwner ;
+             <${INTEROP.hasAccessNeedGroup}> ?needGroup .
+    ?needGroup <${INTEROP.hasAccessNeed}> ?need .
+    ?need <${INTEROP.registeredShapeTree}> ?shapeTree .
+  }
+  # still open — no granted/archived activity referencing the same snapshot
+  FILTER NOT EXISTS {
+    GRAPH ?g2 {
+      VALUES ?resolutionClass { <${INTEROP.AccessRequestGranted}> <${INTEROP.AccessRequestArchived}> }
+      ?outcome a ?resolutionClass ; <${AS.object}> ?request .
+    }
+  }
+}`
+  const bindings = await transport.fetchBindings(query)
+  const byRequest = new Map<string, OpenSentAccessRequest>()
+  for (const b of bindings) {
+    const key = b.request.value
+    const entry = byRequest.get(key) ?? {
+      sent: b.sent.value,
+      request: key,
+      grantee: b.grantee.value,
+      grantedBy: b.grantedBy.value,
+      dataOwner: b.dataOwner.value,
+      shapeTrees: [],
+    }
+    entry.shapeTrees.push(b.shapeTree.value)
+    byRequest.set(key, entry)
+  }
+  return [...byRequest.values()]
+}
 
 /**
- * The need-based access requests stored in an AccessRequestRegistry, as
- * `{ id, grantee }` pairs — ONE container-scoped SELECT (the graph-per-resource
- * storage law: `GRAPH ?s` IS the request resource). The profiles use the
- * grantee → request mapping for the approval entry (`accessRequest` — the
- * request IRI opens the authorization screen, §6.8).
+ * OPEN need-based access requests in the owner's AccessRequestRegistry
+ * (incoming — §3.1 of access-request-tracking.md): the container's
+ * `ldp:contains` members (regular graph only) that have NO
+ * `AuthorizationGranted`/`AuthorizationDenied` with the flat
+ * `satisfiesAccessRequest` back-link. Replaces the removed store-wide
+ * `getAccessRequestsOnRegistry` (which listed everything — the "never
+ * clears" cause).
  */
-export async function getAccessRequestsOnRegistry(
+export async function getOpenAccessRequestsOnRegistry(
   transport: SparqlTransport,
-  _accessRequestRegistryContainerIri: string
+  accessRequestRegistryContainerIri: string
 ): Promise<{ id: string; grantee: string }[]> {
   const query = `
-SELECT ?s ?grantee WHERE {
-  GRAPH ?s {
-    ?s a <${INTEROP.NeedBasedAccessRequest}> ;
-       <${INTEROP.grantee}> ?grantee .
+SELECT DISTINCT ?request ?grantee WHERE {
+  GRAPH <${accessRequestRegistryContainerIri}> {
+    <${accessRequestRegistryContainerIri}> <${LDP.contains}> ?request .
+  }
+  GRAPH ?request {
+    ?request a <${INTEROP.NeedBasedAccessRequest}> ;
+             <${INTEROP.grantee}> ?grantee .
+  }
+  # still open — no granted/denied activity referencing it
+  FILTER NOT EXISTS {
+    GRAPH ?resolution {
+      VALUES ?resolutionClass { <${INTEROP.AuthorizationGranted}> <${INTEROP.AuthorizationDenied}> }
+      ?resolution a ?resolutionClass ;
+                  <${INTEROP.satisfiesAccessRequest}> ?request .
+    }
+  }
+}`
+  const bindings = await transport.fetchBindings(query)
+  return bindings.map((b) => ({ id: b.request.value, grantee: b.grantee.value }))
+}
+
+/**
+ * The grants received by `webId` across the requester's plane (§3.2 of
+ * access-request-tracking.md) — the grantor's DataGrants naming the
+ * requester as `grantee` (the dev/test env resolves them via the
+ * shared-store shortcut, federation.md §1). Feeds the detector's
+ * best-effort match (§3.3): `grantedBy` (the owner) + per-grant
+ * `registeredShapeTree`.
+ */
+export async function getDataGrantsForGrantee(
+  transport: SparqlTransport,
+  webId: string
+): Promise<{ grant: string; grantedBy: string; shapeTree: string }[]> {
+  const query = `
+SELECT DISTINCT ?grant ?grantedBy ?shapeTree WHERE {
+  GRAPH ?g {
+    ?grant a <${INTEROP.DataGrant}> ;
+           <${INTEROP.grantee}> <${webId}> ;
+           <${INTEROP.grantedBy}> ?grantedBy ;
+           <${INTEROP.registeredShapeTree}> ?shapeTree .
   }
 }`
   const bindings = await transport.fetchBindings(query)
   return bindings.map((b) => ({
-    id: b.s.value,
-    grantee: b.grantee.value,
+    grant: b.grant.value,
+    grantedBy: b.grantedBy.value,
+    shapeTree: b.shapeTree.value,
   }))
-}
-
-/**
- * Data owners the requester has already sent a need-based access request to —
- * the `NeedBasedAccessRequestSent` activities in the requester's activity
- * registry, keyed by `dataOwner`. Used on the requester side (Alice) to set
- * the `accessRequested` marker so the UI hides the "request access" button
- * for agents she already asked.
- *
- * Excludes activities that already have a matching `ActivityCompleted` referencing
- * them — a completed sent-request means the forwarding workflow finished, but
- * we still want to show `accessRequested` so we include ALL sent activities
- * regardless of completion status (the request is in flight either way).
- */
-export async function getSentAccessRequestsByDataOwner(
-  transport: SparqlTransport
-): Promise<Set<string>> {
-  const query = `
-SELECT DISTINCT ?dataOwner WHERE {
-  GRAPH ?activity {
-    ?activity a <${INTEROP.NeedBasedAccessRequestSent}> ;
-              <${AS.object}> ?req .
-    ?req <${INTEROP.dataOwner}> ?dataOwner .
-  }
-}`
-  const bindings = await transport.fetchBindings(query)
-  return new Set(bindings.map((b) => b.dataOwner.value))
 }

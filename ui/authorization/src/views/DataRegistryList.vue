@@ -63,10 +63,8 @@
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
-    <v-card
-      v-if="agent && appStore.dataRegistryList[agent.id] && !hasData"
-    >
-      <template v-if="!agent.accessRequested">
+    <v-card v-if="agent && appStore.dataRegistryList[agent.id] && !hasData">
+      <template v-if="agent.accessRequestsSent.length === 0">
         <v-card-title>{{ $t('request-access') }}</v-card-title>
         <v-btn
           prepend-icon="mdi-security"
@@ -78,6 +76,54 @@
       <v-card-title v-else>
         {{ $t('access-requested') }}
       </v-card-title>
+    </v-card>
+
+    <!-- peer detail — open access requests (access-request-tracking.md §4.2):
+         incoming approval entries + outgoing sent requests, one action per
+         request (approve/archive any of them — the multi-request future) -->
+    <v-card
+      v-if="agent && (agent.accessRequestsReceived.length > 0 || agent.accessRequestsSent.length > 0)"
+    >
+      <v-card-title>{{ $t('open-requests') }}</v-card-title>
+      <v-list v-if="agent.accessRequestsReceived.length > 0">
+        <v-list-item
+          v-for="request in agent.accessRequestsReceived"
+          :key="request"
+          prepend-icon="mdi-inbox"
+          :subtitle="request"
+        >
+          <template #append>
+            <v-btn
+              size="small"
+              prepend-icon="mdi-security"
+              :to="{
+                name: 'authorization',
+                query: { webid: agent.id, redirect: 'false', request }
+              }"
+            >
+              {{ $t('approve') }}
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
+      <v-list v-if="agent.accessRequestsSent.length > 0">
+        <v-list-item
+          v-for="request in agent.accessRequestsSent"
+          :key="request"
+          prepend-icon="mdi-outbox"
+          :subtitle="request"
+        >
+          <template #append>
+            <v-btn
+              size="small"
+              prepend-icon="mdi-archive-outline"
+              @click="archiveRequest(request)"
+            >
+              {{ $t('archive') }}
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
     </v-card>
 
     <v-dialog :model-value="appListDialog">
@@ -113,6 +159,10 @@ function requestAccess(applicationId: string) {
   appListDialog.value = false
 }
 
+function archiveRequest(request: string) {
+  appStore.archiveAccessRequest(request)
+}
+
 const agent = computed(() => appStore.socialAgentList.find((a) => a.id === route.query.agent))
 
 const hasData = computed(() => !!appStore.dataRegistryList[route.query.agent as string]?.length)
@@ -125,6 +175,21 @@ watch(
     }
   },
   { immediate: true }
+)
+
+// Access-state changes while ON this view must re-fetch the agent's data
+// registries: the profile refreshes on activity events (grant detected,
+// archived, direct share — `DelegatedGrantsUpdated`, revoke), and the data
+// this user can see from the agent depends on exactly that access state.
+// The route watcher above covers the first load; this covers in-place
+// changes (the reported gap: the approved request clears after the event
+// streamed, but the granted registries never appeared until re-navigation).
+watch(
+  () => agent.value,
+  async (next, prev) => {
+    if (!next || !prev || next.id !== route.query.agent) return
+    await appStore.listDataRegistries(next.id, coreStore.lang)
+  }
 )
 </script>
 

@@ -99,3 +99,12 @@ admin = Administrator
 
 request-access-sent = Access requested
 request-access-received = Access request received
+access-request-granted = Access request granted
+access-request-archived = Access request archived
+authorize-app-denied = Access request denied
+
+open-requests = Open requests
+incoming-request = Incoming request
+outgoing-request = Outgoing request
+approve = Zatwierdź
+archive = Archiwizuj

@@ -7,13 +7,15 @@ import {
   AccessNeedGroup as AccessNeedGroupModule,
   AccessNeed as AccessNeedModule,
   ActivityRegistry,
-  accessNeedGroup as resolveAccessNeedGroup,
   buildNestedDataAuthorizations,
   generateDataAuthorizations,
+  getOpenSentAccessRequests,
+  accessNeedGroup as resolveAccessNeedGroup,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
+  type AccessRequestArchived,
   type AuthorizationDenied,
   type AuthorizationGranted,
   type EmbeddedAuthorization,
@@ -28,6 +30,7 @@ import {
 import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {
   AccessNeed,
+  AccessRequestArchivedMessage,
   AgentType,
   type Authorization,
   type AuthorizationData,
@@ -36,10 +39,8 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type { Brand } from 'effect/Brand'
 import type * as S from 'effect/Schema'
-import {
-  listSocialAgentRegistrations,
-} from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 import { dataRegistrationContains } from './peerProxy.js'
 import {
   getDataGrant as getDataGrantFromSparql,
@@ -57,9 +58,11 @@ const formatAccessNeed = async (
   // tolerant — an embedded request's needs carry urn:uuid ids with NO
   // description documents (descriptions are the follow-up); the shape trees
   // are real IRIs and always resolve
-  const description = await AccessNeedModule.getDescription(accessNeed, descriptionsLang, fetch).catch(
-    (): undefined => undefined
-  )
+  const description = await AccessNeedModule.getDescription(
+    accessNeed,
+    descriptionsLang,
+    fetch
+  ).catch((): undefined => undefined)
   const shapeTree = await loadShapeTree(accessNeed.registeredShapeTree, fetch)
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, fetch)
 
@@ -149,16 +152,17 @@ async function findSocialAgentDataRegistrations(
  */
 
 /** Embedded need node → the composed-read `AccessNeedData` (recursive). */
-function accessNeedFromEmbedded(
-  node: Record<string, unknown>,
-  parentId?: string
-): AccessNeedData {
+function accessNeedFromEmbedded(node: Record<string, unknown>, parentId?: string): AccessNeedData {
   const children = ((node.hasInheritingNeed as Record<string, unknown>[] | undefined) ?? []).map(
     (child) => accessNeedFromEmbedded(child, node.id as string)
   )
   return {
     id: node.id as string,
-    type: Array.isArray(node.type) ? (node.type as string[]) : node.type ? [node.type as string] : [],
+    type: Array.isArray(node.type)
+      ? (node.type as string[])
+      : node.type
+        ? [node.type as string]
+        : [],
     registeredShapeTree: node.registeredShapeTree as string,
     inheritsFromNeed: parentId,
     hasInheritingNeed: children.map((child) => child.id),
@@ -284,7 +288,11 @@ export const getDescriptions = async (
       : descriptionLanguages[0]
   const descriptions = fromRequest
     ? undefined
-    : await AccessNeedGroupModule.getDescription(accessNeedGroup, descriptionsLang, ctx.session.fetch)
+    : await AccessNeedGroupModule.getDescription(
+        accessNeedGroup,
+        descriptionsLang,
+        ctx.session.fetch
+      )
 
   return {
     // TODO if the id is the unique id of something then it should not be its own id. It should refer by a different name,
@@ -376,6 +384,9 @@ export const recordAuthorization = async (
       type: ['Activity', 'AuthorizationGranted'],
       actor: ctx.webId,
       target: ctx.registrySet.hasAuthorizationRegistry.id,
+      // the owner-span close (access-request-tracking.md §5): the flat
+      // activity-level back-link — absent on direct approvals without a request
+      ...(accessRequestIri ? { satisfiesAccessRequest: accessRequestIri } : {}),
       // always the array (possibly [] — an all-filtered/self-grant writes no
       // DAs; the child workflow skips empty groups). Declines are
       // `AuthorizationDenied` (Step 4) — never a snapshot here.
@@ -401,6 +412,9 @@ export const recordAuthorization = async (
   const activity: Omit<AuthorizationDenied, 'id'> = {
     type: ['Activity', 'AuthorizationDenied'],
     actor: ctx.webId,
+    // the owner-span close (access-request-tracking.md §5): the flat
+    // activity-level back-link — absent on direct declines without a request
+    ...(accessRequestIri ? { satisfiesAccessRequest: accessRequestIri } : {}),
     object: snapshot(),
     createdAt: new Date().toISOString(),
   }
@@ -410,4 +424,50 @@ export const recordAuthorization = async (
     activity
   )
   return AuthorizationGrantedMessage.make({ ids: [], activityId: IRI.make(created.id) })
+}
+
+/**
+ * Archive an OPEN outgoing need-based access request
+ * (access-request-tracking.md §4.2): the requester closes the span — the
+ * request leaves `accessRequestsSent` on the next refresh. The `request`
+ * arg is the SNAPSHOT id (urn:uuid — the stable profile entry). The
+ * open-set query doubles as the ownership check: the snapshot must appear
+ * in THIS agent's open sent set (its registry is only queryable through
+ * the context's own transport) AND belong to it (`grantedBy` — requests
+ * sent by this agent always carry `grantedBy === ctx.webId`).
+ *
+ * TERMINAL resolution — direct write, no workflow, no `ActivityCompleted`;
+ * the double-resolution no-op (the granted ∧ archived race): a snapshot
+ * that is unknown or already resolved writes nothing and acks
+ * `archived: false` — the UI refreshes either way.
+ */
+export async function archiveAccessRequest(
+  ctx: ResolvedContext,
+  request: string
+): Promise<S.Schema.Type<typeof AccessRequestArchivedMessage>> {
+  const transport = sparqlTransportFor(ctx)
+  const open = await getOpenSentAccessRequests(transport)
+  const target = open.find((r) => r.request === request)
+  if (!target || target.grantedBy !== ctx.webId) {
+    return AccessRequestArchivedMessage.make({ archived: false })
+  }
+  const activityRegistry = ctx.registrySet.hasActivityRegistry
+  if (!activityRegistry) throw new Error('activity registry not found in registry set')
+  const activity: Omit<AccessRequestArchived, 'id'> = {
+    type: ['Activity', 'AccessRequestArchived'],
+    actor: ctx.webId,
+    // the light ref — the Sent activity's SNAPSHOT id (the open-set query
+    // joins `outcome.object.id → sent.object.id`)
+    object: { id: request, type: [INTEROP.NeedBasedAccessRequest] },
+    createdAt: new Date().toISOString(),
+  }
+  const created = await ActivityRegistry.createActivity(
+    activityRegistry,
+    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    activity
+  )
+  return AccessRequestArchivedMessage.make({
+    archived: true,
+    activityId: IRI.make(created.id),
+  })
 }

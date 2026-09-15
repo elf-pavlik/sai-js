@@ -138,13 +138,20 @@ export const SocialAgent = S.Struct({
   id: IRI,
   label: S.String,
   note: S.optional(S.String),
-  /** True when the signed-in user has sent a need-based access request to
-   *  this agent (outgoing — the requester side). The owner-side incoming
-   *  case is `accessRequest` (the approval entry). */
-  accessRequested: S.Boolean,
-  /** the pending need-based access request (the approval entry — opens the
-   *  authorization screen with `accessRequestIri`, §6.8) */
-  accessRequest: S.optional(IRI),
+  /**
+   * INCOMING — OPEN need-based access requests sent by this agent (owner
+   * side): the AccessRequest IRIs (approval entries — each opens the
+   * authorization screen with `accessRequestIri`, §6.8). Empty when nothing
+   * is pending — granted/denied dropped the entries (access-request-tracking
+   * .md §4.1).
+   */
+  accessRequestsReceived: S.Array(IRI),
+  /**
+   * OUTGOING — OPEN need-based access requests sent TO this agent (requester
+   * side): the request SNAPSHOT ids (urn:uuid — the archive targets). Empty
+   * when nothing is pending — granted/archived dropped the entries.
+   */
+  accessRequestsSent: S.Array(IRI),
   accessGrant: S.optional(S.String),
   /**
    * True when the agent is an admin of the *current context's* registry set
@@ -225,6 +232,20 @@ export const NeedBasedAccessRequestSentMessage = S.Struct({
   accepted: S.Boolean,
   /** the triggering `needBasedAccessRequestSent` activity's IRI */
   activityId: IRI,
+})
+
+/**
+ * The archive acknowledgement (access-request-tracking.md §4.2) — the RPC
+ * writes the `AccessRequestArchived` activity (TERMINAL resolution — no
+ * workflow, no `ActivityCompleted`) and echoes its IRI. `archived: false`
+ * means the request was NOT open (unknown snapshot or already resolved —
+ * the granted ∧ archived race no-op): the UI refreshes either way.
+ */
+export const AccessRequestArchivedMessage = S.Struct({
+  /** whether the archive wrote a resolution (false = no-op) */
+  archived: S.Boolean,
+  /** the triggering `accessRequestArchived` activity's IRI (absent on no-op) */
+  activityId: S.optional(IRI),
 })
 
 export const InvitationCreatedMessage = S.Struct({
@@ -407,11 +428,7 @@ export const InvitationAccepted = S.Struct({
   /** no `target` — the object is a self-contained urn:uuid snapshot (the
    *  acceptor has no owning container to mint a real id in) */
   createdAt: S.String,
-  type: S.Tuple(
-    S.Literal('Activity'),
-    S.Literal('InvitationAccepted'),
-    S.Literal('as:Accept')
-  ),
+  type: S.Tuple(S.Literal('Activity'), S.Literal('InvitationAccepted'), S.Literal('as:Accept')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
   /** urn:uuid snapshot of the invitation (opaque capabilityUrl inside) */
@@ -579,11 +596,7 @@ export const RoleMembershipChanged = S.Struct({
   /** no `target` — the changed role's id rides `object.id` (the embedded
    *  role-to-be); the changed container is not consumed */
   createdAt: S.String,
-  type: S.Tuple(
-    S.Literal('Activity'),
-    S.Literal('RoleMembershipChanged'),
-    S.Literal('as:Update')
-  ),
+  type: S.Tuple(S.Literal('Activity'), S.Literal('RoleMembershipChanged'), S.Literal('as:Update')),
   /** as:actor — plain IRI (the registry owner) */
   actor: S.String,
   /** the role-to-be — real-id embedded projection of the `RoleData` */
@@ -905,6 +918,19 @@ export class RequestAccessUsingAccessNeeds extends S.TaggedRequest<RequestAccess
   }
 ) {}
 
+export class ArchiveAccessRequest extends S.TaggedRequest<ArchiveAccessRequest>()(
+  'ArchiveAccessRequest',
+  {
+    failure: S.Never,
+    success: AccessRequestArchivedMessage,
+    payload: {
+      /** the open request's SNAPSHOT id (urn:uuid — the `accessRequestsSent` entry) */
+      request: IRI,
+      context: IRI,
+    },
+  }
+) {}
+
 export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('CreateInvitation', {
   failure: S.Never,
   success: InvitationCreatedMessage,
@@ -977,9 +1003,7 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly registerPushSubscription: (
       subscription: PushSubscription
     ) => Effect.Effect<S.Schema.Type<typeof S.Void>>
-    readonly getApplications: (
-      context: IRI
-    ) => Effect.Effect<S.Schema.Type<typeof ApplicationList>>
+    readonly getApplications: (context: IRI) => Effect.Effect<S.Schema.Type<typeof ApplicationList>>
     readonly getUnregisteredApplication: (
       id: IRI
     ) => Effect.Effect<S.Schema.Type<typeof UnregisteredApplication>>
@@ -1009,12 +1033,13 @@ export class SaiService extends Context.Tag('SaiService')<
       members: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof RoleMembershipChangedMessage>>
-    readonly deleteRole: (id: IRI, context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof RoleDeletedMessage>
-    >
-    readonly getSocialAgentInvitations: (context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof SocialAgentInvitationList>
-    >
+    readonly deleteRole: (
+      id: IRI,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof RoleDeletedMessage>>
+    readonly getSocialAgentInvitations: (
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof SocialAgentInvitationList>>
     readonly getDataRegistries: (
       agentId: IRI,
       lang: string,
@@ -1035,6 +1060,10 @@ export class SaiService extends Context.Tag('SaiService')<
       hasAccessNeedGroup: unknown,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof NeedBasedAccessRequestSentMessage>>
+    readonly archiveAccessRequest: (
+      request: string,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof AccessRequestArchivedMessage>>
     readonly createInvitation: (
       label: string,
       note: string | undefined,
@@ -1059,12 +1088,14 @@ export class SaiService extends Context.Tag('SaiService')<
       grants: readonly S.Schema.Type<typeof IRI>[],
       context: IRI
     ) => Effect.Effect<readonly S.Schema.Type<typeof IRI>[]>
-    readonly addAdmin: (webId: IRI, context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof AdminAuthorizationGrantedMessage>
-    >
-    readonly removeAdmin: (webId: IRI, context: IRI) => Effect.Effect<
-      S.Schema.Type<typeof AdminAuthorizationRevokedMessage>
-    >
+    readonly addAdmin: (
+      webId: IRI,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof AdminAuthorizationGrantedMessage>>
+    readonly removeAdmin: (
+      webId: IRI,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof AdminAuthorizationRevokedMessage>>
   }
 >() {}
 
@@ -1174,21 +1205,23 @@ export const router = RpcRouter.make(
       return yield* saiService.listDataInstances(agentId, registrationId, context)
     })
   ),
-  Rpc.effect(
-    RequestAccessUsingApplicationNeeds,
-    ({ applicationId, agentId, context }) =>
-      Effect.gen(function* () {
-        const saiService = yield* SaiService
-        return yield* saiService.requestAccessUsingApplicationNeeds(applicationId, agentId, context)
-      })
+  Rpc.effect(RequestAccessUsingApplicationNeeds, ({ applicationId, agentId, context }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.requestAccessUsingApplicationNeeds(applicationId, agentId, context)
+    })
   ),
-  Rpc.effect(
-    RequestAccessUsingAccessNeeds,
-    ({ dataOwner, hasAccessNeedGroup, context }) =>
-      Effect.gen(function* () {
-        const saiService = yield* SaiService
-        return yield* saiService.requestAccessUsingAccessNeeds(dataOwner, hasAccessNeedGroup, context)
-      })
+  Rpc.effect(RequestAccessUsingAccessNeeds, ({ dataOwner, hasAccessNeedGroup, context }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.requestAccessUsingAccessNeeds(dataOwner, hasAccessNeedGroup, context)
+    })
+  ),
+  Rpc.effect(ArchiveAccessRequest, ({ request, context }) =>
+    Effect.gen(function* () {
+      const saiService = yield* SaiService
+      return yield* saiService.archiveAccessRequest(request, context)
+    })
   ),
   Rpc.effect(CreateInvitation, ({ label, note, context }) =>
     Effect.gen(function* () {

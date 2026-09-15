@@ -25,7 +25,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     const doc = {
       '@context': dataModelContext,
       '@id': 'https://registry/alice/activity/abc',
-      '@type': ["AuthorizationGranted", "Activity"],
+      '@type': ['AuthorizationGranted', 'Activity'],
       actor: 'https://id/alice',
       target: 'https://registry/alice/authorization/',
       // embedded single-DA form (the legacy live-link string[] form was
@@ -116,9 +116,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       mockFetch(doc)
     )
     expect(activity.type).toEqual(['Activity', 'AdminAuthorizationRevoked'])
-    expect(
-      (activity as { object: { grantee: string } }).object.grantee
-    ).toBe('https://id/bob')
+    expect((activity as { object: { grantee: string } }).object.grantee).toBe('https://id/bob')
   })
 
   test('embeds the denied-authorization structure snapshot (AuthorizationDenied — Step 4)', async () => {
@@ -144,9 +142,9 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect((activity as { object: { type: string[] } }).object.type).toEqual([
       'http://www.w3.org/ns/solid/interop#AuthorizationStructure',
     ])
-    expect(
-      (activity as { object: { grantee: string } }).object.grantee
-    ).toBe('https://data/test-client/public/id')
+    expect((activity as { object: { grantee: string } }).object.grantee).toBe(
+      'https://data/test-client/public/id'
+    )
   })
 
   test('embeds the granted DataAuthorization POJOs-to-be (activity-first step 2)', async () => {
@@ -253,9 +251,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect(activity.object[0].scopeOfAuthorization).toBe(
       'http://www.w3.org/ns/solid/interop#SelectedFromRegistry'
     )
-    expect(activity.object[0].hasDataInstance).toEqual([
-      'https://data/alice-home/x1n3cm/n8k3wp',
-    ])
+    expect(activity.object[0].hasDataInstance).toEqual(['https://data/alice-home/x1n3cm/n8k3wp'])
   })
 
   test('embeds the InvitationCreated object — the invitation-to-be POJO with type normalized', async () => {
@@ -290,5 +286,115 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect((activity as Record<string, unknown>).note).toBeUndefined()
     // no target — dropped with the embedded object form
     expect((activity as Record<string, unknown>).target).toBeUndefined()
+  })
+
+  test('canonicalizes the AccessRequestGranted resolution (light snapshot ref)', async () => {
+    // requester-side close — the object is the light `{ id, type }` ref of
+    // the Sent activity's SNAPSHOT id (access-request-tracking.md §1.1);
+    // reversed tuple exercises set-membership discrimination again
+    const doc = {
+      '@context': dataModelContext,
+      '@id': 'https://registry/bob/activity/granted',
+      '@type': ['AccessRequestGranted', 'Activity'],
+      actor: 'https://id/bob',
+      object: {
+        '@id': 'urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e',
+        '@type': ['http://www.w3.org/ns/solid/interop#NeedBasedAccessRequest'],
+      },
+      createdAt: '2024-01-01T00:00:00.000Z',
+    }
+    const activity = await ActivityRegistry.loadActivity(
+      'https://registry/bob/activity/granted',
+      mockFetch(doc)
+    )
+    expect(activity.type).toEqual(['Activity', 'AccessRequestGranted'])
+    expect(activity.actor).toBe('https://id/bob')
+    // no target — dropped with the light ref form
+    expect((activity as Record<string, unknown>).target).toBeUndefined()
+    expect((activity as { object: { id: string; type: string[] } }).object).toEqual({
+      id: 'urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e',
+      // the class term has a context def — frames to the BARE term (same
+      // normalization the Sent snapshot's type goes through)
+      type: ['NeedBasedAccessRequest'],
+    })
+  })
+
+  test('reads an AccessRequestArchived resolution (light snapshot ref)', async () => {
+    const doc = {
+      '@context': dataModelContext,
+      '@id': 'https://registry/bob/activity/archived',
+      '@type': ['Activity', 'AccessRequestArchived'],
+      actor: 'https://id/bob',
+      // a single rdf:type frames as a scalar — the case normalizes to array
+      object: {
+        '@id': 'urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e',
+        '@type': 'http://www.w3.org/ns/solid/interop#NeedBasedAccessRequest',
+      },
+      createdAt: '2024-01-01T00:00:00.000Z',
+    }
+    const activity = await ActivityRegistry.loadActivity(
+      'https://registry/bob/activity/archived',
+      mockFetch(doc)
+    )
+    expect(activity.type).toEqual(['Activity', 'AccessRequestArchived'])
+    expect((activity as { object: { type: string[] } }).object.type).toEqual([
+      'NeedBasedAccessRequest',
+    ])
+  })
+
+  test('carries the satisfiesAccessRequest back-link on granted + denied (owner-span close)', async () => {
+    // access-request-tracking.md §5 — the flat activity-level back-link;
+    // absent on direct approvals (without a request)
+    const grantedDoc = {
+      '@context': dataModelContext,
+      '@id': 'https://registry/alice/activity/grant-req',
+      '@type': ['Activity', 'AuthorizationGranted'],
+      actor: 'https://id/alice',
+      target: 'https://registry/alice/authorization/',
+      satisfiesAccessRequest:
+        'https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a',
+      object: [
+        {
+          '@id': 'https://registry/alice/authorization/da-1',
+          '@type': ['http://www.w3.org/ns/solid/interop#DataAuthorization'],
+          grantee: 'https://id/bob',
+          grantedBy: 'https://id/alice',
+          registeredShapeTree: 'https://data/shapetrees/trees/Project',
+          scopeOfAuthorization: 'http://www.w3.org/ns/solid/interop#AllFromAgent',
+          dataOwner: 'https://id/alice',
+          accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
+        },
+      ],
+      createdAt: '2024-01-01T00:00:00.000Z',
+    }
+    const granted = (await ActivityRegistry.loadActivity(
+      'https://registry/alice/activity/grant-req',
+      mockFetch(grantedDoc)
+    )) as unknown as { satisfiesAccessRequest?: string }
+    expect(granted.satisfiesAccessRequest).toBe(
+      'https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a'
+    )
+
+    const deniedDoc = {
+      '@context': dataModelContext,
+      '@id': 'https://registry/alice/activity/deny-req',
+      '@type': ['Activity', 'AuthorizationDenied'],
+      actor: 'https://id/alice',
+      satisfiesAccessRequest:
+        'https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a',
+      object: {
+        '@id': 'urn:uuid:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        '@type': ['http://www.w3.org/ns/solid/interop#AuthorizationStructure'],
+        grantee: 'https://id/bob',
+      },
+      createdAt: '2024-01-01T00:00:00.000Z',
+    }
+    const denied = (await ActivityRegistry.loadActivity(
+      'https://registry/alice/activity/deny-req',
+      mockFetch(deniedDoc)
+    )) as unknown as { satisfiesAccessRequest?: string }
+    expect(denied.satisfiesAccessRequest).toBe(
+      'https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a'
+    )
   })
 })

@@ -34,38 +34,47 @@
         >
           {{ $t('data') }}
           <template
-            v-if="agent.accessRequested"
+            v-if="agent.accessRequestsSent.length > 0"
             #append
           >
             <v-badge
               inline
               color="warning"
-              icon="mdi-bell-ring-outline"
-            />
+            >
+              <!-- direction icon + count via the custom badge slot (Vuetify
+                   renders `icon` and `content` mutually exclusively) -->
+              <template #badge>
+                <v-icon
+                  icon="mdi-outbox"
+                  size="small"
+                />
+                {{ agent.accessRequestsSent.length }}
+              </template>
+            </v-badge>
           </template>
         </v-btn>
         <v-btn
-          :disabled="!agent.accessRequest"
+          :disabled="agent.accessRequestsReceived.length === 0"
           prepend-icon="mdi-security"
-          :to="{
-            name: 'authorization',
-            query: {
-              webid: agent.id,
-              redirect: 'false',
-              ...(agent.accessRequest ? { request: agent.accessRequest } : {})
-            }
-          }"
+          :to="accessRoute(agent)"
         >
           {{ $t('access') }}
           <template
-            v-if="agent.accessRequest"
+            v-if="agent.accessRequestsReceived.length > 0"
             #append
           >
             <v-badge
               inline
               color="warning"
-              icon="mdi-bell-ring-outline"
-            />
+            >
+              <template #badge>
+                <v-icon
+                  icon="mdi-inbox"
+                  size="small"
+                />
+                {{ agent.accessRequestsReceived.length }}
+              </template>
+            </v-badge>
           </template>
         </v-btn>
       </v-card-actions>
@@ -117,8 +126,8 @@
   </v-sheet>
 </template>
 <script lang="ts" setup>
-import { useCoreStore } from '@/store/core'
 import { useAppStore } from '@/store/app'
+import { useCoreStore } from '@/store/core'
 import type { SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { computed, ref } from 'vue'
@@ -131,12 +140,24 @@ appStore.listSocialAgents()
 appStore.listSocialAgentInvitations()
 const showAdd = ref(false)
 
+/** Open incoming request count + the access-button target: a SINGLE open
+ *  request keeps the direct-to-authorization flow (`request: <iri>` opens
+ *  the approval screen); multiple requests route to the peer detail where
+ *  each entry is approvable (access-request-tracking.md §4.2). */
+function accessRoute(agent: { id: string; accessRequestsReceived: readonly string[] }) {
+  if (agent.accessRequestsReceived.length === 1) {
+    return {
+      name: 'authorization',
+      query: { webid: agent.id, redirect: 'false', request: agent.accessRequestsReceived[0] },
+    }
+  }
+  return { name: 'data-registry-list', query: { agent: agent.id } }
+}
+
 /** switching contexts re-targets the list; the last-admin disable applies to
  *  an org context only (Phase 5: in the personal context the owner remains —
  *  the RPC guard is skipped there, so demoting the last admin is allowed) */
-const inOrgContext = computed(
-  () => !!appStore.context && appStore.context !== coreStore.userId
-)
+const inOrgContext = computed(() => !!appStore.context && appStore.context !== coreStore.userId)
 
 /** last-admin guard: refuse to demote the only remaining admin in an org
  *  context (the RPC enforces it there too) */

@@ -1,4 +1,5 @@
 import * as effect from '@/effect'
+import type { ActivityEvent } from '@/events'
 import type {
   AgentType,
   ApplicationList,
@@ -25,7 +26,6 @@ import { IRI } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
-import type { ActivityEvent } from '@/events'
 import { useCoreStore } from './core'
 
 export const useAppStore = defineStore('app', () => {
@@ -199,7 +199,6 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-
   async function getResource(resourceId: string) {
     resource.value = await effect.getResource(resourceId, lang.value, currentContext())
   }
@@ -296,9 +295,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function listSocialAgentInvitations(force = false) {
     if (!invitationList.value.length || force) {
-      invitationList.value = [
-        ...(await effect.listSocialAgentInvitations(currentContext())),
-      ]
+      invitationList.value = [...(await effect.listSocialAgentInvitations(currentContext()))]
     }
   }
 
@@ -325,6 +322,13 @@ export const useAppStore = defineStore('app', () => {
 
   async function requestAccess(applicationId: string, agentId: string) {
     await effect.requestAccessUsingApplicationNeeds(applicationId, agentId, currentContext())
+    listSocialAgents(true)
+  }
+
+  async function archiveAccessRequest(request: string) {
+    // terminal resolution — the RPC acks `archived` (false = already
+    // resolved no-op); refresh either way so the outgoing list clears
+    await effect.archiveAccessRequest(request, currentContext())
     listSocialAgents(true)
   }
 
@@ -364,12 +368,7 @@ export const useAppStore = defineStore('app', () => {
     // Step 0 accept claim: the activity's object is a urn:uuid snapshot the
     // UI cannot know, so the claim anchors on the ack-echoed activity id
     // (exact match — no cross-binding between in-flight accepts).
-    const result = await effect.acceptInvitation(
-      capabilityUrl,
-      label,
-      note,
-      currentContext()
-    )
+    const result = await effect.acceptInvitation(capabilityUrl, label, note, currentContext())
     claimActivity({
       context: currentContext(),
       type: 'InvitationAccepted',
@@ -437,6 +436,7 @@ export const useAppStore = defineStore('app', () => {
     authorizeApp,
     revokeGrants,
     requestAccess,
+    archiveAccessRequest,
     listSocialAgents,
     listRoles,
     createRole,

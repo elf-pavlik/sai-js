@@ -2,6 +2,7 @@ import {
   type ActivityData,
   type ActivityRegistryData,
   type CreateInvitationPojo,
+  type EmbeddedAccessRequestRef,
   type EmbeddedAdminAuthorization,
   type EmbeddedAuthorization,
   type EmbeddedNeedBasedAccessRequest,
@@ -12,8 +13,8 @@ import {
   dataModelContext,
   isActivityClass,
 } from '@janeirodigital/interop-data-model'
-import type { DataModelDependencies } from './types'
-import { INTEROP,
+import {
+  INTEROP,
   LDP,
   type WhatwgFetch,
   fetchJsonLd,
@@ -23,6 +24,7 @@ import { INTEROP,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
+import type { DataModelDependencies } from './types'
 
 /** The activity resources currently in the registry (ldp:contains). */
 export async function getActivityIris(
@@ -71,7 +73,10 @@ async function frameActivity(id: string, fetch: WhatwgFetch): Promise<Record<str
   // ride the graph, or the approval cannot resolve the group). The deep
   // frame is CLASS-GATED: a per-property sub-frame is a whitelist that would
   // mis-frame the LIVE-LINK object arrays of the other classes.
-  const needBasedClasses = [INTEROP.NeedBasedAccessRequestSent, INTEROP.NeedBasedAccessRequestReceived]
+  const needBasedClasses = [
+    INTEROP.NeedBasedAccessRequestSent,
+    INTEROP.NeedBasedAccessRequestReceived,
+  ]
   const nodes = Array.isArray(doc) ? doc : [doc]
   const isNeedBased = nodes.some((node) => {
     const types = typeof node?.['@type'] === 'string' ? [node['@type']] : (node?.['@type'] ?? [])
@@ -174,60 +179,58 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
               : asString((node.object as CreateInvitationPojo)?.note),
         },
       }
-    case 'NeedBasedAccessRequestSent':
-      // target dropped — the request snapshot (urn:uuid id, the embedded
-      // access need group) rides the object; the requester-side workflow
-      // forwards it to the data owner's (reused) issuance endpoint
-      {
-        const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
-        const group = embedded?.hasAccessNeedGroup
-        return {
-          id,
-          createdAt: asString(node.createdAt),
-          type: canonicalType as ['Activity', 'NeedBasedAccessRequestSent'],
-          actor,
-          object: {
-            id: asString(embedded?.id),
-            type: asStringArray(embedded?.type),
-            grantee: asString(embedded?.grantee),
-            grantedBy: asString(embedded?.grantedBy),
-            dataOwner: asString(embedded?.dataOwner),
-            // the framed group node is NORMALIZED like the other embedded
-            // objects — a single rdf:type frames as a scalar, so `type`
-            // goes through asStringArray (no shape assertion)
-            hasAccessNeedGroup: {
-              id: asString(group),
-              type: asStringArray(group?.type),
-              hasAccessNeed: group?.hasAccessNeed ?? [],
-            },
+    case 'NeedBasedAccessRequestSent': // target dropped — the request snapshot (urn:uuid id, the embedded
+    // access need group) rides the object; the requester-side workflow
+    // forwards it to the data owner's (reused) issuance endpoint
+    {
+      const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
+      const group = embedded?.hasAccessNeedGroup
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'NeedBasedAccessRequestSent'],
+        actor,
+        object: {
+          id: asString(embedded?.id),
+          type: asStringArray(embedded?.type),
+          grantee: asString(embedded?.grantee),
+          grantedBy: asString(embedded?.grantedBy),
+          dataOwner: asString(embedded?.dataOwner),
+          // the framed group node is NORMALIZED like the other embedded
+          // objects — a single rdf:type frames as a scalar, so `type`
+          // goes through asStringArray (no shape assertion)
+          hasAccessNeedGroup: {
+            id: asString(group),
+            type: asStringArray(group?.type),
+            hasAccessNeed: group?.hasAccessNeed ?? [],
           },
-        }
+        },
       }
-    case 'NeedBasedAccessRequestReceived':
-      // minted half — `target` = the AccessRequest registry; the object is
-      // the request-to-be as a REAL-ID embedded projection at the minted id;
-      // the owner-side workflow PUTs the AccessRequest resource there
-      {
-        const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
-        const group = embedded?.hasAccessNeedGroup
-        return {
-          ...base,
-          type: canonicalType as ['Activity', 'NeedBasedAccessRequestReceived'],
-          actor,
-          object: {
-            id: asString(embedded?.id),
-            type: asStringArray(embedded?.type),
-            grantee: asString(embedded?.grantee),
-            grantedBy: asString(embedded?.grantedBy),
-            dataOwner: asString(embedded?.dataOwner),
-            hasAccessNeedGroup: {
-              id: asString(group),
-              type: asStringArray(group?.type),
-              hasAccessNeed: group?.hasAccessNeed ?? [],
-            },
+    }
+    case 'NeedBasedAccessRequestReceived': // minted half — `target` = the AccessRequest registry; the object is
+    // the request-to-be as a REAL-ID embedded projection at the minted id;
+    // the owner-side workflow PUTs the AccessRequest resource there
+    {
+      const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
+      const group = embedded?.hasAccessNeedGroup
+      return {
+        ...base,
+        type: canonicalType as ['Activity', 'NeedBasedAccessRequestReceived'],
+        actor,
+        object: {
+          id: asString(embedded?.id),
+          type: asStringArray(embedded?.type),
+          grantee: asString(embedded?.grantee),
+          grantedBy: asString(embedded?.grantedBy),
+          dataOwner: asString(embedded?.dataOwner),
+          hasAccessNeedGroup: {
+            id: asString(group),
+            type: asStringArray(group?.type),
+            hasAccessNeed: group?.hasAccessNeed ?? [],
           },
-        }
+        },
       }
+    }
     case 'AgentRegistrationAdded':
       return {
         ...base,
@@ -293,6 +296,12 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         ...base,
         type: canonicalType as ['Activity', 'AuthorizationGranted'],
         actor,
+        // the owner-span close (access-request-tracking.md §5) — optional,
+        // direct approvals without a request carry none
+        satisfiesAccessRequest:
+          node.satisfiesAccessRequest === undefined
+            ? undefined
+            : asString(node.satisfiesAccessRequest),
         object:
           node.object === undefined
             ? []
@@ -310,6 +319,12 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         createdAt: asString(node.createdAt),
         type: canonicalType as ['Activity', 'AuthorizationDenied'],
         actor,
+        // the owner-span close (access-request-tracking.md §5) — optional,
+        // direct declines without a request carry none
+        satisfiesAccessRequest:
+          node.satisfiesAccessRequest === undefined
+            ? undefined
+            : asString(node.satisfiesAccessRequest),
         object: {
           id: asString(embedded?.id),
           type: asStringArray(embedded?.type),
@@ -317,6 +332,39 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           hasAccessNeedGroup: embedded?.hasAccessNeedGroup
             ? asString(embedded?.hasAccessNeedGroup)
             : undefined,
+        },
+      }
+    }
+    case 'AccessRequestGranted': {
+      // requester-side resolution (access-request-tracking.md §1.1) — the
+      // light `{ id, type }` ref of the Sent activity's SNAPSHOT id (the
+      // grant landed — written by the detectGrantedRequests child). No
+      // `target`, no `ActivityCompleted` (terminal resolution).
+      const embedded = node.object as EmbeddedAccessRequestRef | undefined
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'AccessRequestGranted'],
+        actor,
+        object: {
+          id: asString(embedded?.id),
+          type: asStringArray(embedded?.type),
+        },
+      }
+    }
+    case 'AccessRequestArchived': {
+      // requester-side user close (access-request-tracking.md §4.2) — the
+      // light `{ id, type }` ref of the Sent activity's SNAPSHOT id (the
+      // archiveAccessRequest RPC). No `target`, no `ActivityCompleted`.
+      const embedded = node.object as EmbeddedAccessRequestRef | undefined
+      return {
+        id,
+        createdAt: asString(node.createdAt),
+        type: canonicalType as ['Activity', 'AccessRequestArchived'],
+        actor,
+        object: {
+          id: asString(embedded?.id),
+          type: asStringArray(embedded?.type),
         },
       }
     }

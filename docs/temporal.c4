@@ -7306,6 +7306,92 @@ views "Authorization" {
       }
     }
 
+    // later visit — archive a still-open request (the requester span closes;
+    // works at ANY future point: snapshots + resolutions are immutable and the
+    // open set re-derives from the Activity Registry)
+    Bob.AUI -> Bob.UAS.UiApi 'POST (RPC) archiveAccessRequest' {
+        notes'''
+          #### POST (RPC) archiveAccessRequest
+          >[!NOTE]
+          >access-request.test.ts > archive (to be added)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `bob`
+
+          >[!TIP]
+          > the archive targets a STILL-OPEN outgoing request by its SNAPSHOT id — the entry from `accessRequestsSent` (the profile is the identity source, no reliance on the send-time ack); the requester-side close when the owner never resolves (deny is owner-only)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "ArchiveAccessRequest",
+                "request": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+                "context": "https://id/bob"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Bob.UAS.UiApi -> Bob.Registry 'PUT AccessRequestArchived activity [Activity]' {
+        notes'''
+          #### PUT AccessRequestArchived activity [Activity]
+          >[!NOTE]
+          >access-request.test.ts > archive (to be added)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > light `{ id, type }` projection of the sent activity's SNAPSHOT id — the full snapshot lives ONCE on `NeedBasedAccessRequestSent`; the open-set query joins `outcome.object.id → sent.object.id` inside the same Activity Registry. Direct write + ownership check — NO workflow, NO `activityCompleted` (terminal resolution — the class IS the outcome); rejects/no-ops when a resolution already exists (granted ∧ archived race)
+
+          ```http
+          PUT https://registry/bob/activity/9f2e5c81-3a4d-4b7e-8f0c-2a3b4c5d6e7f
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/activity/9f2e5c81-3a4d-4b7e-8f0c-2a3b4c5d6e7f",
+            "type": ["Activity", "AccessRequestArchived"],
+            "actor": "https://id/bob",
+            "object": {
+              "id": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+              "type": ["NeedBasedAccessRequest"]
+            },
+            "createdAt": "2026-09-01T01:50:34.328Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Bob.UAS.UiApi -> Bob.AUI 'OK (pending) — activityId' {
+        notes'''
+          #### OK (pending) — activityId
+          >[!NOTE]
+          >access-request.test.ts > archive (to be added)
+
+          >[!TIP]
+          > the uniform UI claim anchor; the request leaves `accessRequestsSent` on the next refresh (the open-set query excludes resolved requests) — the outgoing badge shows the remaining open count
+
+          ```json
+          {
+            "activityId": "https://registry/bob/activity/9f2e5c81-3a4d-4b7e-8f0c-2a3b4c5d6e7f"
+          }
+          ```
+        '''
+    }
   }  dynamic view authz-data-need-based-request {
     title: 'Authorization data (need based access request)'
 
@@ -7454,6 +7540,7 @@ views "Authorization" {
         '''
     }
     Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) authorizeApp' {
+        navigateTo deny-access-request
         notes'''
           #### POST (RPC) authorizeApp
           >[!NOTE]
@@ -7461,6 +7548,10 @@ views "Authorization" {
 
           >[!IMPORTANT]
           > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > decline branch (`granted: false`): `AuthorizationDenied`, silent / forward-only — no requester notification:
+          > [deny-access-request](../deny-access-request/?dynamic=sequence)
 
           >[!TIP]
           > the approval entry (§6.8): `accessRequestIri` resolves the group
@@ -7518,6 +7609,12 @@ views "Authorization" {
           > each DA references its access need via `satisfiesAccessNeed` (the
           > request's embedded copy — the grant-outcome correlation
           > identifier); the request stays immutable
+
+          >[!TIP]
+          > the OWNER-span close: the flat `satisfiesAccessRequest` back-links
+          > the request (activity-level — `recordAuthorization` holds the one
+          > `accessRequestIri`) — the owner-side open set excludes it on the
+          > next refresh (the incoming badge clears)
 
           ```http
           PUT https://registry/alice/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b
@@ -7704,6 +7801,177 @@ views "Authorization" {
           > Alices registration of him (present once pairs are symmetric)
 
           [reciprocal-registration-update](../reciprocal-registration-update/?dynamic=sequence)
+        '''
+    }
+    Bob.UAS.WebhookReceiver -> Bob.UAS.Temporal 'start updateDelegatedGrants workflow' {
+        notes'''
+          #### start updateDelegatedGrants workflow
+          >[!NOTE]
+          >reciprocal-webhook.test.ts > grantee side
+
+          >[!TIP]
+          >gRPC — the grantee-side follow-up: Bobs AA regenerates his APPLICATION delegations over the newly granted data with the received-grant view FRESH (the full flow is the drill-down above); the requiESTER span closes at its END
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run updateDelegatedGrants'
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) start detectGrantedRequests — fire-and-forget child (end of updateDelegatedGrants)' {
+        notes'''
+          #### (workflow) start detectGrantedRequests — fire-and-forget child (end of updateDelegatedGrants)
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!TIP]
+          >gRPC — started at the end of `updateDelegatedGrants`; the parent does NOT await it (fire-and-forget), so the UI is never blocked; the granted outcome needs NO owner→requester notification — it is OBSERVED from the fresh received-grant view (best-effort match, §3)
+        '''
+    }
+    Bob.UAS.Temporal -> Bob.UAS.Temporal '(workflow) run detectGrantedRequests'
+    Bob.UAS.Temporal -> Bob.Registry 'PUT AccessRequestGranted activity [Activity]' {
+        notes'''
+          #### PUT AccessRequestGranted activity [Activity]
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `bob`
+
+          >[!TIP]
+          > for each open sent request: granted iff ∃ grant with `grant.grantee === request.grantedBy` (the requester — `=== request.grantee` on self-requests) ∧ `grant.grantedBy === request.dataOwner` ∧ `grant.registeredShapeTree` ∈ the request's trees; light `{ id, type }` projection of the `NeedBasedAccessRequestSent` snapshot id — the requester span closes; the resolution IS the outcome — NO `activityCompleted` (terminal class, unlike workflow-driven activities); `events.ts` reacts to the row at any status
+
+          ```http
+          PUT https://registry/bob/activity/5d4c3b2a-1e9f-4a8b-7c6d-0e1f2a3b4c5d
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/bob/activity/5d4c3b2a-1e9f-4a8b-7c6d-0e1f2a3b4c5d",
+            "type": ["Activity", "AccessRequestGranted"],
+            "actor": "https://id/bob",
+            "object": {
+              "id": "urn:uuid:5c9e3a72-4d1f-4a8b-9c2e-0f1a2b3c4d5e",
+              "type": ["NeedBasedAccessRequest"]
+            },
+            "createdAt": "2026-09-01T01:50:35.328Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Bob.Registry -> Bob.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+    Bob.UAS.WebhookReceiver -> Bob.AUI 'event (pending) — outgoing badge clears (accessRequestsSent drops the entry)'
+  }
+  dynamic view deny-access-request {
+    title: 'Deny access request / Alice declines Bobs need-based request'
+
+    include Alice
+    include Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.Registry
+
+    style Alice {
+      color: green
+    }
+
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) authorizeApp (granted: false)' {
+        notes'''
+          #### POST (RPC) authorizeApp (granted: false)
+          >[!NOTE]
+          >authorization.test.ts > denied (silent decline)
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > the decline branch of the same approval RPC — `granted: false`, no DAs; the request stays immutable; `recordAuthorization` writes `AuthorizationDenied` with the flat `satisfiesAccessRequest` back-link (owner-span close)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AuthorizeApp",
+                "accessRequestIri": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+                "authorization": {
+                  "grantee": "https://id/bob",
+                  "agentType": "http://www.w3.org/ns/solid/interop#SocialAgent",
+                  "accessNeedGroup": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                  "granted": false
+                },
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Alice.UAS.UiApi -> Alice.Registry 'PUT AuthorizationDenied activity (request snapshot + satisfiesAccessRequest) [Activity]' {
+        notes'''
+          #### PUT AuthorizationDenied activity (request snapshot + satisfiesAccessRequest) [Activity]
+          >[!NOTE]
+          >authorization.test.ts > denied (silent decline)
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > forward-only — NO requester notification; the snapshot carries `grantee` (+ the group, term-covered subset); flat `satisfiesAccessRequest` = the owner-minted request IRI — the incoming-open set excludes it (the badge clears on refresh)
+
+          ```http
+          PUT https://registry/alice/activity/7e6d5c4b-3a2f-4e1d-8c0b-9a8f7e6d5c4b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "id": "https://registry/alice/activity/7e6d5c4b-3a2f-4e1d-8c0b-9a8f7e6d5c4b",
+            "type": ["Activity", "AuthorizationDenied"],
+            "actor": "https://id/alice",
+            "satisfiesAccessRequest": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+            "object": {
+              "id": "urn:uuid:8a9b0c1d-2e3f-4a5b-6c7d-8e9f0a1b2c3d",
+              "type": ["AuthorizationStructure"],
+              "grantee": "https://id/bob",
+              "hasAccessNeedGroup": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b"
+            },
+            "createdAt": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Alice.UAS.UiApi -> Alice.AUI 'OK (pending) — ids: [] + activityId' {
+        notes'''
+          #### OK (pending) — ids: [] + activityId
+          >[!NOTE]
+          >authorization.test.ts > denied (silent decline)
+
+          >[!TIP]
+          > the same pending ack (`activityId`; `ids: []` — no DAs minted); a pure decline produces NO registration Update; the resolution IS the outcome — no `activityCompleted` (terminal class — the incoming-open badge clears on any later list refresh, the request now has a resolution)
+
+          ```json
+          {
+            "ids": [],
+            "activityId": "https://registry/alice/activity/7e6d5c4b-3a2f-4e1d-8c0b-9a8f7e6d5c4b"
+          }
+          ```
         '''
     }
   }

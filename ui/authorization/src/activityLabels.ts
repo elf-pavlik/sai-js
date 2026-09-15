@@ -12,7 +12,10 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   RoleDeleted: 'delete-role',
   RoleCreated: 'create-role',
   AuthorizationGranted: 'authorize-app',
+  AuthorizationDenied: 'authorize-app-denied',
   AdminAuthorizationGranted: 'add-admin',
   NeedBasedAccessRequestSent: 'request-access-sent',
   NeedBasedAccessRequestReceived: 'request-access-received',
+  AccessRequestGranted: 'access-request-granted',
+  AccessRequestArchived: 'access-request-archived',
 }

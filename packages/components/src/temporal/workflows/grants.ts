@@ -1,8 +1,8 @@
 import type {
-  AgentId,
   ActivityData,
   AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
+  AgentId,
   AuthorizationGranted,
   AuthorizationGrantedId,
   DataAuthorizationData,
@@ -13,9 +13,9 @@ import type {
   InvitationCreated,
   NeedBasedAccessRequestReceived,
   NeedBasedAccessRequestSent,
-  RoleData,
   RoleCreated,
   RoleCreatedId,
+  RoleData,
   RoleDeleted,
   RoleDeletedId,
   RoleMembershipChanged,
@@ -24,23 +24,24 @@ import type {
 } from '@janeirodigital/interop-data-model'
 import { WorkflowExecutionAlreadyStartedError } from '@temporalio/common'
 import {
+  ParentClosePolicy,
   condition,
   defineSignal,
   executeChild,
   proxyActivities,
   setHandler,
+  startChild,
+  workflowInfo,
 } from '@temporalio/workflow'
 import type * as activities from '../activities/grants.js'
 import {
-  processAdminAuthorizationGranted,
-  processAdminAuthorizationRevoked,
-} from './admin.js'
-import type { AdminWorkflowInput } from './admin.js'
-import { createInvitation } from './invitation.js'
-import {
+  detectGrantedRequests,
   processNeedBasedAccessRequest,
   processNeedBasedAccessRequestReceived,
 } from './access-request.js'
+import { processAdminAuthorizationGranted, processAdminAuthorizationRevoked } from './admin.js'
+import type { AdminWorkflowInput } from './admin.js'
+import { createInvitation } from './invitation.js'
 
 // NOTE: workflow code runs inside the Temporal sandbox — no runtime imports
 // beyond @temporalio/workflow (utils' INTEROP would pull in disallowed Node
@@ -237,7 +238,10 @@ export async function processGranteeAuthorization(
       dataAuthorizations: dataAuthorizations as FinalDataAuthorizationData[],
     })
   }
-  const authorizationGrantee = await resolveAuthorizationGrantee({ webId, object: dataAuthorizations })
+  const authorizationGrantee = await resolveAuthorizationGrantee({
+    webId,
+    object: dataAuthorizations,
+  })
   if (!authorizationGrantee) return
   await createGrantsForAuthorization({ webId, authorizationGrantee })
 }
@@ -264,6 +268,24 @@ export async function updateDelegatedGrants(
       activities: [{ id: payload.activityId }],
     })
   }
+  // fire-and-forget granted-detection (access-request-tracking.md §3): the
+  // requester's received-grant view is FRESH here — start the detector child
+  // and deliberately do NOT await its result. `ParentClosePolicy.ABANDON` is
+  // REQUIRED: the default policy TERMINATES children when their parent
+  // closes — the child would be killed the moment `updateDelegatedGrants`
+  // returns (the dev failure: `workflowExecutionTerminatedEventAttributes,
+  // reason: by parent close policy`); ABANDON lets it keep running
+  // independently. The derived workflowId makes a parent retry re-issue the
+  // SAME StartChild command (deduped by Temporal — no unbounded children);
+  // its own retry policy covers transient worker failures; the result's
+  // rejection is swallowed so a best-effort miss never fails this workflow.
+  await startChild(detectGrantedRequests, {
+    taskQueue: 'create-grants',
+    args: [payload.webId],
+    workflowId: `${workflowInfo().workflowId}-granted-detection`,
+    parentClosePolicy: ParentClosePolicy.ABANDON,
+    retry: { maximumAttempts: 3 },
+  })
 }
 
 /**

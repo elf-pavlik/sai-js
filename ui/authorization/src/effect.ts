@@ -5,6 +5,7 @@ import {
   AcceptInvitation,
   AddAdmin,
   type AgentType,
+  ArchiveAccessRequest,
   type Authorization,
   AuthorizeApp,
   BootstrapAccount,
@@ -211,12 +212,23 @@ export async function requestAccessUsingApplicationNeeds(
   return Effect.runPromise(program)
 }
 
-export async function createInvitation(label: string, note: string | undefined, context: string) {
+export async function archiveAccessRequest(request: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(
-      new CreateInvitation({ label, note, context: IRI.make(context) })
+      new ArchiveAccessRequest({
+        request: IRI.make(request),
+        context: IRI.make(context),
+      })
     )
+  }).pipe(Effect.provide(AuthLayer))
+  return Effect.runPromise(program)
+}
+
+export async function createInvitation(label: string, note: string | undefined, context: string) {
+  const program = Effect.gen(function* () {
+    const client = yield* makeClient
+    return yield* client(new CreateInvitation({ label, note, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -265,10 +277,7 @@ export async function authorizeApp(
   return Effect.runPromise(program)
 }
 
-export async function revokeGrants(
-  grants: readonly S.Schema.Type<typeof IRI>[],
-  context: string
-) {
+export async function revokeGrants(grants: readonly S.Schema.Type<typeof IRI>[], context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(new RevokeGrants({ grants, context: IRI.make(context) }))
@@ -296,9 +305,7 @@ export async function updateRole(
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(
-      new UpdateRole({ id, label, members, context: IRI.make(context) })
-    )
+    return yield* client(new UpdateRole({ id, label, members, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

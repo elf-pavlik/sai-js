@@ -3148,6 +3148,31 @@ views {
           ```
         '''
     }
+    Kim.UAS.Temporal -> Dan.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > personal
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/dan/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/6a1c2d3e-4f5a-4b6c-9d7e-8f9a0b1c2d3e"
+          }
+          ```
+        '''
+    }
     Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
@@ -4247,6 +4272,31 @@ Kim.UAS.UiApi -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
           ```
         '''
     }
+    Kim.UAS.Temporal -> YoYo.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `kim`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/yoyo/agent/66cdc3c2-bcc8-493f-8062-b001ca056378/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/6a1c2d3e-4f5a-4b6c-9d7e-8f9a0b1c2d3e"
+          }
+          ```
+        '''
+    }
     Kim.UAS.Temporal -> Kim.Registry '(activity) create activityCompleted [Activity]' {
         notes'''
           #### (activity) create activityCompleted [Activity]
@@ -5199,6 +5249,31 @@ Kim.UAS.UiApi -> Kim.Registry 'PUT invitationAccepted activity [Activity]' {
 
           ```http
           HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    YoYo.UAS.Temporal -> Kim.Registry '(activity) subscribe webhook to reciprocal registration [Agent]' {
+        notes'''
+          #### (activity) subscribe webhook to reciprocal registration [Agent]
+          >[!NOTE]
+          >invitation.test.ts > admin
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `yoyo`
+
+          ```http
+          POST https://registry/.notifications/
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          ```
+
+          ```json
+          {
+            "@context": ["https://www.w3.org/ns/solid/notification/v1"],
+            "type": "WebhookChannel2023",
+            "topic": "https://registry/kim/agent/939a58f3-bf2f-48ae-8532-90638e6f36f4/",
+            "sendTo": "https://auth/.sai/reciprocal-webhook/74e5f6a7-8b9c-4d0e-a1f2-3b4c5d6e7f80"
+          }
           ```
         '''
     }

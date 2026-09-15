@@ -85,10 +85,12 @@ export async function establishReciprocal(
  * AA (personal or org). Mirrors `establishReciprocal` on the acceptor side:
  * POST the opaque capabilityUrl (the inviter's AA creates its registration of
  * us and returns the inviter's webId), build our registration of the inviter,
- * discover the reciprocal, and only then mark the activity done. The decoded
- * activity object (the urn:uuid snapshot) passes verbatim; the completion
- * rides the `InvitationAcceptedId` ref. No webhook subscription —
- * `reciprocalWebhook` remains the inviter side's job.
+ * discover the reciprocal and subscribe the reciprocal webhook on the
+ * inviter's registration of us (each side of the pair watches the other's
+ * registration — inviter via `establishReciprocal`, acceptor here), and only
+ * then mark the activity done. The decoded activity object (the urn:uuid
+ * snapshot) passes verbatim; the completion rides the `InvitationAcceptedId`
+ * ref.
  */
 export async function acceptInvitation(
   webId: string,
@@ -97,7 +99,8 @@ export async function acceptInvitation(
   activity: InvitationAcceptedId
 ): Promise<void> {
   const { registration } = await invitationAcceptance(webId, object)
-  await reciprocalRegistration(webId, registration, accountId)
+  const webhook = await reciprocalRegistration(webId, registration, accountId)
+  await reciprocalWebhook(webhook)
   await markActivitiesDone({
     webId: { id: webId, type: [SOCIAL_AGENT_TYPE] },
     activities: [activity],

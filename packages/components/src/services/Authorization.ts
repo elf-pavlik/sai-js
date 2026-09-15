@@ -37,7 +37,6 @@ import {
 import type { Brand } from 'effect/Brand'
 import type * as S from 'effect/Schema'
 import {
-  findSocialAgentRegistrationInContext,
   listSocialAgentRegistrations,
 } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
@@ -207,13 +206,11 @@ export const getDescriptions = async (
     if (!clientIdDocument.hasAccessNeedGroup) return null
     accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
   } else if (agentType === AgentType.SocialAgent) {
-    const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentIri)
-    if (!socialAgentRegistration) throw new Error(`registration not found for ${agentIri}`)
-    const reciprocalRegistration = socialAgentRegistration.reciprocalRegistration
-      ? await getRegistrationFromSparql(transport, socialAgentRegistration.reciprocalRegistration)
-      : undefined
-    accessNeedGroupIriResolved = reciprocalRegistration?.hasAccessNeedGroup
-    if (!accessNeedGroupIriResolved) return null
+    // access need groups on social-agent registrations are retired
+    // (authorization-granting.md) — a social-agent authorization needs the
+    // group explicitly (accessNeedGroupIri) or from the request
+    // (accessRequestIri); there is no registration-side fallback
+    throw new Error('accessNeedGroupIri is required for SocialAgent agent type')
   } else if (agentType === AgentType.Role) {
     if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
   } else throw new Error('wrong agent type')

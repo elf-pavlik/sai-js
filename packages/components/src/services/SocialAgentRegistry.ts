@@ -133,7 +133,6 @@ export const buildSocialAgentProfile = async (
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
     accessGrant: getDataGrantIris(registration)[0],
-    accessNeedGroup: reciprocal?.hasAccessNeedGroup,
   })
 }
 

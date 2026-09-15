@@ -149,7 +149,6 @@ export async function getSocialAgentRegistration(
     hasAdminGrant: (node.hasAdminGrant as string[]) ?? [],
     label: (node.label as string) ?? '',
     note: (node.note as string | undefined) ?? undefined,
-    hasAccessNeedGroup: (node.hasAccessNeedGroup as string | undefined) ?? undefined,
     reciprocalRegistration: (node.reciprocalRegistration as string | undefined) ?? undefined,
   }
 }

@@ -1,5 +1,4 @@
 import {
-  INTEROP,
   SKOS,
   type WhatwgFetch,
   fetchJsonLd,
@@ -22,7 +21,6 @@ export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   hasAdminGrant?: string[]
   label: string
   note?: string
-  hasAccessNeedGroup?: string
   /** IRI of the peer's reciprocal registration — loaded lazily, see the AA `loadReciprocalRegistration` */
   reciprocalRegistration?: string
 }
@@ -44,7 +42,7 @@ export type SocialAgentId = {
  *
  * The document can be in expanded, compacted, or flattened form. Uses
  * jsonld.frame with the shared data model context: node references
- * (`registeredAgent`, `hasAccessNeedGroup`, `reciprocalRegistration`) are
+ * (`registeredAgent`, `reciprocalRegistration`) are
  * coerced to strings via `@type: '@id'`, `hasDataGrant` to a string array via
  * `@type: '@id'` + `@container: '@set'`, literals to plain strings, and the
  * rdf:type (from framing) to a string array.
@@ -60,7 +58,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
     label: node.label ?? '',
     // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
     note: node.note ?? undefined,
-    hasAccessNeedGroup: node.hasAccessNeedGroup ?? undefined,
     reciprocalRegistration: node.reciprocalRegistration ?? undefined,
   }
 }
@@ -82,15 +79,6 @@ export function toDataset(data: SocialAgentRegistrationData): Store {
   store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.label)))
   if (data.note) {
     store.add(DataFactory.quad(node, SKOS.terms.note, DataFactory.literal(data.note)))
-  }
-  if (data.hasAccessNeedGroup) {
-    store.add(
-      DataFactory.quad(
-        node,
-        INTEROP.terms.hasAccessNeedGroup,
-        DataFactory.namedNode(data.hasAccessNeedGroup)
-      )
-    )
   }
   return store
 }

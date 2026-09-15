@@ -396,10 +396,11 @@ import {
 import type * as S from 'effect/Schema'
 import locale from 'locale-codes'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { VExpansionPanel } from 'vuetify/lib/components/index.mjs'
 
 const router = useRouter()
+const route = useRoute()
 
 const coreStore = useCoreStore()
 const appStore = useAppStore()
@@ -440,10 +441,17 @@ watch(accessNeed, (need) => {
 
 watch(alternativeLang, (selectedLang) => {
   langLoading.value = true
+  // preserve the current query (the request approval entry or the explicit
+  // access need group) — the needs come from the request's embedded copy or
+  // accessNeedGroupIri, never from agent registrations
+  const request = route.query.request
+  const needs = route.query.needs
   appStore.getAuthoriaztion(
     granteeId.value,
     granteeAgentType.value,
-    selectedLang
+    selectedLang,
+    needs && !Array.isArray(needs) ? needs : undefined,
+    request && !Array.isArray(request) ? request : undefined
   )
 })
 

@@ -8,18 +8,16 @@ import {
   INTEROP,
   RDF,
   type WhatwgFetch,
-  addStatement,
   applyPatch,
   createContainer,
   deletePatch,
   insertPatch,
-  replaceStatement,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 
 /**
  * Lazily load the peer's reciprocal registration — only consumers that need its
- * data (`hasAccessNeedGroup`, data grants) call this. The leaf read
+ * data (data grants) call this. The leaf read
  * (`loadSocialAgentRegistration`) no longer recurses into the reciprocal.
  */
 export async function loadReciprocalRegistration(
@@ -43,30 +41,6 @@ export async function createSocialAgentRegistration(
     )
   )
   await createContainer(data.id, fetch, dataset)
-}
-
-export async function setAccessNeedGroup(
-  data: SocialAgentRegistrationData,
-  fetch: WhatwgFetch,
-  accessNeedGroupIri: string
-): Promise<void> {
-  const node = DataFactory.namedNode(data.id)
-  const quad = DataFactory.quad(
-    node,
-    INTEROP.terms.hasAccessNeedGroup,
-    DataFactory.namedNode(accessNeedGroupIri)
-  )
-  if (data.hasAccessNeedGroup) {
-    const priorQuad = DataFactory.quad(
-      node,
-      INTEROP.terms.hasAccessNeedGroup,
-      DataFactory.namedNode(data.hasAccessNeedGroup)
-    )
-    await replaceStatement(data.id, fetch, priorQuad, quad)
-  } else {
-    await addStatement(data.id, fetch, quad)
-  }
-  data.hasAccessNeedGroup = accessNeedGroupIri
 }
 
 /**

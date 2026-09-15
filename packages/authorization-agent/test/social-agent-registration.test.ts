@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
   replaceAdminGrantLinks,
-  setAccessNeedGroup,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   getAdminGrantIris,
@@ -55,23 +54,6 @@ describe('build', () => {
     )
     const iris = getDataGrantIris(socialAgentRegistration)
     expect(iris.length).toBeGreaterThan(0)
-  })
-})
-
-describe('setAccessNeedGroup', () => {
-  const snippetIri = 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
-  const deps = { fetch, randomUUID }
-
-  test('updates dataset also if one previousy existed', async () => {
-    const socialAgentRegistration = await loadSocialAgentRegistration(snippetIri, deps.fetch)
-    const newAccessNeedGroupIri = 'https://auth.alice.example/some-access-need-group'
-    expect(socialAgentRegistration.hasAccessNeedGroup).toBeUndefined()
-    await setAccessNeedGroup(socialAgentRegistration, deps.fetch, newAccessNeedGroupIri)
-    expect(socialAgentRegistration.hasAccessNeedGroup).toBe(newAccessNeedGroupIri)
-
-    const anotherAccessNeedGroupIri = 'https://auth.alice.example/another-access-need-group'
-    await setAccessNeedGroup(socialAgentRegistration, deps.fetch, anotherAccessNeedGroupIri)
-    expect(socialAgentRegistration.hasAccessNeedGroup).toBe(anotherAccessNeedGroupIri)
   })
 })
 

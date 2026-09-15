@@ -138,7 +138,6 @@ export const SocialAgent = S.Struct({
   id: IRI,
   label: S.String,
   note: S.optional(S.String),
-  accessNeedGroup: S.optional(S.String),
   /** True when the signed-in user has sent a need-based access request to
    *  this agent (outgoing — the requester side). The owner-side incoming
    *  case is `accessRequest` (the approval entry). */

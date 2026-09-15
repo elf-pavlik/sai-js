@@ -56,17 +56,7 @@
           :key="agent.id"
           :title="agent.label"
           :value="agent.id"
-        >
-          <template #append>
-            <v-list-item-action end>
-              <v-btn
-                icon="mdi-arrow-right-thick"
-                variant="text"
-                @click="router.push({ name: 'authorization', query: { webid: agent.id } })"
-              />
-            </v-list-item-action>
-          </template>
-        </v-list-item>
+        />
       </v-list>
     </v-card-text>
     <div class="px-2 d-flex justify-space-between">
@@ -104,9 +94,7 @@ import {
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import { computed, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const appStore = useAppStore()
 
 const props = defineProps<{

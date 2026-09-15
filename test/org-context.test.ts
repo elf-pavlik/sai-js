@@ -283,28 +283,6 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
     expect(instances.find((instance) => instance.id === bobGlitch)?.label).toBe('Glitch')
   })
 
-  test('GetAuthoriaztionData AllFromRegistry count == the registration’s contains (was 0 before the fix)', async () => {
-    const data = await rpcCall<{
-      dataOwners: {
-        id: string
-        dataRegistrations: { id: string; count: number }[]
-      }[]
-    }>(
-      rpcPayload({
-        _tag: 'GetAuthoriaztionData',
-        agentId: bobId,
-        agentType: 'http://www.w3.org/ns/solid/interop#SocialAgent',
-        lang: 'en',
-        context: yoyoId,
-      }),
-      danCookie
-    )
-    const bob = data.dataOwners.find((owner) => owner.id === bobId)
-    expect(bob).toBeDefined()
-    // parity: 2 seeded instances in avn9hv, resolved through /proxy-admin
-    expect(bob!.dataRegistrations.find((registration) => registration.id === bobDataRegistration)?.count).toBe(2)
-  })
-
   test('GetResource on the peer-granted instance returns the full body', async () => {
     const resource = await rpcCall<{
       id: string

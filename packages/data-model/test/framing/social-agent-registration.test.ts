@@ -21,7 +21,6 @@ describe('SocialAgentRegistration framing', () => {
       hasAdminGrant: [],
       label: 'Alice',
       note: 'Chasing white rabits.',
-      hasAccessNeedGroup: undefined,
       reciprocalRegistration: 'https://registry/alice/social-agent/cp9g7p/',
     })
   })

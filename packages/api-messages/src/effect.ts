@@ -139,6 +139,9 @@ export const SocialAgent = S.Struct({
   label: S.String,
   note: S.optional(S.String),
   accessNeedGroup: S.optional(S.String),
+  /** True when the signed-in user has sent a need-based access request to
+   *  this agent (outgoing — the requester side). The owner-side incoming
+   *  case is `accessRequest` (the approval entry). */
   accessRequested: S.Boolean,
   /** the pending need-based access request (the approval entry — opens the
    *  authorization screen with `accessRequestIri`, §6.8) */

@@ -75,9 +75,9 @@ export const findSocialAgentRegistrationInContext = async (
   )
 }
 
-/** The owner's pending access requests keyed by grantee — the
- *  `accessRequested` marker + the approval entry (the request IRI opens the
- *  authorization screen, §6.8). */
+/** The owner's pending access requests keyed by grantee — the approval
+ *  entry (`accessRequest` — the request IRI opens the authorization screen,
+ *  §6.8). */
 export type AccessRequestsByGrantee = Map<string, { id: string }>
 
 /**
@@ -121,9 +121,10 @@ export const buildSocialAgentProfile = async (
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
-    accessRequested:
-      accessRequestsByGrantee.has(registration.registeredAgent) ||
-      sentAccessRequestsByDataOwner.has(registration.registeredAgent),
+    // outgoing only — the requester side (Alice) has a pending request to
+    // this agent; the owner-side incoming case is `accessRequest` (the
+    // approval entry). Drives the "request access" card + the data badge.
+    accessRequested: sentAccessRequestsByDataOwner.has(registration.registeredAgent),
     accessRequest: accessRequestsByGrantee.get(registration.registeredAgent)
       ? IRI.make(accessRequestsByGrantee.get(registration.registeredAgent)!.id)
       : undefined,
@@ -141,8 +142,8 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
   const transport = sparqlTransportFor(ctx)
   const registrations = await listSocialAgentRegistrations(ctx)
 
-  // the owner's pending access requests (grantee → request) — the
-  // accessRequested marker + the approval entry (§6.8)
+  // the owner's pending access requests (grantee → request) — the approval
+  // entry (`accessRequest`, §6.8)
   const accessRequests = ctx.registrySet.hasAccessRequestRegistry
     ? await getAccessRequestsOnRegistry(transport, ctx.registrySet.hasAccessRequestRegistry.id)
     : []

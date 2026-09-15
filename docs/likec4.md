@@ -250,11 +250,11 @@ No `[Reciprocal]` steps exist yet — reciprocal deliveries appear once peer
 agents get the merged receiver (their incoming `Update` notifications land on
 the same leaf as activity notifications).
 
-## View coverage per social agent (18 dynamic views)
+## View coverage per social agent (19 dynamic views)
 
 Party-level `include` per view (recomputed when views change — `grep '^    include'`
 inside each `dynamic view` block and map the dot-less tokens onto the model
-securities). **Kim appears in the fewest diagrams (5); Alice in the most (10).**
+securities). **Kim appears in the fewest diagrams (5); Alice in the most (11).**
 
 | Social agent | Count | Diagrams |
 |---|---|---|
@@ -262,7 +262,7 @@ securities). **Kim appears in the fewest diagrams (5); Alice in the most (10).**
 | **YoYo** (org) | 5 | `org-registry-set-discovery`, `org-admin-add`, `org-admin-remove`, `admin-invitation-send`, `admin-invitation-receive` |
 | **Dan** | 6 | `org-registry-set-discovery`, `org-admin-add`, `org-admin-remove`, `invitation`, `admin-invitation-send`, `admin-invitation-receive` |
 | **Bob** | 7 | `social-agent-registration-discovery`, `org-admin-add`, `org-admin-remove`, `authorization`, `role-deletion`, `request-access`, `authz-data-need-based-request` |
-| **Alice** | 10 | `reciprocal-registration-update`, `application-registration-discovery`, `social-agent-registration-discovery`, `org-admin-add-personal`, `org-admin-remove-personal`, `authorization-data-app`, `share-resource`, `role-membership-change`, `request-access`, `authz-data-need-based-request` |
+| **Alice** | 11 | `reciprocal-registration-update`, `application-registration-discovery`, `social-agent-registration-discovery`, `org-admin-add-personal`, `org-admin-remove-personal`, `authorization-data-app`, `share-resource`, `role-membership-change`, `request-access`, `authz-data-need-based-request`, `approve-access-request` |
 
 Non-agent parties for reference: `App` 4 (`application-registration-discovery`,
 `authorization-data-app`, `authorization`, `share-resource`), `ACME` 1

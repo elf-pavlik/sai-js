@@ -30,7 +30,7 @@
     "@janeirodigital/interop-authorization-agent": "1.0.0-rc.26",
     "@janeirodigital/interop-data-model": "^1.0.0-rc.26",
     "@janeirodigital/interop-utils": "^1.0.0-rc.26",
-    "@janeirodigital/sai-api-messages": "1.0.0-rc.26",
+    "@janeirodigital/sai-api-messages": "^1.0.0-rc.26",
     "@solid-notifications/discovery": "^0.1.2",
     "@solid-notifications/subscription": "^0.1.2",
     "@solid-notifications/types": "^0.1.2",

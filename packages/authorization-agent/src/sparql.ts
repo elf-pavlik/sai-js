@@ -459,8 +459,8 @@ export async function findDelegableGrant(
  * The need-based access requests stored in an AccessRequestRegistry, as
  * `{ id, grantee }` pairs — ONE container-scoped SELECT (the graph-per-resource
  * storage law: `GRAPH ?s` IS the request resource). The profiles use the
- * grantee → request mapping for the `accessRequested` marker + the approval
- * entry (the request IRI opens the authorization screen, §6.8).
+ * grantee → request mapping for the approval entry (`accessRequest` — the
+ * request IRI opens the authorization screen, §6.8).
  */
 export async function getAccessRequestsOnRegistry(
   transport: SparqlTransport,

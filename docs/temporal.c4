@@ -6691,7 +6691,7 @@ views "Authorization" {
 
     include Bob, Alice
     include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.Registry
-    include Alice.UAS, Alice.UAS.Temporal, Alice.UAS.WebhookReceiver, Alice.UAS.Discovery, Alice.Registry
+    include Alice.Registry, Alice.UAS.Discovery, Alice.UAS.WebhookReceiver, Alice.UAS.Temporal, Alice.UAS
 
     style Alice {
       color: green
@@ -7406,7 +7406,7 @@ views "Authorization" {
         '''
     }
     Alice.AUI .overview Alice.UAS 'authorize' {
-        navigateTo authorization
+        navigateTo approve-access-request
         notes'''
           #### authorize
           >[!NOTE]
@@ -7415,7 +7415,295 @@ views "Authorization" {
           >[!TIP]
           > reuses the existing authorization screen (`AuthorizeApp.vue`) + `recordAuthorization` — the request stays immutable, the authorization references it
 
-          [authorization](../authorization/?dynamic=sequence)
+          [approve-access-request](../approve-access-request/?dynamic=sequence)
+        '''
+    }
+  }
+  dynamic view approve-access-request {
+    title: 'Approve access request / Alice approves Bobs need-based request'
+
+    include Bob, Alice
+    include Bob.AUI, Bob.UAS, Bob.UAS.UiApi, Bob.UAS.Temporal, Bob.UAS.WebhookReceiver, Bob.Registry
+    include Alice.Registry, Alice.UAS.Discovery, Alice.UAS.WebhookReceiver, Alice.UAS.Temporal, Alice.UAS.UiApi, Alice.UAS, Alice.AUI
+
+    style Alice {
+      color: green
+    }
+
+    style Bob {
+      color: indigo
+    }
+
+    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
+        navigateTo request-access
+        notes'''
+          #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
+          >[!NOTE]
+          >access-request.test.ts > leg B (RPC)
+
+          >[!TIP]
+          > previously — the pending request in Alices AccessRequestRegistry, delivered via the reused grant-issuance endpoint; the full requester-side flow lives in its own view
+
+          [request-access](../request-access/?dynamic=sequence)
+        '''
+    }
+    Alice.AUI .overview Alice.UAS 'get authorization data' {
+        navigateTo authz-data-need-based-request
+        notes'''
+          needed to render the authorization screen
+        '''
+    }
+    Alice.AUI -> Alice.UAS.UiApi 'POST (RPC) authorizeApp' {
+        notes'''
+          #### POST (RPC) authorizeApp
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!IMPORTANT]
+          > Auth: CSS cookie session as `alice`
+
+          >[!TIP]
+          > the approval entry (§6.8): `accessRequestIri` resolves the group
+          > from the request's EMBEDDED copy (urn:uuid need ids — no
+          > client-id doc); the DAs-to-be are PRE-MINTED by the AA rules and
+          > ride the activity as embedded POJOs (activity-first — no
+          > synchronous mutation)
+
+          ```http
+          POST https://auth/.sai/api
+          Cookie: css-account=8187358a-2072-4dce-9c76-24caffcc84a4
+          ```
+
+          ```json
+          [
+            {
+              "request": {
+                "_tag": "AuthorizeApp",
+                "accessRequestIri": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+                "authorization": {
+                  "grantee": "https://id/bob",
+                  "agentType": "http://www.w3.org/ns/solid/interop#SocialAgent",
+                  "accessNeedGroup": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                  "dataAuthorizations": [
+                    {
+                      "accessNeed": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                      "scope": "AllFromAgent",
+                      "dataOwner": "https://id/alice"
+                    },
+                    {
+                      "accessNeed": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                      "scope": "Inherited"
+                    }
+                  ],
+                  "granted": true
+                },
+                "context": "https://id/alice"
+              }
+            }
+          ]
+          ```
+        '''
+    }
+    Alice.UAS.UiApi -> Alice.Registry 'PUT AuthorizationGranted activity (embedded DAs at pre-minted ids) [Activity]' {
+        notes'''
+          #### PUT AuthorizationGranted activity (embedded DAs at pre-minted ids)
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!IMPORTANT]
+          > Auth: Solid OIDC access token as `alice`
+
+          >[!TIP]
+          > ONE activity carries all grantees' DAs at their PRE-MINTED ids;
+          > each DA references its access need via `satisfiesAccessNeed` (the
+          > request's embedded copy — the grant-outcome correlation
+          > identifier); the request stays immutable
+
+          ```http
+          PUT https://registry/alice/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          Content-Type: application/ld+json
+          If-None-Match: *
+          ```
+
+          ```json
+          {
+            "@context": ["in reality payload uses Expanded JSON-LD"],
+            "@id": "https://registry/alice/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b",
+            "@type": ["Activity", "AuthorizationGranted"],
+            "actor": "https://id/alice",
+            "target": "https://registry/alice/authorization/",
+            "object": [
+              {
+                "@id": "https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+                "@type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                "grantee": "https://id/bob",
+                "grantedBy": "https://id/alice",
+                "registeredShapeTree": "https://data/shapetrees/trees/Project",
+                "satisfiesAccessNeed": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#AllFromAgent",
+                "dataOwner": "https://id/alice",
+                "accessMode": [
+                  "http://www.w3.org/ns/auth/acl#Read",
+                  "http://www.w3.org/ns/auth/acl#Create",
+                  "http://www.w3.org/ns/auth/acl#Update",
+                  "http://www.w3.org/ns/auth/acl#Delete"
+                ],
+                "hasInheritingAuthorization": [
+                  "https://registry/alice/authorization/7c5e9a0b-1d2f-4e3c-8b7a-6f5e4d3c2b1a"
+                ]
+              },
+              {
+                "@id": "https://registry/alice/authorization/7c5e9a0b-1d2f-4e3c-8b7a-6f5e4d3c2b1a",
+                "@type": ["http://www.w3.org/ns/solid/interop#DataAuthorization"],
+                "grantee": "https://id/bob",
+                "grantedBy": "https://id/alice",
+                "registeredShapeTree": "https://data/shapetrees/trees/Task",
+                "satisfiesAccessNeed": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                "scopeOfAuthorization": "http://www.w3.org/ns/solid/interop#Inherited",
+                "dataOwner": "https://id/alice",
+                "accessMode": [
+                  "http://www.w3.org/ns/auth/acl#Read",
+                  "http://www.w3.org/ns/auth/acl#Create",
+                  "http://www.w3.org/ns/auth/acl#Update",
+                  "http://www.w3.org/ns/auth/acl#Delete"
+                ],
+                "inheritsFromAuthorization": "https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c"
+              }
+            ],
+            "createdAt": "2026-09-01T01:50:31.328Z"
+          }
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 201 Created
+          ```
+        '''
+    }
+    Alice.UAS.UiApi -> Alice.AUI '202 (pending) — ids + activityId' {
+        notes'''
+          #### 202 (pending) — ids + activityId
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!TIP]
+          > the ack echoes the pre-minted DataAuthorization ids (pending
+          > handles) + the triggering activity id (the uniform UI claim
+          > anchor — the done-row refresh arrives via `events.ts`)
+
+          ```json
+          {
+            "ids": [
+              "https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c",
+              "https://registry/alice/authorization/7c5e9a0b-1d2f-4e3c-8b7a-6f5e4d3c2b1a"
+            ],
+            "activityId": "https://registry/alice/activity/9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b"
+          }
+          ```
+        '''
+    }
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+    Alice.UAS.WebhookReceiver -> Alice.UAS.Temporal 'start processAuthorizationGranted workflow' {
+        notes'''
+          #### start processAuthorizationGranted workflow
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!TIP]
+          >gRPC
+
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          ```
+        '''
+    }
+    Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run processAuthorizationGranted' {
+        notes'''
+          #### (workflow) run processAuthorizationGranted
+          >[!NOTE]
+          >authorization.test.ts > the parent groups the embedded DAs by
+          > grantee — ONE child per agent (always fan out, single grantee
+          > included); children never mark done
+        '''
+    }
+    parallel {
+      loop 'grantees.each' {
+        Alice.UAS.Temporal -> Alice.UAS.Temporal '(child workflows) start processGranteeAuthorization per grantee'
+        Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run processGranteeAuthorization'
+        Alice.UAS.Temporal -> Alice.Registry '(activity) PUT DataAuthorizations at the pre-minted ids [Authorization]' {
+            notes'''
+              #### (activity) PUT DataAuthorizations at the pre-minted ids
+              >[!NOTE]
+              >authorization.test.ts > the child body — find-first idempotent
+              > (`If-None-Match: *`)
+
+              >[!IMPORTANT]
+              > Auth: Solid OIDC access token as `alice`
+
+              ```http
+              PUT https://registry/alice/authorization/4f8a3b2c-1d9e-4c7a-8b6f-3e2d1c0a9b7c
+              Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+              ```
+              ---
+
+              ```http
+              HTTP/1.1 201 Created
+              ```
+            '''
+        }
+        parallel {
+          loop 'grants.each' {
+            Alice.UAS.Temporal -> Alice.Registry '(activity) create grants [Grant]' {
+                notes'''
+                  #### (activity) create grants [Grant]
+                  >[!NOTE]
+                  >authorization.test.ts > the registration update signals the outcome
+                '''
+            }
+          }
+        }
+        Alice.UAS.Temporal -> Alice.Registry '(activity) replace Data Grants on Registration [Agent]' {
+            notes'''
+              #### (activity) replace Data Grants on Registration [Agent]
+              >[!NOTE]
+              >authorization.test.ts > the registration `Update` the test
+              > awaits (`awaitGrantCompletion` on Bobs registration in
+              > Alices registry — `findSocialAgentRegistration` hasDataGrant)
+            '''
+        }
+      }
+    }
+    Alice.UAS.Temporal -> Alice.Registry '(activity) create activityCompleted [Activity]' {
+        notes'''
+          #### (activity) create activityCompleted [Activity]
+          >[!NOTE]
+          >authorization.test.ts > a SINGLE completion at the PARENT after
+          > ALL children succeed (§5.1 — no per-grantee completions)
+        '''
+    }
+    Alice.Registry -> Alice.UAS.WebhookReceiver 'notify Add activity (subscription webhook) [Activity]'
+    Alice.UAS.WebhookReceiver -> Alice.AUI 'done'
+    Alice.Registry -> Bob.UAS.WebhookReceiver 'notify Update — registration hasDataGrant [Reciprocal]' {
+        navigateTo reciprocal-registration-update
+        notes'''
+          #### notify Update — registration hasDataGrant [Reciprocal]
+          >[!NOTE]
+          >authorization.test.ts > approve a need-based access request
+
+          >[!TIP]
+          > next — the grantee-side follow-up: the approval also updated
+          > Bobs registration (`hasDataGrant`) in Alices registry; via Bobs
+          > reciprocal webhook channel on it, Bobs AA regenerates his
+          > APPLICATION delegations over the newly granted data
+          > (`delegatedGrantsUpdated` → `updateDelegatedGrants`). Parties are
+          > flipped vs the drill-down (Bob observes Alice — there Alice
+          > observes ACME) and the edge requires Bobs reciprocal webhook on
+          > Alices registration of him (present once pairs are symmetric)
+
+          [reciprocal-registration-update](../reciprocal-registration-update/?dynamic=sequence)
         '''
     }
   }

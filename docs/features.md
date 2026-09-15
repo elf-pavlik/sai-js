@@ -123,7 +123,7 @@ their only admin (the ACR `#fullAdminAccess` is then removed entirely).
 
 ## 5. Coverage of `docs/temporal.c4` dynamic views
 
-`temporal.c4` has **16 dynamic views**. Views are **not** all `variant sequence`,
+`temporal.c4` has **19 dynamic views**. Views are **not** all `variant sequence`,
 but each is an interaction/sequence diagram (LikeC4 dynamic view). Organised by
 the `/`-grouped titles:
 
@@ -177,6 +177,7 @@ the `/`-grouped titles:
 | 👤 `authorization` (AuthorizeApp) | `authorization.test.ts` — 'creates denied authorization' (grant leg + silent decline) |
 | 👤 `authorization-data-app` | `authorization.test.ts` — 'responds with authorization data' |
 | 👤 `authz-data-need-based-request` (reads) | `authorization.test.ts` — 'approve a need-based access request' |
+| 👤 `approve-access-request` (grant) | `authorization.test.ts` — 'approve a need-based access request' |
 | 👤 `share-resource` | `share.test.ts` — 'shares a data instance with a social agent' |
 | 👤 `request-access` | `access-request.test.ts` — 'request access (sent side)' + '(receive side)' |
 | 🏢 `authorization` (org) 🧪 | |
@@ -207,7 +208,7 @@ the `/`-grouped titles:
 | `RoleCreated` | — |
 | `AdminAuthorizationGranted` | `org-admin-add`, `org-admin-add-personal` |
 | `AdminAuthorizationRevoked` | `org-admin-remove`, `org-admin-remove-personal` |
-| `AuthorizationGranted` | `authorization` (record), `share-resource` (share) |
+| `AuthorizationGranted` | `authorization` (record, app grant), `approve-access-request` (record, need-based request), `share-resource` (share) |
 | `AuthorizationDenied` | — |
 | `AuthorizationRevoked` | — |
 | `DelegatedGrantsUpdated` | `reciprocal-registration-update` |

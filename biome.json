@@ -5,8 +5,16 @@
       "**/dist/**",
       "**/src/**/*.d.ts",
       "**/test/**/*.d.ts",
-      ".devbox"
+      ".devbox",
+      ".turbo",
+      "docs/website/.astro",
+      "docs/website/public/likec4-webcomponent.js"
     ]
+  },
+  "css": {
+    "parser": {
+      "cssModules": true
+    }
   },
   "organizeImports": {
     "enabled": true

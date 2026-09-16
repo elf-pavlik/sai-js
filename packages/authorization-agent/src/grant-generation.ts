@@ -9,7 +9,6 @@ import {
   frameDataInstance,
   loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   type WhatwgFetch,
@@ -18,6 +17,7 @@ import {
 } from '@janeirodigital/interop-utils'
 import {
   type SparqlTransport,
+  findInheritingAuthorizations,
   getDataAuthorization,
   getDataGrant,
   getDataRegistration,
@@ -25,6 +25,7 @@ import {
   getSocialAgentRegistration,
   listContained,
 } from './sparql'
+import type { DataModelDependencies } from './types'
 
 // ──────────────────────────
 // Instance enumeration over the registry plane (resolves the Phase-2
@@ -102,8 +103,15 @@ async function inheritingAuthorizations(
   data: DataAuthorizationData,
   transport: SparqlTransport
 ): Promise<DataAuthorizationData[]> {
+  // the parent's `hasInheritingAuthorization` reverse list is UNRELIABLE
+  // (the activity framing drops @reverse on embedded nodes — stored parents
+  // can lack it); the child's forward `inheritsFromAuthorization` always
+  // survives — union it with any stored reverse list and dedupe, covering
+  // every storage state without re-migration
   const childIris = data.hasInheritingAuthorization ?? []
-  return Promise.all(childIris.map((iri) => getDataAuthorization(transport, iri)))
+  const forwardIris = await findInheritingAuthorizations(transport, data.id!)
+  const iris = [...new Set([...childIris, ...forwardIris])]
+  return Promise.all(iris.map((iri) => getDataAuthorization(transport, iri)))
 }
 
 async function generateChildDelegatedGrantData(

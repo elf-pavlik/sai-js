@@ -300,6 +300,29 @@ export async function findRolesWithMember(
 }
 
 /**
+ * Child data authorizations of `parent` — the FORWARD direction
+ * (`interop:inheritsFromAuthorization` on the child). The reliable child
+ * source: the parent's `@reverse` `hasInheritingAuthorization` is dropped by
+ * the ACTIVITY framing on embedded nodes (and may be absent on older stored
+ * parents), while the child's forward link always survives — querying it
+ * covers every storage state without re-migration (grant-generation.ts
+ * `inheritingAuthorizations`).
+ */
+export async function findInheritingAuthorizations(
+  transport: SparqlTransport,
+  parentIri: string
+): Promise<string[]> {
+  const bindings = await transport.fetchBindings(
+    `SELECT ?child WHERE {
+  GRAPH ?g {
+    ?child <${INTEROP.inheritsFromAuthorization}> <${parentIri}> .
+  }
+}`
+  )
+  return bindings.map((binding) => binding.child.value)
+}
+
+/**
  * Role body from its graph — framed like `crud/role.ts`'s `fromJsonLd`
  * (same frame + POJO shape), producing the same `RoleData` as
  * `factory.role`. The graph is keyed by the role's own IRI, so a lookup by

@@ -14,7 +14,6 @@ export type {
   DataAuthorizationStructure,
 } from '@janeirodigital/interop-data-model'
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
-import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   type WhatwgFetch,
@@ -26,6 +25,7 @@ import {
   listContained,
   localSparqlTransport,
 } from './sparql'
+import type { DataModelDependencies } from './types'
 
 // Nesting is being used to capture inheritance before IRIs are available
 export type NestedDataAuthorizationData = DataAuthorizationData & {
@@ -250,6 +250,26 @@ export async function storeDataAuthorizations(
   dataAuthorizations: FinalDataAuthorizationData[],
   deps: DataModelDependencies
 ): Promise<void> {
+  // Re-link children to parents BEFORE storage (the activity-first write
+  // path, authorization-granting.md): the FRAMED activity drops the
+  // parent's `@reverse` `hasInheritingAuthorization` (embedded nodes cannot
+  // resolve reverse terms — activity-registry.test.ts documents the loss),
+  // so the parents arrive without their child list. The CHILD's forward
+  // `inheritsFromAuthorization` survives and is the re-link source — the
+  // "re-links them in the store" the write path always intended.
+  const childrenByParent = new Map<string, FinalDataAuthorizationData[]>()
+  for (const dataAuthorization of dataAuthorizations) {
+    if (!dataAuthorization.inheritsFromAuthorization) continue
+    const siblings = childrenByParent.get(dataAuthorization.inheritsFromAuthorization) ?? []
+    siblings.push(dataAuthorization)
+    childrenByParent.set(dataAuthorization.inheritsFromAuthorization, siblings)
+  }
+  for (const dataAuthorization of dataAuthorizations) {
+    const children = childrenByParent.get(dataAuthorization.id)
+    if (children && dataAuthorization.hasInheritingAuthorization?.length === 0) {
+      dataAuthorization.hasInheritingAuthorization = children.map((child) => child.id)
+    }
+  }
   for (const dataAuthorization of dataAuthorizations) {
     const existing = await deps.fetch(dataAuthorization.id, { method: 'HEAD' })
     if (existing.status === 200) continue

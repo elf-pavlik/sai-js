@@ -6,6 +6,7 @@ import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
 import {
   awaitGrantCompletion,
+  dataGrants,
   waitForActivityCompletion,
   waitForNeedBasedAccessRequestReceivedCompletion,
 } from './util'
@@ -366,6 +367,32 @@ describe('approve a need-based access request', () => {
 
     const regAfter = await aliceSession.findSocialAgentRegistration(bobId)
     expect((regAfter?.hasDataGrant ?? []).length).toBeGreaterThan(0)
+
+    // regression guard (authorization-granting.md activity-first): the FRAMED
+    // activity drops the parent's `@reverse` child list, and grant generation
+    // must still emit the INHERITED child grant — a count-only check passes
+    // with the parent grant alone (exactly why the missing Task grant slipped
+    // through: test/ had no shape assertion on runtime-generated grants).
+    const grantsAfter = await dataGrants(regAfter!, aliceSession)
+    const projectGrants = grantsAfter.filter(
+      (grant) => grant.registeredShapeTree === 'https://data/shapetrees/trees/Project'
+    )
+    const taskGrants = grantsAfter.filter(
+      (grant) => grant.registeredShapeTree === 'https://data/shapetrees/trees/Task'
+    )
+    expect(projectGrants.length).toBeGreaterThan(0)
+    expect(taskGrants.length).toBeGreaterThan(0)
+    // FULL parent↔child linkage per child, not a single pair: an
+    // AllFromAgent approval spans every registry of the tree (alice-home AND
+    // the seeded alice-work grants), so the first Project/Task match may
+    // belong to different registries
+    for (const taskGrant of taskGrants) {
+      expect(taskGrant.scopeOfGrant).toBe('http://www.w3.org/ns/solid/interop#Inherited')
+      const parent = grantsAfter.find((grant) => grant.id === taskGrant.inheritsFromGrant)
+      expect(parent).toBeDefined()
+      expect(parent!.registeredShapeTree).toBe('https://data/shapetrees/trees/Project')
+      expect(parent!.hasInheritingGrant).toContain(taskGrant.id)
+    }
 
     // the request stays unchanged — granting only references it (immutable)
     const [requestIriAfter] = await linkedIrisJsonLd(registry!.id, aliceSession.fetch, LDP.contains)

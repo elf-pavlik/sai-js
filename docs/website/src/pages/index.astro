@@ -42,9 +42,9 @@ const assetBase = import.meta.env.BASE_URL;
       </section>
       <section id="architecture" class="section" aria-labelledby="section-c4">
         <h2>Architecture</h2>
-        <p>This is a <a href="https://likec4.dev">LikeC4</a> generated web component. You can interact with this diagram!</p>
+        <p>This is a <a href="https://likec4.dev">LikeC4</a> generated web component. You can interact with this diagram! Click on it to see menu with all the different views.</p>
         <div class="diagram-surface">
-          <likec4-view view-id="index" />
+            <likec4-view view-id="index" dynamic-variant="sequence" />
         </div>
       </section>
 
@@ -77,5 +77,20 @@ const assetBase = import.meta.env.BASE_URL;
         <ReadmeFromRepo section="Funding" showHeading={false} />
       </section>
     </main>
+    <script is:inline>
+      // Cycle through a few selected LikeC4 views every few seconds.
+      // The likec4-view web component re-renders whenever view-id changes.
+      (() => {
+        const diagram = document.querySelector("likec4-view");
+        if (!diagram) return;
+        const views = ["index", "authorization", "invitation", "share-resource"];
+        let current = 0;
+        setInterval(() => {
+          if (document.hidden) return; // don't churn renders in background tabs
+          current = (current + 1) % views.length;
+          diagram.setAttribute("view-id", views[current]);
+        }, 5000);
+      })();
+    </script>
   </body>
 </html>

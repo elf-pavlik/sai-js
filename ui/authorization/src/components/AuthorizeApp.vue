@@ -381,7 +381,6 @@ import { useCoreStore } from '@/store/core'
 import {
   AccessModes,
   type AccessNeed,
-  AgentType,
   type Application,
   type Authorization,
   type AuthorizationData,
@@ -413,12 +412,6 @@ const props = defineProps<{
   redirect: boolean
 }>()
 
-const granteeAgentType = computed(() => {
-  if (props.agent) return AgentType.SocialAgent
-  if (props.role) return AgentType.Role
-  return AgentType.Application
-})
-
 const granteeId = computed(() => props.application?.id ?? props.agent?.id ?? props.role!.id)
 
 // TODO add stepper to support multiple top level access needs
@@ -448,7 +441,6 @@ watch(alternativeLang, (selectedLang) => {
   const needs = route.query.needs
   appStore.getAuthoriaztion(
     granteeId.value,
-    granteeAgentType.value,
     selectedLang,
     needs && !Array.isArray(needs) ? needs : undefined,
     request && !Array.isArray(request) ? request : undefined
@@ -821,7 +813,6 @@ function authorize(granted = true) {
     let authorization: S.Schema.Type<typeof Authorization>
     const baseAuthorization = {
       grantee: props.authorizationData.id,
-      agentType: granteeAgentType.value,
       accessNeedGroup: props.authorizationData.accessNeedGroup.id,
     } as S.Schema.Type<typeof BaseAuthorization>
     if (granted) {
@@ -857,9 +848,9 @@ watch(
     if (claim?.type !== 'AuthorizationGranted') return
     if (props.redirect) {
       window.location.href = await coreStore.consent()
-    } else if (props.authorizationData.agentType === AgentType.SocialAgent) {
+    } else if (props.agent) {
       router.push({ name: 'social-agent-list' })
-    } else if (props.authorizationData.agentType === AgentType.Role) {
+    } else if (props.role) {
       router.push({ name: 'role-list' })
     } else {
       router.push({ name: 'application-list' })

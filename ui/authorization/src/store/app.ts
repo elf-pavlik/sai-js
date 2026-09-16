@@ -1,7 +1,6 @@
 import * as effect from '@/effect'
 import type { ActivityEvent } from '@/events'
 import type {
-  AgentType,
   ApplicationList,
   Authorization,
   AuthorizationData,
@@ -212,7 +211,6 @@ export const useAppStore = defineStore('app', () => {
 
   async function getAuthoriaztion(
     agentId: string,
-    agentType: AgentType,
     preferredLang = lang.value,
     accessNeedGroupIri?: string,
     accessRequestIri?: string
@@ -220,7 +218,6 @@ export const useAppStore = defineStore('app', () => {
     accessRequestIriRef.value = accessRequestIri
     authorizationData.value = await effect.getAuthoriaztionData(
       agentId,
-      agentType,
       preferredLang,
       currentContext(),
       accessNeedGroupIri,

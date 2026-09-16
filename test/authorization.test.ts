@@ -1,7 +1,7 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
+import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { LDP, linkedIrisJsonLd } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
-import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
 import {
@@ -13,7 +13,6 @@ import {
 
 const rpcEndpoint = 'https://auth/.sai/api'
 // TODO: import
-const agentType = 'http://www.w3.org/ns/solid/interop#Application'
 const clientId = 'https://data/test-client/public/id'
 const accessNeedGroup = 'https://data/test-client/public/access-needs#need-group-pm'
 const bobId = 'https://id/bob'
@@ -56,7 +55,6 @@ describe('get authorization data', () => {
       request: {
         _tag: 'GetAuthoriaztionData',
         agentId: clientId,
-        agentType,
         lang,
         context: aliceId,
       },
@@ -80,7 +78,7 @@ describe('get authorization data', () => {
     const body = await response.json()
     const { _tag, value } = body[0]
     expect(_tag).toBe('Success')
-    expect(value).toEqual(expect.objectContaining({ id: clientId, agentType }))
+    expect(value).toEqual(expect.objectContaining({ id: clientId }))
     expect(value.accessNeedGroup).toEqual(
       expect.objectContaining({
         label: 'Manage Projects',
@@ -129,7 +127,6 @@ describe('denied', () => {
 
   const grantedAuthorization = {
     grantee: clientId,
-    agentType,
     accessNeedGroup,
     dataAuthorizations: [
       {
@@ -146,7 +143,6 @@ describe('denied', () => {
 
   const deniedAuthorization = {
     grantee: clientId,
-    agentType,
     accessNeedGroup,
     granted: false,
   }
@@ -207,7 +203,6 @@ describe('approve a need-based access request', () => {
   const aliceId = 'https://id/alice'
   const aliceCookie = 'css-account=8187358a-2072-4dce-9c76-24caffcc84a4'
   const bobId = 'https://id/bob'
-  const socialAgentType = 'http://www.w3.org/ns/solid/interop#SocialAgent'
   const INTEROP = 'http://www.w3.org/ns/solid/interop#'
   const ACL = 'http://www.w3.org/ns/auth/acl#'
 
@@ -271,7 +266,6 @@ describe('approve a need-based access request', () => {
           request: {
             _tag: 'GetAuthoriaztionData',
             agentId: bobId,
-            agentType: socialAgentType,
             lang: 'en',
             accessRequestIri: requestIri,
             context: aliceId,
@@ -290,7 +284,6 @@ describe('approve a need-based access request', () => {
     expect(authorizationData).toEqual(
       expect.objectContaining({
         id: bobId,
-        agentType: socialAgentType,
         accessNeedGroup: expect.objectContaining({
           id: accessNeedGroup.id,
           needs: expect.arrayContaining([
@@ -337,7 +330,6 @@ describe('approve a need-based access request', () => {
               accessRequestIri: requestIri,
               authorization: {
                 grantee: bobId,
-                agentType: socialAgentType,
                 accessNeedGroup: accessNeedGroup.id,
                 dataAuthorizations: [
                   {
@@ -345,7 +337,10 @@ describe('approve a need-based access request', () => {
                     scope: 'AllFromAgent',
                     dataOwner: aliceId,
                   },
-                  { accessNeed: accessNeedGroup.hasAccessNeed[0].hasInheritingNeed[0].id, scope: 'Inherited' },
+                  {
+                    accessNeed: accessNeedGroup.hasAccessNeed[0].hasInheritingNeed[0].id,
+                    scope: 'Inherited',
+                  },
                 ],
                 granted: true,
               },

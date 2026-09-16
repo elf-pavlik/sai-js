@@ -31,7 +31,6 @@ import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import {
   AccessNeed,
   AccessRequestArchivedMessage,
-  AgentType,
   type Authorization,
   type AuthorizationData,
   AuthorizationGrantedMessage,
@@ -190,7 +189,6 @@ function accessNeedGroupFromEmbedded(group: NeedBasedAccessRequestGroup): Access
 export const getDescriptions = async (
   ctx: ResolvedContext,
   agentIri: string,
-  agentType: AgentType,
   preferredLang: string,
   accessNeedGroupIri?: string & Brand<'IRI'>,
   accessRequestIri?: string
@@ -205,19 +203,16 @@ export const getDescriptions = async (
     fromRequest = true
   } else if (accessNeedGroupIri) {
     accessNeedGroupIriResolved = accessNeedGroupIri
-  } else if (agentType === AgentType.Application) {
+  } else {
+    // no request and no explicit group: the only implicit group source is an
+    // application's client-id document — content probe (the grantee kind no
+    // longer rides the wire, anti-spoofing): a document that frames
+    // `hasAccessNeedGroup` supplies the group; anything else must pass it
+    // explicitly (access need groups on registrations are retired)
     const clientIdDocument = await loadClientIdDocument(agentIri, ctx.session.fetch)
     if (!clientIdDocument.hasAccessNeedGroup) return null
     accessNeedGroupIriResolved = clientIdDocument.hasAccessNeedGroup
-  } else if (agentType === AgentType.SocialAgent) {
-    // access need groups on social-agent registrations are retired
-    // (authorization-granting.md) — a social-agent authorization needs the
-    // group explicitly (accessNeedGroupIri) or from the request
-    // (accessRequestIri); there is no registration-side fallback
-    throw new Error('accessNeedGroupIri is required for SocialAgent agent type')
-  } else if (agentType === AgentType.Role) {
-    if (!accessNeedGroupIri) throw new Error('accessNeedGroupIri is required for Role agent type')
-  } else throw new Error('wrong agent type')
+  }
 
   const accessNeedGroup = fromRequest
     ? accessNeedGroupFromEmbedded(
@@ -298,7 +293,6 @@ export const getDescriptions = async (
     // TODO if the id is the unique id of something then it should not be its own id. It should refer by a different name,
     //      e.g.: applicationId and be documented as such
     id: IRI.make(agentIri), // TODO change to agentID
-    agentType,
     accessNeedGroup: {
       id: IRI.make(accessNeedGroup.id),
       label: descriptions?.label ?? '',
@@ -326,7 +320,6 @@ export const recordAuthorization = async (
   // service to BUILD the carrier and from the workflow to MATERIALIZE.
   const structure: AuthorizationStructure = {
     grantee: authorization.grantee,
-    agentType: authorization.agentType,
     hasAccessNeedGroup: authorization.accessNeedGroup,
     granted: authorization.granted,
     dataAuthorizations: authorization.granted

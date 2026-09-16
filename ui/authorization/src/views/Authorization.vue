@@ -28,7 +28,7 @@ import AuthorizeApp from '@/components/AuthorizeApp.vue'
 import ShareResource from '@/components/ShareResource.vue'
 import { useAppStore } from '@/store/app'
 import { useCoreStore } from '@/store/core'
-import { AgentType, type Role } from '@janeirodigital/sai-api-messages'
+import type { Role } from '@janeirodigital/sai-api-messages'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -74,24 +74,16 @@ watch(
       appStore.listSocialAgents()
       if (Array.isArray(webid)) throw new Error('only one agent is allowed')
       agentId.value = webid
-      const needs = route.query.needs
-      if (needs && !Array.isArray(needs)) {
-        accessNeedGroupIri.value = needs
-      }
-      // the approval entry (authorization-granting.md §6.8): the pending
-      // need-based access request — the group comes from the embedded copy
+      // the approval entry (authorization-granting.md §6.8): a social-agent
+      // authorization ALWAYS originates from a pending need-based access
+      // request — the group comes from its embedded copy. There is no other
+      // group source (registrations carry none) and no producer builds a
+      // bare `?webid=` entry, so a missing request is a malformed entry.
       const request = route.query.request
-      if (request && !Array.isArray(request)) {
-        appStore.getAuthoriaztion(
-          webid,
-          AgentType.SocialAgent,
-          undefined,
-          undefined,
-          request
-        )
-      } else {
-        appStore.getAuthoriaztion(webid, AgentType.SocialAgent, undefined, accessNeedGroupIri.value)
+      if (!request || Array.isArray(request)) {
+        throw new Error('a social-agent authorization requires an access request')
       }
+      appStore.getAuthoriaztion(webid, undefined, undefined, request)
     }
   },
   { immediate: true }
@@ -109,7 +101,7 @@ watch(
         accessNeedGroupIri.value = needs
       }
       if (accessNeedGroupIri.value) {
-        appStore.getAuthoriaztion(roleQueryParam, AgentType.Role, undefined, accessNeedGroupIri.value)
+        appStore.getAuthoriaztion(roleQueryParam, undefined, accessNeedGroupIri.value)
       }
     }
   },
@@ -132,7 +124,7 @@ watch(
   (id) => {
     if (id && !resourceId.value) {
       appStore.getUnregisteredApplication(id)
-      appStore.getAuthoriaztion(id, AgentType.Application, undefined, accessNeedGroupIri.value)
+      appStore.getAuthoriaztion(id, undefined, accessNeedGroupIri.value)
     }
   },
   { immediate: true }

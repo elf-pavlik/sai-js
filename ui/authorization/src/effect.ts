@@ -4,7 +4,6 @@ import { HttpRpcResolverNoStream } from '@effect/rpc-http'
 import {
   AcceptInvitation,
   AddAdmin,
-  type AgentType,
   ArchiveAccessRequest,
   type Authorization,
   AuthorizeApp,
@@ -112,7 +111,6 @@ export async function getUnregisteredApplication(id: string) {
 
 export async function getAuthoriaztionData(
   agentId: string,
-  agentType: AgentType,
   lang: string,
   context: string,
   accessNeedGroupIri?: string,
@@ -123,7 +121,6 @@ export async function getAuthoriaztionData(
     return yield* client(
       new GetAuthoriaztionData({
         agentId: IRI.make(agentId),
-        agentType,
         lang,
         context: IRI.make(context),
         ...(accessNeedGroupIri ? { accessNeedGroupIri: IRI.make(accessNeedGroupIri) } : {}),

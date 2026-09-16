@@ -245,7 +245,6 @@ describe('role-based access', () => {
       context: bobId,
       authorization: {
         grantee: whizRoleId,
-        agentType: 'http://www.w3.org/ns/solid/interop#Role',
         accessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
         dataAuthorizations: [
           {

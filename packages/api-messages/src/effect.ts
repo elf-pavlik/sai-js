@@ -22,12 +22,6 @@ export const AccessModes = {
   Delete: 'http://www.w3.org/ns/auth/acl#Delete',
 } as const
 
-export enum AgentType {
-  SocialAgent = 'http://www.w3.org/ns/solid/interop#SocialAgent',
-  Role = 'http://www.w3.org/ns/solid/interop#Role',
-  Application = 'http://www.w3.org/ns/solid/interop#Application',
-}
-
 export const WebPushSubscription = S.Struct({
   endpoint: S.String,
   keys: S.Struct({
@@ -111,7 +105,6 @@ export const DataOwner = S.Struct({
 
 export const AuthorizationData = S.Struct({
   id: IRI, // TODO change to agentId
-  agentType: S.Enums(AgentType),
   accessNeedGroup: AccessNeedGroup,
   dataOwners: S.Array(DataOwner),
 })
@@ -699,7 +692,6 @@ export const ShareAuthorizationConfirmation = S.Struct({
 
 export const BaseAuthorization = S.Struct({
   grantee: IRI,
-  agentType: S.Enums(AgentType),
   accessNeedGroup: IRI,
 })
 
@@ -794,7 +786,6 @@ export class GetAuthoriaztionData extends S.TaggedRequest<GetAuthoriaztionData>(
     success: AuthorizationData,
     payload: {
       agentId: IRI,
-      agentType: S.Enums(AgentType),
       lang: S.String,
       accessNeedGroupIri: S.optional(IRI),
       accessRequestIri: S.optional(IRI),
@@ -1009,7 +1000,6 @@ export class SaiService extends Context.Tag('SaiService')<
     ) => Effect.Effect<S.Schema.Type<typeof UnregisteredApplication>>
     readonly getAuthorizationData: (
       agentId: IRI,
-      agentType: AgentType,
       lang: string,
       accessNeedGroupIri: IRI | undefined,
       accessRequestIri: IRI | undefined,
@@ -1138,12 +1128,11 @@ export const router = RpcRouter.make(
   ),
   Rpc.effect(
     GetAuthoriaztionData,
-    ({ agentId, agentType, lang, accessNeedGroupIri, accessRequestIri, context }) =>
+    ({ agentId, lang, accessNeedGroupIri, accessRequestIri, context }) =>
       Effect.gen(function* () {
         const saiService = yield* SaiService
         return yield* saiService.getAuthorizationData(
           agentId,
-          agentType,
           lang,
           accessNeedGroupIri,
           accessRequestIri,

@@ -26,17 +26,18 @@ import {
   type GrantData,
   type GrantId,
   type IncomingGrantData,
-  type RoleId,
   type RoleData,
+  type RoleId,
   type SocialAgentId,
   dataGrantTemplate,
+  dataModelContext,
   getDataGrantIris,
   isActivityClass,
+  loadClientIdDocument,
   loadDataAuthorization,
   loadGrant,
   loadRole,
   toJsonLd,
-  dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -183,11 +184,7 @@ export async function deleteRoleFromRegistry(payload: {
   const session = await manager.getSession(payload.webId.id)
   const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
   if (!existing) return
-  await RoleRegistry.deleteRole(
-    session.registrySet.hasRoleRegistry,
-    session.fetch,
-    payload.role.id
-  )
+  await RoleRegistry.deleteRole(session.registrySet.hasRoleRegistry, session.fetch, payload.role.id)
 }
 
 // ---------------------------------------------------------------------------
@@ -531,9 +528,7 @@ export async function resolveActivityGrantee(payload: {
     isActivityClass(payload.activity, 'AuthorizationGranted') ||
     isActivityClass(payload.activity, 'AuthorizationRevoked')
   ) {
-    const authorizationActivity = payload.activity as
-      | AuthorizationGranted
-      | AuthorizationRevoked
+    const authorizationActivity = payload.activity as AuthorizationGranted | AuthorizationRevoked
     // granted → the first embedded DataAuthorization POJO (no deref — the
     // resource does not exist until the workflow PUTs it); revoked → the
     // first live-link DataAuthorization (deref). `granteeFromObject` handles
@@ -653,7 +648,25 @@ export async function resolveAuthorizationGrantee(
   try {
     return await session.typeGrantee(granteeIri)
   } catch {
-    // unregistered → only applications are auto-registered at grant time
+    // unregistered — only APPLICATIONS are auto-registered at grant time
+    // (authorization-granting.md Step 2). The RPC no longer carries
+    // agentType (the grantee kind is store-inferred, anti-spoofing), so
+    // verify the grantee actually has a client-id document before creating
+    // an application registration — a social agent's WebID frames none of
+    // the interop/OIDC client terms, a role is already resolved above.
+    let hasClientDocument = false
+    try {
+      const doc = await loadClientIdDocument(granteeIri, session.fetch)
+      hasClientDocument =
+        doc.clientName !== undefined ||
+        doc.hasAccessNeedGroup !== undefined ||
+        doc.callbackEndpoint !== undefined
+    } catch {
+      /* unreadable — not an application */
+    }
+    if (!hasClientDocument) {
+      throw new Error(`grantee is neither a registered agent nor an application: ${granteeIri}`)
+    }
     await ensureApplicationRegistration(
       session.registrySet.hasApplicationRegistry,
       { fetch: session.fetch, randomUUID: session.randomUUID },

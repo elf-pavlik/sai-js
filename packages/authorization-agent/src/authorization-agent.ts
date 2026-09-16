@@ -1,10 +1,9 @@
 import {
+  type AccessNeedGroupData,
   AdminAuthorization,
   type AdminAuthorizationData,
-  type AccessNeedGroupData,
   type AgentId,
   type AgentOrRoleId,
-  type ApplicationRegistryData,
   type ApplicationRegistrationData,
   type AuthorizationRegistryData,
   type DataAuthorizationData,
@@ -16,16 +15,16 @@ import {
   type InvitationRegistryData,
   type RegistrySetData,
   type RoleData,
+  // (a2) ShareDataInstanceStructure canonical shape moved verbatim into
+  // data-model — re-exported here for source compatibility
+  // (payload-contract-alignment §2)
+  type ShareDataInstanceStructure,
   type SocialAgentRegistrationData,
   type SocialAgentRegistryData,
   type WebIdProfileData,
   getDataGrantIris,
   loadRegistrySet,
   loadWebIdProfile,
-  // (a2) ShareDataInstanceStructure canonical shape moved verbatim into
-  // data-model — re-exported here for source compatibility
-  // (payload-contract-alignment §2)
-  type ShareDataInstanceStructure,
 } from '@janeirodigital/interop-data-model'
 // re-export so package consumers (components services, tests) keep importing
 // it from '@janeirodigital/interop-authorization-agent'
@@ -44,19 +43,12 @@ import {
   replaceStatement,
 } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
-import { accessNeedGroup } from './access-need-group'
 import { replaceDataGrants } from './agent-registration'
-import {
-  addApplicationRegistration,
-  findApplicationRegistration as findApplicationRegistrationInAgentRegistry,
-  findRegistration as findRegistrationInAgentRegistry,
-} from './agent-registry'
+import { findRegistration as findRegistrationInAgentRegistry } from './agent-registry'
 import {
   type AccessAuthorizationStructure,
-  type AuthorizationStructure,
   type GrantedAuthorization,
   type NestedDataAuthorizationData,
-  buildNestedDataAuthorizations,
   generateAuthorization,
   generateDataAuthorizations,
   matchesScope,
@@ -306,82 +298,6 @@ export class AuthorizationAgent {
   }
 
   // ──────────────────────────
-  // RPC-shaped authorization recording (Phase 4 — rules moved from components)
-  // ──────────────────────────
-
-  /**
-   * Record an authorization expressed in the RPC shape: builds the nested
-   * data authorizations (`buildNestedDataAuthorizations`), ensures an
-   * Application Registration exists for Application grantees, then records via
-   * `generateAuthorization`. `grantedBy` is the context owner (`ctx.webId` in
-   * org context); `registrySet` targets the context's registries (defaults to
-   * the session's own).
-   */
-  public async recordAuthorizationFromStructure(
-    structure: AuthorizationStructure,
-    grantedBy: string,
-    registrySet: RegistrySetData = this.registrySet,
-    extendIfExists = false,
-    /** the approval path (authorization-granting.md §6.8): the EMBEDDED group
-     *  of the request (urn:uuid ids resolve nowhere) — skips the fetch */
-    accessNeedGroupData?: AccessNeedGroupData
-  ): Promise<FinalDataAuthorizationData[]> {
-    const accessStructure: AccessAuthorizationStructure = structure.granted
-      ? {
-          grantee: structure.grantee,
-          hasAccessNeedGroup: structure.hasAccessNeedGroup,
-          granted: true,
-          dataAuthorizations: buildNestedDataAuthorizations(
-            structure,
-            accessNeedGroupData ??
-              (await accessNeedGroup(structure.hasAccessNeedGroup!, this.fetch)),
-            grantedBy
-          ),
-        }
-      : {
-          grantee: structure.grantee,
-          hasAccessNeedGroup: structure.hasAccessNeedGroup,
-          granted: false,
-        }
-
-    if (structure.granted && structure.agentType === INTEROP.Application) {
-      await this.ensureApplicationRegistration(
-        registrySet.hasApplicationRegistry,
-        grantedBy,
-        structure.grantee
-      )
-    }
-
-    return generateAuthorization(
-      accessStructure,
-      grantedBy,
-      registrySet.hasAuthorizationRegistry,
-      { fetch: this.fetch, randomUUID: this.randomUUID },
-      extendIfExists,
-      this.sparqlEndpoint
-    )
-  }
-
-  private async ensureApplicationRegistration(
-    applicationRegistry: ApplicationRegistryData,
-    creatorAgent: string,
-    grantee: string
-  ): Promise<void> {
-    const existing = await findApplicationRegistrationInAgentRegistry(
-      applicationRegistry,
-      this.fetch,
-      grantee
-    )
-    if (existing) return
-    await addApplicationRegistration(
-      applicationRegistry,
-      { fetch: this.fetch, randomUUID: this.randomUUID },
-      { agent: creatorAgent, client: this.agentId },
-      grantee
-    )
-  }
-
-  // ──────────────────────────
   // Grant/role match semantics (Phase 4 — moved from temporal activities)
   // ──────────────────────────
 
@@ -484,7 +400,10 @@ export class AuthorizationAgent {
       const registration = await getRegistrationFromSparql(transport, registrationIri)
       if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)
     }
-    const applicationIris = await listContained(transport, this.registrySet.hasApplicationRegistry.id)
+    const applicationIris = await listContained(
+      transport,
+      this.registrySet.hasApplicationRegistry.id
+    )
     for (const registrationIri of applicationIris) {
       const registration = await getApplicationRegistration(transport, registrationIri)
       if (registration.registeredAgent === iri) return this.agentIdFromRegistration(registration)

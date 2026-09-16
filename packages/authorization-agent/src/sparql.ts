@@ -337,9 +337,16 @@ export async function getRole(
   const doc = await graphDoc(transport, iri)
   if (Array.isArray(doc) && doc.length === 0) return undefined
   const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  const type = node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : []
+  // Type guard: ANY non-empty graph at the IRI is not a role. In dev the
+  // app's client-id document lives at the application IRI (map.json maps
+  // `https://data/test-client/public/id` → `https://vuejectron.docker/id`),
+  // so a tolerant frame returned a pseudo-role — `typeGrantee` then resolved
+  // an APPLICATION as `Role` and skipped its auto-registration fallback.
+  if (!type.includes('Role') && !type.includes(INTEROP.Role)) return undefined
   return {
     id: iri,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    type,
     label: node.label ?? '',
     members: node.members ?? [],
   }

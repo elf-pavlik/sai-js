@@ -129,24 +129,10 @@ export class ApiHandler extends OperationHttpHandler {
             const ctx = await resolveContext(session, context)
             return getSocialAgentInvitations(ctx)
           }),
-        getAuthorizationData: (
-          agentId,
-          agentType,
-          lang,
-          accessNeedGroupIri,
-          accessRequestIri,
-          context
-        ) =>
+        getAuthorizationData: (agentId, lang, accessNeedGroupIri, accessRequestIri, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return getDescriptions(
-              ctx,
-              agentId,
-              agentType,
-              lang,
-              accessNeedGroupIri,
-              accessRequestIri
-            )
+            return getDescriptions(ctx, agentId, lang, accessNeedGroupIri, accessRequestIri)
           }),
         authorizeApp: (authorization, accessRequestIri, context) =>
           Effect.promise(async () => {

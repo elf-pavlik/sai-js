@@ -22,10 +22,13 @@ export type DataAuthorizationStructure = {
   hasDataInstance?: string[]
 }
 
-/** RPC-shaped authorization consumed by `recordAuthorizationFromStructure`. */
+/** RPC-shaped authorization consumed by `recordAuthorization` (components —
+ *  the activity-first granting leg). The grantee KIND never rides the wire:
+ *  the workflow infers it via `typeGrantee` (anti-spoofing — see
+ *  application-registration.ts; the retired `recordAuthorizationFromStructure`
+ *  consumed `agentType` and was removed). */
 export type AuthorizationStructure = {
   grantee: string
-  agentType: string
   hasAccessNeedGroup?: string
   granted: boolean
   dataAuthorizations?: DataAuthorizationStructure[]

@@ -3,15 +3,15 @@ import type {
   AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
+import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import {
   AdminAuthorizationGrantedMessage,
   AdminAuthorizationRevokedMessage,
   IRI,
 } from '@janeirodigital/sai-api-messages'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import type * as S from 'effect/Schema'
-import { findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { findSocialAgentRegistrationInContext } from './SocialAgentRegistry.js'
 
 /**
  * Promote a registered social agent to org admin (activity-first step 5 — R1

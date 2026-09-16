@@ -1,8 +1,8 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { describe, expect, test } from 'vitest'
 import { getApplications } from '../src/services/ApplicationRegistry.js'
-import { getSocialAgentInvitations } from '../src/services/InvitationRegistry.js'
 import type { ResolvedContext } from '../src/services/Context.js'
+import { getSocialAgentInvitations } from '../src/services/InvitationRegistry.js'
 
 // ──────────────────────────
 // Fixtures

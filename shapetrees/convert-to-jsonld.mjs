@@ -1,8 +1,8 @@
-import { readFile, writeFile, readdir } from 'node:fs/promises'
-import { join, basename, extname, dirname } from 'node:path'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Parser, Writer } from 'n3'
 import jsonld from 'jsonld'
+import { Parser, Writer } from 'n3'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = join(__dirname, 'public')
@@ -24,13 +24,8 @@ async function convertFile(filePath) {
   const turtleText = await readFile(filePath, 'utf8')
   const nquads = await turtleToNQuads(turtleText)
   const doc = await jsonld.fromRDF(nquads, { format: 'application/n-quads' })
-  const jsonldFile =
-    join(dirname(filePath), basename(filePath, extname(filePath))) + '.jsonld'
-  await writeFile(
-    jsonldFile,
-    JSON.stringify(doc, null, 2) + '\n',
-    'utf8',
-  )
+  const jsonldFile = `${join(dirname(filePath), basename(filePath, extname(filePath)))}.jsonld`
+  await writeFile(jsonldFile, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
   console.log(`✔ ${basename(filePath)} -> ${basename(jsonldFile)}`)
 }
 

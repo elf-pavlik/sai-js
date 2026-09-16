@@ -1,5 +1,8 @@
-import { getAdminGrantIris, type SocialAgentRegistrationData } from '@janeirodigital/interop-data-model'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import {
+  type SocialAgentRegistrationData,
+  getAdminGrantIris,
+} from '@janeirodigital/interop-data-model'
 import { ForbiddenHttpError } from '@solid/community-server'
 import type { CredentialsExtractor, HttpRequest } from '@solid/community-server'
 import type { SessionManager } from '../SessionManager.js'

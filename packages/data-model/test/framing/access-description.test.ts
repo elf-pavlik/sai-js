@@ -26,10 +26,7 @@ describe('Access description framing', () => {
 
   test('frames an access need group description into AccessNeedGroupDescriptionData', async () => {
     const doc = await docFromGraphs([DESCRIPTIONS_GRAPH])
-    const description = await AccessNeedGroupDescription.fromJsonLd(
-      doc,
-      GROUP_DESC_IRI
-    )
+    const description = await AccessNeedGroupDescription.fromJsonLd(doc, GROUP_DESC_IRI)
     expect(description).toEqual({
       id: GROUP_DESC_IRI,
       type: [INTEROP.AccessNeedGroupDescription],

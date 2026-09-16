@@ -103,9 +103,7 @@ describe('getRoles — org context lists roles via /sparql-admin', () => {
     const sparqlRequests = requests.filter((request) => request.url === sparqlAdminUrl)
     // one SELECT (listContained) + one CONSTRUCT (role graph read)
     expect(sparqlRequests).toHaveLength(2)
-    expect(
-      String(sparqlRequests[0].init?.body).includes('SELECT DISTINCT ?child')
-    ).toBe(true)
+    expect(String(sparqlRequests[0].init?.body).includes('SELECT DISTINCT ?child')).toBe(true)
     expect(String(sparqlRequests[1].init?.body).includes('CONSTRUCT')).toBe(true)
   })
 

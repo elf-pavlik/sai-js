@@ -1,18 +1,16 @@
-import { proxyActivities } from '@temporalio/workflow'
 import type {
   AgentRegistrationAddedId,
   EmbeddedSocialAgentInvitation,
   InvitationAcceptedId,
   SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
-import type * as activities from '../activities/reciprocal.js'
+import { proxyActivities } from '@temporalio/workflow'
 import type * as grantsActivities from '../activities/grants.js'
+import type * as activities from '../activities/reciprocal.js'
 
-const {
-  invitationAcceptance,
-  reciprocalRegistration,
-  reciprocalWebhook,
-} = proxyActivities<typeof activities>({
+const { invitationAcceptance, reciprocalRegistration, reciprocalWebhook } = proxyActivities<
+  typeof activities
+>({
   startToCloseTimeout: '1 minute',
   // explicit retry: the peer creates its reciprocal registration only after
   // responding to the invitation — replaces the old startDelay hack (§6.7)

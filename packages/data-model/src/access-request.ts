@@ -110,4 +110,3 @@ export async function loadNeedBasedAccessRequest(
 ): Promise<NeedBasedAccessRequestData> {
   return fromJsonLd(await fetchJsonLd(id, fetch), id)
 }
-

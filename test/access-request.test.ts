@@ -1,5 +1,8 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import { ActivityRegistry, type AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import {
+  ActivityRegistry,
+  type AuthorizationAgent,
+} from '@janeirodigital/interop-authorization-agent'
 import {
   type NeedBasedAccessRequestSent,
   loadNeedBasedAccessRequest,
@@ -36,14 +39,14 @@ const accessNeedGroup = {
       type: ['http://www.w3.org/ns/solid/interop#AccessNeed'],
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       required: 'http://www.w3.org/ns/solid/interop#AccessRequired',
-      accessMode: [ACL + 'Read', ACL + 'Create', ACL + 'Update', ACL + 'Delete'],
+      accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
       hasInheritingNeed: [
         {
           id: 'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b',
           type: ['http://www.w3.org/ns/solid/interop#AccessNeed'],
           registeredShapeTree: 'https://data/shapetrees/trees/Task',
           required: 'http://www.w3.org/ns/solid/interop#AccessRequired',
-          accessMode: [ACL + 'Read', ACL + 'Create', ACL + 'Update', ACL + 'Delete'],
+          accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
         },
       ],
     },
@@ -198,4 +201,3 @@ describe('request access (receive side)', () => {
     expectRequestShape(stored[0], { grantee: bobId, grantedBy: bobId, dataOwner: aliceId })
   })
 })
-

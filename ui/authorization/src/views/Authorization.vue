@@ -131,5 +131,7 @@ watch(
 )
 
 const agent = computed(() => appStore.socialAgentList.find((a) => a.id === agentId.value))
-const role = computed(() => roleId.value ? appStore.roleList.find((r) => r.id === roleId.value) : undefined)
+const role = computed(() =>
+  roleId.value ? appStore.roleList.find((r) => r.id === roleId.value) : undefined
+)
 </script>

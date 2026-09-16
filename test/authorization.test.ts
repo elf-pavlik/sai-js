@@ -208,21 +208,21 @@ describe('approve a need-based access request', () => {
 
   const accessNeedGroup = {
     id: 'urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b',
-    type: [INTEROP + 'AccessNeedGroup'],
+    type: [`${INTEROP}AccessNeedGroup`],
     hasAccessNeed: [
       {
         id: 'urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b',
-        type: [INTEROP + 'AccessNeed'],
+        type: [`${INTEROP}AccessNeed`],
         registeredShapeTree: 'https://data/shapetrees/trees/Project',
-        required: INTEROP + 'AccessRequired',
-        accessMode: [ACL + 'Read', ACL + 'Create', ACL + 'Update', ACL + 'Delete'],
+        required: `${INTEROP}AccessRequired`,
+        accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
         hasInheritingNeed: [
           {
             id: 'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b',
-            type: [INTEROP + 'AccessNeed'],
+            type: [`${INTEROP}AccessNeed`],
             registeredShapeTree: 'https://data/shapetrees/trees/Task',
-            required: INTEROP + 'AccessRequired',
-            accessMode: [ACL + 'Read', ACL + 'Create', ACL + 'Update', ACL + 'Delete'],
+            required: `${INTEROP}AccessRequired`,
+            accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
           },
         ],
       },
@@ -240,7 +240,7 @@ describe('approve a need-based access request', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: JSON.stringify({
-        type: [INTEROP + 'NeedBasedAccessRequest'],
+        type: [`${INTEROP}NeedBasedAccessRequest`],
         grantee: bobId,
         grantedBy: bobId,
         dataOwner: aliceId,
@@ -291,10 +291,10 @@ describe('approve a need-based access request', () => {
               id: accessNeedGroup.hasAccessNeed[0].id,
               required: true,
               access: expect.arrayContaining([
-                ACL + 'Read',
-                ACL + 'Create',
-                ACL + 'Update',
-                ACL + 'Delete',
+                `${ACL}Read`,
+                `${ACL}Create`,
+                `${ACL}Update`,
+                `${ACL}Delete`,
               ]),
               shapeTree: expect.objectContaining({
                 id: 'https://data/shapetrees/trees/Project',

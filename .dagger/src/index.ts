@@ -31,9 +31,9 @@ const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec
 const CSS_S3_REGION = 'garage'
 const CSS_PORT = '443'
 
-const POSTGRESQL_VERSION = "16"
-const TEMPORAL_VERSION = "1.31.0"
-const TEMPORAL_ADMINTOOLS_VERSION = "1.31.0"
+const POSTGRESQL_VERSION = '16'
+const TEMPORAL_VERSION = '1.31.0'
+const TEMPORAL_ADMINTOOLS_VERSION = '1.31.0'
 
 type LogLevel = 'error' | 'warn' | 'info' | 'verbose' | 'debug' | 'silly'
 
@@ -184,10 +184,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
       .withEnvVariable('BIND_ON_IP', '0.0.0.0')
-      .withEnvVariable(
-        'DYNAMIC_CONFIG_FILE_PATH',
-        'config/dynamicconfig/development-sql.yaml',
-      )
+      .withEnvVariable('DYNAMIC_CONFIG_FILE_PATH', 'config/dynamicconfig/development-sql.yaml')
       .withDirectory('/etc/temporal/config/dynamicconfig', dynamicConfig)
       .withExposedPort(7233)
       .withEntrypoint([
@@ -216,35 +213,37 @@ export class SaiJs {
   @func()
   async workerService(): Promise<Service> {
     const temporal = await this.temporalService()
-    return dag
-      .container()
-      .from('node:24-slim')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
-      .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
-      .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
-      .withEnvVariable('CSS_VAPID_PUBLIC_KEY', CSS_VAPID_PUBLIC_KEY)
-      .withEnvVariable('CSS_VAPID_PRIVATE_KEY', CSS_VAPID_PRIVATE_KEY)
-      .withEnvVariable('CSS_PUSH_SENDER', CSS_PUSH_SENDER)
-      .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/auth'
-      )
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
-      // temporal activities query/update the registry store directly (e.g.
-      // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
-      // kept so re-enabling needs no dagger change
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('temporal', temporal)
-      .withServiceBinding('sparql', this.sparqlService())
-      .withExposedPort(9235)
-      .asService({
-        args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],
-      })
-      .withHostname('worker')
+    return (
+      dag
+        .container()
+        .from('node:24-slim')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
+        .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
+        .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
+        .withEnvVariable('CSS_VAPID_PUBLIC_KEY', CSS_VAPID_PUBLIC_KEY)
+        .withEnvVariable('CSS_VAPID_PRIVATE_KEY', CSS_VAPID_PRIVATE_KEY)
+        .withEnvVariable('CSS_PUSH_SENDER', CSS_PUSH_SENDER)
+        .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/auth'
+        )
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+        // temporal activities query/update the registry store directly (e.g.
+        // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
+        // kept so re-enabling needs no dagger change
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        .withServiceBinding('postgresql', this.postgresService())
+        .withServiceBinding('temporal', temporal)
+        .withServiceBinding('sparql', this.sparqlService())
+        .withExposedPort(9235)
+        .asService({
+          args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],
+        })
+        .withHostname('worker')
+    )
   }
 
   @func()

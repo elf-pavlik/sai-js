@@ -1,6 +1,6 @@
 import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
-import { dataModelContext } from './context'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
+import { dataModelContext } from './context'
 
 /** Identity of an access need description. */
 export type AccessNeedDescriptionId = AccessDescriptionId

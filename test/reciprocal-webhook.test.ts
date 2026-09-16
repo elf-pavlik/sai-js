@@ -60,10 +60,7 @@ describe('reciprocal webhook', () => {
         const iris = await ActivityRegistry.getActivityIris(registry, aliceSession.fetch)
         for (const iri of iris) {
           const activity = await ActivityRegistry.loadActivity(iri, aliceSession.fetch)
-          if (
-            activity.type.includes('DelegatedGrantsUpdated') &&
-            completed.includes(activity.id)
-          ) {
+          if (activity.type.includes('DelegatedGrantsUpdated') && completed.includes(activity.id)) {
             return true
           }
         }

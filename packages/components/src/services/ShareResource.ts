@@ -5,9 +5,9 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
-  accessNeedGroup as resolveAccessNeedGroup,
   computeChildren,
   loadDataInstance,
+  accessNeedGroup as resolveAccessNeedGroup,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   type AccessNeedData,
@@ -34,8 +34,8 @@ import {
   type ShareAuthorizationConfirmation,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
-import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 import type { ResolvedContext } from './Context.js'
+import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 import { fetchPeerDocument, peerInstanceNode } from './peerProxy.js'
 import { getDataAuthorization, listContained, sparqlTransportFor } from './queries/org.js'
 

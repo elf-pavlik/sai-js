@@ -179,10 +179,8 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
               : asString((node.object as CreateInvitationPojo)?.note),
         },
       }
-    case 'NeedBasedAccessRequestSent': // target dropped — the request snapshot (urn:uuid id, the embedded
-    // access need group) rides the object; the requester-side workflow
-    // forwards it to the data owner's (reused) issuance endpoint
-    {
+    case 'NeedBasedAccessRequestSent': {
+      // forwards it to the data owner's (reused) issuance endpoint // access need group) rides the object; the requester-side workflow // target dropped — the request snapshot (urn:uuid id, the embedded
       const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
       const group = embedded?.hasAccessNeedGroup
       return {
@@ -207,10 +205,8 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     }
-    case 'NeedBasedAccessRequestReceived': // minted half — `target` = the AccessRequest registry; the object is
-    // the request-to-be as a REAL-ID embedded projection at the minted id;
-    // the owner-side workflow PUTs the AccessRequest resource there
-    {
+    case 'NeedBasedAccessRequestReceived': {
+      // the owner-side workflow PUTs the AccessRequest resource there // the request-to-be as a REAL-ID embedded projection at the minted id; // minted half — `target` = the AccessRequest registry; the object is
       const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
       const group = embedded?.hasAccessNeedGroup
       return {

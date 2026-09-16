@@ -1,7 +1,4 @@
-import {
-  ActivityRegistry,
-  setRegisteredAgent,
-} from '@janeirodigital/interop-authorization-agent'
+import { ActivityRegistry, setRegisteredAgent } from '@janeirodigital/interop-authorization-agent'
 import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
 import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
 import {
@@ -11,8 +8,8 @@ import {
   OperationHttpHandler,
 } from '@solid/community-server'
 import type {
-  OperationHttpHandlerInput,
   CredentialsExtractor,
+  OperationHttpHandlerInput,
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
@@ -78,10 +75,14 @@ export class InvitationHandler extends OperationHttpHandler {
         },
         createdAt: new Date().toISOString(),
       }
-      await ActivityRegistry.createActivity(activityRegistry, {
-        fetch: sai.fetch,
-        randomUUID: sai.randomUUID,
-      }, activity)
+      await ActivityRegistry.createActivity(
+        activityRegistry,
+        {
+          fetch: sai.fetch,
+          randomUUID: sai.randomUUID,
+        },
+        activity
+      )
     }
 
     // update invitation with agent who accepted it

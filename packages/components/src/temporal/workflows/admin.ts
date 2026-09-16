@@ -1,7 +1,7 @@
 import type {
-  AgentId,
   AdminAuthorizationGrantedId,
   AdminAuthorizationRevokedId,
+  AgentId,
   EmbeddedAdminAuthorization,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'

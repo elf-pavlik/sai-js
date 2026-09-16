@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { findRolesWithMember, type SparqlTransport } from '../src/sparql.js'
+import { type SparqlTransport, findRolesWithMember } from '../src/sparql.js'
 
 const ROLE_REGISTRY = 'https://registry/alice/role/'
 const ROLE = `${ROLE_REGISTRY}r1`
@@ -42,7 +42,9 @@ describe('findRolesWithMember', () => {
     // with GRAPH <ROLE>, which passes ?g = ?role)
     const device = phantomAwareTransport()
     device.fetchBindings = async (query: string) =>
-      query.includes('FILTER(?g = ?role)') ? [{ role: { value: ROLE } }] : [{ role: { value: ROLE } }]
+      query.includes('FILTER(?g = ?role)')
+        ? [{ role: { value: ROLE } }]
+        : [{ role: { value: ROLE } }]
     const result = await findRolesWithMember(device, ROLE_REGISTRY, MEMBER)
     expect(result).toEqual([ROLE])
   })

@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import {
-  replaceAdminGrantLinks,
-} from '@janeirodigital/interop-authorization-agent'
+import { replaceAdminGrantLinks } from '@janeirodigital/interop-authorization-agent'
 import {
   getAdminGrantIris,
   getDataGrantIris,

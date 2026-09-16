@@ -1,6 +1,6 @@
 import {
-  type ApplicationRegistryData,
   type ApplicationRegistrationData,
+  type ApplicationRegistryData,
   type InvitationRegistryData,
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
@@ -10,7 +10,6 @@ import {
   loadSocialAgentRegistration,
 } from '@janeirodigital/interop-data-model'
 import type { AgentAndClient } from '@janeirodigital/interop-data-model'
-import type { DataModelDependencies } from './types'
 import {
   INTEROP,
   LDP,
@@ -23,6 +22,7 @@ import { setAcr } from './agent-registration'
 import { createApplicationRegistration } from './application-registration'
 import { putSocialAgentInvitation } from './social-agent-invitation'
 import { createSocialAgentRegistration } from './social-agent-registration'
+import type { DataModelDependencies } from './types'
 
 // ──────────────────────────
 // Behavior functions (replacing class methods)
@@ -36,10 +36,7 @@ import { createSocialAgentRegistration } from './social-agent-registration'
  * `hasSocialAgentInvitation`) are gone: containment is the single source of
  * membership for the three dedicated registries.
  */
-async function containedIris(
-  registry: { id: string },
-  fetch: WhatwgFetch
-): Promise<string[]> {
+async function containedIris(registry: { id: string }, fetch: WhatwgFetch): Promise<string[]> {
   return linkedIrisJsonLd(registry.id, fetch, LDP.contains)
 }
 

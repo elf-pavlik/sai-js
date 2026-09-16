@@ -237,7 +237,9 @@ describe('admin invitation receive', () => {
     // capabilityUrl from the resource once it exists
     const manager = buildSessionManager()
     const kimSession = await manager.getSession(kimId)
-    const created = await waitFor(() => loadSocialAgentInvitation(create.value.id, kimSession.fetch))
+    const created = await waitFor(() =>
+      loadSocialAgentInvitation(create.value.id, kimSession.fetch)
+    )
     const capabilityUrl = created.capabilityUrl
     await waitForInvitationCreatedCompletion(kimSession)
 

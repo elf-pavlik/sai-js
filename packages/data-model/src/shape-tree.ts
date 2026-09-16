@@ -8,8 +8,8 @@ import {
   frameDoc,
   withContext,
 } from '@janeirodigital/interop-utils'
-import * as jsonldNs from 'jsonld'
 import type { NamedNode } from '@rdfjs/types'
+import * as jsonldNs from 'jsonld'
 import { DataFactory } from 'n3'
 import type { ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'

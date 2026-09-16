@@ -2,14 +2,14 @@ import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-a
 import type { SocialAgentRegistrationData } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
+  type WhatwgFetch,
   fetchJsonLd,
   serializeTurtle,
   toStore,
-  type WhatwgFetch,
 } from '@janeirodigital/interop-utils'
 import { arrayifyStream } from '@solid/community-server'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
-import { DataFactory, Store } from 'n3'
+import { DataFactory, type Store } from 'n3'
 
 /**
  * Read-only local copies of peer-side registry data (org-context-sparql.md
@@ -116,10 +116,7 @@ export async function updateReciprocalMirror(
     inserts.push(`GRAPH <${graphIri}> { ${await serializeTurtle(store)} }`)
   }
 
-  await fetcher.fetchUpdate(
-    sparqlEndpoint,
-    `${drops}\nINSERT DATA {\n${inserts.join('\n')}\n}`
-  )
+  await fetcher.fetchUpdate(sparqlEndpoint, `${drops}\nINSERT DATA {\n${inserts.join('\n')}\n}`)
 }
 
 /** Grant graphs currently mirrored for `reciprocalIri`. */
@@ -149,8 +146,6 @@ export async function deleteReciprocalMirror(
   if (!reciprocalIri) return
 
   const grantIris = await mirroredGrants(sparqlEndpoint, reciprocalIri)
-  const drops = [reciprocalIri, ...grantIris]
-    .map((iri) => `DROP SILENT GRAPH <${iri}>;`)
-    .join('\n')
+  const drops = [reciprocalIri, ...grantIris].map((iri) => `DROP SILENT GRAPH <${iri}>;`).join('\n')
   await fetcher.fetchUpdate(sparqlEndpoint, drops)
 }

@@ -16,11 +16,11 @@ import {
   IRI,
 } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
+import type { ResolvedContext } from './Context.js'
 import {
   findSocialAgentRegistrationInContext,
   listSocialAgentRegistrations,
 } from './SocialAgentRegistry.js'
-import type { ResolvedContext } from './Context.js'
 import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
 import {
   getDataGrant as getDataGrantFromSparql,

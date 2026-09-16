@@ -1,4 +1,9 @@
 import {
+  type SocialAgentRegistrationData,
+  getAdminGrantIris,
+} from '@janeirodigital/interop-data-model'
+import { INTEROP } from '@janeirodigital/interop-utils'
+import {
   BasicRepresentation,
   OkResponseDescription,
   OperationHttpHandler,
@@ -11,12 +16,7 @@ import type {
   ResponseDescription,
 } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
-import {
-  getAdminGrantIris,
-  type SocialAgentRegistrationData,
-} from '@janeirodigital/interop-data-model'
 import type { SessionManager } from './SessionManager'
-import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class AgentIdHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -72,9 +72,7 @@ export class AgentIdHandler extends OperationHttpHandler {
         // evaluated against request credentials, so the admin-only link stays
         // private while the body remains public.
         if (!isOwner) {
-          const adminGrantIris = getAdminGrantIris(
-            registration as SocialAgentRegistrationData
-          )
+          const adminGrantIris = getAdminGrantIris(registration as SocialAgentRegistrationData)
           if (adminGrantIris.length > 0) {
             addHeader(response, 'Link', `<${sai.registrySet.id}>; rel="${INTEROP.hasRegistrySet}"`)
           }

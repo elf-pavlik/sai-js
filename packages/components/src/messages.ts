@@ -1,7 +1,7 @@
-import {
-  type AccessRequestMessage,
-  type AccessRevocationMessage,
-  type NeedBasedAccessRequestMessage,
+import type {
+  AccessRequestMessage,
+  AccessRevocationMessage,
+  NeedBasedAccessRequestMessage,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 

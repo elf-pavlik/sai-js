@@ -5,7 +5,12 @@ import type {
   EmbeddedAdminAuthorization,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
-import { AdminAuthorization, dataGrantTemplate, dataModelContext, loadGrant } from '@janeirodigital/interop-data-model'
+import {
+  AdminAuthorization,
+  dataGrantTemplate,
+  dataModelContext,
+  loadGrant,
+} from '@janeirodigital/interop-data-model'
 import {
   ACL,
   INTEROP,

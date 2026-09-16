@@ -6,8 +6,14 @@ import {
   type RoleMembershipChanged,
   loadRole,
 } from '@janeirodigital/interop-data-model'
-import { IRI, Role, RoleCreatedMessage, RoleDeletedMessage, RoleMembershipChangedMessage } from '@janeirodigital/sai-api-messages'
 import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import {
+  IRI,
+  Role,
+  RoleCreatedMessage,
+  RoleDeletedMessage,
+  RoleMembershipChangedMessage,
+} from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import { getRole, listContained, sparqlTransportFor } from './queries/org.js'

@@ -11,10 +11,10 @@
 </template>
 
 <script lang="ts" setup>
-import { useTheme } from 'vuetify'
-import { watch } from 'vue'
 import { startEvents, stopEvents } from '@/events'
 import { useCoreStore } from '@/store/core'
+import { watch } from 'vue'
+import { useTheme } from 'vuetify'
 
 const coreStore = useCoreStore()
 

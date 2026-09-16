@@ -3,13 +3,13 @@ import {
   findDelegableGrant,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import {
-  type AccessRequestMessage,
-  type EmbeddedNeedBasedAccessRequest,
-  type FinalGrantData,
-  type IncomingGrantData,
-  type NeedBasedAccessRequestMessage,
-  type NeedBasedAccessRequestReceived,
+import type {
+  AccessRequestMessage,
+  EmbeddedNeedBasedAccessRequest,
+  FinalGrantData,
+  IncomingGrantData,
+  NeedBasedAccessRequestMessage,
+  NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent, iriForContained } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -28,12 +28,12 @@ import {
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 import { GrantRevocationHandler } from './GrantRevocationHandler.js'
+import type { SessionManager } from './SessionManager'
 import {
   isAccessRequestMessage,
   isAccessRevocationMessage,
   isNeedBasedAccessRequestMessage,
 } from './messages.js'
-import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
 

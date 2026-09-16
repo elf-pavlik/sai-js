@@ -1,5 +1,4 @@
 import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
-import { dataModelContext } from './context'
 import type { ActivityRegistryData } from './activity-registry'
 import type {
   ApplicationRegistryData,
@@ -7,6 +6,7 @@ import type {
   SocialAgentRegistryData,
 } from './agent-registry'
 import type { AuthorizationRegistryData } from './authorization-registry'
+import { dataModelContext } from './context'
 import type { DataRegistryData } from './data-registry'
 import type { GrantRegistryData } from './grant-registry'
 import type { RoleRegistryData } from './role-registry'

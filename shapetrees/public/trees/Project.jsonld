@@ -1,9 +1,7 @@
 [
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/Project",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#ShapeTree"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#ShapeTree"],
     "http://www.w3.org/ns/shapetrees#expectsType": [
       {
         "@id": "http://www.w3.org/ns/shapetrees#Resource"

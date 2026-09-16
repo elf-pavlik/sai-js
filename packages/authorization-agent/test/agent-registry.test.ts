@@ -7,12 +7,9 @@ import { expect } from './expect'
 const webId = 'https://alice.example/#id'
 const agentId = 'https://jarvis.alice.example/#agent'
 const deps = { fetch, randomUUID }
-const socialAgentRegistryIri =
-  'https://auth.alice.example/1cf3e08b-ffe2-465a-ac5b-94ce165cb8f0'
-const applicationRegistryIri =
-  'https://auth.alice.example/a0000001-0000-0000-0000-000000000000'
-const invitationRegistryIri =
-  'https://auth.alice.example/a0000002-0000-0000-0000-000000000000'
+const socialAgentRegistryIri = 'https://auth.alice.example/1cf3e08b-ffe2-465a-ac5b-94ce165cb8f0'
+const applicationRegistryIri = 'https://auth.alice.example/a0000001-0000-0000-0000-000000000000'
+const invitationRegistryIri = 'https://auth.alice.example/a0000002-0000-0000-0000-000000000000'
 const socialAgentRegistry = { id: socialAgentRegistryIri }
 const applicationRegistry = { id: applicationRegistryIri }
 const invitationRegistry = { id: invitationRegistryIri }
@@ -60,7 +57,11 @@ describe('findApplicationRegistration', () => {
   test('finds application registration', async () => {
     const applicationIri = 'https://projectron.example/#app'
     expect(
-      await AgentRegistry.findApplicationRegistration(applicationRegistry, deps.fetch, applicationIri)
+      await AgentRegistry.findApplicationRegistration(
+        applicationRegistry,
+        deps.fetch,
+        applicationIri
+      )
     ).toHaveProperty('registeredAgent', applicationIri)
   })
 })
@@ -69,7 +70,11 @@ describe('findSocialAgentRegistration', () => {
   test('finds social agent registration', async () => {
     const socialAgentIri = 'https://acme.example/#corp'
     expect(
-      await AgentRegistry.findSocialAgentRegistration(socialAgentRegistry, deps.fetch, socialAgentIri)
+      await AgentRegistry.findSocialAgentRegistration(
+        socialAgentRegistry,
+        deps.fetch,
+        socialAgentIri
+      )
     ).toHaveProperty('registeredAgent', socialAgentIri)
   })
 })

@@ -1,9 +1,7 @@
 [
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#DescriptionSet"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#DescriptionSet"],
     "http://www.w3.org/ns/shapetrees#usesLanguage": [
       {
         "@value": "pl",
@@ -13,9 +11,7 @@
   },
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#File",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#Description"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#Description"],
     "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
       {
         "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"
@@ -35,9 +31,7 @@
   },
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#Image",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#Description"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#Description"],
     "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
       {
         "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"
@@ -57,9 +51,7 @@
   },
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#Project",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#Description"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#Description"],
     "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
       {
         "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"
@@ -79,9 +71,7 @@
   },
   {
     "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl#Task",
-    "@type": [
-      "http://www.w3.org/ns/shapetrees#Description"
-    ],
+    "@type": ["http://www.w3.org/ns/shapetrees#Description"],
     "http://www.w3.org/ns/shapetrees#inDescriptionSet": [
       {
         "@id": "https://shapetrees.hackers4peace.net/trees/desc-pl"

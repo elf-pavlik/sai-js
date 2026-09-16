@@ -15,7 +15,7 @@ import type {
 import { getLoggerFor } from 'global-logger-factory'
 import type { SessionManager } from './SessionManager'
 import { orgWebIdFromPath, requireOrgAdmin } from './services/adminGate.js'
-import { fetchPeerResource, isJsonLdContentType, PeerFetchError } from './services/peerFetch.js'
+import { PeerFetchError, fetchPeerResource, isJsonLdContentType } from './services/peerFetch.js'
 
 /**
  * Read-only peer-data proxy for org-context reads (org-context-proxy.md,
@@ -77,7 +77,9 @@ export class ProxyAdminHandler extends OperationHttpHandler {
     // so only `request.url` carries `?iri=`. Validation + fetch shared
     // with nothing on this side — `services/peerProxy.ts` is the
     // admin-side client that calls this endpoint.
-    const rawTarget = new URL(request.url ?? '', 'http://dummy-base.example').searchParams.get('iri')
+    const rawTarget = new URL(request.url ?? '', 'http://dummy-base.example').searchParams.get(
+      'iri'
+    )
     if (!rawTarget) {
       throw new BadRequestHttpError('missing iri query parameter')
     }

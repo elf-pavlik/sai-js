@@ -7,4 +7,3 @@ export interface AccessRevocationMessage {
   type: string[]
   grants: string[]
 }
-

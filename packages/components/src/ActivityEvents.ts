@@ -1,6 +1,6 @@
-import { PassThrough } from 'node:stream'
-import { WrappedSetMultiMap } from '@solid/community-server'
+import type { PassThrough } from 'node:stream'
 import type { ActivityData } from '@janeirodigital/interop-data-model'
+import { WrappedSetMultiMap } from '@solid/community-server'
 
 /** The enriched shape the bus forwards to UI streams (illustrated event
  * format in refactor-ui.md) — the typed activity + lifecycle status. */

@@ -1,26 +1,22 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Args, Command, Options } from '@effect/cli'
-import { Console, Effect, Option } from 'effect'
-import { init } from '@paralleldrive/cuid2'
 import {
   dataRegistryTemplate,
   registrySetTemplate,
   webIdTemplate,
 } from '@janeirodigital/interop-data-model'
 import { cssKv } from '@janeirodigital/interop-utils'
+import { init } from '@paralleldrive/cuid2'
+import { Console, Effect, Option } from 'effect'
 
 const cuid = init({ length: 6 })
 
 const datasetSourcePath = fileURLToPath(
   new URL('../../environments/data/registry.trig', import.meta.url)
 )
-const kvSourcePath = fileURLToPath(
-  new URL('../../environments/data/kv.json', import.meta.url)
-)
-const mapPath = fileURLToPath(
-  new URL('../../environments/dev/map.json', import.meta.url)
-)
+const kvSourcePath = fileURLToPath(new URL('../../environments/data/kv.json', import.meta.url))
+const mapPath = fileURLToPath(new URL('../../environments/dev/map.json', import.meta.url))
 
 const handleArg = Args.text({ name: 'handle' }).pipe(
   Args.withDescription('User handle (e.g. charlie)')
@@ -213,7 +209,7 @@ const addUserCommand = Command.make(
         map.prefixes[dataUrl] = `https://${reg}.data.docker/`
         map.prefixes[`meta:${dataUrl}`] = `meta:https://${reg}.data.docker/`
       }
-      yield* Effect.sync(() => writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n'))
+      yield* Effect.sync(() => writeFileSync(mapPath, `${JSON.stringify(map, null, 2)}\n`))
 
       // Update registry.trig
       const updatedTrig = addToRegistryListing(trig, handle) + registryContent(handle, data)
@@ -230,7 +226,7 @@ const addUserCommand = Command.make(
         kv,
         kvEntries(handle, data, accountId, podIds, ownerIds, webIdLinkId, cookieId, email)
       )
-      yield* Effect.sync(() => writeFileSync(kvSourcePath, JSON.stringify(kv, null, 2) + '\n'))
+      yield* Effect.sync(() => writeFileSync(kvSourcePath, `${JSON.stringify(kv, null, 2)}\n`))
 
       yield* Console.log(`User "${handle}" added successfully`)
       yield* Console.log(`Cookie: css-account=${cookieId}`)

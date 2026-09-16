@@ -1,7 +1,7 @@
 import {
+  type AgentAndClient,
   type ApplicationRegistrationData,
   type ApplicationRegistryData,
-  type AgentAndClient,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import {

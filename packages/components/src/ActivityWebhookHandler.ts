@@ -1,6 +1,6 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import type { EmbeddedNeedBasedAccessRequest } from '@janeirodigital/interop-data-model'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
+import type { EmbeddedNeedBasedAccessRequest } from '@janeirodigital/interop-data-model'
 import type { ActivityCompleted, ActivityData } from '@janeirodigital/interop-data-model'
 import { isActivityClass, loadDataAuthorization } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
@@ -15,8 +15,8 @@ import {
   InvitationCreated,
   NeedBasedAccessRequestReceived,
   NeedBasedAccessRequestSent,
-  RoleDeleted,
   RoleCreated,
+  RoleDeleted,
   RoleMembershipChanged,
 } from '@janeirodigital/sai-api-messages'
 import {
@@ -37,22 +37,22 @@ import type { CreateGrantsInput } from './temporal/activities/grants.js'
 import type { ReciprocalWebhookInput } from './temporal/activities/reciprocal.js'
 import { Temporal } from './temporal/client.js'
 import {
+  processNeedBasedAccessRequest,
+  processNeedBasedAccessRequestReceived,
+} from './temporal/workflows/access-request.js'
+import {
   processAdminAuthorizationGranted,
   processAdminAuthorizationRevoked,
 } from './temporal/workflows/admin.js'
 import {
+  createRole,
   granteeActivitiesSignal,
   processAuthorizationGranted,
   processGranteeActivities,
   processRoleDeletion,
   processRoleMembershipChange,
-  createRole,
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
-import {
-  processNeedBasedAccessRequest,
-  processNeedBasedAccessRequestReceived,
-} from './temporal/workflows/access-request.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
 import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
 
@@ -381,7 +381,10 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       return
     }
 
-    if (isActivityClass(activity, 'RoleMembershipChanged') || isActivityClass(activity, 'RoleDeleted')) {
+    if (
+      isActivityClass(activity, 'RoleMembershipChanged') ||
+      isActivityClass(activity, 'RoleDeleted')
+    ) {
       // steps 2–3 — the object IS the role-to-be (real-id embedded
       // projection); the decoded object passes verbatim into the workflow
       // input (the schema decodes arrays as readonly — spread to the mutable

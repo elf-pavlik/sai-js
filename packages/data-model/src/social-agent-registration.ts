@@ -1,9 +1,4 @@
-import {
-  SKOS,
-  type WhatwgFetch,
-  fetchJsonLd,
-  frameDoc,
-} from '@janeirodigital/interop-utils'
+import { SKOS, type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
 import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'

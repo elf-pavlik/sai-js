@@ -1,10 +1,14 @@
-import type { EmbeddedSocialAgentInvitation, SocialAgentId, SocialAgentRegistrationData } from '@janeirodigital/interop-data-model'
-import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
 import {
   AgentRegistry,
   createSocialAgentRegistration,
   setAcr,
 } from '@janeirodigital/interop-authorization-agent'
+import type {
+  EmbeddedSocialAgentInvitation,
+  SocialAgentId,
+  SocialAgentRegistrationData,
+} from '@janeirodigital/interop-data-model'
+import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'

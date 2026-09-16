@@ -1,5 +1,8 @@
-import { type RoleData, type RoleRegistryData, dataModelContext } from '@janeirodigital/interop-data-model'
-import type { DataModelDependencies } from './types'
+import {
+  type RoleData,
+  type RoleRegistryData,
+  dataModelContext,
+} from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
   LDP,
@@ -9,6 +12,7 @@ import {
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
+import type { DataModelDependencies } from './types'
 
 // ──────────────────────────
 // Write path: RoleData → JSON-LD (PUT)

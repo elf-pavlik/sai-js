@@ -1,7 +1,7 @@
-import { proxyActivities } from '@temporalio/workflow'
 import type { CreateInvitationPojo, InvitationCreatedId } from '@janeirodigital/interop-data-model'
-import type * as invitationActivities from '../activities/invitation.js'
+import { proxyActivities } from '@temporalio/workflow'
 import type * as grantsActivities from '../activities/grants.js'
+import type * as invitationActivities from '../activities/invitation.js'
 
 const { createSocialAgentInvitation } = proxyActivities<typeof invitationActivities>({
   startToCloseTimeout: '1 minute',

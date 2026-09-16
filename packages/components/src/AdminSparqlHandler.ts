@@ -1,20 +1,20 @@
 import { serializeTurtle } from '@janeirodigital/interop-utils'
 import {
-  arrayifyStream,
   BadRequestHttpError,
   BasicRepresentation,
   MethodNotAllowedHttpError,
   OkResponseDescription,
   OperationHttpHandler,
-  readableToString,
   UnsupportedMediaTypeHttpError,
+  arrayifyStream,
+  readableToString,
 } from '@solid/community-server'
 import type {
   CredentialsExtractor,
   OperationHttpHandlerInput,
   ResponseDescription,
 } from '@solid/community-server'
-import { SparqlEndpointFetcher, type IBindings, type IUpdateTypes } from 'fetch-sparql-endpoint'
+import { type IBindings, type IUpdateTypes, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 import type { SessionManager } from './SessionManager'
@@ -100,9 +100,7 @@ export class AdminSparqlHandler extends OperationHttpHandler {
 
     // Query-only: require the sparql-query media type and reject updates.
     if (operation.body.metadata.contentType !== SPARQL_QUERY_MEDIA_TYPE) {
-      throw new UnsupportedMediaTypeHttpError(
-        `expected content type ${SPARQL_QUERY_MEDIA_TYPE}`
-      )
+      throw new UnsupportedMediaTypeHttpError(`expected content type ${SPARQL_QUERY_MEDIA_TYPE}`)
     }
     const query = await readableToString(operation.body.data)
     if (!query.trim()) {

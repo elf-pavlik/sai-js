@@ -194,10 +194,7 @@ async function orgContextAdminFlag(webId: string, cookie: string): Promise<boole
 describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
   test('AddAdmin/RemoveAdmin only succeed for admins of the context org', async () => {
     // non-admin caller is rejected before any mutation
-    await expectRpcError(
-      rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }),
-      bobCookie
-    )
+    await expectRpcError(rpcPayload({ _tag: 'AddAdmin', webId: bobId, context: yoyoId }), bobCookie)
 
     // Dan (admin of YoYo) promotes Bob — activity-first (step 5): the RPC
     // pre-mints the AdminAuthorization id + writes the activity only; the
@@ -251,13 +248,13 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
   const taskShapeTree = 'https://data/shapetrees/trees/Task'
 
   const proxyAdminUrl = (orgWebId: string, target?: string) =>
-    `https://auth/.sai/proxy-admin/${Buffer.from(orgWebId).toString('base64url')}` +
-    (target ? `?iri=${encodeURIComponent(target)}` : '')
+    `https://auth/.sai/proxy-admin/${Buffer.from(orgWebId).toString('base64url')}${target ? `?iri=${encodeURIComponent(target)}` : ''}`
 
   test('ListDataRegistries (peer branch) lists the peer registration the org is granted', async () => {
-    const registries = await rpcCall<
-      { id: string; registrations: { id: string }[] }[]
-    >(rpcPayload({ _tag: 'ListDataRegistries', agentId: bobId, lang: 'en', context: yoyoId }), danCookie)
+    const registries = await rpcCall<{ id: string; registrations: { id: string }[] }[]>(
+      rpcPayload({ _tag: 'ListDataRegistries', agentId: bobId, lang: 'en', context: yoyoId }),
+      danCookie
+    )
     const bobRegistry = registries.find((registry) => registry.id === 'https://data/bob/')
     expect(bobRegistry).toBeDefined()
     expect(bobRegistry!.registrations.map((registration) => registration.id)).toContain(
@@ -290,10 +287,7 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
       shapeTree: { id: string }
       accessGrantedTo: string[]
       children: { shapeTree: { id: string }; count: number }[]
-    }>(
-      rpcPayload({ _tag: 'GetResource', id: bobNeon, lang: 'en', context: yoyoId }),
-      danCookie
-    )
+    }>(rpcPayload({ _tag: 'GetResource', id: bobNeon, lang: 'en', context: yoyoId }), danCookie)
     expect(resource.id).toBe(bobNeon)
     expect(resource.label).toBe('Neon')
     expect(resource.shapeTree.id).toBe(projectShapeTree)
@@ -322,9 +316,7 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
     expect(nonAdmin.status).toBe(403)
 
     const danSession = await buildOidcSession(danId)
-    const unknownOrg = await danSession.authFetch(
-      proxyAdminUrl('https://id/nonexistent-org')
-    )
+    const unknownOrg = await danSession.authFetch(proxyAdminUrl('https://id/nonexistent-org'))
     expect(unknownOrg.status).toBe(403)
   })
 

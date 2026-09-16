@@ -4,8 +4,12 @@ import type {
   InvitationCreated,
   SocialAgentInvitationData,
 } from '@janeirodigital/interop-data-model'
-import { IRI, InvitationCreatedMessage, SocialAgentInvitation } from '@janeirodigital/sai-api-messages'
 import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import {
+  IRI,
+  InvitationCreatedMessage,
+  SocialAgentInvitation,
+} from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
 import {
@@ -72,10 +76,14 @@ export async function createInvitation(
     object,
     createdAt: new Date().toISOString(),
   }
-  const created = await ActivityRegistry.createActivity(activityRegistry, {
-    fetch: ctx.session.fetch,
-    randomUUID: ctx.session.randomUUID,
-  }, activity)
+  const created = await ActivityRegistry.createActivity(
+    activityRegistry,
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+    },
+    activity
+  )
   return InvitationCreatedMessage.make({
     accepted: true,
     id: IRI.make(invitationId),

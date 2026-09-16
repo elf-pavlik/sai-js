@@ -3,11 +3,7 @@ import {
   type ApplicationRegistrationData,
   loadClientIdDocument,
 } from '@janeirodigital/interop-data-model'
-import {
-  Application,
-  IRI,
-  UnregisteredApplication,
-} from '@janeirodigital/sai-api-messages'
+import { Application, IRI, UnregisteredApplication } from '@janeirodigital/sai-api-messages'
 import type { ResolvedContext } from './Context.js'
 import {
   getApplicationRegistration as getApplicationRegistrationFromSparql,

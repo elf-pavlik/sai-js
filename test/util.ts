@@ -156,7 +156,9 @@ export async function waitFor<T>(
  * A pending activity means a webhook-triggered workflow is still mid-flight;
  * workflows mark their activity done only on completion (`markActivitiesDone`).
  */
-async function pendingActivitiesFor(session: AuthorizationAgent): Promise<ActivityData[] | undefined> {
+async function pendingActivitiesFor(
+  session: AuthorizationAgent
+): Promise<ActivityData[] | undefined> {
   const registry = session.registrySet.hasActivityRegistry
   if (!registry) return []
   let iris: string[]
@@ -255,7 +257,10 @@ export async function awaitGrantCompletion(
  * `'AgentRegistrationAdded'`) in the session's Activity Registry has a
  * completion referencing it (the producer's workflow marked it done).
  */
-export async function waitForActivityCompletion(session: AuthorizationAgent, cls: string): Promise<void> {
+export async function waitForActivityCompletion(
+  session: AuthorizationAgent,
+  cls: string
+): Promise<void> {
   const registry = session.registrySet.hasActivityRegistry!
   await waitFor(
     async () => {
@@ -347,9 +352,7 @@ export async function waitForNeedBasedAccessRequestSentCompletion(
   return waitForActivityCompletion(session, 'NeedBasedAccessRequestSent')
 }
 
-export async function waitForRoleCreatedCompletion(
-  session: AuthorizationAgent
-): Promise<void> {
+export async function waitForRoleCreatedCompletion(session: AuthorizationAgent): Promise<void> {
   return waitForActivityCompletion(session, 'RoleCreated')
 }
 
@@ -371,9 +374,7 @@ export async function waitForRoleMembershipChangedCompletion(
  * done — a completion referencing it exists in the session's Activity
  * Registry.
  */
-export async function waitForRoleDeletedCompletion(
-  session: AuthorizationAgent
-): Promise<void> {
+export async function waitForRoleDeletedCompletion(session: AuthorizationAgent): Promise<void> {
   return waitForActivityCompletion(session, 'RoleDeleted')
 }
 

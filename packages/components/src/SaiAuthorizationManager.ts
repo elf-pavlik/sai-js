@@ -1,10 +1,10 @@
+import { INTEROP } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import { NotFoundHttpError, arrayifyStream } from '@solid/community-server'
 import type { IdentifierStrategy, StorageLocationStrategy } from '@solid/community-server'
 import type { AuthorizationManager } from '@solidlab/policy-engine'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
-import { INTEROP } from '@janeirodigital/interop-utils'
 
 export class SaiAuthorizationManager implements AuthorizationManager {
   private fetcher: SparqlEndpointFetcher

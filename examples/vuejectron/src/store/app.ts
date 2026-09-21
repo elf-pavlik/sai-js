@@ -252,10 +252,7 @@ export const useAppStore = defineStore('app', () => {
     const ldoProject = findProject(projectId)
     // remove reference from the project
     const cProject = changeData(ldoProject)
-    // @ts-expect-error
-    const taskIndex = cProject.hasTask.findIndex((t) => t['@id'] === task['@id'])
-    // @ts-expect-error
-    delete cProject.hasTask[taskIndex]
+    cProject.hasTask!.delete(task as { '@id': string })
     const result = await commitData(cProject)
     if (result.isError) throw result
     triggerRef(currentProject)

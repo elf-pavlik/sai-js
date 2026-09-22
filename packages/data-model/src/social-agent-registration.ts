@@ -1,4 +1,4 @@
-import { SKOS, type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { SKOS, frameNode, loader, opt, str, strs } from '@janeirodigital/interop-utils'
 import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
@@ -43,26 +43,20 @@ export type SocialAgentId = {
  * rdf:type (from framing) to a string array.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentRegistrationData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
-    id: id,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    registeredAgent: node.registeredAgent,
-    hasDataGrant: node.hasDataGrant ?? [],
-    hasAdminGrant: node.hasAdminGrant ?? [],
-    label: node.label ?? '',
-    // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
-    note: node.note ?? undefined,
-    reciprocalRegistration: node.reciprocalRegistration ?? undefined,
+    id,
+    type: node.type ?? [],
+    registeredAgent: str(node, 'registeredAgent'),
+    hasDataGrant: strs(node, 'hasDataGrant'),
+    hasAdminGrant: strs(node, 'hasAdminGrant'),
+    label: str(node, 'label'),
+    note: opt(node, 'note'),
+    reciprocalRegistration: opt(node, 'reciprocalRegistration'),
   }
 }
 
-export async function loadSocialAgentRegistration(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<SocialAgentRegistrationData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadSocialAgentRegistration = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: SocialAgentRegistrationData → Dataset

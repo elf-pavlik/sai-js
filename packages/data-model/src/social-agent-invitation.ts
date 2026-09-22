@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -34,21 +34,15 @@ export type SocialAgentInvitationData = SocialAgentInvitationId & {
  * to a string array.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentInvitationData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
-    id: id,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    capabilityUrl: node.capabilityUrl ?? '',
-    label: node.label ?? '',
-    // @omitDefault omits framed-but-absent properties — normalize to undefined anyway
-    note: node.note ?? undefined,
-    registeredAgent: node.registeredAgent ?? undefined,
+    id,
+    type: node.type ?? [],
+    capabilityUrl: str(node, 'capabilityUrl'),
+    label: str(node, 'label'),
+    note: opt(node, 'note'),
+    registeredAgent: opt(node, 'registeredAgent'),
   }
 }
 
-export async function loadSocialAgentInvitation(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<SocialAgentInvitationData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadSocialAgentInvitation = loader(fromJsonLd)

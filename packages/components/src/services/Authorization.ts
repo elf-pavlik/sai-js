@@ -157,11 +157,7 @@ function accessNeedFromEmbedded(node: Record<string, unknown>, parentId?: string
   )
   return {
     id: node.id as string,
-    type: Array.isArray(node.type)
-      ? (node.type as string[])
-      : node.type
-        ? [node.type as string]
-        : [],
+    type: (node.type as string[] | undefined) ?? [],
     registeredShapeTree: node.registeredShapeTree as string,
     inheritsFromNeed: parentId,
     hasInheritingNeed: children.map((child) => child.id),

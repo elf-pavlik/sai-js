@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str, strs } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
@@ -21,20 +21,15 @@ export type AccessNeedDescriptionData = AccessDescriptionData & {
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
-    definition: framedValue(node.definition),
-    // `hasAccessNeed` is @set in the shared context — unwrap the single value
-    hasAccessNeed: (node.hasAccessNeed ?? [])[0]!,
+    type: node.type ?? [],
+    label: str(node, 'label'),
+    definition: opt(node, 'definition'),
+    // `hasAccessNeed` is @set in the shared context — the single member
+    hasAccessNeed: strs(node, 'hasAccessNeed')[0] ?? '',
   }
 }
 
-export async function loadAccessNeedDescription(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<AccessNeedDescriptionData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadAccessNeedDescription = loader(fromJsonLd)

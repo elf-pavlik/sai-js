@@ -22,7 +22,7 @@
     "oxigraph@latest"
   ],
   "env": {
-    "_EXPERIMENTAL_DAGGER_RUNNER_HOST": "docker-container://dagger-engine-v0.20.6"
+    "_EXPERIMENTAL_DAGGER_RUNNER_HOST": "docker-container://dagger-engine-v0.21.9"
   },
   "shell": {
     "init_hook": [

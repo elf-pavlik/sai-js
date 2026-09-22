@@ -1,8 +1,10 @@
 import {
   INTEROP,
-  type WhatwgFetch,
-  fetchJsonLd,
-  frameDoc,
+  frameNode,
+  loader,
+  opt,
+  str,
+  strs,
   withContext,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
@@ -64,42 +66,30 @@ export interface GeneratedGrants {
  * automatically, without embedding child nodes.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
-  return compactNodeToGrantData((await frameDoc(doc, dataModelContext, id)) as any)
-}
-
-/**
- * Extract the grant node from a framed JSON-LD output into a GrantData POJO.
- *
- * The framed output uses compacted form with @type: @id on all properties,
- * so values are plain IRI strings (or null/undefined when absent).
- * No @id-object unwrapping or array-flattening is needed.
- */
-function compactNodeToGrantData(node: any): GrantData {
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    grantee: node.grantee,
-    grantedBy: node.grantedBy,
-    dataOwner: node.dataOwner,
-    registeredShapeTree: node.registeredShapeTree,
-    hasDataRegistration: node.hasDataRegistration,
-    hasStorage: node.hasStorage,
-    scopeOfGrant: node.scopeOfGrant,
-    accessMode: node.accessMode ?? [],
-    creatorAccessMode: node.creatorAccessMode ?? [],
-    hasDataInstance: node.hasDataInstance ?? [],
-    inheritsFromGrant: node.inheritsFromGrant ?? undefined,
-    delegationOfGrant: node.delegationOfGrant ?? undefined,
-    hasInheritingGrant: node.hasInheritingGrant ?? [],
+    type: node.type ?? [],
+    grantee: str(node, 'grantee'),
+    grantedBy: str(node, 'grantedBy'),
+    dataOwner: str(node, 'dataOwner'),
+    registeredShapeTree: str(node, 'registeredShapeTree'),
+    hasDataRegistration: str(node, 'hasDataRegistration'),
+    hasStorage: str(node, 'hasStorage'),
+    scopeOfGrant: str(node, 'scopeOfGrant'),
+    accessMode: strs(node, 'accessMode'),
+    creatorAccessMode: strs(node, 'creatorAccessMode'),
+    hasDataInstance: strs(node, 'hasDataInstance'),
+    inheritsFromGrant: opt(node, 'inheritsFromGrant'),
+    delegationOfGrant: opt(node, 'delegationOfGrant'),
+    hasInheritingGrant: strs(node, 'hasInheritingGrant'),
   }
 }
 
 /**
  * Fetch and load a grant resource as a GrantData POJO.
  */
-export async function loadGrant(id: string, fetch: WhatwgFetch): Promise<GrantData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadGrant = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: GrantData → JSON-LD

@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -29,18 +29,13 @@ export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
-    definition: framedValue(node.definition),
+    type: node.type ?? [],
+    label: str(node, 'label'),
+    definition: opt(node, 'definition'),
   }
 }
 
-export async function loadShapeTreeDescription(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<ShapeTreeDescriptionData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadShapeTreeDescription = loader(fromJsonLd)

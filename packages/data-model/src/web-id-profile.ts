@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -28,17 +28,14 @@ export type WebIdProfileData = WebIdProfileId & {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfileData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    // skos:prefLabel — literal
-    label: framedValue(node.label),
-    // node reference — @type: '@id' coerced
-    oidcIssuer: node.oidcIssuer ?? undefined,
+    type: node.type ?? [],
+    // skos:prefLabel — literal; oidcIssuer — node reference (@type: '@id' coerced)
+    label: opt(node, 'label'),
+    oidcIssuer: opt(node, 'oidcIssuer'),
   }
 }
 
-export async function loadWebIdProfile(id: string, fetch: WhatwgFetch): Promise<WebIdProfileData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadWebIdProfile = loader(fromJsonLd)

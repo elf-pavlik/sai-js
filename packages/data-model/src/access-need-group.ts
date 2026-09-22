@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { frameNode, loader, strs } from '@janeirodigital/interop-utils'
 import type { AccessNeedData } from './access-need'
 import { dataModelContext } from './context'
 
@@ -30,18 +30,13 @@ export type AccessNeedGroupData = AccessNeedGroupId & {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedGroupData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    hasAccessNeed: node.hasAccessNeed ?? [],
+    type: node.type ?? [],
+    hasAccessNeed: strs(node, 'hasAccessNeed'),
     accessNeeds: [],
   }
 }
 
-export async function loadAccessNeedGroup(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<AccessNeedGroupData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadAccessNeedGroup = loader(fromJsonLd)

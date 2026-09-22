@@ -2,6 +2,7 @@ import {
   type ActivityData,
   type ActivityRegistryData,
   type CreateInvitationPojo,
+  DataAuthorizationFromJsonLd,
   type EmbeddedAccessRequestRef,
   type EmbeddedAdminAuthorization,
   type EmbeddedAuthorization,
@@ -9,7 +10,6 @@ import {
   type EmbeddedSocialAgentInvitation,
   type EmbeddedSocialAgentRegistration,
   type RoleData,
-  compactNodeToDataAuthorizationData,
   dataModelContext,
   isActivityClass,
 } from '@janeirodigital/interop-data-model'
@@ -57,45 +57,63 @@ export async function createActivity(
 // Frame + normalization helpers
 // ──────────────────────────
 
-/**
- * Frame an activity as a single document (`fetchJsonLd` + `frameDoc` with
- * `object: { '@embed': '@always' }` — the pinned single-doc read). A
- * snapshot object embeds from the same document (no cross-graph read); a
- * live-link object is not in the document and stays a plain-IRI string (the
- * framer never dereferences absent nodes). Every other field frames with the
- * default `@embed: '@never'` — plain IRIs/literals only.
- */
-async function frameActivity(id: string, fetch: WhatwgFetch): Promise<Record<string, unknown>> {
-  const doc = await fetchJsonLd(id, fetch)
-  // the need-based classes embed the request SNAPSHOT (their objects are
-  // never live links) — the group inside must stay COMPLETE (sparql.md: the
-  // activity graph is self-contained; its needs incl. inherited children
-  // ride the graph, or the approval cannot resolve the group). The deep
-  // frame is CLASS-GATED: a per-property sub-frame is a whitelist that would
-  // mis-frame the LIVE-LINK object arrays of the other classes.
-  const needBasedClasses = [
-    INTEROP.NeedBasedAccessRequestSent,
-    INTEROP.NeedBasedAccessRequestReceived,
-  ]
+/** Whether the fetched activity document carries the given interop class as
+ * one of its `@type`s. Sniffs the RAW wire doc (expanded or compacted form)
+ * before any framing/compaction with `dataModelContext` — `@type` values are
+ * full IRIs, or the compacted term name when the doc embeds `dataModelContext`
+ * (test fixtures), so both are matched. */
+function docHasClass(doc: unknown, classIri: string): boolean {
+  const term = classIri.split(/[#/]/).pop()
   const nodes = Array.isArray(doc) ? doc : [doc]
-  const isNeedBased = nodes.some((node) => {
-    const types = typeof node?.['@type'] === 'string' ? [node['@type']] : (node?.['@type'] ?? [])
-    return types.some((type: string) => needBasedClasses.includes(type))
+  return nodes.some((node) => {
+    const raw = (node as Record<string, unknown>)?.['@type']
+    const types = typeof raw === 'string' ? [raw] : ((raw as string[] | undefined) ?? [])
+    return types.some((type) => type === classIri || type === term)
   })
-  return frameDoc(doc, dataModelContext, id, {
-    object: isNeedBased
-      ? {
+}
+
+/** The need-based classes embed their request SNAPSHOT (never live links). */
+const NEED_BASED_CLASSES = [
+  INTEROP.NeedBasedAccessRequestSent,
+  INTEROP.NeedBasedAccessRequestReceived,
+]
+
+/**
+ * Frame an activity as a single document (the pinned single-doc read).
+ * CLASS-GATED `as:object` handling (docs/jsonld.md TODO 2):
+ * - `AuthorizationGranted` — DEFAULT frame (every property
+ *   `@embed: '@never'`): the embedded DataAuthorization nodes frame to
+ *   plain-IRI string(s); `loadActivity` re-frames the same doc per object id
+ *   with `DataAuthorizationFromJsonLd` (two-phase framing — no embedded-node
+ *   unwrapping).
+ * - need-based classes — the DEEP frame: the request SNAPSHOT embeds with
+ *   its COMPLETE group (sparql.md: the activity graph is self-contained;
+ *   its needs incl. inherited children ride the graph, or the approval
+ *   cannot resolve the group).
+ * - every other class — the wildcard `@embed: '@always'`: snapshot objects
+ *   embed from the same document (no cross-graph read); a live-link object
+ *   is not in the document and stays a plain-IRI string (the framer never
+ *   dereferences absent nodes).
+ */
+async function frameActivity(doc: unknown, id: string): Promise<Record<string, unknown>> {
+  if (docHasClass(doc, INTEROP.AuthorizationGranted)) {
+    return frameDoc(doc, dataModelContext, id)
+  }
+  if (NEED_BASED_CLASSES.some((cls) => docHasClass(doc, cls))) {
+    return frameDoc(doc, dataModelContext, id, {
+      object: {
+        '@embed': '@always',
+        hasAccessNeedGroup: {
           '@embed': '@always',
-          hasAccessNeedGroup: {
+          hasAccessNeed: {
             '@embed': '@always',
-            hasAccessNeed: {
-              '@embed': '@always',
-              hasInheritingNeed: { '@embed': '@always' },
-            },
+            hasInheritingNeed: { '@embed': '@always' },
           },
-        }
-      : { '@embed': '@always' },
-  })
+        },
+      },
+    })
+  }
+  return frameDoc(doc, dataModelContext, id, { object: { '@embed': '@always' } })
 }
 
 function asString(value: unknown): string {
@@ -133,8 +151,9 @@ function activityClass(type: string[]): string {
  * `type` tuple is canonicalized to `['Activity', '<Class>', <as:*>]` — the
  * write order — regardless of the order the store returned it in. */
 export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<ActivityData> {
-  const node = await frameActivity(id, fetch)
-  const type = asStringArray(node.type)
+  const doc = await fetchJsonLd(id, fetch)
+  const node = await frameActivity(doc, id)
+  const type = (node.type as string[] | undefined) ?? []
   const cls = activityClass(type)
   const canonicalType = ['Activity', cls, ...type.filter((t) => ASV_ACTIVITY_TYPES.has(t))]
   const base = {
@@ -284,10 +303,15 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     case 'AuthorizationGranted': {
-      // the object is the array of embedded DataAuthorization POJOs (ALL
-      // grantees); a SINGLE embedded node frames as an object, not an array
-      // (jsonld.md gotcha 1) — wrap it. Declines are `AuthorizationDenied`
-      // (Step 4): no snapshot form lives on this class anymore.
+      // two-phase framing (docs/jsonld.md TODO 2): phase 1 (default frame)
+      // gave the object as plain-IRI string(s) — a single embedded node
+      // frames as a scalar (jsonld.md gotcha 1), so wrap it; phase 2
+      // re-frames the SAME doc per object id via the standard
+      // data-authorization read path → full `DataAuthorizationData` POJOs
+      // (plain-IRI refs, @reverse children resolved), no node unwrapping.
+      // Declines are `AuthorizationDenied` (Step 4): no snapshot form lives
+      // on this class anymore.
+      const objectIds = asStringArray(node.object)
       return {
         ...base,
         type: canonicalType as ['Activity', 'AuthorizationGranted'],
@@ -298,12 +322,9 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           node.satisfiesAccessRequest === undefined
             ? undefined
             : asString(node.satisfiesAccessRequest),
-        object:
-          node.object === undefined
-            ? []
-            : Array.isArray(node.object)
-              ? node.object.map((member) => compactNodeToDataAuthorizationData(member))
-              : [compactNodeToDataAuthorizationData(node.object)],
+        object: await Promise.all(
+          objectIds.map((objectId) => DataAuthorizationFromJsonLd(doc, objectId))
+        ),
       }
     }
     case 'AuthorizationDenied': {

@@ -1,5 +1,4 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
-import { fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { frameNode, loader, str, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { GrantData } from './grant'
 
@@ -73,7 +72,7 @@ export interface NeedBasedAccessRequestMessage {
  * array-form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAccessRequestData> {
-  const node = (await frameDoc(doc, dataModelContext, id, {
+  const node = await frameNode(doc, dataModelContext, id, {
     hasAccessNeedGroup: {
       '@embed': '@always',
       hasAccessNeed: {
@@ -81,32 +80,23 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAcc
         hasInheritingNeed: { '@embed': '@always' },
       },
     },
-  })) as {
-    type?: unknown
-    grantee?: unknown
-    grantedBy?: unknown
-    dataOwner?: unknown
-    hasAccessNeedGroup?: { id?: unknown; type?: unknown; hasAccessNeed?: unknown }
-  }
-  const group = node.hasAccessNeedGroup
+  })
+  const group = node.hasAccessNeedGroup as Record<string, unknown> | undefined
   return {
     id,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    grantee: node.grantee as string,
-    grantedBy: node.grantedBy as string,
-    dataOwner: node.dataOwner as string,
+    type: node.type ?? [],
+    grantee: str(node, 'grantee'),
+    grantedBy: str(node, 'grantedBy'),
+    dataOwner: str(node, 'dataOwner'),
     hasAccessNeedGroup: {
-      id: group?.id as string,
-      type: group?.type ? (Array.isArray(group.type) ? group.type : [group.type]) : [],
-      hasAccessNeed: group?.hasAccessNeed ?? [],
+      id: str(group ?? {}, 'id'),
+      type: strs(group ?? {}, 'type'),
+      // the deep frame EMBEDS the need nodes (children incl. inherited
+      // children ride the graph) — pass them through, not as IRI strings
+      hasAccessNeed: (group?.hasAccessNeed as unknown[] | undefined) ?? [],
     },
   }
 }
 
 /** Load a stored AccessRequest from the owner's AccessRequestRegistry. */
-export async function loadNeedBasedAccessRequest(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<NeedBasedAccessRequestData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadNeedBasedAccessRequest = loader(fromJsonLd)

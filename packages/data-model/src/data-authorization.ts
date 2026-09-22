@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, withContext } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -39,85 +39,50 @@ export type DataAuthorizationData = DataAuthorizationId & {
 export type FinalDataAuthorizationData = DataAuthorizationData &
   Required<Pick<DataAuthorizationData, 'id'>>
 
-function nodeId(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object') {
-    const node = value as { id?: unknown; '@id'?: unknown }
-    if (typeof node.id === 'string') return node.id
-    if (typeof node['@id'] === 'string') return node['@id']
-  }
-  return ''
-}
-
-function nodeIds(value: unknown): string[] {
-  if (value === undefined || value === null) return []
-  return (Array.isArray(value) ? value : [value]).map(nodeId)
-}
-
-/**
- * Read path: JSON-LD → DataAuthorizationData
- * ──────────────────────────
- */
+// ──────────────────────────
+// Read path: JSON-LD → DataAuthorizationData
+// ──────────────────────────
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * DataAuthorizationData POJO.
  *
  * The document can be in expanded, compacted, or flattened form.
- * Uses jsonld.frame to resolve @reverse relationships
- * (hasInheritingAuthorization) automatically, without embedding child nodes.
+ * Uses jsonld.frame with the shared data model context: every property
+ * frames with `@embed: '@never'` + `@type: '@id'`, so all node references
+ * compact to plain IRI strings and `@reverse` relationships
+ * (hasInheritingAuthorization) resolve automatically — no unwrapping of
+ * embedded nodes (docs/jsonld.md TODO 2).
+ *
+ * Also used by the Activity Registry decode (`loadActivity` → the
+ * `AuthorizationGranted` object POJOs): the activity document is re-framed
+ * per embedded object id (two-phase framing), so one read path serves both
+ * the per-resource and the embedded cases.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<DataAuthorizationData> {
-  return compactNodeToDataAuthorizationData((await frameDoc(doc, dataModelContext, id)) as any)
-}
-
-/**
- * Extract the data authorization node from a framed JSON-LD output into a
- * DataAuthorizationData POJO.
- *
- * The framed output uses compacted form with @type: @id on all properties,
- * so values are plain IRI strings — or, when the referenced node lives in
- * the SAME framed document (the `AuthorizationGranted` activity object
- * POJOs-to-be; children re-link the parent), embedded nodes that must be
- * unwrapped to their `id`.
- *
- * Also used by the Activity Registry decode (`authorization-agent`
- * `loadActivity` → the `AuthorizationGranted` object POJOs-to-be), so one
- * normalization serves both the per-resource and the embedded paths.
- */
-export function compactNodeToDataAuthorizationData(node: any): DataAuthorizationData {
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: nodeIds(node.type),
-    grantee: nodeId(node.grantee),
-    grantedBy: nodeId(node.grantedBy),
-    registeredShapeTree: nodeId(node.registeredShapeTree),
-    scopeOfAuthorization: nodeId(node.scopeOfAuthorization),
-    dataOwner: node.dataOwner === undefined ? undefined : nodeId(node.dataOwner),
-    hasDataRegistration:
-      node.hasDataRegistration === undefined ? undefined : nodeId(node.hasDataRegistration),
-    satisfiesAccessNeed:
-      node.satisfiesAccessNeed === undefined ? undefined : nodeId(node.satisfiesAccessNeed),
-    inheritsFromAuthorization:
-      node.inheritsFromAuthorization === undefined
-        ? undefined
-        : nodeId(node.inheritsFromAuthorization),
-    accessMode: nodeIds(node.accessMode),
-    creatorAccessMode: nodeIds(node.creatorAccessMode),
-    hasDataInstance: nodeIds(node.hasDataInstance),
-    hasInheritingAuthorization: nodeIds(node.hasInheritingAuthorization),
+    type: node.type ?? [],
+    grantee: str(node, 'grantee'),
+    grantedBy: str(node, 'grantedBy'),
+    registeredShapeTree: str(node, 'registeredShapeTree'),
+    scopeOfAuthorization: str(node, 'scopeOfAuthorization'),
+    dataOwner: opt(node, 'dataOwner'),
+    hasDataRegistration: opt(node, 'hasDataRegistration'),
+    satisfiesAccessNeed: opt(node, 'satisfiesAccessNeed'),
+    inheritsFromAuthorization: opt(node, 'inheritsFromAuthorization'),
+    accessMode: strs(node, 'accessMode'),
+    creatorAccessMode: strs(node, 'creatorAccessMode'),
+    hasDataInstance: strs(node, 'hasDataInstance'),
+    hasInheritingAuthorization: strs(node, 'hasInheritingAuthorization'),
   }
 }
 
 /**
  * Fetch and load a data authorization resource as a DataAuthorizationData POJO.
  */
-export async function loadDataAuthorization(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<DataAuthorizationData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadDataAuthorization = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: DataAuthorizationData → JSON-LD

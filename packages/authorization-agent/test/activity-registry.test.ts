@@ -204,9 +204,14 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect(activity.object[0].scopeOfAuthorization).toBe(
       'http://www.w3.org/ns/solid/interop#AllFromRegistry'
     )
-    // the @reverse term does NOT resolve on nested embedded nodes — the
-    // workflow materializes parents and children separately; the child's
-    // forward `inheritsFromAuthorization` (below) re-links them in the store
+    // two-phase framing (docs/jsonld.md TODO 2): each object re-frames the
+    // SAME doc by its own id — @reverse RESOLVES at the top-level matched
+    // node, so the parent's children (written as @reverse terms on the wire)
+    // come back as plain-IRI strings, and the child's forward
+    // `inheritsFromAuthorization` re-links it in the store
+    expect(activity.object[0].hasInheritingAuthorization).toEqual([
+      'https://registry/alice/authorization/da-1-child',
+    ])
     expect(activity.object[1].id).toBe('https://registry/alice/authorization/da-1-child')
     expect(activity.object[1].inheritsFromAuthorization).toBe(
       'https://registry/alice/authorization/da-1'

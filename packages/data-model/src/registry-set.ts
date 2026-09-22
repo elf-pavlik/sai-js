@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str, strs } from '@janeirodigital/interop-utils'
 import type { ActivityRegistryData } from './activity-registry'
 import type {
   ApplicationRegistryData,
@@ -48,25 +48,25 @@ export type AccessRequestRegistryData = {
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
+  // @type: '@id' coerced — plain IRI strings, wrapped in the XId shape
+  const hasActivityRegistry = opt(node, 'hasActivityRegistry')
+  const hasAccessRequestRegistry = opt(node, 'hasAccessRequestRegistry')
   return {
-    id: id,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    // @type: '@id' coerced — plain IRI strings
-    hasAuthorizationRegistry: { id: node.hasAuthorizationRegistry },
-    hasGrantRegistry: { id: node.hasGrantRegistry },
-    hasSocialAgentRegistry: { id: node.hasSocialAgentRegistry },
-    hasApplicationRegistry: { id: node.hasApplicationRegistry },
-    hasInvitationRegistry: { id: node.hasInvitationRegistry },
-    hasRoleRegistry: { id: node.hasRoleRegistry },
-    hasDataRegistry: (node.hasDataRegistry ?? []).map((id: string) => ({ id })),
-    hasActivityRegistry: node.hasActivityRegistry ? { id: node.hasActivityRegistry } : undefined,
-    hasAccessRequestRegistry: node.hasAccessRequestRegistry
-      ? { id: node.hasAccessRequestRegistry }
+    id,
+    type: node.type ?? [],
+    hasAuthorizationRegistry: { id: str(node, 'hasAuthorizationRegistry') },
+    hasGrantRegistry: { id: str(node, 'hasGrantRegistry') },
+    hasSocialAgentRegistry: { id: str(node, 'hasSocialAgentRegistry') },
+    hasApplicationRegistry: { id: str(node, 'hasApplicationRegistry') },
+    hasInvitationRegistry: { id: str(node, 'hasInvitationRegistry') },
+    hasRoleRegistry: { id: str(node, 'hasRoleRegistry') },
+    hasDataRegistry: strs(node, 'hasDataRegistry').map((id) => ({ id })),
+    hasActivityRegistry: hasActivityRegistry ? { id: hasActivityRegistry } : undefined,
+    hasAccessRequestRegistry: hasAccessRequestRegistry
+      ? { id: hasAccessRequestRegistry }
       : undefined,
   }
 }
 
-export async function loadRegistrySet(id: string, fetch: WhatwgFetch): Promise<RegistrySetData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadRegistrySet = loader(fromJsonLd)

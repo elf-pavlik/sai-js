@@ -1,9 +1,11 @@
 import {
   INTEROP,
-  type WhatwgFetch,
   documentValues,
-  fetchJsonLd,
-  frameDoc,
+  frameNode,
+  loader,
+  opt,
+  str,
+  strs,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
@@ -47,20 +49,18 @@ export type AccessNeedData = AccessNeedId & {
  * description sets, not on the need node itself.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    registeredShapeTree: node.registeredShapeTree,
-    inheritsFromNeed: node.inheritsFromNeed ?? undefined,
-    hasInheritingNeed: node.hasInheritingNeed ?? [],
-    accessMode: node.accessMode ?? [],
+    type: node.type ?? [],
+    registeredShapeTree: str(node, 'registeredShapeTree'),
+    inheritsFromNeed: opt(node, 'inheritsFromNeed'),
+    hasInheritingNeed: strs(node, 'hasInheritingNeed'),
+    accessMode: strs(node, 'accessMode'),
     required: node.required === INTEROP.AccessRequired,
     children: [],
     descriptionLanguages: await documentValues(doc, id, INTEROP.usesLanguage),
   }
 }
 
-export async function loadAccessNeed(id: string, fetch: WhatwgFetch): Promise<AccessNeedData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadAccessNeed = loader(fromJsonLd)

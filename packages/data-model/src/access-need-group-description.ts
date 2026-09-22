@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, framedValue } from '@janeirodigital/interop-utils'
+import { frameNode, loader, opt, str } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
@@ -24,19 +24,14 @@ export async function fromJsonLd(
   doc: unknown,
   id: string
 ): Promise<AccessNeedGroupDescriptionData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    label: framedValue(node.label)!,
-    definition: framedValue(node.definition),
-    hasAccessNeedGroup: node.hasAccessNeedGroup!,
+    type: node.type ?? [],
+    label: str(node, 'label'),
+    definition: opt(node, 'definition'),
+    hasAccessNeedGroup: str(node, 'hasAccessNeedGroup'),
   }
 }
 
-export async function loadAccessNeedGroupDescription(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<AccessNeedGroupDescriptionData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadAccessNeedGroupDescription = loader(fromJsonLd)

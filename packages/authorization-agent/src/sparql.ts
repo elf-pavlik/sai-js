@@ -142,7 +142,7 @@ export async function getSocialAgentRegistration(
   const node = (await frameDoc(doc, dataModelContext, iri)) as Record<string, unknown>
   return {
     id: iri,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
+    type: (node.type as string[] | undefined) ?? [],
     registeredAgent: node.registeredAgent as string,
     hasDataGrant: (node.hasDataGrant as string[]) ?? [],
     hasAdminGrant: (node.hasAdminGrant as string[]) ?? [],
@@ -337,7 +337,7 @@ export async function getRole(
   const doc = await graphDoc(transport, iri)
   if (Array.isArray(doc) && doc.length === 0) return undefined
   const node = (await frameDoc(doc, dataModelContext, iri)) as any
-  const type = node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : []
+  const type = (node.type as string[] | undefined) ?? []
   // Type guard: ANY non-empty graph at the IRI is not a role. In dev the
   // app's client-id document lives at the application IRI (map.json maps
   // `https://data/test-client/public/id` → `https://vuejectron.docker/id`),

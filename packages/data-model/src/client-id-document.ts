@@ -1,10 +1,4 @@
-import {
-  INTEROP,
-  type WhatwgFetch,
-  fetchJsonLd,
-  frameDoc,
-  framedValue,
-} from '@janeirodigital/interop-utils'
+import { INTEROP, frameNode, loader, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -30,6 +24,19 @@ export type ClientIdDocumentData = ClientIdDocumentId & {
 // Read path: JSON-LD → ClientIdDocumentData
 // ──────────────────────────
 
+/** Per-model context for client id documents: the two interop terms drop the
+ * `@type: '@id'` coercion. A client id document's OWN context (the Solid OIDC
+ * context) types the same values as plain strings, and under coercion a
+ * literal compacts to the RAW IRI key instead of the term key (docs/jsonld.md
+ * TODO 5). Without coercion, node references, literal strings and
+ * `{ '@value' }` literals ALL compact to the term key, and `opt` unwraps
+ * every form. */
+const clientIdContext: JsonLdContext = {
+  ...dataModelContext,
+  callbackEndpoint: { '@id': INTEROP.hasAuthorizationCallbackEndpoint },
+  hasAccessNeedGroup: { '@id': INTEROP.hasAccessNeedGroup },
+}
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * ClientIdDocumentData POJO. The document can be in expanded, compacted, or
@@ -37,26 +44,16 @@ export type ClientIdDocumentData = ClientIdDocumentId & {
  * from bundled local copies, never fetched over the network.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ClientIdDocumentData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, clientIdContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    // Compacted client id documents write IRI values as plain strings (the
-    // oidc-context types them as literals), so those frame under the raw IRI
-    // key instead of the @type:'@id' term key — check both. Expanded-form
-    // documents (node references) compact to the term key directly.
-    callbackEndpoint:
-      node.callbackEndpoint ?? node[INTEROP.hasAuthorizationCallbackEndpoint] ?? undefined,
-    hasAccessNeedGroup: node.hasAccessNeedGroup ?? node[INTEROP.hasAccessNeedGroup] ?? undefined,
-    // literals — framedValue unwraps language-tagged / typed values
-    clientName: framedValue(node.clientName),
-    logoUri: framedValue(node.logoUri),
+    type: node.type ?? [],
+    callbackEndpoint: opt(node, 'callbackEndpoint'),
+    hasAccessNeedGroup: opt(node, 'hasAccessNeedGroup'),
+    // literals — opt unwraps language-tagged / typed values
+    clientName: opt(node, 'clientName'),
+    logoUri: opt(node, 'logoUri'),
   }
 }
 
-export async function loadClientIdDocument(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<ClientIdDocumentData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadClientIdDocument = loader(fromJsonLd)

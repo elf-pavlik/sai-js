@@ -1,10 +1,12 @@
 import {
+  type FramedNode,
   type JsonLdContext,
   SHAPETREES,
   type WhatwgFetch,
   fetchJsonLd,
-  frameDoc,
-  framedValue,
+  frameNode,
+  opt,
+  strs,
 } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { DataRegistrationData } from './data-registration'
@@ -82,8 +84,8 @@ export async function frameDataInstanceFromDoc(
   doc: unknown,
   id: string,
   shapeTree: ShapeTreeData
-): Promise<Record<string, unknown>> {
-  return frameDoc(doc, dataInstanceContext(shapeTree), id)
+): Promise<FramedNode> {
+  return frameNode(doc, dataInstanceContext(shapeTree), id)
 }
 
 /**
@@ -100,13 +102,13 @@ export async function frameDataInstance(
   fetch: WhatwgFetch,
   shapeTree: ShapeTreeData,
   docIri?: string
-): Promise<Record<string, unknown>> {
+): Promise<FramedNode> {
   return frameDataInstanceFromDoc(await fetchJsonLd(docIri ?? id, fetch), id, shapeTree)
 }
 
 /** The data instance's label (describesInstance value or nfo:fileName). */
 export function labelFromNode(node: Record<string, unknown>): string | undefined {
-  return framedValue(node.label) ?? framedValue(node.fileName)
+  return opt(node, 'label') ?? opt(node, 'fileName')
 }
 
 /**
@@ -122,5 +124,5 @@ export function childIris(
   if (!reference) {
     throw new Error(`shape tree ${shapeTree.id} does not reference ${childShapeTree}`)
   }
-  return (node[reference.viaPredicate.value] as string[] | undefined) ?? []
+  return strs(node, reference.viaPredicate.value)
 }

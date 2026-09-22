@@ -41,12 +41,18 @@ const iriTermDef = (
  * inert for `toRDF` (only present keys expand) and for frame matching
  * (`requireAll=false`, `@id` forces the match).
  *
- * No `@version: 1.1` (all features used are 1.0) and no `@protected` —
+ * `@version: 1.1` — the `type` term carries `@container: '@set'` so a single
+ * `rdf:type` always frames/compacts to an array (JSON-LD 1.1 compaction:
+ * "as array … if … container … includes @set"). No `@protected` —
  * per-model spread-overrides (data-instance `label`) must stay possible.
  */
 export const dataModelContext: JsonLdContext = {
+  '@version': 1.1,
   id: '@id',
-  type: '@type',
+
+  // @type alias with a set container — `type` is ALWAYS a string[] in framed
+  // output (single rdf:type values compact to a one-element array)
+  type: { '@id': '@type', '@container': '@set' },
 
   // interop — single-value node references
   grantee: iriTermDef(INTEROP, 'grantee'),

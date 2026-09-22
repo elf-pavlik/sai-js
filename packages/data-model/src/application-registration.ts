@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc } from '@janeirodigital/interop-utils'
+import { frameNode, loader, str, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -42,20 +42,15 @@ export type ApplicationId = {
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ApplicationRegistrationData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
-  const hasDataGrant = node.hasDataGrant ?? []
+  const node = await frameNode(doc, dataModelContext, id)
+  const hasDataGrant = strs(node, 'hasDataGrant')
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    registeredAgent: node.registeredAgent,
+    type: node.type ?? [],
+    registeredAgent: str(node, 'registeredAgent'),
     hasDataGrant,
     granted: hasDataGrant.length > 0,
   }
 }
 
-export async function loadApplicationRegistration(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<ApplicationRegistrationData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadApplicationRegistration = loader(fromJsonLd)

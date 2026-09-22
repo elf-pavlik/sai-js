@@ -5,7 +5,9 @@ import {
   documentLoader,
   documentValues,
   fetchJsonLd,
-  frameDoc,
+  frameNode,
+  loader,
+  opt,
   withContext,
 } from '@janeirodigital/interop-utils'
 import type { NamedNode } from '@rdfjs/types'
@@ -102,13 +104,13 @@ function referencePairs(expanded: any[], treeId: string): ShapeTreeReference[] {
  * node-centric frame can't capture either shape.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    shape: node.shape ?? undefined,
-    describesInstance: node.describesInstance ?? undefined,
-    expectsType: node.expectsType ?? undefined,
+    type: node.type ?? [],
+    shape: opt(node, 'shape'),
+    describesInstance: opt(node, 'describesInstance'),
+    expectsType: opt(node, 'expectsType'),
     descriptionLanguages: await documentValues(doc, id, SHAPETREES.usesLanguage),
     references: referencePairs(await expandedNodes(doc, id), id),
   }
@@ -133,9 +135,7 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
  * Fetch and load a shape tree resource as a ShapeTreeData POJO
  * (fetched as application/ld+json).
  */
-export async function loadShapeTree(id: string, fetch: WhatwgFetch): Promise<ShapeTreeData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadShapeTree = loader(fromJsonLd)
 
 // ──────────────────────────
 // Behavior functions (replacing class methods)

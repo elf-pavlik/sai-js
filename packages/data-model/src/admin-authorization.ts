@@ -1,4 +1,4 @@
-import { type WhatwgFetch, fetchJsonLd, frameDoc, withContext } from '@janeirodigital/interop-utils'
+import { frameNode, loader, str, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -28,23 +28,18 @@ export type AdminAuthorizationData = {
  * The document can be in expanded, compacted, or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AdminAuthorizationData> {
-  const node = (await frameDoc(doc, dataModelContext, id)) as any
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id,
-    type: node.type ? (Array.isArray(node.type) ? node.type : [node.type]) : [],
-    grantee: node.grantee,
-    grantedBy: node.grantedBy,
-    scopeOfAuthorization: node.scopeOfAuthorization,
+    type: node.type ?? [],
+    grantee: str(node, 'grantee'),
+    grantedBy: str(node, 'grantedBy'),
+    scopeOfAuthorization: str(node, 'scopeOfAuthorization'),
   }
 }
 
 /** Fetch and load an AdminAuthorization resource as an AdminAuthorizationData POJO. */
-export async function loadAdminAuthorization(
-  id: string,
-  fetch: WhatwgFetch
-): Promise<AdminAuthorizationData> {
-  return fromJsonLd(await fetchJsonLd(id, fetch), id)
-}
+export const loadAdminAuthorization = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: AdminAuthorizationData → JSON-LD

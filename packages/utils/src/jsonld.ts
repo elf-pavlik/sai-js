@@ -109,33 +109,80 @@ export async function frameDoc(
 }
 
 /**
+ * A framed JSON-LD node from the shared data-model context: the well-known
+ * keys are typed (`id`/`@id` — the `id` alias; `type` — the `@type` alias
+ * with `@container: '@set'`, so always a string[], never a scalar), while
+ * every other term key is `unknown`: node references compact to plain IRI
+ * strings (`@type: '@id'` coercion), set terms to string arrays, literals to
+ * plain strings or `{ '@value', … }` objects (unwrapped by the accessor
+ * family), and absent properties are omitted (`@omitDefault`).
+ */
+export type FramedNode = {
+  id?: string
+  '@id'?: string
+  type?: string[]
+} & Record<string, unknown>
+
+/**
+ * Typed front for `frameDoc` — the uniform mapper entry replacing the
+ * repeated `(await frameDoc(...)) as any` / `Record<string, unknown>` casts
+ * across the data-model `fromJsonLd`s. The `str`/`opt`/`strs` accessors
+ * handle per-field reads; `id`/`type` are read directly off the typed
+ * `FramedNode`.
+ */
+export async function frameNode(
+  doc: unknown,
+  context: JsonLdContext,
+  iri: string,
+  overrides: Record<string, Record<string, unknown>> = {}
+): Promise<FramedNode> {
+  return (await frameDoc(doc, context, iri, overrides)) as FramedNode
+}
+
+/** Required single value — a plain IRI or unwrapped literal string; `''` when absent. */
+export function str(node: Record<string, unknown>, key: string): string {
+  return framedValue(node[key]) ?? ''
+}
+
+/** Optional single value — string when present, `undefined` when absent. */
+export function opt(node: Record<string, unknown>, key: string): string | undefined {
+  return framedValue(node[key])
+}
+
+/**
+ * Array value — set-container terms frame as string arrays, but the
+ * accessor also absorbs scalar-or-array and literal-object members;
+ * `[]` when absent.
+ */
+export function strs(node: Record<string, unknown>, key: string): string[] {
+  const value = node[key]
+  if (value === undefined || value === null) return []
+  return (Array.isArray(value) ? value : [value]).map((item) => framedValue(item) ?? '')
+}
+
+/**
  * Find the `@id` of the first node in a JSON-LD document whose `@type`
  * includes `typeIri` — the JSON-LD replacement for
  * `getOneMatchingQuad(dataset, null, RDF.type, typeIri).subject`.
  * Throws when no such node exists.
+ *
+ * Matching is delegated to the framing algorithm: a frame with only
+ * `{'@type': typeIri}` matches the FIRST node of that type as the focus —
+ * single match frames as the node itself, multiple matches wrap in
+ * `@graph`, none yields `{}` (docs/jsonld.md TODO 4).
  */
 export async function findNodeIdByType(
   doc: unknown,
   typeIri: string,
   base?: string
 ): Promise<string> {
-  const options: any = { documentLoader }
+  // compactToRelative: false — frame() compacts its output against base by
+  // default and would return relative @ids for absolute-id documents
+  const options: any = { documentLoader, compactToRelative: false }
   if (base) options.base = base
-  const expanded = (await jsonld.expand(doc, options)) as any[]
-  const nodes: any[] = []
-  const collectNodes = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      value.forEach(collectNodes)
-      return
-    }
-    if (value && typeof value === 'object') {
-      nodes.push(value)
-      for (const nested of Object.values(value)) collectNodes(nested)
-    }
-  }
-  collectNodes(expanded)
-  const node = nodes.find((n) => (n['@type'] ?? []).includes(typeIri))
-  if (!node) throw new Error(`no node of type ${typeIri} in document`)
+  const framed = (await jsonld.frame(doc, { '@type': typeIri } as any, options)) as any
+  const node = framed?.['@id'] ? framed : framed?.['@graph']?.[0]
+  if (!node?.['@id']) throw new Error(`no node of type ${typeIri} in document`)
   return node['@id'] as string
 }
 
@@ -209,6 +256,22 @@ export async function fetchJsonLd(iri: string, fetch: WhatwgFetch): Promise<unkn
     throw new Error(`failed to fetch ${iri}: ${response.status}`)
   }
   return response.json()
+}
+
+/**
+ * Generic fetch+decode loader — the uniform `loadX` wrapper factory that
+ * replaces the per-model `loadX = fromJsonLd(await fetchJsonLd(id, fetch), id)`
+ * pairs (docs/jsonld.md TODO 6). The generic `T` is instantiated by inference
+ * from `decode`'s return type at each use site; `WhatwgFetch` stays in the
+ * factory signature, away from the model files:
+ *
+ * ```ts
+ * export const loadRole = loader(fromJsonLd) // (id, fetch) => Promise<RoleData>
+ * ```
+ */
+export function loader<T>(decode: (doc: unknown, id: string) => Promise<T>) {
+  return async (id: string, fetch: WhatwgFetch): Promise<T> =>
+    decode(await fetchJsonLd(id, fetch), id)
 }
 
 /**

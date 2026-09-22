@@ -8,12 +8,12 @@ primary source.
 
 | Status | Count | Plans |
 |---|---|---|
-| ✅ done | 20 | `cleanup-fetch-utils`, `dedicated-registries`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling`, `reorganize-authz-agent-logic` |
+| ✅ done | 21 | `cleanup-fetch-utils`, `dedicated-registries`, `depend-on-generic-auditing`, `immutable-activities`, `improve-jsonld-use`, `org-context-proxy`, `org-context-sparql`, `refactor-data-instance`, `refactor-data-model`, `refactor-data-model-followup`, `refactor-grants-workflows`, `refactor-ui`, `remove-access-authorization-indirection`, `remove-access-grant-indirection`, `simplify-authorization-containment`, `simplify-factories`, `simplify-grant-as-pojos`, `test-infra-consolidation`, `workflow-temporal-decupling`, `reorganize-authz-agent-logic`, `authorization-granting` |
 | 🔶 partial (first cut landed) | 1 | `revoke-delegation-chain` |
-| ⬜ not started / design only | 12 | `authorization-revoked`, `authorization-revocation`, `authorization-granting`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `components-tweaks` |
+| ⬜ not started / design only | 11 | `authorization-revoked`, `authorization-revocation`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `components-tweaks` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**34 plans total.** All remaining work lives in the 14 non-done plans below —
+**34 plans total.** All remaining work lives in the 13 non-done plans below —
 nothing open is blocked by an unlanded plan.
 
 ## Full table

@@ -1,4 +1,10 @@
-import { SKOS, frameNode, opt } from '@janeirodigital/interop-utils'
+import {
+  type JsonLdContext,
+  type LanguageMap,
+  SKOS,
+  frameNode,
+  opt,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
@@ -9,7 +15,8 @@ export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   registeredAgent: string
   hasDataGrant?: string[]
   hasAdminGrant?: string[]
-  label: string
+  /** language map — the untagged label under `@none`, translations under their tags */
+  label: LanguageMap
   note?: string
   reciprocalRegistration?: string
 }
@@ -17,6 +24,18 @@ export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
 export type SocialAgentId = {
   id: string
   type: string[]
+}
+
+/**
+ * Per-model context: the shared context with `label` as a language map
+ * (`@container: '@language'`, JSON-LD 1.1 §4.6.2) — tagged prefLabels compact
+ * under their language tag, untagged under `@none`. `buildFrame` skips
+ * language-map terms (their default frame entry would be parsed as the map
+ * itself), so framing emits the map as-is.
+ */
+export const socialAgentRegistrationContext: JsonLdContext = {
+  ...dataModelContext,
+  label: { '@id': SKOS.prefLabel, '@container': '@language' },
 }
 
 // ──────────────────────────
@@ -44,14 +63,14 @@ const SOCIAL_AGENT_REGISTRATION_TERMS = [
  * rdf:type (from framing) to a string array.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentRegistrationData> {
-  const node = await frameNode(doc, dataModelContext, id)
+  const node = await frameNode(doc, socialAgentRegistrationContext, id)
   return {
     id,
     type: node.type ?? [],
     registeredAgent: node.registeredAgent as string,
     hasDataGrant: node.hasDataGrant as string[],
     hasAdminGrant: node.hasAdminGrant as string[],
-    label: opt(node, 'label'),
+    label: (node.label as LanguageMap | undefined) ?? {},
     note: opt(node, 'note'),
     reciprocalRegistration: opt(node, 'reciprocalRegistration'),
   }
@@ -60,7 +79,17 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
 export function toDataset(data: SocialAgentRegistrationData): Store {
   const store = registrationToDataset(data)
   const node = DataFactory.namedNode(data.id)
-  store.add(DataFactory.quad(node, SKOS.terms.prefLabel, DataFactory.literal(data.label)))
+  for (const [lang, value] of Object.entries(data.label)) {
+    store.add(
+      DataFactory.quad(
+        node,
+        SKOS.terms.prefLabel,
+        // the untagged entry (`@none`) is a plain literal, the rest carry
+        // their language tag
+        lang === '@none' ? DataFactory.literal(value) : DataFactory.literal(value, lang)
+      )
+    )
+  }
   if (data.note) {
     store.add(DataFactory.quad(node, SKOS.terms.note, DataFactory.literal(data.note)))
   }

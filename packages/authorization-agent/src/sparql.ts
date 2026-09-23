@@ -13,6 +13,7 @@ import {
   type SocialAgentRegistrationData,
   dataModelContext,
   roleContext,
+  socialAgentRegistrationContext,
 } from '@janeirodigital/interop-data-model'
 import { AS, INTEROP, LDP, type LanguageMap, frameDoc } from '@janeirodigital/interop-utils'
 /**
@@ -140,14 +141,14 @@ export async function getSocialAgentRegistration(
   iri: string
 ): Promise<SocialAgentRegistrationData> {
   const doc = await graphDoc(transport, iri)
-  const node = (await frameDoc(doc, dataModelContext, iri)) as Record<string, unknown>
+  const node = (await frameDoc(doc, socialAgentRegistrationContext, iri)) as Record<string, unknown>
   return {
     id: iri,
     type: (node.type as string[] | undefined) ?? [],
     registeredAgent: node.registeredAgent as string,
     hasDataGrant: (node.hasDataGrant as string[]) ?? [],
     hasAdminGrant: (node.hasAdminGrant as string[]) ?? [],
-    label: (node.label as string) ?? '',
+    label: (node.label as LanguageMap | undefined) ?? {},
     note: (node.note as string | undefined) ?? undefined,
     reciprocalRegistration: (node.reciprocalRegistration as string | undefined) ?? undefined,
   }

@@ -4,6 +4,7 @@ import {
   SocialAgentInvitation,
   dataModelContext,
   roleContext,
+  socialAgentInvitationContext,
 } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
 import {
@@ -72,12 +73,12 @@ describe('social-agent-invitation write path', () => {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
     capabilityUrl: 'https://auth/.sai/invitations/some-secret',
-    label: 'Bob',
+    label: { '@none': 'Bob' },
     note: 'What about Bob?',
   }
 
   test('shared context serializes invitation fields to the expected quads', async () => {
-    const store = await toStore(withContext(dataModelContext, invitationData), iri)
+    const store = await toStore(withContext(socialAgentInvitationContext, invitationData), iri)
     expect(store).toBeRdfDatasetContaining(
       DataFactory.quad(
         DataFactory.namedNode(iri),

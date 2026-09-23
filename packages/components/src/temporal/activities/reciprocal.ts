@@ -69,6 +69,7 @@ export async function invitationAcceptance(
       { fetch: session.fetch, randomUUID: session.randomUUID },
       { agent: webId, client: session.agentId },
       inviterWebId,
+      // the snapshot's label is already the language map
       object.label,
       object.note
     )

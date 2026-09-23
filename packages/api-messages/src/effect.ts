@@ -355,7 +355,8 @@ export const EmbeddedSocialAgentInvitation = S.Struct({
   id: S.String,
   type: S.Array(S.String),
   capabilityUrl: S.String,
-  label: S.String,
+  /** language map — the snapshot carries `label` per `SocialAgentInvitationData` */
+  label: S.Record({ key: S.String, value: S.String }),
   note: S.optional(S.String),
 })
 
@@ -365,7 +366,8 @@ export const EmbeddedSocialAgentRegistration = S.Struct({
   id: S.String,
   type: S.Array(S.String),
   registeredAgent: S.String,
-  label: S.String,
+  /** language map — the snapshot carries `label` per `SocialAgentRegistrationData` */
+  label: S.Record({ key: S.String, value: S.String }),
   note: S.optional(S.String),
 })
 
@@ -442,7 +444,8 @@ export const InvitationCreated = S.Struct({
   object: S.Struct({
     id: S.String,
     type: S.Array(S.String),
-    label: S.String,
+    /** language map — `label` per `SocialAgentInvitationData` */
+    label: S.Record({ key: S.String, value: S.String }),
     note: S.optional(S.String),
   }),
 })
@@ -810,7 +813,11 @@ export class GetResource extends S.TaggedRequest<GetResource>()('GetResource', {
 export class ListSocialAgents extends S.TaggedRequest<ListSocialAgents>()('ListSocialAgents', {
   failure: S.Never,
   success: SocialAgentList,
-  payload: { context: IRI },
+  payload: {
+    /** preferred language — the agent label is picked from its language map */
+    lang: S.String,
+    context: IRI,
+  },
 }) {}
 
 export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentInvitations>()(
@@ -818,7 +825,11 @@ export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentI
   {
     failure: S.Never,
     success: SocialAgentInvitationList,
-    payload: { context: IRI },
+    payload: {
+      /** preferred language — the invitation label is picked from its language map */
+      lang: S.String,
+      context: IRI,
+    },
   }
 ) {}
 
@@ -933,6 +944,8 @@ export class CreateInvitation extends S.TaggedRequest<CreateInvitation>()('Creat
   failure: S.Never,
   success: InvitationCreatedMessage,
   payload: {
+    /** preferred language — the created invitation's label is tagged with it */
+    lang: S.String,
     label: S.String,
     note: S.optional(S.String),
     context: IRI,
@@ -943,6 +956,8 @@ export class AcceptInvitation extends S.TaggedRequest<AcceptInvitation>()('Accep
   failure: S.Never,
   success: InvitationAcceptedMessage,
   payload: {
+    /** preferred language — the accepted snapshot's label is tagged with it */
+    lang: S.String,
     capabilityUrl: S.String,
     label: S.String,
     note: S.optional(S.String),
@@ -1017,7 +1032,10 @@ export class SaiService extends Context.Tag('SaiService')<
       lang: string,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof Resource>>
-    readonly getSocialAgents: (context: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
+    readonly getSocialAgents: (
+      lang: string,
+      context: IRI
+    ) => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
     readonly getRoles: (lang: string, context: IRI) => Effect.Effect<S.Schema.Type<typeof RoleList>>
     readonly createRole: (
       label: string,
@@ -1035,6 +1053,7 @@ export class SaiService extends Context.Tag('SaiService')<
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof RoleDeletedMessage>>
     readonly getSocialAgentInvitations: (
+      lang: string,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof SocialAgentInvitationList>>
     readonly getDataRegistries: (
@@ -1064,12 +1083,14 @@ export class SaiService extends Context.Tag('SaiService')<
     readonly createInvitation: (
       label: string,
       note: string | undefined,
+      lang: string,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof InvitationCreatedMessage>>
     readonly acceptInvitation: (
       capabilityUrl: string,
       label: string,
       note: string | undefined,
+      lang: string,
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof InvitationAcceptedMessage>>
     readonly shareResource: (
@@ -1153,16 +1174,16 @@ export const router = RpcRouter.make(
       return yield* saiService.getResource(id, lang, context)
     })
   ),
-  Rpc.effect(ListSocialAgents, ({ context }) =>
+  Rpc.effect(ListSocialAgents, ({ lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getSocialAgents(context)
+      return yield* saiService.getSocialAgents(lang, context)
     })
   ),
-  Rpc.effect(ListSocialAgentInvitations, ({ context }) =>
+  Rpc.effect(ListSocialAgentInvitations, ({ lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getSocialAgentInvitations(context)
+      return yield* saiService.getSocialAgentInvitations(lang, context)
     })
   ),
   Rpc.effect(ListRoles, ({ lang, context }) =>
@@ -1219,16 +1240,16 @@ export const router = RpcRouter.make(
       return yield* saiService.archiveAccessRequest(request, context)
     })
   ),
-  Rpc.effect(CreateInvitation, ({ label, note, context }) =>
+  Rpc.effect(CreateInvitation, ({ label, note, lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.createInvitation(label, note, context)
+      return yield* saiService.createInvitation(label, note, lang, context)
     })
   ),
-  Rpc.effect(AcceptInvitation, ({ capabilityUrl, label, note, context }) =>
+  Rpc.effect(AcceptInvitation, ({ capabilityUrl, label, note, lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.acceptInvitation(capabilityUrl, label, note, context)
+      return yield* saiService.acceptInvitation(capabilityUrl, label, note, lang, context)
     })
   ),
   Rpc.effect(ShareResource, ({ authorization, context }) =>

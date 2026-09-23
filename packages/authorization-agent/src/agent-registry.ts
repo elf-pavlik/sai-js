@@ -23,6 +23,7 @@ import {
   linkedIrisJsonLd,
   loader,
 } from '@janeirodigital/interop-utils'
+import type { LanguageMap } from '@janeirodigital/interop-utils'
 import { setAcr } from './agent-registration'
 import { createApplicationRegistration } from './application-registration'
 import { putSocialAgentInvitation } from './social-agent-invitation'
@@ -155,7 +156,7 @@ export async function addSocialAgentRegistration(
   deps: DataModelDependencies,
   creator: AgentAndClient,
   registeredAgent: string,
-  label: string,
+  label: LanguageMap,
   note?: string
 ): Promise<SocialAgentRegistrationData> {
   const existing = await findSocialAgentRegistration(data, deps.fetch, registeredAgent)
@@ -198,7 +199,8 @@ export async function addSocialAgentInvitation(
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
     capabilityUrl,
-    label,
+    // the label lands untagged until the flow tags it with a language
+    label: { '@none': label },
     note,
   }
   await putSocialAgentInvitation(invitation, deps.fetch)

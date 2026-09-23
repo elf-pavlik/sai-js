@@ -99,10 +99,10 @@ export class ApiHandler extends OperationHttpHandler {
           }),
         getUnregisteredApplication: (id) =>
           Effect.promise(() => getUnregisteredApplication(session, id)),
-        getSocialAgents: (context) =>
+        getSocialAgents: (lang, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return getSocialAgents(ctx)
+            return getSocialAgents(ctx, lang)
           }),
         getRoles: (lang, context) =>
           Effect.promise(async () => {
@@ -124,10 +124,10 @@ export class ApiHandler extends OperationHttpHandler {
             const ctx = await resolveContext(session, context)
             return deleteRole(ctx, id)
           }),
-        getSocialAgentInvitations: (context) =>
+        getSocialAgentInvitations: (lang, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return getSocialAgentInvitations(ctx)
+            return getSocialAgentInvitations(ctx, lang)
           }),
         getAuthorizationData: (agentId, lang, accessNeedGroupIri, accessRequestIri, context) =>
           Effect.promise(async () => {
@@ -183,15 +183,15 @@ export class ApiHandler extends OperationHttpHandler {
             const ctx = await resolveContext(session, context)
             return archiveAccessRequest(ctx, request)
           }),
-        createInvitation: (label, note, context) =>
+        createInvitation: (label, note, lang, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return createInvitation(ctx, { label, note })
+            return createInvitation(ctx, { label, note }, lang)
           }),
-        acceptInvitation: (capabilityUrl, label, note, context) =>
+        acceptInvitation: (capabilityUrl, label, note, lang, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return acceptInvitation(ctx, { capabilityUrl, label, note })
+            return acceptInvitation(ctx, { capabilityUrl, label, note }, lang)
           }),
       })
     )

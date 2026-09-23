@@ -5,6 +5,7 @@ import type {
   SocialAgentInvitationData,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import { pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
   InvitationCreatedMessage,
@@ -18,11 +19,16 @@ import {
   sparqlTransportFor,
 } from './queries/org.js'
 
-function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitationData) {
+function buildSocialAgentInvitation(
+  socialAgentInvitation: SocialAgentInvitationData,
+  lang: string
+) {
   return SocialAgentInvitation.make({
     id: IRI.make(socialAgentInvitation.id),
     capabilityUrl: socialAgentInvitation.capabilityUrl,
-    label: socialAgentInvitation.label,
+    // the stored label is a language map — surface the plain string for the
+    // preferred language (untagged `@none` as the fallback)
+    label: pickLanguage(socialAgentInvitation.label, lang) ?? '',
     note: socialAgentInvitation.note,
   })
 }
@@ -33,13 +39,13 @@ function buildSocialAgentInvitation(socialAgentInvitation: SocialAgentInvitation
  * invitations candidate) — personal context reads the session's internal
  * endpoint, org context the org's `/sparql-admin` (`sparqlTransportFor`).
  */
-export async function getSocialAgentInvitations(ctx: ResolvedContext) {
+export async function getSocialAgentInvitations(ctx: ResolvedContext, lang: string) {
   const transport = sparqlTransportFor(ctx)
   const invitations = []
   for (const iri of await listContained(transport, ctx.registrySet.hasInvitationRegistry.id)) {
     const invitation = await getInvitationFromSparql(transport, iri)
     if (!invitation.registeredAgent) {
-      invitations.push(buildSocialAgentInvitation(invitation))
+      invitations.push(buildSocialAgentInvitation(invitation, lang))
     }
   }
   return invitations
@@ -54,18 +60,20 @@ export async function getSocialAgentInvitations(ctx: ResolvedContext) {
  */
 export async function createInvitation(
   ctx: ResolvedContext,
-  base: { label: string; note?: string }
+  base: { label: string; note?: string },
+  lang: string
 ): Promise<S.Schema.Type<typeof InvitationCreatedMessage>> {
   const invitationRegistry = ctx.registrySet.hasInvitationRegistry
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
   const invitationId = iriForContained(invitationRegistry, ctx.session.randomUUID)
   // the invitation-to-be — full POJO projection minus capabilityUrl (the
-  // workflow generates it) at the pre-minted id
+  // workflow generates it) at the pre-minted id; the label is tagged with the
+  // preferred language (untagged under `@none` when no language is given)
   const object: CreateInvitationPojo = {
     id: invitationId,
     type: [INTEROP.SocialAgentInvitation],
-    label: base.label,
+    label: lang ? { [lang]: base.label } : { '@none': base.label },
     note: base.note,
   }
   const activity: Omit<InvitationCreated, 'id'> = {

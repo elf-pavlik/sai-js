@@ -1,3 +1,4 @@
+import type { LanguageMap } from '@janeirodigital/interop-utils'
 import type { NeedBasedAccessRequestGroup } from './access-request'
 import type { DataAuthorizationData } from './data-authorization'
 import type { RoleData } from './role'
@@ -47,7 +48,8 @@ export type EmbeddedSocialAgentInvitation = {
   id: string
   type: string[]
   capabilityUrl: string
-  label: string
+  /** language map — the accepted snapshot carries the invitation's `label` per `SocialAgentInvitationData` */
+  label: LanguageMap
   note?: string
 }
 
@@ -61,7 +63,8 @@ export type EmbeddedSocialAgentRegistration = {
   id: string
   type: string[]
   registeredAgent: string
-  label: string
+  /** language map — the snapshot carries `label` per `SocialAgentRegistrationData` */
+  label: LanguageMap
   note?: string
 }
 

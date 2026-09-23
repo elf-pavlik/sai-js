@@ -17,6 +17,7 @@ import {
   INTEROP,
   type JsonLdContext,
   LDP,
+  type LanguageMap,
   SKOS,
   type WhatwgFetch,
   fetchJsonLd,
@@ -144,6 +145,28 @@ function asStringArray(value: unknown): string[] {
   return (Array.isArray(value) ? value : [value]).map(asString)
 }
 
+/**
+ * The embedded snapshot's label framed with the scalar `label` term — convert
+ * it back to the language map the snapshot type carries: plain strings sit
+ * under `@none`, language-tagged value objects under their tag.
+ */
+function embeddedLabel(value: unknown): LanguageMap {
+  const entries = Array.isArray(value) ? value : [value]
+  const map: LanguageMap = {}
+  for (const entry of entries) {
+    if (typeof entry === 'string') {
+      map['@none'] = entry
+    } else if (entry && typeof entry === 'object') {
+      const v = entry as { '@value'?: unknown; '@language'?: unknown }
+      if (typeof v['@value'] === 'string') {
+        const lang = typeof v['@language'] === 'string' ? v['@language'] : '@none'
+        map[lang] = v['@value']
+      }
+    }
+  }
+  return map
+}
+
 /** The ASV activity types ride the `type` tuple beside the interop class. */
 const ASV_ACTIVITY_TYPES = new Set(['as:Accept', 'as:Create', 'as:Add', 'as:Update'])
 
@@ -187,7 +210,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           id: asString((node.object as EmbeddedSocialAgentInvitation)?.id),
           type: asStringArray((node.object as EmbeddedSocialAgentInvitation)?.type),
           capabilityUrl: asString((node.object as EmbeddedSocialAgentInvitation)?.capabilityUrl),
-          label: asString((node.object as EmbeddedSocialAgentInvitation)?.label),
+          label: embeddedLabel((node.object as EmbeddedSocialAgentInvitation)?.label),
           note:
             (node.object as EmbeddedSocialAgentInvitation)?.note === undefined
               ? undefined
@@ -203,7 +226,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         object: {
           id: asString((node.object as CreateInvitationPojo)?.id),
           type: asStringArray((node.object as CreateInvitationPojo)?.type),
-          label: asString((node.object as CreateInvitationPojo)?.label),
+          label: embeddedLabel((node.object as CreateInvitationPojo)?.label),
           note:
             (node.object as CreateInvitationPojo)?.note === undefined
               ? undefined
@@ -269,7 +292,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           registeredAgent: asString(
             (node.object as EmbeddedSocialAgentRegistration)?.registeredAgent
           ),
-          label: asString((node.object as EmbeddedSocialAgentRegistration)?.label),
+          label: embeddedLabel((node.object as EmbeddedSocialAgentRegistration)?.label),
           note:
             (node.object as EmbeddedSocialAgentRegistration)?.note === undefined
               ? undefined

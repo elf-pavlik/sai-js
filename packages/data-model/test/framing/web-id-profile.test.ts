@@ -14,7 +14,7 @@ describe('WebIdProfile framing', () => {
     expect(profile).toEqual({
       id: WEBID_IRI,
       type: [],
-      label: 'ACME',
+      label: { '@none': 'ACME' },
       oidcIssuer: 'https://auth/',
     })
   })

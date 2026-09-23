@@ -9,7 +9,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 const loadWebIdProfile = loader(WebIdProfile.fromJsonLd)
 
-import { INTEROP, loader } from '@janeirodigital/interop-utils'
+import { INTEROP, loader, pickLanguage } from '@janeirodigital/interop-utils'
 import { IRI, InvitationAcceptedMessage, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'
@@ -106,6 +106,7 @@ export const buildSocialAgentProfile = async (
   registration: SocialAgentRegistrationData,
   ctx: ResolvedContext,
   personal = true,
+  lang = '',
   accessRequestsByGrantee: AccessRequestsByGrantee = new Map(),
   sentAccessRequestsByDataOwner: SentAccessRequestsByDataOwner = new Map()
 ) => {
@@ -123,7 +124,9 @@ export const buildSocialAgentProfile = async (
   // TODO (angel) data validation and how to handle when the social agents profile is missing some components?
   return SocialAgent.make({
     id: IRI.make(registration.registeredAgent),
-    label: registration.label,
+    // the stored label is a language map — surface the plain string for the
+    // preferred language (untagged `@none` as the fallback)
+    label: pickLanguage(registration.label, lang) ?? '',
     note: registration.note,
     //authorizationDate: registration.registeredAt!.toISOString(),
     //lastUpdateDate: registration.updatedAt?.toISOString(),
@@ -145,7 +148,7 @@ export const buildSocialAgentProfile = async (
   })
 }
 
-export const getSocialAgents = async (ctx: ResolvedContext) => {
+export const getSocialAgents = async (ctx: ResolvedContext, lang: string) => {
   const personal = ctx.webId === ctx.userWebId
   const transport = sparqlTransportFor(ctx)
   const registrations = await listSocialAgentRegistrations(ctx)
@@ -183,6 +186,7 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
         registration,
         ctx,
         personal,
+        lang,
         accessRequestsByGrantee,
         sentAccessRequestsByDataOwner
       )
@@ -207,7 +211,9 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
       let label = dataGrant.dataOwner
       try {
         const profile = await loadWebIdProfile(ownerIri, ctx.session.fetch)
-        if (profile.label) label = profile.label
+        // the profile's label is a language map — picked for the requested
+        // language; absent profile/label falls back to the owner IRI
+        label = pickLanguage(profile.label, lang) ?? dataGrant.dataOwner
       } catch {
         /* fallback to IRI */
       }
@@ -241,7 +247,8 @@ export const getSocialAgents = async (ctx: ResolvedContext) => {
  */
 export async function acceptInvitation(
   ctx: ResolvedContext,
-  invitation: { capabilityUrl: string; label: string; note?: string }
+  invitation: { capabilityUrl: string; label: string; note?: string },
+  lang: string
 ): Promise<S.Schema.Type<typeof InvitationAcceptedMessage>> {
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
@@ -257,7 +264,9 @@ export async function acceptInvitation(
       id: `urn:uuid:${ctx.session.randomUUID()}`,
       type: [INTEROP.SocialAgentInvitation],
       capabilityUrl: invitation.capabilityUrl,
-      label: invitation.label,
+      // the snapshot's label is tagged with the preferred language
+      // (untagged under `@none` when no language is given)
+      label: lang ? { [lang]: invitation.label } : { '@none': invitation.label },
       note: invitation.note,
     },
     createdAt: new Date().toISOString(),

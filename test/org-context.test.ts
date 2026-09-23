@@ -80,7 +80,7 @@ async function expectRpcError(payload: unknown, cookie: string): Promise<void> {
 describe('org context — discovery (2.1/2.2)', () => {
   test('personal ListSocialAgents flags the orgs the user administers (reciprocal `adminOf`)', async () => {
     const agents = await rpcCall<{ id: string; admin: boolean; adminOf: boolean }[]>(
-      rpcPayload({ _tag: 'ListSocialAgents', context: danId }),
+      rpcPayload({ _tag: 'ListSocialAgents', lang: 'en', context: danId }),
       danCookie
     )
     const yoyo = agents.find((agent) => agent.id === yoyoId)
@@ -97,7 +97,7 @@ describe('org context — discovery (2.1/2.2)', () => {
 
   test('org-context ListSocialAgents reads the org registry directly (admin marker on the org registration)', async () => {
     const agents = await rpcCall<{ id: string; admin: boolean }[]>(
-      rpcPayload({ _tag: 'ListSocialAgents', context: yoyoId }),
+      rpcPayload({ _tag: 'ListSocialAgents', lang: 'en', context: yoyoId }),
       danCookie
     )
     const dan = agents.find((agent) => agent.id === danId)
@@ -155,7 +155,7 @@ describe('org context — context authorization (2.2)', () => {
 
   test('the personal context is always allowed', async () => {
     const agents = await rpcCall<unknown[]>(
-      rpcPayload({ _tag: 'ListSocialAgents', context: bobId }),
+      rpcPayload({ _tag: 'ListSocialAgents', lang: 'en', context: bobId }),
       bobCookie
     )
     expect(Array.isArray(agents)).toBe(true)
@@ -189,7 +189,7 @@ describe('org context — owner identity (2.4)', () => {
 /** YoYo's profile of an agent in the org context — the marker is linked by the workflow, so poll. */
 async function orgContextAdminFlag(webId: string, cookie: string): Promise<boolean | undefined> {
   const agents = await rpcCall<{ id: string; admin: boolean }[]>(
-    rpcPayload({ _tag: 'ListSocialAgents', context: yoyoId }),
+    rpcPayload({ _tag: 'ListSocialAgents', lang: 'en', context: yoyoId }),
     cookie
   )
   return agents.find((agent) => agent.id === webId)?.admin

@@ -166,7 +166,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function listSocialAgents(force = false) {
     if (!socialAgentList.value.length || force) {
-      socialAgentList.value = await effect.listSocialAgents(currentContext())
+      socialAgentList.value = await effect.listSocialAgents(lang.value, currentContext())
       // discovery: the reciprocal `adminOf` flags power the switcher — the
       // orgs that made the signed-in user their admin (Phase 5: `admin` is
       // now the DIRECT marker — the agents the user made their own admins)
@@ -292,7 +292,9 @@ export const useAppStore = defineStore('app', () => {
 
   async function listSocialAgentInvitations(force = false) {
     if (!invitationList.value.length || force) {
-      invitationList.value = [...(await effect.listSocialAgentInvitations(currentContext()))]
+      invitationList.value = [
+        ...(await effect.listSocialAgentInvitations(lang.value, currentContext())),
+      ]
     }
   }
 
@@ -346,7 +348,7 @@ export const useAppStore = defineStore('app', () => {
     // createInvitation workflow later — no optimistic push; the InvitationCreated
     // done-row (events.ts) refreshes the list. The snackbar claims the activity
     // by the ack-echoed activityId (pending spinner → done ✓, step 0).
-    const result = await effect.createInvitation(label, note, currentContext())
+    const result = await effect.createInvitation(label, note, lang.value, currentContext())
     claimActivity({
       context: currentContext(),
       type: 'InvitationCreated',
@@ -365,7 +367,13 @@ export const useAppStore = defineStore('app', () => {
     // Step 0 accept claim: the activity's object is a urn:uuid snapshot the
     // UI cannot know, so the claim anchors on the ack-echoed activity id
     // (exact match — no cross-binding between in-flight accepts).
-    const result = await effect.acceptInvitation(capabilityUrl, label, note, currentContext())
+    const result = await effect.acceptInvitation(
+      capabilityUrl,
+      label,
+      note,
+      lang.value,
+      currentContext()
+    )
     claimActivity({
       context: currentContext(),
       type: 'InvitationAccepted',

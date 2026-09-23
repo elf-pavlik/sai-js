@@ -139,10 +139,10 @@ export async function getResource(id: string, lang: string, context: string) {
   return Effect.runPromise(program)
 }
 
-export async function listSocialAgents(context: string) {
+export async function listSocialAgents(lang: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListSocialAgents({ context: IRI.make(context) }))
+    return yield* client(new ListSocialAgents({ lang, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -155,10 +155,10 @@ export async function listRoles(lang: string, context: string) {
   return Effect.runPromise(program)
 }
 
-export async function listSocialAgentInvitations(context: string) {
+export async function listSocialAgentInvitations(lang: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListSocialAgentInvitations({ context: IRI.make(context) }))
+    return yield* client(new ListSocialAgentInvitations({ lang, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -222,10 +222,15 @@ export async function archiveAccessRequest(request: string, context: string) {
   return Effect.runPromise(program)
 }
 
-export async function createInvitation(label: string, note: string | undefined, context: string) {
+export async function createInvitation(
+  label: string,
+  note: string | undefined,
+  lang: string,
+  context: string
+) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new CreateInvitation({ label, note, context: IRI.make(context) }))
+    return yield* client(new CreateInvitation({ label, note, lang, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }
@@ -234,12 +239,13 @@ export async function acceptInvitation(
   capabilityUrl: string,
   label: string,
   note: string | undefined,
+  lang: string,
   context: string
 ) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
     return yield* client(
-      new AcceptInvitation({ capabilityUrl, label, note, context: IRI.make(context) })
+      new AcceptInvitation({ capabilityUrl, label, note, lang, context: IRI.make(context) })
     )
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)

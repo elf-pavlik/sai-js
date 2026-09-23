@@ -30,7 +30,7 @@ const loadShapeTree = loader(ShapeTree.fromJsonLd)
 const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
 const loadNeedBasedAccessRequest = loader(AccessRequest.fromJsonLd)
 
-import { INTEROP, type WhatwgFetch, loader } from '@janeirodigital/interop-utils'
+import { INTEROP, type WhatwgFetch, loader, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   AccessNeed,
   AccessRequestArchivedMessage,
@@ -256,7 +256,8 @@ export const getDescriptions = async (
       if (dataRegistrations.length) {
         dataOwners.push({
           id: IRI.make(socialAgentRegistration.registeredAgent),
-          label: socialAgentRegistration.label,
+          // the stored label is a language map — picked for the requested language
+          label: pickLanguage(socialAgentRegistration.label, preferredLang) ?? '',
           dataRegistrations,
         })
       }

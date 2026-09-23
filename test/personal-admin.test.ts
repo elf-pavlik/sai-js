@@ -210,7 +210,7 @@ describe('personal context — Kim makes Alice her admin (phase 5, regular user)
     // marker (the toggle-admin state) — while the reciprocal `adminOf` stays
     // off (Alice never made Kim HER admin)
     const agents = await rpcCall<{ id: string; admin: boolean; adminOf: boolean }[]>(
-      rpcPayload({ _tag: 'ListSocialAgents', context: kimId }),
+      rpcPayload({ _tag: 'ListSocialAgents', lang: 'en', context: kimId }),
       kimCookie
     )
     const alice = agents.find((agent) => agent.id === aliceId)

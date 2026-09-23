@@ -1,6 +1,6 @@
 import { ActivityRegistry, setRegisteredAgent } from '@janeirodigital/interop-authorization-agent'
 import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP, iriForContained, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -70,6 +70,9 @@ export class InvitationHandler extends OperationHttpHandler {
           id: registrationId,
           type: [INTEROP.SocialAgentRegistration],
           registeredAgent: invitedId,
+          // the invitation's label is already the language map the snapshot
+          // carries — pass it through (the establishReciprocal workflow
+          // materializes the registration with it)
           label: socialAgentInvitation.label,
           note: socialAgentInvitation.note,
         },

@@ -76,7 +76,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
       mockFetch(doc)
     )
     expect(activity.type).toEqual(['Activity', 'InvitationAccepted', 'as:Accept'])
-    expect((activity as { object: { label: string } }).object.label).toBe('Dan')
+    expect((activity as { object: { label: unknown } }).object.label).toEqual({ '@none': 'Dan' })
   })
 
   test('recognizes the completion class in any order', async () => {
@@ -283,7 +283,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect(activity.object).toEqual({
       id: 'https://registry/dan/invitation/abc',
       type: ['http://www.w3.org/ns/solid/interop#SocialAgentInvitation'],
-      label: 'Kim',
+      label: { '@none': 'Kim' },
       note: 'Some note',
     })
     // no flat activity-level label/note leaked from the old shape

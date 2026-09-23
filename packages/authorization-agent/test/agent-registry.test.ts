@@ -164,7 +164,7 @@ describe('addSocialAgentInvitation', () => {
       'Jane'
     )
     expect(invitation.capabilityUrl).toBe(capabilityUrl)
-    expect(invitation.label).toBe('Jane')
+    expect(invitation.label).toEqual({ '@none': 'Jane' })
   })
 })
 

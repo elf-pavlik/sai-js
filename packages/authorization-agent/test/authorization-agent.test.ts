@@ -889,7 +889,7 @@ describe('findSocialAgentInvitation', () => {
       id: INVITE_2,
       type: [INTEROP.SocialAgentInvitation],
       capabilityUrl: CAPABILITY_2,
-      label: 'Invite 2',
+      label: { '@none': 'Invite 2' },
       note: undefined,
       registeredAgent: undefined,
     })

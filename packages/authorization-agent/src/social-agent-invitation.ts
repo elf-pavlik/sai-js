@@ -1,6 +1,6 @@
 import {
   type SocialAgentInvitationData,
-  dataModelContext,
+  socialAgentInvitationContext,
 } from '@janeirodigital/interop-data-model'
 import { type WhatwgFetch, putJsonLd, withContext } from '@janeirodigital/interop-utils'
 
@@ -12,7 +12,9 @@ export async function putSocialAgentInvitation(
   data: SocialAgentInvitationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
+  // `socialAgentInvitationContext` carries the `label` language-map container
+  // so the map expands to proper literals on the wire
+  await putJsonLd(data.id, fetch, withContext(socialAgentInvitationContext, data))
 }
 
 // ──────────────────────────

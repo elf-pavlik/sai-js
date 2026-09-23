@@ -18,7 +18,7 @@ describe('SocialAgentRegistration framing', () => {
       type: [INTEROP.SocialAgentRegistration, LDP.Resource],
       registeredAgent: 'https://id/alice',
       hasDataGrant: ['https://registry/acme/grant/g4yhtm'],
-      label: 'Alice',
+      label: { '@none': 'Alice' },
       note: 'Chasing white rabits.',
       reciprocalRegistration: 'https://registry/alice/social-agent/cp9g7p/',
     })

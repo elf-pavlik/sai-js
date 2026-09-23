@@ -56,6 +56,7 @@ describe('personal invitation', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'CreateInvitation',
+          lang: 'en',
           label: 'Kim',
           note: 'Some note',
           context: danId,
@@ -95,6 +96,7 @@ describe('personal invitation', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'AcceptInvitation',
+          lang: 'en',
           capabilityUrl,
           label: 'Dan',
           note: 'Beep boop',
@@ -139,6 +141,7 @@ describe('admin invitation send', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'CreateInvitation',
+          lang: 'en',
           label: 'Kim',
           note: 'Some note',
           context: yoyoId,
@@ -175,6 +178,7 @@ describe('admin invitation send', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'AcceptInvitation',
+          lang: 'en',
           capabilityUrl,
           label: 'YoYo',
           note: 'Beep boop',
@@ -220,6 +224,7 @@ describe('admin invitation receive', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'CreateInvitation',
+          lang: 'en',
           label: 'YoYo',
           note: 'Some note',
           context: kimId,
@@ -258,6 +263,7 @@ describe('admin invitation receive', () => {
       body: JSON.stringify(
         rpcPayload({
           _tag: 'AcceptInvitation',
+          lang: 'en',
           capabilityUrl,
           label: 'Kim',
           note: 'Beep boop',

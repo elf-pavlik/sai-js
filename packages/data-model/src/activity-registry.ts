@@ -1,7 +1,3 @@
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
 export type ActivityRegistryData = {
   id: string
 }

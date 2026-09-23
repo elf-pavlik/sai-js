@@ -3,27 +3,19 @@ import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
 
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
 export type SocialAgentRegistrationId = AgentRegistrationId
 
 export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   registeredAgent: string
   hasDataGrant?: string[]
-  /** AdminGrant IRIs (R1 admin marker) — captured from framing on read */
   hasAdminGrant?: string[]
   label: string
   note?: string
-  /** IRI of the peer's reciprocal registration — loaded lazily, see the AA `loadReciprocalRegistration` */
   reciprocalRegistration?: string
 }
 
-/** Identity of a social agent (boundary-facing; produced by the agent registries). */
 export type SocialAgentId = {
   id: string
-  /** rdf:type IRIs — always `[INTEROP.SocialAgent]` when produced by the registries */
   type: string[]
 }
 
@@ -65,10 +57,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
   }
 }
 
-// ──────────────────────────
-// Write path: SocialAgentRegistrationData → Dataset
-// ──────────────────────────
-
 export function toDataset(data: SocialAgentRegistrationData): Store {
   const store = registrationToDataset(data)
   const node = DataFactory.namedNode(data.id)
@@ -79,11 +67,6 @@ export function toDataset(data: SocialAgentRegistrationData): Store {
   return store
 }
 
-// ──────────────────────────
-// Accessors
-// ──────────────────────────
-
-/** The registration's AdminGrant IRIs (interop:hasAdminGrant). */
 export function getAdminGrantIris(data: SocialAgentRegistrationData): string[] {
   return data.hasAdminGrant ?? []
 }

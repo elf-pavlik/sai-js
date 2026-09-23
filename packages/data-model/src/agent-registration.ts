@@ -1,13 +1,8 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
 export type AgentRegistrationId = {
   id: string
-  /** rdf:type IRIs — captured from framing on read (via the derived modules), written via compaction on write */
   type: string[]
 }
 
@@ -15,10 +10,6 @@ export type AgentRegistrationData = AgentRegistrationId & {
   registeredAgent: string
   hasDataGrant?: string[]
 }
-
-// ──────────────────────────
-// Write path: AgentRegistrationData → Dataset
-// ──────────────────────────
 
 export function toDataset(data: AgentRegistrationData): Store {
   const store = new Store()
@@ -39,10 +30,6 @@ export function toDataset(data: AgentRegistrationData): Store {
   }
   return store
 }
-
-// ──────────────────────────
-// Accessors
-// ──────────────────────────
 
 export function getDataGrantIris(data: AgentRegistrationData): string[] {
   return data.hasDataGrant ?? []

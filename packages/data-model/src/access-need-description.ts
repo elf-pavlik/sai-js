@@ -2,12 +2,9 @@ import { frameNode, opt } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
-/** Identity of an access need description. */
 export type AccessNeedDescriptionId = AccessDescriptionId
 
-/** Plain JSON representation of an access need description. */
 export type AccessNeedDescriptionData = AccessDescriptionData & {
-  // TODO handle missing value
   hasAccessNeed?: string
 }
 

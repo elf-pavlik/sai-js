@@ -11,13 +11,8 @@ import type { DataRegistryData } from './data-registry'
 import type { GrantRegistryData } from './grant-registry'
 import type { RoleRegistryData } from './role-registry'
 
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
 export type RegistrySetData = {
   id: string
-  /** rdf:type IRIs — captured from framing on read */
   type: string[]
   hasAuthorizationRegistry: AuthorizationRegistryData
   hasGrantRegistry: GrantRegistryData
@@ -32,21 +27,10 @@ export type RegistrySetData = {
   hasAccessRequestRegistry?: AccessRequestRegistryData
 }
 
-/** `interop:AccessRequestRegistry` — the owner's container of received
- *  need-based access requests (immutable resources). */
 export type AccessRequestRegistryData = {
   id: string
 }
 
-// ──────────────────────────
-// Read path (creation happens at bootstrap in components/Account.ts)
-// ──────────────────────────
-
-/**
- * Convert a JSON-LD document (fetched as application/ld+json) directly into a
- * RegistrySetData POJO. The document can be in expanded, compacted, or
- * flattened form.
- */
 const REGISTRY_SET_TERMS = [
   'hasAuthorizationRegistry',
   'hasGrantRegistry',

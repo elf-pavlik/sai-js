@@ -1,18 +1,11 @@
 import { INTEROP, documentValues, frameNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
-/** Identity of an access need. */
 export type AccessNeedId = {
   id: string
-  /** rdf:type IRIs — captured from framing on read */
   type: string[]
 }
 
-/** Plain JSON representation of an access need. */
 export type AccessNeedData = AccessNeedId & {
   registeredShapeTree: string
   inheritsFromNeed?: string

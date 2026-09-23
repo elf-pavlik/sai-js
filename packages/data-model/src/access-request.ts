@@ -1,4 +1,4 @@
-import { frameNode } from '@janeirodigital/interop-utils'
+import { frameNode, selectNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { GrantData } from './grant'
 
@@ -79,22 +79,17 @@ const NEED_BASED_ACCESS_REQUEST_TERMS = [
 ] as const
 
 export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAccessRequestData> {
-  const node = await frameNode(
-    doc,
-    dataModelContext,
-    id,
-    {
-      hasAccessNeedGroup: {
+  const node = await frameNode(doc, dataModelContext, id, {
+    hasAccessNeedGroup: {
+      '@embed': '@always',
+      hasAccessNeed: {
         '@embed': '@always',
-        hasAccessNeed: {
-          '@embed': '@always',
-          hasInheritingNeed: { '@embed': '@always' },
-        },
+        hasInheritingNeed: { '@embed': '@always' },
       },
     },
-    NEED_BASED_ACCESS_REQUEST_TERMS
-  )
-  const group = node.hasAccessNeedGroup as Record<string, unknown> | undefined
+  })
+  const selected = selectNode(node, NEED_BASED_ACCESS_REQUEST_TERMS)
+  const group = selected.hasAccessNeedGroup as unknown as Record<string, unknown> | undefined
   return {
     id,
     type: node.type ?? [],

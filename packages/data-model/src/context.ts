@@ -168,7 +168,7 @@ export const dataModelContext: JsonLdContext = {
   // solid / oidc
   oidcIssuer: iriTermDef(SOLID, 'oidcIssuer'),
   clientName: { '@id': OIDC.client_name },
-  logoUri: { '@id': OIDC.logo_uri },
+  logoUri: iriTermDef(OIDC, 'logo_uri'),
 
   // nfo
   fileName: { '@id': NFO.fileName },

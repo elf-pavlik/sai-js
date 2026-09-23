@@ -1,7 +1,3 @@
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
 export type SocialAgentRegistryData = {
   id: string
 }

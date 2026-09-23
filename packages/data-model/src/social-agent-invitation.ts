@@ -1,14 +1,8 @@
 import { frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
-// ──────────────────────────
-// Types
-// ──────────────────────────
-
-/** Identity of a social agent invitation. */
 export type SocialAgentInvitationId = {
   id: string
-  /** rdf:type IRIs — captured from framing on read, written via compaction on write */
   type: string[]
 }
 

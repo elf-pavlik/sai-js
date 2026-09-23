@@ -1,13 +1,8 @@
-import { frameNode, opt } from '@janeirodigital/interop-utils'
+import { frameNode, opt, selectNode, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
-
-// ──────────────────────────
-// Types
-// ──────────────────────────
 
 export type RoleId = {
   id: string
-  /** rdf:type IRIs — captured from framing on read, written via compaction on write */
   type: string[]
 }
 
@@ -16,26 +11,15 @@ export type RoleData = RoleId & {
   members: string[]
 }
 
-// ──────────────────────────
-// Read path: JSON-LD → RoleData
-// ──────────────────────────
+const ROLE_TERMS = ['label', 'members'] as const
 
-const ROLE_TERMS = ['label', 'members']
-
-/**
- * Convert a JSON-LD document (fetched as application/ld+json) directly into a RoleData POJO.
- *
- * The document can be in expanded, compacted, or flattened form.
- * Uses jsonld.frame with the shared data model context: `members` is coerced
- * to a string array via @type: @id + @container: @set, `label` to a plain
- * string, and the rdf:type (from framing) to a string array.
- */
 export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
   const node = await frameNode(doc, dataModelContext, id)
+  const selected = selectNode(node, ROLE_TERMS)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: opt(node, 'label'),
-    members: node.members as string[],
+    label: opt(selected, 'label'),
+    members: strs(selected, 'members'),
   }
 }

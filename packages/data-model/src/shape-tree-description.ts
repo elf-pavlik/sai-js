@@ -1,5 +1,5 @@
-import { frameNode, opt } from '@janeirodigital/interop-utils'
-import { dataModelContext } from './context'
+import { type LanguageMap, frameNode } from '@janeirodigital/interop-utils'
+import { accessDescriptionContext } from './access-description'
 
 // ──────────────────────────
 // Types
@@ -15,8 +15,10 @@ export type ShapeTreeDescriptionId = {
 /** Plain JSON representation of a shape tree description resource. */
 export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
   // TODO: handle missing labels
-  label: string
-  definition?: string
+  /** language map — the untagged label under `@none`, translations under their tags */
+  label: LanguageMap
+  /** language map — the untagged definition under `@none`, translations under their tags */
+  definition?: LanguageMap
 }
 
 // ──────────────────────────
@@ -31,11 +33,11 @@ const SHAPE_TREE_DESCRIPTION_TERMS = ['label', 'definition']
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDescriptionData> {
-  const node = await frameNode(doc, dataModelContext, id)
+  const node = await frameNode(doc, accessDescriptionContext, id)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: opt(node, 'label'),
-    definition: opt(node, 'definition'),
+    label: node.label as LanguageMap,
+    definition: node.definition as LanguageMap | undefined,
   }
 }

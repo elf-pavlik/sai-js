@@ -27,7 +27,7 @@ import {
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
 
-import { INTEROP, loader } from '@janeirodigital/interop-utils'
+import { INTEROP, loader, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
   NeedBasedAccessRequestSentMessage,
@@ -135,7 +135,7 @@ export const getResource = async (ctx: ResolvedContext, id: string, lang: string
     label: resource.label,
     shapeTree: {
       id: IRI.make(resource.shapeTreeIri!),
-      label: shapeTreeDescription?.label,
+      label: pickLanguage(shapeTreeDescription?.label, lang),
     },
     accessGrantedTo: accessGrantedTo.map((agent) => IRI.make(agent)),
     children: resource.children.map((child) => ({

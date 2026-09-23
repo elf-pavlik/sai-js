@@ -26,10 +26,10 @@ describe('descriptions', () => {
     const needGroup = await accessNeedGroup(snippetIri, deps.fetch)
     const description = await AccessNeedGroup.getDescription(needGroup, lang, deps.fetch)
     expect(description).toBeDefined()
-    expect(description?.label).toBe('Manage Projects')
-    expect(description?.definition).toBe(
-      'Allow Projectron to read the Projects you select, and Task in those projects.'
-    )
+    expect(description?.label).toEqual({ en: 'Manage Projects' })
+    expect(description?.definition).toEqual({
+      en: 'Allow Projectron to read the Projects you select, and Task in those projects.',
+    })
   })
 
   test('should gracefully fail if no description set for language', async () => {

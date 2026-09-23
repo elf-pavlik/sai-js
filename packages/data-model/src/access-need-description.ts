@@ -1,6 +1,6 @@
-import { frameNode, opt } from '@janeirodigital/interop-utils'
+import { type LanguageMap, frameNode } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
-import { dataModelContext } from './context'
+import { accessDescriptionContext } from './access-description'
 
 export type AccessNeedDescriptionId = AccessDescriptionId
 
@@ -20,12 +20,12 @@ const ACCESS_NEED_DESCRIPTION_TERMS = ['label', 'definition', 'hasAccessNeed']
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedDescriptionData> {
-  const node = await frameNode(doc, dataModelContext, id)
+  const node = await frameNode(doc, accessDescriptionContext, id)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: opt(node, 'label'),
-    definition: opt(node, 'definition'),
+    label: node.label as LanguageMap,
+    definition: node.definition as LanguageMap | undefined,
     hasAccessNeed: (node.hasAccessNeed as string[] | undefined)?.[0],
   }
 }

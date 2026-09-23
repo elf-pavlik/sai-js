@@ -10,7 +10,7 @@ import {
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 const loadDataRegistration = loader(DataRegistrationModel.fromJsonLd)
 
-import { loader, storageIri } from '@janeirodigital/interop-utils'
+import { loader, pickLanguage, storageIri } from '@janeirodigital/interop-utils'
 import {
   DataInstance,
   DataRegistration,
@@ -52,7 +52,7 @@ const buildDataRegistry = async (
         shapeTree: registration.registeredShapeTree,
         dataRegistry: registry.id,
         count: (registration.contains ?? []).length,
-        label: shapeTreeDescription?.label,
+        label: pickLanguage(shapeTreeDescription?.label, descriptionsLang),
       })
     )
   }
@@ -83,7 +83,7 @@ const buildDataRegistryForGrant = async (
         id: IRI.make(dataGrant.hasDataRegistration),
         shapeTree: dataGrant.registeredShapeTree,
         dataRegistry: registryIri,
-        label: shapeTreeDescription?.label,
+        label: pickLanguage(shapeTreeDescription?.label, descriptionsLang),
       })
     )
   }

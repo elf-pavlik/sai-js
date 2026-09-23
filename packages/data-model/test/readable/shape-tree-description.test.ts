@@ -11,6 +11,6 @@ const snippetIri = 'https://solidshapes.example/trees/desc-en#Project'
 
 test('getters', async () => {
   const description = await loadShapeTreeDescription(snippetIri, deps.fetch)
-  expect(description.label).toBe('Projects')
-  expect(description.definition).toBe('Creative processes with specific goals')
+  expect(description.label).toEqual({ en: 'Projects' })
+  expect(description.definition).toEqual({ '@none': 'Creative processes with specific goals' })
 })

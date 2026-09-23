@@ -70,13 +70,14 @@ const formatAccessNeed = async (
 
   return AccessNeed.make({
     id: IRI.make(accessNeed.id),
-    label: description?.label ?? '',
-    description: description?.definition,
+    // the description labels are language maps — picked for the requested language
+    label: pickLanguage(description?.label, descriptionsLang) ?? '',
+    description: pickLanguage(description?.definition, descriptionsLang),
     required: accessNeed.required,
     access: accessNeed.accessMode.map((mode) => IRI.make(mode)),
     shapeTree: {
       id: IRI.make(accessNeed.registeredShapeTree),
-      label: shapeTreeDescription.label,
+      label: pickLanguage(shapeTreeDescription.label, descriptionsLang) ?? '',
     },
     parent: accessNeed.inheritsFromNeed ? IRI.make(accessNeed.inheritsFromNeed) : undefined,
     children: accessNeed.children
@@ -295,8 +296,8 @@ export const getDescriptions = async (
     id: IRI.make(agentIri), // TODO change to agentID
     accessNeedGroup: {
       id: IRI.make(accessNeedGroup.id),
-      label: descriptions?.label ?? '',
-      description: descriptions?.definition,
+      label: pickLanguage(descriptions?.label, preferredLang) ?? '',
+      description: pickLanguage(descriptions?.definition, preferredLang),
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) =>
           formatAccessNeed(need, descriptionsLang, ctx.session.fetch)

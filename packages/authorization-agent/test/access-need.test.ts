@@ -43,9 +43,9 @@ describe('descriptions', () => {
     const need = await accessNeed(snippetIri, deps.fetch)
     const description = await AccessNeed.getDescription(need, lang, deps.fetch)
     expect(description).toBeDefined()
-    expect(description?.label).toBe(
-      'Access to Projects is essential for Projectron to perform its core function of Project Management'
-    )
+    expect(description?.label).toEqual({
+      en: 'Access to Projects is essential for Projectron to perform its core function of Project Management',
+    })
   })
 
   test('should gracefully fail if no description set for language', async () => {

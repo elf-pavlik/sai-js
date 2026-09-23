@@ -17,8 +17,9 @@ describe('Access description framing', () => {
     expect(description).toEqual({
       id: NEED_DESC_IRI,
       type: [INTEROP.AccessNeedDescription],
-      label:
-        'Access to Projects is essential for Projectron to perform its core function of Project Management.',
+      label: {
+        en: 'Access to Projects is essential for Projectron to perform its core function of Project Management.',
+      },
       definition: undefined,
       hasAccessNeed: 'https://data/test-client/public/access-needs#need-project',
     })
@@ -30,8 +31,10 @@ describe('Access description framing', () => {
     expect(description).toEqual({
       id: GROUP_DESC_IRI,
       type: [INTEROP.AccessNeedGroupDescription],
-      label: 'Manage Projects',
-      definition: 'Allow Projectron to read the Projects you select, and Task in those projects.',
+      label: { en: 'Manage Projects' },
+      definition: {
+        en: 'Allow Projectron to read the Projects you select, and Task in those projects.',
+      },
       hasAccessNeedGroup: 'https://data/test-client/public/access-needs#need-group-pm',
     })
   })

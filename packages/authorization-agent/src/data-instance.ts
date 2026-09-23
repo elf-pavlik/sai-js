@@ -17,6 +17,7 @@ import {
   type WhatwgFetch,
   discoverDescriptionResource,
   loader,
+  pickLanguage,
 } from '@janeirodigital/interop-utils'
 
 /** Count the children of the data instance for each referenced shape tree. */
@@ -32,7 +33,9 @@ export async function computeChildren(
       const description = await ShapeTree.getDescription(childTree, lang, fetch)
       return {
         count: ((node[reference.viaPredicate.value] as string[] | undefined) ?? []).length,
-        shapeTree: { id: reference.shapeTree, label: description?.label },
+        // the shape tree's label is a language map — picked for the
+        // requested language
+        shapeTree: { id: reference.shapeTree, label: pickLanguage(description?.label, lang) ?? '' },
       }
     })
   )

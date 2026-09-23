@@ -88,6 +88,7 @@ export type {
 } from './shape-tree-description'
 export * as ShapeTreeDescription from './shape-tree-description'
 export type { AccessDescriptionData, AccessDescriptionId } from './access-description'
+export { accessDescriptionContext } from './access-description'
 export type { AccessNeedDescriptionData, AccessNeedDescriptionId } from './access-need-description'
 export * as AccessNeedDescription from './access-need-description'
 export type {

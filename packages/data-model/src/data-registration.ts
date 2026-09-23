@@ -1,4 +1,4 @@
-import { frameNode, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, selectNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -23,17 +23,16 @@ export type DataRegistrationData = DataRegistrationId & {
 // Read path: JSON-LD → DataRegistrationData
 // ──────────────────────────
 
+const DATA_REGISTRATION_TERMS = ['registeredShapeTree', 'contains']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * DataRegistrationData POJO. The document can be in expanded, compacted, or
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<DataRegistrationData> {
-  const node = await frameNode(doc, dataModelContext, id)
-  return {
-    id: node.id ?? node['@id'],
-    type: node.type ?? [],
-    registeredShapeTree: str(node, 'registeredShapeTree'),
-    contains: strs(node, 'contains'),
-  }
+  return selectNode(
+    await frameNode(doc, dataModelContext, id),
+    DATA_REGISTRATION_TERMS
+  ) as unknown as DataRegistrationData
 }

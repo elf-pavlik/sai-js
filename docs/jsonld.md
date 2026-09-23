@@ -32,7 +32,8 @@ every read goes through `frame()`:
 ```ts
 // utils/src/jsonld.ts
 frameNode(doc, context, iri, overrides?) → Promise<FramedNode>
-// typed: { id?, '@id'?, type?: string[] } & Record<string, unknown>
+// typed: { id?, '@id'?, type?: string[] } & Record<string, unknown>, @context stripped
+selectNode(node, terms) → the model's fields (whitelist, see below)
 ```
 
 `buildFrame` gives every property `{ '@embed': '@never', '@omitDefault': true }`
@@ -41,20 +42,26 @@ resolve on the top-level matched node, absent properties are omitted.
 `overrides` swaps the frame entry per key (e.g. `@embed: '@always'` for the
 snapshot object embeds below).
 
-**Accessors.** The framed node's values are typed `unknown`; the accessor
-family unwraps them (also language-tagged literals):
-
-```ts
-str(node, 'grantee')   // required single → string, '' when absent
-opt(node, 'note')      // optional single → string | undefined
-strs(node, 'accessMode') // array (scalar-or-array absorbed) → string[], [] when absent
-```
+**Selection, not mapping.** Framing emits EVERY property of the focus node —
+foreign predicates (terms absent from `dataModelContext`) leak as raw-IRI keys,
+so frame entries govern embedding/omission, NOT inclusion. The per-model
+whitelist is `selectNode(node, terms)`: `id`/`type` + exactly the model's
+terms, present values only. **No defaults anywhere** — absent means `undefined`
+(`''` was never wanted); `@container: '@set'` terms are arrays when present.
+Language-tagged literals compact to `{ '@value', '@language' }` (not fixable in
+the context — a term `@language` default would DROP non-matching/plain values),
+so models with literal fields (label/note/definition/client-id multi-form wire)
+read them through the single unwrapper `opt(node, key)`.
 
 **Models.** Each data model in `data-model/src` exposes `fromJsonLd(doc, id) →
-POJO` (writable ones also have `toJsonLd` for the write path). The mappers
-are uniform — `frameNode` + the accessor family, no casts, no normalization
-boilerplate — and the POJO fields mirror the context terms, so the types and
-the wire stay in lockstep.
+POJO` (writable ones also have `toJsonLd`). IRI-only models are one line —
+`selectNode(await frameNode(doc, dataModelContext, id), MODEL_TERMS)` cast to
+the POJO type; models with literal fields keep a small mapper reading them via
+`opt`, and the derived ones (access-need `required`/`descriptionLanguages`,
+registry-set `{ id }` XId wraps, access-request deep group) compute those after
+`frameNode`. Consumers treat legitimately-empty domain lists (a registration's
+`hasDataGrant`, a role's `members`, …) with `?? []` at the read site, since an
+empty array round-trips as absent.
 
 **Loaders.** There are no `loadX` exports — consumers compose the generic
 factory at module top:
@@ -121,11 +128,12 @@ class:
 - **`@type` is an unordered set** — reuse the order-independence of the set.
   Activity-class discrimination is by set membership (`activityClass`), never
   position in the framed tuple.
-- **A literal under an `@type: '@id'`-coerced term compacts under the raw IRI
-  key, not the term key** — this is why client-id documents (whose own OIDC
-  context types values as plain strings) use a per-model context WITHOUT
-  coercion on those terms; then node refs, literal strings and `{ '@value' }`
-  literals all land on the term key and `opt` unwraps every form.
+- **IRI-valued terms are coerced (`@type: '@id'`)** — `client_id`-style
+  values are always IRIs: the client-id context coerces
+  `callbackEndpoint`/`hasAccessNeedGroup`/`logoUri` so node refs compact to
+  plain strings (and `selectNode` casts). A literal under a coerced term is a
+  document defect — it drops or lands under the raw IRI key, so documents
+  (including the dagger env client-id) must carry node refs.
 
 ## The write path
 

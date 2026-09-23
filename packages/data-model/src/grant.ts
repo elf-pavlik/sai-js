@@ -1,4 +1,4 @@
-import { INTEROP, frameNode, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
+import { INTEROP, frameNode, selectNode, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -50,32 +50,35 @@ export interface GeneratedGrants {
 // Read path: JSON-LD → GrantData
 // ──────────────────────────
 
+/** The grant's wire terms — the frame emits exactly these keys (nothing
+ * foreign leaks in; `id`/`type` are always included). Absent properties are
+ * omitted: set-container terms are arrays when present, absent means
+ * `undefined` (no `''`/`[]` defaults — docs/jsonld.md). */
+const GRANT_TERMS = [
+  'grantee',
+  'grantedBy',
+  'dataOwner',
+  'registeredShapeTree',
+  'hasDataRegistration',
+  'hasStorage',
+  'scopeOfGrant',
+  'accessMode',
+  'creatorAccessMode',
+  'hasDataInstance',
+  'inheritsFromGrant',
+  'delegationOfGrant',
+  'hasInheritingGrant',
+] as const
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a GrantData POJO.
  *
- * The document can be in expanded, compacted, or flattened form.
- * Uses jsonld.frame to resolve @reverse relationships (hasInheritingGrant)
- * automatically, without embedding child nodes.
+ * The document can be in expanded, compacted, or flattened form. The frame
+ * resolves @reverse relationships (hasInheritingGrant) automatically and
+ * emits exactly the grant's terms — the framed node IS the POJO.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
-  const node = await frameNode(doc, dataModelContext, id)
-  return {
-    id: node.id ?? node['@id'],
-    type: node.type ?? [],
-    grantee: str(node, 'grantee'),
-    grantedBy: str(node, 'grantedBy'),
-    dataOwner: str(node, 'dataOwner'),
-    registeredShapeTree: str(node, 'registeredShapeTree'),
-    hasDataRegistration: str(node, 'hasDataRegistration'),
-    hasStorage: str(node, 'hasStorage'),
-    scopeOfGrant: str(node, 'scopeOfGrant'),
-    accessMode: strs(node, 'accessMode'),
-    creatorAccessMode: strs(node, 'creatorAccessMode'),
-    hasDataInstance: strs(node, 'hasDataInstance'),
-    inheritsFromGrant: opt(node, 'inheritsFromGrant'),
-    delegationOfGrant: opt(node, 'delegationOfGrant'),
-    hasInheritingGrant: strs(node, 'hasInheritingGrant'),
-  }
+  return selectNode(await frameNode(doc, dataModelContext, id), GRANT_TERMS) as unknown as GrantData
 }
 
 /**

@@ -26,7 +26,6 @@ describe('DataAuthorization framing', () => {
       satisfiesAccessNeed: undefined,
       inheritsFromAuthorization: undefined,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
-      creatorAccessMode: [],
       hasDataInstance: ['https://data/acme-rnd/reb39k/pbh2yw'],
       hasInheritingAuthorization: ['https://registry/acme/authorization/r5j8tw'],
     })

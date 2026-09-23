@@ -1,4 +1,4 @@
-import { INTEROP, frameNode, opt } from '@janeirodigital/interop-utils'
+import { INTEROP, OIDC, frameNode, selectNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -33,8 +33,15 @@ export type ClientIdDocumentData = ClientIdDocumentId & {
  * every form. */
 const clientIdContext: JsonLdContext = {
   ...dataModelContext,
-  callbackEndpoint: { '@id': INTEROP.hasAuthorizationCallbackEndpoint },
-  hasAccessNeedGroup: { '@id': INTEROP.hasAccessNeedGroup },
+  // these values are IRIs semantically (like client_id) — coerce so node
+  // refs compact to plain strings; a literal on the wire must be fixed at
+  // the document (the dagger env client-id now writes node refs)
+  callbackEndpoint: {
+    '@id': INTEROP.hasAuthorizationCallbackEndpoint,
+    '@type': '@id',
+  },
+  hasAccessNeedGroup: { '@id': INTEROP.hasAccessNeedGroup, '@type': '@id' },
+  logoUri: { '@id': OIDC.logo_uri, '@type': '@id' },
 }
 
 /**
@@ -43,15 +50,22 @@ const clientIdContext: JsonLdContext = {
  * flattened form. Remote contexts (e.g. the Solid OIDC context) are resolved
  * from bundled local copies, never fetched over the network.
  */
+const CLIENT_ID_DOCUMENT_TERMS = [
+  'callbackEndpoint',
+  'hasAccessNeedGroup',
+  'clientName',
+  'logoUri',
+] as const
+
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * ClientIdDocumentData POJO. The document can be in expanded, compacted, or
+ * flattened form. Remote contexts (e.g. the Solid OIDC context) are resolved
+ * from bundled local copies, never fetched over the network.
+ */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ClientIdDocumentData> {
-  const node = await frameNode(doc, clientIdContext, id)
-  return {
-    id: node.id ?? node['@id'],
-    type: node.type ?? [],
-    callbackEndpoint: opt(node, 'callbackEndpoint'),
-    hasAccessNeedGroup: opt(node, 'hasAccessNeedGroup'),
-    // literals — opt unwraps language-tagged / typed values
-    clientName: opt(node, 'clientName'),
-    logoUri: opt(node, 'logoUri'),
-  }
+  return selectNode(
+    await frameNode(doc, clientIdContext, id),
+    CLIENT_ID_DOCUMENT_TERMS
+  ) as unknown as ClientIdDocumentData
 }

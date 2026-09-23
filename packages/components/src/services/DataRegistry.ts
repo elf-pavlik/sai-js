@@ -115,7 +115,9 @@ async function dataGrantIndexForAgent(
       socialAgentRegistration.reciprocalRegistration
     )
     return Promise.all(
-      reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
+      (reciprocalReg.hasDataGrant ?? []).map((grantIri) =>
+        getDataGrantFromSparql(transport, grantIri)
+      )
     )
   })()
 
@@ -150,7 +152,9 @@ async function getReciprocalGrantsSparql(
   const transport = sparqlTransportFor(ctx)
   const reciprocalReg = await getRegistrationFromSparql(transport, reciprocalIri)
   return Promise.all(
-    reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
+    (reciprocalReg.hasDataGrant ?? []).map((grantIri) =>
+      getDataGrantFromSparql(transport, grantIri)
+    )
   )
 }
 
@@ -207,9 +211,11 @@ export const listDataInstances = async (
       ? await getRegistrationFromSparql(transport, socialAgentRegistration.reciprocalRegistration)
       : undefined
     let dataGrants: GrantData[]
-    if (reciprocalReg && reciprocalReg.hasDataGrant.length > 0) {
+    if (reciprocalReg && (reciprocalReg.hasDataGrant ?? []).length > 0) {
       dataGrants = await Promise.all(
-        reciprocalReg.hasDataGrant.map((grantIri) => getDataGrantFromSparql(transport, grantIri))
+        (reciprocalReg.hasDataGrant ?? []).map((grantIri) =>
+          getDataGrantFromSparql(transport, grantIri)
+        )
       )
     } else {
       dataGrants = Object.values(await dataGrantIndexForAgent(ctx, agentId)).flat()

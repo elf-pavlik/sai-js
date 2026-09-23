@@ -22,6 +22,8 @@ export type WebIdProfileData = WebIdProfileId & {
 // Read path: JSON-LD → WebIdProfileData
 // ──────────────────────────
 
+const WEB_ID_PROFILE_TERMS = ['label', 'oidcIssuer']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * WebIdProfileData POJO. The document can be in expanded, compacted, or
@@ -32,7 +34,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfile
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    // skos:prefLabel — literal; oidcIssuer — node reference (@type: '@id' coerced)
     label: opt(node, 'label'),
     oidcIssuer: opt(node, 'oidcIssuer'),
   }

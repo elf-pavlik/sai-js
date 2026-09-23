@@ -426,7 +426,7 @@ export async function findDelegableGrant(
   transport: SparqlTransport,
   grant: GrantData
 ): Promise<boolean> {
-  const accessModes = grant.accessMode.map((m) => `<${m}>`).join(' ')
+  const accessModes = (grant.accessMode ?? []).map((m) => `<${m}>`).join(' ')
 
   const requiredInstances = grant.hasDataInstance?.length
     ? grant.hasDataInstance.map((i) => `<${i}>`).join(' ')

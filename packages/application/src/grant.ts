@@ -17,7 +17,7 @@ import { INTEROP, type WhatwgFetch, loader } from '@janeirodigital/interop-utils
  * Whether the application registration has any data grants.
  */
 export function getGranted(data: ApplicationRegistrationData): boolean {
-  return data.hasDataGrant.length > 0
+  return (data.hasDataGrant ?? []).length > 0
 }
 
 /**
@@ -27,7 +27,7 @@ export async function getDataGrants(
   data: ApplicationRegistrationData,
   fetch: WhatwgFetch
 ): Promise<GrantData[]> {
-  return Promise.all(data.hasDataGrant.map((id) => loadGrant(id, fetch)))
+  return Promise.all((data.hasDataGrant ?? []).map((id) => loadGrant(id, fetch)))
 }
 
 /**

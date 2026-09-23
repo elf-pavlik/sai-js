@@ -1,4 +1,4 @@
-import { frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
@@ -8,12 +8,14 @@ export type AccessNeedDescriptionId = AccessDescriptionId
 /** Plain JSON representation of an access need description. */
 export type AccessNeedDescriptionData = AccessDescriptionData & {
   // TODO handle missing value
-  hasAccessNeed: string
+  hasAccessNeed?: string
 }
 
 // ──────────────────────────
 // Read path: JSON-LD → AccessNeedDescriptionData
 // ──────────────────────────
+
+const ACCESS_NEED_DESCRIPTION_TERMS = ['label', 'definition', 'hasAccessNeed']
 
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
@@ -25,9 +27,8 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedDe
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: str(node, 'label'),
+    label: opt(node, 'label'),
     definition: opt(node, 'definition'),
-    // `hasAccessNeed` is @set in the shared context — the single member
-    hasAccessNeed: strs(node, 'hasAccessNeed')[0] ?? '',
+    hasAccessNeed: (node.hasAccessNeed as string[] | undefined)?.[0],
   }
 }

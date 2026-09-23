@@ -1,4 +1,4 @@
-import { SKOS, frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
+import { SKOS, frameNode, opt } from '@janeirodigital/interop-utils'
 import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
@@ -31,6 +31,15 @@ export type SocialAgentId = {
 // Read path: JSON-LD → SocialAgentRegistrationData
 // ──────────────────────────
 
+const SOCIAL_AGENT_REGISTRATION_TERMS = [
+  'registeredAgent',
+  'hasDataGrant',
+  'hasAdminGrant',
+  'label',
+  'note',
+  'reciprocalRegistration',
+]
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * SocialAgentRegistrationData POJO.
@@ -47,10 +56,10 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
   return {
     id,
     type: node.type ?? [],
-    registeredAgent: str(node, 'registeredAgent'),
-    hasDataGrant: strs(node, 'hasDataGrant'),
-    hasAdminGrant: strs(node, 'hasAdminGrant'),
-    label: str(node, 'label'),
+    registeredAgent: node.registeredAgent as string,
+    hasDataGrant: node.hasDataGrant as string[],
+    hasAdminGrant: node.hasAdminGrant as string[],
+    label: opt(node, 'label'),
     note: opt(node, 'note'),
     reciprocalRegistration: opt(node, 'reciprocalRegistration'),
   }

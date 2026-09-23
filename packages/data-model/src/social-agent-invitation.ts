@@ -1,4 +1,4 @@
-import { frameNode, opt, str } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -23,6 +23,8 @@ export type SocialAgentInvitationData = SocialAgentInvitationId & {
 // Read path: JSON-LD → SocialAgentInvitationData
 // ──────────────────────────
 
+const SOCIAL_AGENT_INVITATION_TERMS = ['capabilityUrl', 'label', 'note', 'registeredAgent']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * SocialAgentInvitationData POJO.
@@ -38,8 +40,8 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentI
   return {
     id,
     type: node.type ?? [],
-    capabilityUrl: str(node, 'capabilityUrl'),
-    label: str(node, 'label'),
+    capabilityUrl: node.capabilityUrl as string,
+    label: opt(node, 'label'),
     note: opt(node, 'note'),
     registeredAgent: opt(node, 'registeredAgent'),
   }

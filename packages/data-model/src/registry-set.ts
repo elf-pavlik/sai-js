@@ -1,4 +1,4 @@
-import { frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode } from '@janeirodigital/interop-utils'
 import type { ActivityRegistryData } from './activity-registry'
 import type {
   ApplicationRegistryData,
@@ -47,24 +47,40 @@ export type AccessRequestRegistryData = {
  * RegistrySetData POJO. The document can be in expanded, compacted, or
  * flattened form.
  */
+const REGISTRY_SET_TERMS = [
+  'hasAuthorizationRegistry',
+  'hasGrantRegistry',
+  'hasSocialAgentRegistry',
+  'hasApplicationRegistry',
+  'hasInvitationRegistry',
+  'hasRoleRegistry',
+  'hasDataRegistry',
+  'hasActivityRegistry',
+  'hasAccessRequestRegistry',
+] as const
+
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into a
+ * RegistrySetData POJO. The document can be in expanded, compacted, or
+ * flattened form.
+ */
 export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetData> {
   const node = await frameNode(doc, dataModelContext, id)
-  // @type: '@id' coerced — plain IRI strings, wrapped in the XId shape
-  const hasActivityRegistry = opt(node, 'hasActivityRegistry')
-  const hasAccessRequestRegistry = opt(node, 'hasAccessRequestRegistry')
   return {
     id,
     type: node.type ?? [],
-    hasAuthorizationRegistry: { id: str(node, 'hasAuthorizationRegistry') },
-    hasGrantRegistry: { id: str(node, 'hasGrantRegistry') },
-    hasSocialAgentRegistry: { id: str(node, 'hasSocialAgentRegistry') },
-    hasApplicationRegistry: { id: str(node, 'hasApplicationRegistry') },
-    hasInvitationRegistry: { id: str(node, 'hasInvitationRegistry') },
-    hasRoleRegistry: { id: str(node, 'hasRoleRegistry') },
-    hasDataRegistry: strs(node, 'hasDataRegistry').map((id) => ({ id })),
-    hasActivityRegistry: hasActivityRegistry ? { id: hasActivityRegistry } : undefined,
-    hasAccessRequestRegistry: hasAccessRequestRegistry
-      ? { id: hasAccessRequestRegistry }
+    hasAuthorizationRegistry: { id: node.hasAuthorizationRegistry as string },
+    hasGrantRegistry: { id: node.hasGrantRegistry as string },
+    hasSocialAgentRegistry: { id: node.hasSocialAgentRegistry as string },
+    hasApplicationRegistry: { id: node.hasApplicationRegistry as string },
+    hasInvitationRegistry: { id: node.hasInvitationRegistry as string },
+    hasRoleRegistry: { id: node.hasRoleRegistry as string },
+    hasDataRegistry: ((node.hasDataRegistry as string[] | undefined) ?? []).map((id) => ({ id })),
+    hasActivityRegistry: node.hasActivityRegistry
+      ? { id: node.hasActivityRegistry as string }
+      : undefined,
+    hasAccessRequestRegistry: node.hasAccessRequestRegistry
+      ? { id: node.hasAccessRequestRegistry as string }
       : undefined,
   }
 }

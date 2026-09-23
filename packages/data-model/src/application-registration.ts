@@ -1,4 +1,4 @@
-import { frameNode, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -41,13 +41,20 @@ export type ApplicationId = {
  * ApplicationRegistrationData POJO. The document can be in expanded, compacted,
  * or flattened form.
  */
+const APPLICATION_REGISTRATION_TERMS = ['registeredAgent', 'hasDataGrant'] as const
+
+/**
+ * Convert a JSON-LD document (fetched as application/ld+json) directly into an
+ * ApplicationRegistrationData POJO. The document can be in expanded, compacted,
+ * or flattened form. `granted` is derived from the presence of data grants.
+ */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ApplicationRegistrationData> {
   const node = await frameNode(doc, dataModelContext, id)
-  const hasDataGrant = strs(node, 'hasDataGrant')
+  const hasDataGrant = (node.hasDataGrant as string[] | undefined) ?? []
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    registeredAgent: str(node, 'registeredAgent'),
+    registeredAgent: node.registeredAgent as string,
     hasDataGrant,
     granted: hasDataGrant.length > 0,
   }

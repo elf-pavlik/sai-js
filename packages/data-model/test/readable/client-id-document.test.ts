@@ -21,8 +21,8 @@ const snippetText = `
   "logo_uri": "https://robohash.org/https://projectron.example/?set=set3",
   "redirect_uris": ["https://app.example/redirect"],
   "grant_types" : ["refresh_token","authorization_code"],
-  "interop:hasAccessNeedGroup": "https://acme.pod.docker/projectron/access-needs#need-group-pm",
-  "interop:hasAuthorizationCallbackEndpoint": "https://app.example"
+  "interop:hasAccessNeedGroup": { "@id": "https://acme.pod.docker/projectron/access-needs#need-group-pm" },
+  "interop:hasAuthorizationCallbackEndpoint": { "@id": "https://app.example" }
 }
 `
 const fetch: WhatwgFetch = async () =>

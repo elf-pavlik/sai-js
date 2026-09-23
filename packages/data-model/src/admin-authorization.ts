@@ -1,4 +1,4 @@
-import { frameNode, str, withContext } from '@janeirodigital/interop-utils'
+import { frameNode, selectNode, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -21,6 +21,8 @@ export type AdminAuthorizationData = {
 // Read path: JSON-LD → AdminAuthorizationData
 // ──────────────────────────
 
+const ADMIN_AUTHORIZATION_TERMS = ['grantee', 'grantedBy', 'scopeOfAuthorization']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
  * AdminAuthorizationData POJO.
@@ -28,14 +30,10 @@ export type AdminAuthorizationData = {
  * The document can be in expanded, compacted, or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<AdminAuthorizationData> {
-  const node = await frameNode(doc, dataModelContext, id)
-  return {
-    id,
-    type: node.type ?? [],
-    grantee: str(node, 'grantee'),
-    grantedBy: str(node, 'grantedBy'),
-    scopeOfAuthorization: str(node, 'scopeOfAuthorization'),
-  }
+  return selectNode(
+    await frameNode(doc, dataModelContext, id),
+    ADMIN_AUTHORIZATION_TERMS
+  ) as unknown as AdminAuthorizationData
 }
 
 /** Fetch and load an AdminAuthorization resource as an AdminAuthorizationData POJO. */

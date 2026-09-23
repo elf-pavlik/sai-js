@@ -1,4 +1,4 @@
-import { frameNode, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
+import { frameNode, selectNode, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -59,24 +59,26 @@ export type FinalDataAuthorizationData = DataAuthorizationData &
  * per embedded object id (two-phase framing), so one read path serves both
  * the per-resource and the embedded cases.
  */
+const DATA_AUTHORIZATION_TERMS = [
+  'grantee',
+  'grantedBy',
+  'registeredShapeTree',
+  'scopeOfAuthorization',
+  'dataOwner',
+  'hasDataRegistration',
+  'satisfiesAccessNeed',
+  'inheritsFromAuthorization',
+  'accessMode',
+  'creatorAccessMode',
+  'hasDataInstance',
+  'hasInheritingAuthorization',
+]
+
 export async function fromJsonLd(doc: unknown, id: string): Promise<DataAuthorizationData> {
-  const node = await frameNode(doc, dataModelContext, id)
-  return {
-    id: node.id ?? node['@id'],
-    type: node.type ?? [],
-    grantee: str(node, 'grantee'),
-    grantedBy: str(node, 'grantedBy'),
-    registeredShapeTree: str(node, 'registeredShapeTree'),
-    scopeOfAuthorization: str(node, 'scopeOfAuthorization'),
-    dataOwner: opt(node, 'dataOwner'),
-    hasDataRegistration: opt(node, 'hasDataRegistration'),
-    satisfiesAccessNeed: opt(node, 'satisfiesAccessNeed'),
-    inheritsFromAuthorization: opt(node, 'inheritsFromAuthorization'),
-    accessMode: strs(node, 'accessMode'),
-    creatorAccessMode: strs(node, 'creatorAccessMode'),
-    hasDataInstance: strs(node, 'hasDataInstance'),
-    hasInheritingAuthorization: strs(node, 'hasInheritingAuthorization'),
-  }
+  return selectNode(
+    await frameNode(doc, dataModelContext, id),
+    DATA_AUTHORIZATION_TERMS
+  ) as unknown as DataAuthorizationData
 }
 
 /**

@@ -200,10 +200,10 @@ async function generateDelegatedDataGrants(
       agentRegistration.reciprocalRegistration
     )
 
-    if (reciprocalReg.hasDataGrant.length === 0) continue
+    if ((reciprocalReg.hasDataGrant ?? []).length === 0) continue
 
     const reciprocalDataGrants = await Promise.all(
-      reciprocalReg.hasDataGrant.map((grantIri) => getDataGrant(transport, grantIri))
+      (reciprocalReg.hasDataGrant ?? []).map((grantIri) => getDataGrant(transport, grantIri))
     )
 
     let matchingDataGrants = reciprocalDataGrants.filter(

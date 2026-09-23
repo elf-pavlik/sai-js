@@ -24,10 +24,7 @@ describe('Grant framing', () => {
       hasStorage: 'https://data/acme-rnd/',
       scopeOfGrant: INTEROP.AllFromRegistry,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
-      creatorAccessMode: [],
-      hasDataInstance: [],
       inheritsFromGrant: undefined,
-      delegationOfGrant: undefined,
       hasInheritingGrant: ['https://registry/acme/grant/hdaymz'],
     })
   })

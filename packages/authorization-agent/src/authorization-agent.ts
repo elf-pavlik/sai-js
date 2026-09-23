@@ -371,7 +371,7 @@ export class AuthorizationAgent {
     if (grantee.type.includes(INTEROP.Role)) {
       const role = await this.findRole(grantee.id)
       if (!role) throw new Error(`role not found: ${grantee.id}`)
-      return role.members.map((member) => ({ id: member, type: [INTEROP.SocialAgent] }))
+      return (role.members ?? []).map((member) => ({ id: member, type: [INTEROP.SocialAgent] }))
     }
     return [grantee as AgentId]
   }

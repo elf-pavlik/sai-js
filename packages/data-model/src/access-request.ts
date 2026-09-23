@@ -1,4 +1,4 @@
-import { frameNode, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { GrantData } from './grant'
 
@@ -71,30 +71,45 @@ export interface NeedBasedAccessRequestMessage {
  * a single `rdf:type` frames as a scalar, so `type` goes through the
  * array-form.
  */
+const NEED_BASED_ACCESS_REQUEST_TERMS = [
+  'grantee',
+  'grantedBy',
+  'dataOwner',
+  'hasAccessNeedGroup',
+] as const
+
 export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAccessRequestData> {
-  const node = await frameNode(doc, dataModelContext, id, {
-    hasAccessNeedGroup: {
-      '@embed': '@always',
-      hasAccessNeed: {
+  const node = await frameNode(
+    doc,
+    dataModelContext,
+    id,
+    {
+      hasAccessNeedGroup: {
         '@embed': '@always',
-        hasInheritingNeed: { '@embed': '@always' },
+        hasAccessNeed: {
+          '@embed': '@always',
+          hasInheritingNeed: { '@embed': '@always' },
+        },
       },
     },
-  })
+    NEED_BASED_ACCESS_REQUEST_TERMS
+  )
   const group = node.hasAccessNeedGroup as Record<string, unknown> | undefined
   return {
     id,
     type: node.type ?? [],
-    grantee: str(node, 'grantee'),
-    grantedBy: str(node, 'grantedBy'),
-    dataOwner: str(node, 'dataOwner'),
-    hasAccessNeedGroup: {
-      id: str(group ?? {}, 'id'),
-      type: strs(group ?? {}, 'type'),
-      // the deep frame EMBEDS the need nodes (children incl. inherited
-      // children ride the graph) — pass them through, not as IRI strings
-      hasAccessNeed: (group?.hasAccessNeed as unknown[] | undefined) ?? [],
-    },
+    grantee: node.grantee as string,
+    grantedBy: node.grantedBy as string,
+    dataOwner: node.dataOwner as string,
+    hasAccessNeedGroup: group
+      ? {
+          id: group.id as string,
+          type: (group.type as string[] | undefined) ?? [],
+          // the deep frame EMBEDS the need nodes (children incl. inherited
+          // children ride the graph) — pass them through, not as IRI strings
+          hasAccessNeed: (group.hasAccessNeed as unknown[] | undefined) ?? [],
+        }
+      : { id: '', type: [], hasAccessNeed: [] },
   }
 }
 

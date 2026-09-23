@@ -811,7 +811,6 @@ describe('findDataRegistration', () => {
       id: DATA_REG_PROJECT,
       type: [INTEROP.DataRegistration],
       registeredShapeTree: PROJECT_TREE,
-      contains: [],
     })
   })
 

@@ -1,4 +1,4 @@
-import { frameNode, opt, str } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -23,6 +23,8 @@ export type ShapeTreeDescriptionData = ShapeTreeDescriptionId & {
 // Read path: JSON-LD → ShapeTreeDescriptionData
 // ──────────────────────────
 
+const SHAPE_TREE_DESCRIPTION_TERMS = ['label', 'definition']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * ShapeTreeDescriptionData POJO. The document can be in expanded, compacted,
@@ -33,7 +35,7 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDes
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: str(node, 'label'),
+    label: opt(node, 'label'),
     definition: opt(node, 'definition'),
   }
 }

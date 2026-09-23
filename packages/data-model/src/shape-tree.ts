@@ -6,7 +6,6 @@ import {
   documentValues,
   fetchJsonLd,
   frameNode,
-  opt,
   withContext,
 } from '@janeirodigital/interop-utils'
 import type { NamedNode } from '@rdfjs/types'
@@ -102,14 +101,16 @@ function referencePairs(expanded: any[], treeId: string): ShapeTreeReference[] {
  * foreign nodes) are extracted from the expanded document instead, since a
  * node-centric frame can't capture either shape.
  */
+const SHAPE_TREE_TERMS = ['shape', 'describesInstance', 'expectsType'] as const
+
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeData> {
   const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    shape: opt(node, 'shape'),
-    describesInstance: opt(node, 'describesInstance'),
-    expectsType: opt(node, 'expectsType'),
+    shape: node.shape as string | undefined,
+    describesInstance: node.describesInstance as string | undefined,
+    expectsType: node.expectsType as string | undefined,
     descriptionLanguages: await documentValues(doc, id, SHAPETREES.usesLanguage),
     references: referencePairs(await expandedNodes(doc, id), id),
   }

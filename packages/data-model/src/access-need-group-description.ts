@@ -1,4 +1,4 @@
-import { frameNode, opt, str } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
@@ -20,6 +20,8 @@ export type AccessNeedGroupDescriptionData = AccessDescriptionData & {
  * AccessNeedGroupDescriptionData POJO. The document can be in expanded,
  * compacted, or flattened form.
  */
+const ACCESS_NEED_GROUP_DESCRIPTION_TERMS = ['label', 'definition', 'hasAccessNeedGroup'] as const
+
 export async function fromJsonLd(
   doc: unknown,
   id: string
@@ -28,8 +30,8 @@ export async function fromJsonLd(
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: str(node, 'label'),
+    label: opt(node, 'label'),
     definition: opt(node, 'definition'),
-    hasAccessNeedGroup: str(node, 'hasAccessNeedGroup'),
+    hasAccessNeedGroup: node.hasAccessNeedGroup as string,
   }
 }

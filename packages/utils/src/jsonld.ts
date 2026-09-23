@@ -136,12 +136,38 @@ export async function frameNode(
   iri: string,
   overrides: Record<string, Record<string, unknown>> = {}
 ): Promise<FramedNode> {
-  return (await frameDoc(doc, context, iri, overrides)) as FramedNode
+  const node = (await frameDoc(doc, context, iri, overrides)) as Record<string, unknown> & {
+    '@context'?: unknown
+  }
+  // the frame embeds its @context in the output — strip it so the node is
+  // pure POJO data (term keys, plain-IRI/literal values only)
+  const { '@context': _context, ...rest } = node
+  return rest as FramedNode
 }
 
-/** Required single value — a plain IRI or unwrapped literal string; `''` when absent. */
-export function str(node: Record<string, unknown>, key: string): string {
-  return framedValue(node[key]) ?? ''
+/**
+ * Select a model's fields from a framed node — the per-model whitelist
+ * (docs/jsonld.md). Framing emits EVERY property of the focus node
+ * (foreign predicates leak as raw-IRI keys), so the POJO is built from
+ * exactly `id`/`type` + the model's terms — present values only; absent
+ * means omitted (`undefined`), no `''`/`[]` defaults (`@set` containers
+ * guarantee arrays when present).
+ */
+export function selectNode(
+  node: FramedNode,
+  terms: readonly string[]
+): Record<string, string | string[] | undefined> {
+  const out: Record<string, string | string[] | undefined> = {
+    id: node.id ?? node['@id'],
+    type: node.type ?? [],
+  }
+  for (const term of terms) {
+    const value = node[term]
+    if (value !== undefined && value !== null) {
+      out[term] = value as string | string[]
+    }
+  }
+  return out
 }
 
 /** Optional single value — string when present, `undefined` when absent. */

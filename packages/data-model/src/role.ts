@@ -1,4 +1,4 @@
-import { frameNode, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -20,6 +20,8 @@ export type RoleData = RoleId & {
 // Read path: JSON-LD → RoleData
 // ──────────────────────────
 
+const ROLE_TERMS = ['label', 'members']
+
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a RoleData POJO.
  *
@@ -31,9 +33,9 @@ export type RoleData = RoleId & {
 export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
   const node = await frameNode(doc, dataModelContext, id)
   return {
-    id,
+    id: node.id ?? node['@id'],
     type: node.type ?? [],
-    label: str(node, 'label'),
-    members: strs(node, 'members'),
+    label: opt(node, 'label'),
+    members: node.members as string[],
   }
 }

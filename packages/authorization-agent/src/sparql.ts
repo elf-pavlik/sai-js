@@ -12,8 +12,9 @@ import {
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   dataModelContext,
+  roleContext,
 } from '@janeirodigital/interop-data-model'
-import { AS, INTEROP, LDP, frameDoc } from '@janeirodigital/interop-utils'
+import { AS, INTEROP, LDP, type LanguageMap, frameDoc } from '@janeirodigital/interop-utils'
 /**
  * Registry-plane SPARQL transport + queries, shared by the AuthorizationAgent
  * (session reads its own registry via the internal endpoint) and the
@@ -336,7 +337,7 @@ export async function getRole(
 ): Promise<RoleData | undefined> {
   const doc = await graphDoc(transport, iri)
   if (Array.isArray(doc) && doc.length === 0) return undefined
-  const node = (await frameDoc(doc, dataModelContext, iri)) as any
+  const node = (await frameDoc(doc, roleContext, iri)) as any
   const type = (node.type as string[] | undefined) ?? []
   // Type guard: ANY non-empty graph at the IRI is not a role. In dev the
   // app's client-id document lives at the application IRI (map.json maps
@@ -347,7 +348,7 @@ export async function getRole(
   return {
     id: iri,
     type,
-    label: node.label ?? '',
+    label: (node.label as LanguageMap | undefined) ?? {},
     members: node.members ?? [],
   }
 }

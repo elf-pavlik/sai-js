@@ -1,5 +1,10 @@
 import { putRole, putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
-import { Role, SocialAgentInvitation, dataModelContext } from '@janeirodigital/interop-data-model'
+import {
+  Role,
+  SocialAgentInvitation,
+  dataModelContext,
+  roleContext,
+} from '@janeirodigital/interop-data-model'
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
 import {
   INTEROP,
@@ -27,12 +32,12 @@ describe('role write path', () => {
   const roleData = {
     id: iri,
     type: [INTEROP.Role],
-    label: 'Test Role',
+    label: { '@none': 'Test Role' },
     members: ['https://id/bob'],
   }
 
   test('shared context serializes role fields to the expected quads', async () => {
-    const store = await toStore(withContext(dataModelContext, roleData), iri)
+    const store = await toStore(withContext(roleContext, roleData), iri)
     expect(store).toBeRdfDatasetContaining(
       DataFactory.quad(DataFactory.namedNode(iri), RDF.terms.type, INTEROP.terms.Role),
       DataFactory.quad(

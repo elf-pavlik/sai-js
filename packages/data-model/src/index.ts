@@ -22,6 +22,7 @@ export type {
 export * as SocialAgentInvitation from './social-agent-invitation'
 export type { RoleData, RoleId } from './role'
 export * as Role from './role'
+export { roleContext } from './role'
 export * as SocialAgentRegistration from './social-agent-registration'
 // registries exported as namespaces to avoid colliding names
 export type {

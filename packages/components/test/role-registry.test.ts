@@ -97,7 +97,7 @@ describe('getRoles — org context lists roles via /sparql-admin', () => {
   test('listContained on the role registry, then one graph read per role', async () => {
     const { session, requests } = sparqlAdminSession(roleTurtle)
 
-    const roles = await getRoles(orgCtx(session))
+    const roles = await getRoles(orgCtx(session), 'en')
 
     expect(roles).toEqual([{ id: ROLE_IRI, label: 'Admins', members: [MEMBER] }])
     const sparqlRequests = requests.filter((request) => request.url === sparqlAdminUrl)
@@ -110,7 +110,7 @@ describe('getRoles — org context lists roles via /sparql-admin', () => {
   test('skips roles whose graph no longer exists (empty CONSTRUCT)', async () => {
     const { session } = sparqlAdminSession('')
 
-    const roles = await getRoles(orgCtx(session))
+    const roles = await getRoles(orgCtx(session), 'en')
 
     expect(roles).toEqual([])
   })

@@ -150,7 +150,8 @@ describe('role-based access', () => {
     await waitForRoleCreatedCompletion(session)
     const role = await session.findRole(body.id)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Test Role')
+    // the stored label is a language map — the untagged value under `@none`
+    expect(role!.label).toEqual({ '@none': 'Test Role' })
     expect(role!.members).toEqual([])
   })
 
@@ -200,7 +201,8 @@ describe('role-based access', () => {
     await waitForRoleMembershipChangedCompletion(session)
     const role = await session.findRole(chumsRoleId)
     expect(role).toBeDefined()
-    expect(role!.label).toBe('Chums')
+    // the stored label is a language map — the untagged value under `@none`
+    expect(role!.label).toEqual({ '@none': 'Chums' })
     expect(role!.members).toEqual([bobId])
   })
 
@@ -290,7 +292,7 @@ describe('role-based access', () => {
             _tag: 'UpdateRole',
             context: bobId,
             id: whizRoleId,
-            label: initialRole?.label ?? 'Whiz',
+            label: initialRole?.label?.['@none'] ?? 'Whiz',
             members: [...initialMembers, danId],
           }),
           bobCookie

@@ -8,7 +8,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 const loadRole = loader(RoleModel.fromJsonLd)
 
-import { INTEROP, iriForContained, loader } from '@janeirodigital/interop-utils'
+import { INTEROP, iriForContained, loader, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
   Role,
@@ -28,7 +28,7 @@ import { getRole, listContained, sparqlTransportFor } from './queries/org.js'
  * role (docs/sparql.md step 1). Write paths (create/update/delete) stay
  * REST/LDP via the data-model RoleRegistry.
  */
-export const getRoles = async (ctx: ResolvedContext) => {
+export const getRoles = async (ctx: ResolvedContext, lang: string) => {
   const transport = sparqlTransportFor(ctx)
   const iris = await listContained(transport, ctx.registrySet.hasRoleRegistry.id)
   const registrations = (await Promise.all(iris.map((iri) => getRole(transport, iri)))).filter(
@@ -37,7 +37,9 @@ export const getRoles = async (ctx: ResolvedContext) => {
   return registrations.map((registration) =>
     Role.make({
       id: IRI.make(registration.id),
-      label: registration.label,
+      // the stored label is a language map — surface the plain string for
+      // the preferred language (untagged `@none` as the fallback)
+      label: pickLanguage(registration.label, lang) ?? '',
       members: (registration.members ?? []).map((m) => IRI.make(m)),
     })
   )
@@ -59,7 +61,9 @@ export const createRole = async (
   const object: RoleData = {
     id: roleId,
     type: [INTEROP.Role],
-    label,
+    // the activity object (real-id embedded projection) carries the label as
+    // a language map — the activity write context expands it to literals
+    label: { '@none': label },
     members: [...members],
   }
   const activity: Omit<RoleCreated, 'id'> = {
@@ -102,7 +106,9 @@ export const updateRole = async (
   const object: RoleData = {
     id,
     type: [INTEROP.Role],
-    label,
+    // the activity object (real-id embedded projection) carries the label as
+    // a language map — the activity write context expands it to literals
+    label: { '@none': label },
     members: [...members],
   }
   const activity: Omit<RoleMembershipChanged, 'id'> = {

@@ -373,6 +373,8 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
           socialAgentRef(channel.webId),
           {
             ...decoded.object,
+            // the decode carries the role-to-be's label as the language map
+            // (RoleData) — pass it through to the RoleData workflow input
             type: [...decoded.object.type],
             members: [...decoded.object.members],
           },
@@ -399,6 +401,8 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
             socialAgentRef(channel.webId),
             {
               ...decoded.object,
+              // the decode carries the role-to-be's label as the language map
+              // (RoleData) — pass it through to the RoleData workflow input
               type: [...decoded.object.type],
               members: [...decoded.object.members],
             },
@@ -414,6 +418,8 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
             socialAgentRef(channel.webId),
             {
               ...decoded.object,
+              // the decode carries the role-to-be's label as the language map
+              // (RoleData) — pass it through to the RoleData workflow input
               type: [...decoded.object.type],
               members: [...decoded.object.members],
             },

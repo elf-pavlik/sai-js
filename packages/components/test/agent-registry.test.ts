@@ -32,8 +32,10 @@ const clientIdDocument = {
   client_id: APP_WEBID,
   client_name: 'Projectron',
   logo_uri: 'https://projectron.example/logo.png',
-  'interop:hasAccessNeedGroup': 'https://projectron.example/needs',
-  'interop:hasAuthorizationCallbackEndpoint': 'https://projectron.example/callback',
+  // node references — bare strings would expand as literals and drop under
+  // the `@type: '@id'`-coerced terms (docs/jsonld.md)
+  'interop:hasAccessNeedGroup': { '@id': 'https://projectron.example/needs' },
+  'interop:hasAuthorizationCallbackEndpoint': { '@id': 'https://projectron.example/callback' },
 }
 
 const orgProfileDoc = {

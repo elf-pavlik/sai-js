@@ -63,11 +63,25 @@ export function buildFrame(
   }
   for (const [key, val] of Object.entries(context)) {
     if (key === 'id' || key === 'type' || key === '@version') continue
-    if (typeof val === 'object' && val !== null) {
+    if (typeof val === 'object' && val !== null && !isLanguageMapTerm(val)) {
       frame[key] = overrides[key] ?? { '@embed': '@never', '@omitDefault': true }
     }
   }
   return frame
+}
+
+/**
+ * Whether a term definition carries `@container: '@language'` — the framed
+ * values of such a term compact into a language map (JSON-LD 1.1 §4.6.2), so
+ * the standard `{ '@embed': '@never', '@omitDefault': true }` frame entry
+ * would be parsed as the map itself (language-map values MUST be strings,
+ * §9.8) and jsonld.js rejects it. Language-map terms are skipped like
+ * `id`/`type`/`@version`: the map values still leak through framing and
+ * compact correctly.
+ */
+function isLanguageMapTerm(definition: unknown): boolean {
+  const container = (definition as { '@container'?: string | string[] } | null)?.['@container']
+  return Array.isArray(container) ? container.includes('@language') : container === '@language'
 }
 
 /**
@@ -184,6 +198,28 @@ export function strs(node: Record<string, unknown>, key: string): string[] {
   const value = node[key]
   if (value === undefined || value === null) return []
   return (Array.isArray(value) ? value : [value]).map((item) => framedValue(item) ?? '')
+}
+
+/**
+ * A JSON-LD language map (JSON-LD 1.1 §4.6.2): literals indexed by language
+ * tag — the untagged value under `@none`, translations under their tags.
+ * Label fields carry one value per language (a per-model assumption), so
+ * every entry is a plain string.
+ */
+export type LanguageMap = Record<string, string> & { '@none'?: string }
+
+/**
+ * Pick a single value from a language map for a preferred language — the
+ * RPC-facing projection of a language-map field: the requested language
+ * first, then the untagged default (`@none`), then any remaining entry.
+ * `undefined` when the map is absent or empty.
+ */
+export function pickLanguage(map: LanguageMap | undefined, preferred?: string): string | undefined {
+  if (!map) return undefined
+  if (preferred && typeof map[preferred] === 'string') return map[preferred]
+  if (typeof map['@none'] === 'string') return map['@none']
+  const first = Object.values(map)[0]
+  return typeof first === 'string' ? first : undefined
 }
 
 /**

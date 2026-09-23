@@ -104,10 +104,10 @@ export class ApiHandler extends OperationHttpHandler {
             const ctx = await resolveContext(session, context)
             return getSocialAgents(ctx)
           }),
-        getRoles: (context) =>
+        getRoles: (lang, context) =>
           Effect.promise(async () => {
             const ctx = await resolveContext(session, context)
-            return getRoles(ctx)
+            return getRoles(ctx, lang)
           }),
         createRole: (label, members, context) =>
           Effect.promise(async () => {

@@ -36,7 +36,7 @@ describe('getRole — type-guarded', () => {
     // the framed type may be the compact or the expanded form — the guard
     // accepts both; assert either
     expect(role?.type.some((t) => t === 'Role' || t === INTEROP.Role)).toBe(true)
-    expect(role?.label).toBe('Managers')
+    expect(role?.label).toEqual({ '@none': 'Managers' })
   })
 
   test('returns undefined for a NON-role graph at the IRI (the app client-id case)', async () => {

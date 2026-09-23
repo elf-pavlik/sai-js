@@ -141,13 +141,16 @@ describe('org context — registry-set resolution (2.3)', () => {
 describe('org context — context authorization (2.2)', () => {
   test('an admin can target the org context; a non-admin is rejected', async () => {
     const roles = await rpcCall<unknown[]>(
-      rpcPayload({ _tag: 'ListRoles', context: yoyoId }),
+      rpcPayload({ _tag: 'ListRoles', lang: 'en', context: yoyoId }),
       danCookie
     )
     expect(Array.isArray(roles)).toBe(true)
 
-    await expectRpcError(rpcPayload({ _tag: 'ListRoles', context: yoyoId }), bobCookie)
-    await expectRpcError(rpcPayload({ _tag: 'ListRoles', context: yoyoId }), aliceCookie)
+    await expectRpcError(rpcPayload({ _tag: 'ListRoles', lang: 'en', context: yoyoId }), bobCookie)
+    await expectRpcError(
+      rpcPayload({ _tag: 'ListRoles', lang: 'en', context: yoyoId }),
+      aliceCookie
+    )
   })
 
   test('the personal context is always allowed', async () => {
@@ -178,7 +181,8 @@ describe('org context — owner identity (2.4)', () => {
     await waitForRoleCreatedCompletion(yoyoSession)
     const found = await yoyoSession.findRole(role.id)
     expect(found).toBeDefined()
-    expect(found!.label).toBe('YoYo Ops')
+    // the stored label is a language map — the untagged value under `@none`
+    expect(found!.label).toEqual({ '@none': 'YoYo Ops' })
   })
 })
 

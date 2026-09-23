@@ -596,7 +596,8 @@ export const RoleMembershipChanged = S.Struct({
   object: S.Struct({
     id: S.String,
     type: S.Array(S.String),
-    label: S.String,
+    /** language map — the embedded role-to-be carries `label` per `RoleData` */
+    label: S.Record({ key: S.String, value: S.String }),
     members: S.Array(S.String),
   }),
 })
@@ -616,7 +617,8 @@ export const RoleCreated = S.Struct({
   object: S.Struct({
     id: S.String,
     type: S.Array(S.String),
-    label: S.String,
+    /** language map — the embedded role-to-be carries `label` per `RoleData` */
+    label: S.Record({ key: S.String, value: S.String }),
     members: S.Array(S.String),
   }),
 })
@@ -635,7 +637,8 @@ export const RoleDeleted = S.Struct({
   object: S.Struct({
     id: S.String,
     type: S.Array(S.String),
-    label: S.String,
+    /** language map — the embedded role-to-be carries `label` per `RoleData` */
+    label: S.Record({ key: S.String, value: S.String }),
     members: S.Array(S.String),
   }),
 })
@@ -822,7 +825,11 @@ export class ListSocialAgentInvitations extends S.TaggedRequest<ListSocialAgentI
 export class ListRoles extends S.TaggedRequest<ListRoles>()('ListRoles', {
   failure: S.Never,
   success: RoleList,
-  payload: { context: IRI },
+  payload: {
+    /** preferred language — the role label is picked from its language map */
+    lang: S.String,
+    context: IRI,
+  },
 }) {}
 
 export class CreateRole extends S.TaggedRequest<CreateRole>()('CreateRole', {
@@ -1011,7 +1018,7 @@ export class SaiService extends Context.Tag('SaiService')<
       context: IRI
     ) => Effect.Effect<S.Schema.Type<typeof Resource>>
     readonly getSocialAgents: (context: IRI) => Effect.Effect<S.Schema.Type<typeof SocialAgentList>>
-    readonly getRoles: (context: IRI) => Effect.Effect<S.Schema.Type<typeof RoleList>>
+    readonly getRoles: (lang: string, context: IRI) => Effect.Effect<S.Schema.Type<typeof RoleList>>
     readonly createRole: (
       label: string,
       members: readonly S.Schema.Type<typeof IRI>[],
@@ -1158,10 +1165,10 @@ export const router = RpcRouter.make(
       return yield* saiService.getSocialAgentInvitations(context)
     })
   ),
-  Rpc.effect(ListRoles, ({ context }) =>
+  Rpc.effect(ListRoles, ({ lang, context }) =>
     Effect.gen(function* () {
       const saiService = yield* SaiService
-      return yield* saiService.getRoles(context)
+      return yield* saiService.getRoles(lang, context)
     })
   ),
   Rpc.effect(CreateRole, ({ label, members, context }) =>

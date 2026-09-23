@@ -51,7 +51,7 @@ const buildDataRegistry = async (
         id: IRI.make(registration.id),
         shapeTree: registration.registeredShapeTree,
         dataRegistry: registry.id,
-        count: registration.contains.length,
+        count: (registration.contains ?? []).length,
         label: shapeTreeDescription?.label,
       })
     )

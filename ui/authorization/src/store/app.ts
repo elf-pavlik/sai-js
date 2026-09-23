@@ -243,7 +243,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function listRoles(force = false) {
     if (!roleList.value.length || force) {
-      roleList.value = await effect.listRoles(currentContext())
+      roleList.value = await effect.listRoles(lang.value, currentContext())
     }
   }
 

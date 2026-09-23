@@ -147,10 +147,10 @@ export async function listSocialAgents(context: string) {
   return Effect.runPromise(program)
 }
 
-export async function listRoles(context: string) {
+export async function listRoles(lang: string, context: string) {
   const program = Effect.gen(function* () {
     const client = yield* makeClient
-    return yield* client(new ListRoles({ context: IRI.make(context) }))
+    return yield* client(new ListRoles({ lang, context: IRI.make(context) }))
   }).pipe(Effect.provide(AuthLayer))
   return Effect.runPromise(program)
 }

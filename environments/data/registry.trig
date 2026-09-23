@@ -683,7 +683,7 @@ GRAPH <meta:https://registry/alice/role/ps8hc3> {
 GRAPH <https://registry/alice/role/xcoq3l> {
   <https://registry/alice/role/xcoq3l>
     a interop:Role;
-    skos:prefLabel "Chums";
+    skos:prefLabel "Chums"@en;
     interop:hasMember <https://id/kim>.
 }
 

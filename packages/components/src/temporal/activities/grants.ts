@@ -34,9 +34,9 @@ import {
   type RoleId,
   type SocialAgentId,
   dataGrantTemplate,
-  dataModelContext,
   getDataGrantIris,
   isActivityClass,
+  roleContext,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
 const loadRole = loader(Role.fromJsonLd)
@@ -212,7 +212,9 @@ export async function createRoleAtId(payload: {
   const session = await manager.getSession(payload.webId.id)
   const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
   if (existing) return
-  await putJsonLd(payload.role.id, session.fetch, withContext(dataModelContext, payload.role), {
+  // `roleContext` carries the `label` language-map container so the map
+  // expands to proper literals on the wire
+  await putJsonLd(payload.role.id, session.fetch, withContext(roleContext, payload.role), {
     'If-None-Match': '*',
   })
 }

@@ -1,11 +1,12 @@
 import {
   type RoleData,
   type RoleRegistryData,
-  dataModelContext,
+  roleContext,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
   LDP,
+  type LanguageMap,
   type WhatwgFetch,
   iriForContained,
   linkedIrisJsonLd,
@@ -19,7 +20,9 @@ import type { DataModelDependencies } from './types'
 // ──────────────────────────
 
 export async function putRole(data: RoleData, fetch: WhatwgFetch): Promise<void> {
-  await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
+  // `roleContext` carries the `label` language-map container so the map
+  // expands to proper literals on the wire
+  await putJsonLd(data.id, fetch, withContext(roleContext, data))
 }
 
 // ──────────────────────────
@@ -38,11 +41,11 @@ export async function containedIncludes(
 export async function createRole(
   data: RoleRegistryData,
   deps: DataModelDependencies,
-  label: string,
+  label: LanguageMap,
   members: string[]
 ): Promise<RoleData> {
   const iri = iriForContained(data, deps.randomUUID)
-  const role: RoleData = { id: iri, label: label, members, type: [INTEROP.Role] }
+  const role: RoleData = { id: iri, label, members, type: [INTEROP.Role] }
   await putRole(role, deps.fetch)
   return role
 }
@@ -51,10 +54,10 @@ export async function updateRole(
   data: RoleRegistryData,
   fetch: WhatwgFetch,
   roleId: string,
-  label: string,
+  label: LanguageMap,
   members: string[]
 ): Promise<RoleData> {
-  const role: RoleData = { id: roleId, label: label, members, type: [INTEROP.Role] }
+  const role: RoleData = { id: roleId, label, members, type: [INTEROP.Role] }
   await putRole(role, fetch)
   return role
 }

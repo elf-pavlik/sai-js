@@ -1,4 +1,4 @@
-import { frameNode, loader, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, str, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 import type { GrantData } from './grant'
 
@@ -99,4 +99,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAcc
 }
 
 /** Load a stored AccessRequest from the owner's AccessRequestRegistry. */
-export const loadNeedBasedAccessRequest = loader(fromJsonLd)

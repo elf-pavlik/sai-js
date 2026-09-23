@@ -8,8 +8,10 @@ import type {
   SocialAgentId,
   SocialAgentRegistrationData,
 } from '@janeirodigital/interop-data-model'
-import { loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+import { SocialAgentRegistration } from '@janeirodigital/interop-data-model'
+const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
+
+import { discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
 import { SubscriptionClient } from '@solid-notifications/subscription'
 import { ChannelType } from '@solid-notifications/types'
 import { ReciprocalWebhookStore } from '../../ReciprocalWebhookStore.js'

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
+import { loader } from '@janeirodigital/interop-utils'
 import { test } from 'vitest'
-import { loadShapeTreeDescription } from '../../src'
+import { ShapeTreeDescription } from '../../src'
+const loadShapeTreeDescription = loader(ShapeTreeDescription.fromJsonLd)
 import { expect } from '../expect'
 
 const deps = { fetch, randomUUID }

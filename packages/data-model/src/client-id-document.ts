@@ -1,4 +1,4 @@
-import { INTEROP, frameNode, loader, opt } from '@janeirodigital/interop-utils'
+import { INTEROP, frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -55,5 +55,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<ClientIdDocu
     logoUri: opt(node, 'logoUri'),
   }
 }
-
-export const loadClientIdDocument = loader(fromJsonLd)

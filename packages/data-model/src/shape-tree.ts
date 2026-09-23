@@ -6,7 +6,6 @@ import {
   documentValues,
   fetchJsonLd,
   frameNode,
-  loader,
   opt,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -15,7 +14,7 @@ import * as jsonldNs from 'jsonld'
 import { DataFactory } from 'n3'
 import type { ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context'
-import { loadShapeTreeDescription } from './shape-tree-description'
+import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description'
 
 export interface ShapeTreeReference {
   shapeTree: string
@@ -135,7 +134,6 @@ export function toJsonLd(data: ShapeTreeData): Record<string, unknown> {
  * Fetch and load a shape tree resource as a ShapeTreeData POJO
  * (fetched as application/ld+json).
  */
-export const loadShapeTree = loader(fromJsonLd)
 
 // ──────────────────────────
 // Behavior functions (replacing class methods)
@@ -169,5 +167,7 @@ export async function getDescription(
         (value: any) => value['@id'] === descriptionSetNode['@id']
       )
   )?.['@id']
-  return descriptionIri ? loadShapeTreeDescription(descriptionIri, fetch) : null
+  return descriptionIri
+    ? shapeTreeDescriptionFromJsonLd(await fetchJsonLd(descriptionIri, fetch), descriptionIri)
+    : null
 }

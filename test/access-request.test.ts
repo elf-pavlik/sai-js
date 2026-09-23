@@ -3,11 +3,10 @@ import {
   ActivityRegistry,
   type AuthorizationAgent,
 } from '@janeirodigital/interop-authorization-agent'
-import {
-  type NeedBasedAccessRequestSent,
-  loadNeedBasedAccessRequest,
-} from '@janeirodigital/interop-data-model'
-import { LDP, linkedIrisJsonLd } from '@janeirodigital/interop-utils'
+import { AccessRequest, type NeedBasedAccessRequestSent } from '@janeirodigital/interop-data-model'
+const loadNeedBasedAccessRequest = loader(AccessRequest.fromJsonLd)
+
+import { LDP, linkedIrisJsonLd, loader } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 import {
   rpcPayload,

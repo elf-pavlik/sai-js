@@ -1,4 +1,4 @@
-import { frameNode, loader, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
+import { frameNode, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -82,7 +82,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<DataAuthoriz
 /**
  * Fetch and load a data authorization resource as a DataAuthorizationData POJO.
  */
-export const loadDataAuthorization = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: DataAuthorizationData → JSON-LD

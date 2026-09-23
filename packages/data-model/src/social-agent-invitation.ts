@@ -1,4 +1,4 @@
-import { frameNode, loader, opt, str } from '@janeirodigital/interop-utils'
+import { frameNode, opt, str } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -44,5 +44,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentI
     registeredAgent: opt(node, 'registeredAgent'),
   }
 }
-
-export const loadSocialAgentInvitation = loader(fromJsonLd)

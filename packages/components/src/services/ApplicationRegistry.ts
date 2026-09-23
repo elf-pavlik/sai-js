@@ -1,8 +1,10 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import {
   type ApplicationRegistrationData,
-  loadClientIdDocument,
+  ClientIdDocument,
 } from '@janeirodigital/interop-data-model'
+import { loader } from '@janeirodigital/interop-utils'
+const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
 import { Application, IRI, UnregisteredApplication } from '@janeirodigital/sai-api-messages'
 import type { ResolvedContext } from './Context.js'
 import {

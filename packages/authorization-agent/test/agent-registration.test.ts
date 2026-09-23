@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { addDataGrant, replaceDataGrants } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris, loadSocialAgentRegistration } from '@janeirodigital/interop-data-model'
+import { SocialAgentRegistration, getDataGrantIris } from '@janeirodigital/interop-data-model'
+const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
+
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, loader } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { expect } from './expect'
 

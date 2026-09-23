@@ -1,4 +1,4 @@
-import { frameNode, loader, opt } from '@janeirodigital/interop-utils'
+import { frameNode, opt } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -37,5 +37,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfile
     oidcIssuer: opt(node, 'oidcIssuer'),
   }
 }
-
-export const loadWebIdProfile = loader(fromJsonLd)

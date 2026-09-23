@@ -5,14 +5,17 @@ import {
   type GeneratedGrants,
   type GrantData,
   type RegistrySetData,
+  ShapeTree,
   childIris,
   frameDataInstance,
-  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+
 import {
   INTEROP,
   type WhatwgFetch,
   iriForContained,
+  loader,
   storageIri,
 } from '@janeirodigital/interop-utils'
 import {

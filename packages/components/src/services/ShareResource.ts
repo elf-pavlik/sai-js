@@ -13,6 +13,7 @@ import {
   type AccessNeedData,
   type AccessNeedGroupData,
   type AuthorizationGranted,
+  ClientIdDocument,
   type DataAuthorizationData,
   type DataInstanceData,
   DataRegistration,
@@ -22,10 +23,11 @@ import {
   ShapeTree,
   isBlob,
   labelFromNode,
-  loadClientIdDocument,
-  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
+
+import { INTEROP, loader } from '@janeirodigital/interop-utils'
 import {
   IRI,
   NeedBasedAccessRequestSentMessage,

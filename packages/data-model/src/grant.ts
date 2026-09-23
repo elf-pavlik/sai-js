@@ -1,12 +1,4 @@
-import {
-  INTEROP,
-  frameNode,
-  loader,
-  opt,
-  str,
-  strs,
-  withContext,
-} from '@janeirodigital/interop-utils'
+import { INTEROP, frameNode, opt, str, strs, withContext } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -89,7 +81,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
 /**
  * Fetch and load a grant resource as a GrantData POJO.
  */
-export const loadGrant = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: GrantData → JSON-LD

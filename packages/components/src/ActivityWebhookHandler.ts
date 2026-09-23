@@ -2,8 +2,10 @@ import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-a
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type { EmbeddedNeedBasedAccessRequest } from '@janeirodigital/interop-data-model'
 import type { ActivityCompleted, ActivityData } from '@janeirodigital/interop-data-model'
-import { isActivityClass, loadDataAuthorization } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { DataAuthorization, isActivityClass } from '@janeirodigital/interop-data-model'
+const loadDataAuthorization = loader(DataAuthorization.fromJsonLd)
+
+import { INTEROP, loader } from '@janeirodigital/interop-utils'
 import {
   AdminAuthorizationGranted,
   AdminAuthorizationRevoked,

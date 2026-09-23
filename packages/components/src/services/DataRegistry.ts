@@ -2,13 +2,15 @@ import { dataInstanceIrisForGrant } from '@janeirodigital/interop-authorization-
 import { loadDataInstance } from '@janeirodigital/interop-authorization-agent'
 import type { GrantData } from '@janeirodigital/interop-data-model'
 import {
+  DataRegistration as DataRegistrationModel,
   Grant,
   ShapeTree,
   labelFromNode,
-  loadDataRegistration,
-  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { storageIri } from '@janeirodigital/interop-utils'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+const loadDataRegistration = loader(DataRegistrationModel.fromJsonLd)
+
+import { loader, storageIri } from '@janeirodigital/interop-utils'
 import {
   DataInstance,
   DataRegistration,

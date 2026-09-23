@@ -1,9 +1,11 @@
 import {
+  SocialAgentRegistration,
   type SocialAgentRegistrationData,
   getAdminGrantIris,
-  loadSocialAgentRegistration,
   toDataset,
 } from '@janeirodigital/interop-data-model'
+const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
+
 import {
   INTEROP,
   RDF,
@@ -12,6 +14,7 @@ import {
   createContainer,
   deletePatch,
   insertPatch,
+  loader,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, Store } from 'n3'
 

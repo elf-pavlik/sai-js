@@ -3,13 +3,15 @@ import {
   DataRegistration,
   Grant,
   type GrantData,
+  ShapeTree,
   type ShapeTreeData,
   childIris,
   frameDataInstanceFromDoc,
-  loadDataRegistration,
-  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+const loadDataRegistration = loader(DataRegistration.fromJsonLd)
+
+import { INTEROP, discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
 import type { ResolvedContext } from './Context.js'
 
 /**

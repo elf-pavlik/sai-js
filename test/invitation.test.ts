@@ -1,6 +1,9 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { loadSocialAgentInvitation } from '@janeirodigital/interop-data-model'
+import { SocialAgentInvitation } from '@janeirodigital/interop-data-model'
+import { loader } from '@janeirodigital/interop-utils'
+const loadSocialAgentInvitation = loader(SocialAgentInvitation.fromJsonLd)
+
 import { describe, expect, test } from 'vitest'
 import {
   rpcPayload,

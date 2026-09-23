@@ -1,6 +1,8 @@
 import { QueryEngine } from '@comunica/query-sparql-rdfjs'
-import { loadShapeTree } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
+import { ShapeTree } from '@janeirodigital/interop-data-model'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+
+import { discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
 import { ACL, INTEROP } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'

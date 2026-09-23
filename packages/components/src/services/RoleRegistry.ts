@@ -4,9 +4,11 @@ import {
   type RoleData,
   type RoleDeleted,
   type RoleMembershipChanged,
-  loadRole,
+  Role as RoleModel,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+const loadRole = loader(RoleModel.fromJsonLd)
+
+import { INTEROP, iriForContained, loader } from '@janeirodigital/interop-utils'
 import {
   IRI,
   Role,

@@ -4,7 +4,10 @@ import {
   getSocialAgentRegistration,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import { getDataGrantIris, loadDataAuthorization } from '@janeirodigital/interop-data-model'
+import { DataAuthorization, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { loader } from '@janeirodigital/interop-utils'
+const loadDataAuthorization = loader(DataAuthorization.fromJsonLd)
+
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
   awaitGrantCompletion,

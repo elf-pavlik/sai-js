@@ -1,12 +1,4 @@
-import {
-  INTEROP,
-  documentValues,
-  frameNode,
-  loader,
-  opt,
-  str,
-  strs,
-} from '@janeirodigital/interop-utils'
+import { INTEROP, documentValues, frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -62,5 +54,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<AccessNeedDa
     descriptionLanguages: await documentValues(doc, id, INTEROP.usesLanguage),
   }
 }
-
-export const loadAccessNeed = loader(fromJsonLd)

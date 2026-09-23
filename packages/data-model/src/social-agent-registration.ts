@@ -1,4 +1,4 @@
-import { SKOS, frameNode, loader, opt, str, strs } from '@janeirodigital/interop-utils'
+import { SKOS, frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
 import { DataFactory, type Store } from 'n3'
 import { type AgentRegistrationId, toDataset as registrationToDataset } from './agent-registration'
 import { dataModelContext } from './context'
@@ -55,8 +55,6 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentR
     reciprocalRegistration: opt(node, 'reciprocalRegistration'),
   }
 }
-
-export const loadSocialAgentRegistration = loader(fromJsonLd)
 
 // ──────────────────────────
 // Write path: SocialAgentRegistrationData → Dataset

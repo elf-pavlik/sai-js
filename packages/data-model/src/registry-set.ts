@@ -1,4 +1,4 @@
-import { frameNode, loader, opt, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, opt, str, strs } from '@janeirodigital/interop-utils'
 import type { ActivityRegistryData } from './activity-registry'
 import type {
   ApplicationRegistryData,
@@ -68,5 +68,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<RegistrySetD
       : undefined,
   }
 }
-
-export const loadRegistrySet = loader(fromJsonLd)

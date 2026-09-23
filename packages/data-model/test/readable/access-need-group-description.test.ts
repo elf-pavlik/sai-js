@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { fetch } from '@janeirodigital/interop-test-utils'
+import { loader } from '@janeirodigital/interop-utils'
 import { test } from 'vitest'
-import { loadAccessNeedGroupDescription } from '../../src'
+import { AccessNeedGroupDescription } from '../../src'
+const loadAccessNeedGroupDescription = loader(AccessNeedGroupDescription.fromJsonLd)
+
 import { expect } from '../expect'
 
 const deps = { fetch, randomUUID }

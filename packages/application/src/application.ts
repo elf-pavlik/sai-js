@@ -1,8 +1,10 @@
 import {
+  ApplicationRegistration,
   type ApplicationRegistrationData,
   type DataOwnerData,
-  loadApplicationRegistration,
 } from '@janeirodigital/interop-data-model'
+const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
+
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   ACL,
@@ -12,6 +14,7 @@ import {
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
   iriForContained,
+  loader,
 } from '@janeirodigital/interop-utils'
 import { getDataGrants, getDataInstanceIterator, getGranted } from './grant'
 

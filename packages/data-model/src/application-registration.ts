@@ -1,4 +1,4 @@
-import { frameNode, loader, str, strs } from '@janeirodigital/interop-utils'
+import { frameNode, str, strs } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 // ──────────────────────────
@@ -52,5 +52,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<ApplicationR
     granted: hasDataGrant.length > 0,
   }
 }
-
-export const loadApplicationRegistration = loader(fromJsonLd)

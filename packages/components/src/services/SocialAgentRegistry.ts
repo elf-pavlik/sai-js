@@ -3,11 +3,13 @@ import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import {
   type InvitationAccepted,
   type SocialAgentRegistrationData,
+  WebIdProfile,
   getAdminGrantIris,
   getDataGrantIris,
-  loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+const loadWebIdProfile = loader(WebIdProfile.fromJsonLd)
+
+import { INTEROP, loader } from '@janeirodigital/interop-utils'
 import { IRI, InvitationAcceptedMessage, SocialAgent } from '@janeirodigital/sai-api-messages'
 import type * as S from 'effect/Schema'
 import type { ResolvedContext } from './Context.js'

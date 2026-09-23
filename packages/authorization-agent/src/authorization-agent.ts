@@ -13,6 +13,7 @@ import {
   type FinalDataAuthorizationData,
   type GeneratedGrants,
   type InvitationRegistryData,
+  RegistrySet,
   type RegistrySetData,
   type RoleData,
   // (a2) ShareDataInstanceStructure canonical shape moved verbatim into
@@ -21,14 +22,16 @@ import {
   type ShareDataInstanceStructure,
   type SocialAgentRegistrationData,
   type SocialAgentRegistryData,
+  WebIdProfile,
   type WebIdProfileData,
   getDataGrantIris,
-  loadRegistrySet,
-  loadWebIdProfile,
 } from '@janeirodigital/interop-data-model'
 // re-export so package consumers (components services, tests) keep importing
 // it from '@janeirodigital/interop-authorization-agent'
 export type { ShareDataInstanceStructure } from '@janeirodigital/interop-data-model'
+const loadRegistrySet = loader(RegistrySet.fromJsonLd)
+const loadWebIdProfile = loader(WebIdProfile.fromJsonLd)
+const loadAdminAuthorization = loader(AdminAuthorization.fromJsonLd)
 import {
   INTEROP,
   LDP,
@@ -39,6 +42,7 @@ import {
   getRegistrySetIri,
   iriForContained,
   linkedIrisJsonLd,
+  loader,
   putJsonLd,
   replaceStatement,
 } from '@janeirodigital/interop-utils'
@@ -534,7 +538,7 @@ export class AuthorizationAgent {
     const iris = await linkedIrisJsonLd(registry.id, this.fetch, LDP.contains)
     const result: AdminAuthorizationData[] = []
     for (const iri of iris) {
-      const adminAuthorization = await AdminAuthorization.loadAdminAuthorization(iri, this.fetch)
+      const adminAuthorization = await loadAdminAuthorization(iri, this.fetch)
       if (adminAuthorization.type.includes(INTEROP.AdminAuthorization)) {
         result.push(adminAuthorization)
       }

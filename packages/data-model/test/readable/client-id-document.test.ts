@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
+import { loader } from '@janeirodigital/interop-utils'
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { ClientIdDocument } from '../../src'
+const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
+
 import { expect } from '../expect'
 
 const snippetIri = 'https://acme.pod.docker/projectron/id'
@@ -29,23 +32,23 @@ const deps = { fetch, randomUUID }
 
 describe('getters', () => {
   test('hasAccessNeedGroup', async () => {
-    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
+    const clientIdDocument = await loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.hasAccessNeedGroup).toBe(
       'https://acme.pod.docker/projectron/access-needs#need-group-pm'
     )
   })
   test('callbackEndpoint', async () => {
-    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
+    const clientIdDocument = await loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.callbackEndpoint).toBe('https://app.example')
   })
 
   test('clientName', async () => {
-    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
+    const clientIdDocument = await loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.clientName).toEqual('Projectron')
   })
 
   test('logoUri', async () => {
-    const clientIdDocument = await ClientIdDocument.loadClientIdDocument(snippetIri, deps.fetch)
+    const clientIdDocument = await loadClientIdDocument(snippetIri, deps.fetch)
     expect(clientIdDocument.logoUri).toEqual(
       'https://robohash.org/https://projectron.example/?set=set3'
     )

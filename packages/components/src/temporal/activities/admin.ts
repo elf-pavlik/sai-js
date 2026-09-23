@@ -7,10 +7,12 @@ import type {
 } from '@janeirodigital/interop-data-model'
 import {
   AdminAuthorization,
+  Grant,
   dataGrantTemplate,
   dataModelContext,
-  loadGrant,
 } from '@janeirodigital/interop-data-model'
+const loadGrant = loader(Grant.fromJsonLd)
+
 import {
   ACL,
   INTEROP,
@@ -21,6 +23,7 @@ import {
   getAcl,
   iriForContained,
   linkedIrisJsonLd,
+  loader,
   parseTurtle,
   putJsonLd,
   serializeTurtle,

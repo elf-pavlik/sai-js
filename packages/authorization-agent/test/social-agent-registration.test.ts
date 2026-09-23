@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { replaceAdminGrantLinks } from '@janeirodigital/interop-authorization-agent'
 import {
+  SocialAgentRegistration,
   getAdminGrantIris,
   getDataGrantIris,
-  loadSocialAgentRegistration,
 } from '@janeirodigital/interop-data-model'
+import { loader } from '@janeirodigital/interop-utils'
+const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
+
 import { fetch, statelessFetch } from '@janeirodigital/interop-test-utils'
 import { describe, test, vi } from 'vitest'
 import { expect } from './expect'

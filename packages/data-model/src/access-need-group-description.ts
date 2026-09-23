@@ -1,4 +1,4 @@
-import { frameNode, loader, opt, str } from '@janeirodigital/interop-utils'
+import { frameNode, opt, str } from '@janeirodigital/interop-utils'
 import type { AccessDescriptionData, AccessDescriptionId } from './access-description'
 import { dataModelContext } from './context'
 
@@ -33,5 +33,3 @@ export async function fromJsonLd(
     hasAccessNeedGroup: str(node, 'hasAccessNeedGroup'),
   }
 }
-
-export const loadAccessNeedGroupDescription = loader(fromJsonLd)

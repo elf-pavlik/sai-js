@@ -1,14 +1,18 @@
 import {
+  ApplicationRegistration,
   type ApplicationRegistrationData,
   type ApplicationRegistryData,
   type InvitationRegistryData,
+  SocialAgentInvitation,
   type SocialAgentInvitationData,
+  SocialAgentRegistration,
   type SocialAgentRegistrationData,
   type SocialAgentRegistryData,
-  loadApplicationRegistration,
-  loadSocialAgentInvitation,
-  loadSocialAgentRegistration,
 } from '@janeirodigital/interop-data-model'
+const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
+const loadSocialAgentInvitation = loader(SocialAgentInvitation.fromJsonLd)
+const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
+
 import type { AgentAndClient } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -17,6 +21,7 @@ import {
   discoverAuthorizationAgent,
   iriForContained,
   linkedIrisJsonLd,
+  loader,
 } from '@janeirodigital/interop-utils'
 import { setAcr } from './agent-registration'
 import { createApplicationRegistration } from './application-registration'

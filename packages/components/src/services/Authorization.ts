@@ -15,19 +15,22 @@ import {
 import {
   type AccessNeedData,
   type AccessNeedGroupData,
+  AccessRequest,
   type AccessRequestArchived,
   type AuthorizationDenied,
   type AuthorizationGranted,
+  ClientIdDocument,
   type EmbeddedAuthorization,
   type GrantData,
   type NeedBasedAccessRequestGroup,
   ShapeTree,
   type SocialAgentRegistrationData,
-  loadClientIdDocument,
-  loadNeedBasedAccessRequest,
-  loadShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
+const loadNeedBasedAccessRequest = loader(AccessRequest.fromJsonLd)
+
+import { INTEROP, type WhatwgFetch, loader } from '@janeirodigital/interop-utils'
 import {
   AccessNeed,
   AccessRequestArchivedMessage,

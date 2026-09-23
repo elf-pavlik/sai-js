@@ -1,7 +1,9 @@
 import type { WhatwgFetch } from '@janeirodigital/interop-utils'
-import { INTEROP, LDP, SPACE } from '@janeirodigital/interop-utils'
+import { INTEROP, LDP, SPACE, loader } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 import { RegistrySet } from '../../src'
+const loadRegistrySet = loader(RegistrySet.fromJsonLd)
+
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
@@ -14,7 +16,7 @@ describe('RegistrySet framing', () => {
   test('frames the registry set graph into RegistrySetData', async () => {
     const doc = await docFromGraphs([`meta:${REGISTRY_SET_IRI}`])
     const fetch = (async () => ({ ok: true, json: async () => doc })) as unknown as WhatwgFetch
-    const registrySet = await RegistrySet.loadRegistrySet(REGISTRY_SET_IRI, fetch)
+    const registrySet = await loadRegistrySet(REGISTRY_SET_IRI, fetch)
     expect(registrySet).toEqual({
       id: REGISTRY_SET_IRI,
       type: [INTEROP.RegistrySet, LDP.Resource, SPACE.Storage],

@@ -1,6 +1,9 @@
 import { putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
 import type { CreateInvitationPojo } from '@janeirodigital/interop-data-model'
-import { loadSocialAgentInvitation } from '@janeirodigital/interop-data-model'
+import { SocialAgentInvitation } from '@janeirodigital/interop-data-model'
+import { loader } from '@janeirodigital/interop-utils'
+const loadSocialAgentInvitation = loader(SocialAgentInvitation.fromJsonLd)
+
 import { buildSessionManager } from '../../builders/sessionManager.js'
 import { invitationUrl } from '../../util/uriTemplates.js'
 

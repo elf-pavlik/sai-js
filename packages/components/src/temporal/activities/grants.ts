@@ -18,14 +18,18 @@ import {
   type AgentOrRoleId,
   type AuthorizationGranted,
   type AuthorizationRevoked,
+  ClientIdDocument,
+  DataAuthorization,
   type DataAuthorizationData,
   type DataAuthorizationId,
   type FinalDataAuthorizationData,
   type FinalGrantData,
   type GeneratedGrants,
+  Grant,
   type GrantData,
   type GrantId,
   type IncomingGrantData,
+  Role,
   type RoleData,
   type RoleId,
   type SocialAgentId,
@@ -33,18 +37,20 @@ import {
   dataModelContext,
   getDataGrantIris,
   isActivityClass,
-  loadClientIdDocument,
-  loadDataAuthorization,
-  loadGrant,
-  loadRole,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
+const loadRole = loader(Role.fromJsonLd)
+const loadGrant = loader(Grant.fromJsonLd)
+const loadDataAuthorization = loader(DataAuthorization.fromJsonLd)
+const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
+
 import {
   INTEROP,
   discoverAuthorizationAgent,
   discoverDelegationIssuanceEndpoint,
   expandedJsonLd,
   getAcl,
+  loader,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'

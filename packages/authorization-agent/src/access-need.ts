@@ -1,10 +1,13 @@
 import {
+  AccessNeed,
   type AccessNeedData,
   type AccessNeedDescriptionData,
-  loadAccessNeed,
-  loadShapeTree,
+  ShapeTree,
 } from '@janeirodigital/interop-data-model'
-import { type WhatwgFetch, parseJsonld } from '@janeirodigital/interop-utils'
+const loadShapeTree = loader(ShapeTree.fromJsonLd)
+const loadAccessNeed = loader(AccessNeed.fromJsonLd)
+
+import { type WhatwgFetch, loader, parseJsonld } from '@janeirodigital/interop-utils'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 
 /**

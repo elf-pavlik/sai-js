@@ -1,9 +1,11 @@
 import {
+  AccessNeedGroup,
   type AccessNeedGroupData,
   type AccessNeedGroupDescriptionData,
-  loadAccessNeedGroup,
 } from '@janeirodigital/interop-data-model'
-import { type WhatwgFetch, parseJsonld } from '@janeirodigital/interop-utils'
+const loadAccessNeedGroup = loader(AccessNeedGroup.fromJsonLd)
+
+import { type WhatwgFetch, loader, parseJsonld } from '@janeirodigital/interop-utils'
 import { findInLanguage, loadDescriptions } from './access-description-set'
 import {
   accessNeed,

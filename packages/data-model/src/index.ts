@@ -13,15 +13,12 @@ export {
   type SocialAgentRegistrationId,
   type SocialAgentId,
   getAdminGrantIris,
-  socialAgentRegistrationContext,
   toDataset,
 } from './social-agent-registration'
 export type { SocialAgentInvitationData, SocialAgentInvitationId } from './social-agent-invitation'
 export * as SocialAgentInvitation from './social-agent-invitation'
-export { socialAgentInvitationContext } from './social-agent-invitation'
 export type { RoleData, RoleId } from './role'
 export * as Role from './role'
-export { roleContext } from './role'
 export * as SocialAgentRegistration from './social-agent-registration'
 // registries exported as namespaces to avoid colliding names
 export type {
@@ -79,7 +76,6 @@ export type {
 export * as DataAuthorization from './data-authorization'
 export type { WebIdProfileData, WebIdProfileId } from './web-id-profile'
 export * as WebIdProfile from './web-id-profile'
-export { webIdProfileContext } from './web-id-profile'
 export type { ClientIdDocumentData, ClientIdDocumentId } from './client-id-document'
 export * as ClientIdDocument from './client-id-document'
 export type {
@@ -88,7 +84,6 @@ export type {
 } from './shape-tree-description'
 export * as ShapeTreeDescription from './shape-tree-description'
 export type { AccessDescriptionData, AccessDescriptionId } from './access-description'
-export { accessDescriptionContext } from './access-description'
 export type { AccessNeedDescriptionData, AccessNeedDescriptionId } from './access-need-description'
 export * as AccessNeedDescription from './access-need-description'
 export type {

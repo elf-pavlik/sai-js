@@ -26,18 +26,6 @@ export type SocialAgentId = {
   type: string[]
 }
 
-/**
- * Per-model context: the shared context with `label` as a language map
- * (`@container: '@language'`, JSON-LD 1.1 §4.6.2) — tagged prefLabels compact
- * under their language tag, untagged under `@none`. `buildFrame` skips
- * language-map terms (their default frame entry would be parsed as the map
- * itself), so framing emits the map as-is.
- */
-export const socialAgentRegistrationContext: JsonLdContext = {
-  ...dataModelContext,
-  label: { '@id': SKOS.prefLabel, '@container': '@language' },
-}
-
 // ──────────────────────────
 // Read path: JSON-LD → SocialAgentRegistrationData
 // ──────────────────────────
@@ -63,7 +51,7 @@ const SOCIAL_AGENT_REGISTRATION_TERMS = [
  * rdf:type (from framing) to a string array.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<SocialAgentRegistrationData> {
-  const node = await frameNode(doc, socialAgentRegistrationContext, id)
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id,
     type: node.type ?? [],

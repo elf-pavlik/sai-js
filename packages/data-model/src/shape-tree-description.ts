@@ -1,5 +1,5 @@
 import { type LanguageMap, frameNode } from '@janeirodigital/interop-utils'
-import { accessDescriptionContext } from './access-description'
+import { dataModelContext } from './context'
 
 // ──────────────────────────
 // Types
@@ -33,7 +33,7 @@ const SHAPE_TREE_DESCRIPTION_TERMS = ['label', 'definition']
  * or flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ShapeTreeDescriptionData> {
-  const node = await frameNode(doc, accessDescriptionContext, id)
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],

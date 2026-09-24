@@ -25,18 +25,6 @@ export type WebIdProfileData = WebIdProfileId & {
   oidcIssuer?: string
 }
 
-/**
- * Per-model context: the shared context with `label` as a language map
- * (`@container: '@language'`, JSON-LD 1.1 §4.6.2) — tagged prefLabels compact
- * under their language tag, untagged under `@none`. `buildFrame` skips
- * language-map terms (their default frame entry would be parsed as the map
- * itself), so framing emits the map as-is.
- */
-export const webIdProfileContext: JsonLdContext = {
-  ...dataModelContext,
-  label: { '@id': SKOS.prefLabel, '@container': '@language' },
-}
-
 // ──────────────────────────
 // Read path: JSON-LD → WebIdProfileData
 // ──────────────────────────
@@ -49,7 +37,7 @@ const WEB_ID_PROFILE_TERMS = ['label', 'oidcIssuer']
  * flattened form.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<WebIdProfileData> {
-  const node = await frameNode(doc, webIdProfileContext, id)
+  const node = await frameNode(doc, dataModelContext, id)
   return {
     id: node.id ?? node['@id'],
     type: node.type ?? [],

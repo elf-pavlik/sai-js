@@ -89,7 +89,7 @@ describe('dataModelContext activity terms', () => {
     expect(node.object).toMatchObject({
       id: 'urn:uuid:00000000-0000-0000-0000-000000000000',
       capabilityUrl: 'https://alice.example/invitations/abc',
-      label: 'Dan',
+      label: { '@none': 'Dan' },
     })
   })
 

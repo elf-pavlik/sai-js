@@ -1,7 +1,7 @@
 import {
   type RoleData,
   type RoleRegistryData,
-  roleContext,
+  dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
@@ -20,9 +20,9 @@ import type { DataModelDependencies } from './types'
 // ──────────────────────────
 
 export async function putRole(data: RoleData, fetch: WhatwgFetch): Promise<void> {
-  // `roleContext` carries the `label` language-map container so the map
+  // the shared context carries the `label` language-map container so the map
   // expands to proper literals on the wire
-  await putJsonLd(data.id, fetch, withContext(roleContext, data))
+  await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
 }
 
 // ──────────────────────────

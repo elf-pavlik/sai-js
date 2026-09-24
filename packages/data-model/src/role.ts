@@ -1,10 +1,4 @@
-import {
-  type JsonLdContext,
-  type LanguageMap,
-  SKOS,
-  frameNode,
-  selectNode,
-} from '@janeirodigital/interop-utils'
+import { type LanguageMap, frameNode, selectNode } from '@janeirodigital/interop-utils'
 import { dataModelContext } from './context'
 
 export type RoleId = {
@@ -18,21 +12,9 @@ export type RoleData = RoleId & {
   members: string[]
 }
 
-/**
- * Per-model context: the shared context with `label` as a language map
- * (`@container: '@language'`, JSON-LD 1.1 §4.6.2) — tagged prefLabels compact
- * under their language tag, untagged under `@none`. `buildFrame` skips
- * language-map terms (their default frame entry would be parsed as the map
- * itself), so framing emits the map as-is. Other models still read `label` as
- * a scalar until they opt in model by model.
- */
-export const roleContext: JsonLdContext = {
-  ...dataModelContext,
-  label: { '@id': SKOS.prefLabel, '@container': '@language' },
-}
-
 const ROLE_TERMS = ['label', 'members'] as const
 
 export async function fromJsonLd(doc: unknown, id: string): Promise<RoleData> {
-  return selectNode(await frameNode(doc, roleContext, id), ROLE_TERMS) as unknown as RoleData
+  // `label` is a language map in the shared context (`@container: '@language'`)
+  return selectNode(await frameNode(doc, dataModelContext, id), ROLE_TERMS) as unknown as RoleData
 }

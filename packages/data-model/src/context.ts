@@ -160,9 +160,12 @@ export const dataModelContext: JsonLdContext = {
   descriptionLanguages: { '@id': SHAPETREES.usesLanguage, '@container': '@set' },
 
   // skos — literals (the unified `label` term: `skos:prefLabel` everywhere,
-  // the `prefLabel` key no longer exists — one term, no compaction ambiguity)
-  label: { '@id': SKOS.prefLabel },
-  definition: { '@id': SKOS.definition },
+  // the `prefLabel` key no longer exists — one term, no compaction ambiguity).
+  // `label`/`definition` are LANGUAGE MAPS (`@container: '@language'`, JSON-LD
+  // 1.1 §4.6.2): tagged values index under their tag, untagged under `@none`.
+  // `buildFrame` skips language-map terms, so framing emits the maps as-is.
+  label: { '@id': SKOS.prefLabel, '@container': '@language' },
+  definition: { '@id': SKOS.definition, '@container': '@language' },
   note: { '@id': SKOS.note },
 
   // solid / oidc

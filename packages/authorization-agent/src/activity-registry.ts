@@ -29,16 +29,6 @@ import {
 } from '@janeirodigital/interop-utils'
 import type { DataModelDependencies } from './types'
 
-// activity documents embed role-object snapshots whose `label` is a language
-// map — the write context carries `@container: '@language'` so the map
-// expands to real literals (a map under the scalar term would expand into a
-// bogus blank node); plain-string labels (invitations, registrations) expand
-// unchanged.
-const activityWriteContext: JsonLdContext = {
-  ...dataModelContext,
-  label: { '@id': SKOS.prefLabel, '@container': '@language' },
-}
-
 /** The activity resources currently in the registry (ldp:contains). */
 export async function getActivityIris(
   data: ActivityRegistryData,
@@ -61,7 +51,7 @@ export async function createActivity(
   activity: Omit<ActivityData, 'id'>
 ): Promise<ActivityData> {
   const iri = iriForContained(data, deps.randomUUID)
-  const doc = withContext(activityWriteContext, { ...activity, id: iri })
+  const doc = withContext(dataModelContext, { ...activity, id: iri })
   await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
   return { ...activity, id: iri } as ActivityData
 }
@@ -146,11 +136,14 @@ function asStringArray(value: unknown): string[] {
 }
 
 /**
- * The embedded snapshot's label framed with the scalar `label` term — convert
- * it back to the language map the snapshot type carries: plain strings sit
- * under `@none`, language-tagged value objects under their tag.
+ * The embedded snapshot's label. With the language-map container now in the
+ * shared context, the embedded value frames as a language map already — pass
+ * it through unchanged. (Older callers may still pass a plain string or a
+ * `{ '@value', '@language' }` value object if the doc carried its own scalar
+ * context.)
  */
 function embeddedLabel(value: unknown): LanguageMap {
+  if (isLanguageMap(value)) return value
   const entries = Array.isArray(value) ? value : [value]
   const map: LanguageMap = {}
   for (const entry of entries) {
@@ -165,6 +158,19 @@ function embeddedLabel(value: unknown): LanguageMap {
     }
   }
   return map
+}
+
+/** A framed language map (`@none` and/or bare language-tag string entries). */
+function isLanguageMap(value: unknown): value is LanguageMap {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Record<string, unknown>
+  const keys = Object.keys(candidate)
+  return (
+    keys.length > 0 &&
+    keys.every((key) =>
+      key.startsWith('@') ? key === '@none' : typeof candidate[key] === 'string'
+    )
+  )
 }
 
 /** The ASV activity types ride the `type` tuple beside the interop class. */
@@ -441,7 +447,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           type: asStringArray((node.object as RoleData)?.type),
           // the decode surfaces the picked plain string — re-wrap it into the
           // language map the RoleData type carries
-          label: { '@none': asString((node.object as RoleData)?.label) },
+          label: embeddedLabel((node.object as RoleData)?.label),
           members: asStringArray((node.object as RoleData)?.members),
         },
       }
@@ -458,7 +464,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           type: asStringArray((node.object as RoleData)?.type),
           // the decode surfaces the picked plain string — re-wrap it into the
           // language map the RoleData type carries
-          label: { '@none': asString((node.object as RoleData)?.label) },
+          label: embeddedLabel((node.object as RoleData)?.label),
           members: asStringArray((node.object as RoleData)?.members),
         },
       }
@@ -475,7 +481,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
           type: asStringArray((node.object as RoleData)?.type),
           // the decode surfaces the picked plain string — re-wrap it into the
           // language map the RoleData type carries
-          label: { '@none': asString((node.object as RoleData)?.label) },
+          label: embeddedLabel((node.object as RoleData)?.label),
           members: asStringArray((node.object as RoleData)?.members),
         },
       }

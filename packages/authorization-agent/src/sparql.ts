@@ -12,8 +12,6 @@ import {
   type SocialAgentInvitationData,
   type SocialAgentRegistrationData,
   dataModelContext,
-  roleContext,
-  socialAgentRegistrationContext,
 } from '@janeirodigital/interop-data-model'
 import { AS, INTEROP, LDP, type LanguageMap, frameDoc } from '@janeirodigital/interop-utils'
 /**
@@ -141,7 +139,7 @@ export async function getSocialAgentRegistration(
   iri: string
 ): Promise<SocialAgentRegistrationData> {
   const doc = await graphDoc(transport, iri)
-  const node = (await frameDoc(doc, socialAgentRegistrationContext, iri)) as Record<string, unknown>
+  const node = (await frameDoc(doc, dataModelContext, iri)) as Record<string, unknown>
   return {
     id: iri,
     type: (node.type as string[] | undefined) ?? [],
@@ -338,7 +336,7 @@ export async function getRole(
 ): Promise<RoleData | undefined> {
   const doc = await graphDoc(transport, iri)
   if (Array.isArray(doc) && doc.length === 0) return undefined
-  const node = (await frameDoc(doc, roleContext, iri)) as any
+  const node = (await frameDoc(doc, dataModelContext, iri)) as any
   const type = (node.type as string[] | undefined) ?? []
   // Type guard: ANY non-empty graph at the IRI is not a role. In dev the
   // app's client-id document lives at the application IRI (map.json maps

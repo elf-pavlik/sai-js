@@ -34,8 +34,9 @@ describe('framing regressions', () => {
       },
     ]
     const framed = (await frameDoc(doc, dataModelContext, 'https://example.test/#node')) as any
-    // skos:prefLabel frames to the single `label` key (context: label → SKOS.prefLabel)
-    expect(framed.label).toBe('pref')
+    // skos:prefLabel frames to the single `label` key (context: label → SKOS.prefLabel,
+    // a language map — the untagged value under `@none`)
+    expect(framed.label).toEqual({ '@none': 'pref' })
     // rdfs:label has no term anymore — it must not be picked up by `label`
     expect(framed.prefLabel).toBeUndefined()
   })

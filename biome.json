@@ -5,6 +5,7 @@
       "**/dist/**",
       "**/src/**/*.d.ts",
       "**/test/**/*.d.ts",
+      "**/.dagger/sdk/**",
       ".devbox",
       ".turbo",
       "docs/website/.astro",

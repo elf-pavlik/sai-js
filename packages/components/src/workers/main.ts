@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { OpenTelemetryPlugin } from '@temporalio/interceptors-opentelemetry-v2'
 import { NativeConnection, Worker } from '@temporalio/worker'
 import * as accessRequestActivities from '../temporal/activities/access-request.js'
 import * as adminActivities from '../temporal/activities/admin.js'
@@ -7,6 +8,8 @@ import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
 import * as invitationActivities from '../temporal/activities/invitation.js'
 import * as reciprocalActivities from '../temporal/activities/reciprocal.js'
+import { initNodeTracing } from '../tracing/bootstrap.js'
+import { temporalPluginConfig } from '../tracing/otel-state.js'
 
 async function connectWithRetry() {
   while (true) {
@@ -22,6 +25,10 @@ async function connectWithRetry() {
 }
 async function run() {
   const connection = await connectWithRetry()
+  // no-op unless OTEL_TRACES_FILE is set (docs/plans/opentelemetry.md)
+  const otelSdk = await initNodeTracing('sai-worker')
+  const pluginConfig = temporalPluginConfig()
+  const plugins = pluginConfig ? [new OpenTelemetryPlugin(pluginConfig)] : []
 
   try {
     const forward = await Worker.create({
@@ -31,6 +38,7 @@ async function run() {
         new URL('../temporal/workflows/forward-to-push.js', import.meta.url)
       ),
       activities: forwardActivities,
+      plugins,
     })
 
     const reciprocal = await Worker.create({
@@ -40,6 +48,7 @@ async function run() {
       // markActivitiesDone (from grants) is called by establishReciprocal — it
       // must be registered on the queue that workflow runs on
       activities: { ...reciprocalActivities, ...grantsActivities },
+      plugins,
     })
 
     const grants = await Worker.create({
@@ -57,11 +66,15 @@ async function run() {
         ...invitationActivities,
         ...accessRequestActivities,
       },
+      plugins,
     })
 
     // Run all workers simultaneously
     await Promise.all([forward.run(), reciprocal.run(), grants.run()])
   } finally {
+    // flush pending spans before the process exits (dagger kills the service
+    // right after the test exec)
+    await otelSdk?.shutdown()
     // only close once every worker is done — while a worker still holds the
     // connection close() throws IllegalStateError, which must not mask the
     // actual worker failure below

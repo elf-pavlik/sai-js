@@ -1,7 +1,20 @@
 import { readFile } from 'node:fs/promises'
+import { initNodeTracing } from '@elfpavlik/sai-components'
 import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
+import { context } from '@opentelemetry/api'
+import { suppressTracing } from '@opentelemetry/core'
 import { S3mini } from 's3mini'
 import { afterAll, beforeAll, beforeEach } from 'vitest'
+
+// opt-in OpenTelemetry (docs/plans/opentelemetry.md): a no-op unless the
+// .dagger otel-dump run sets OTEL_TRACES_FILE. The test runner plays the
+// browser/App role — this process holds the trace roots.
+await initNodeTracing('sai-test')
+
+// seeding/teardown is harness I/O, not part of any interaction — keep it out
+// of the traces (iso a no-op when no SDK/instrumentation is active)
+const withoutTracing = <T>(fn: () => Promise<T>): Promise<T> =>
+  context.with(suppressTracing(context.active()), fn)
 
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
 const keyValuePath = '../environments/data/kv.json'
@@ -28,12 +41,14 @@ const garage = new S3mini({
 })
 
 beforeAll(async () => {
-  await garage.putAnyObject(clientId, clientIdData, 'application/ld+json')
+  await withoutTracing(() => garage.putAnyObject(clientId, clientIdData, 'application/ld+json'))
 })
 afterAll(async () => {
-  await garage.deleteObject(clientId)
+  await withoutTracing(() => garage.deleteObject(clientId))
 })
 beforeEach(async () => {
-  await pg.seedKeyValue(kvData)
-  await seedQuadstore(sparqlEndpoint, datasetData)
+  await withoutTracing(async () => {
+    await pg.seedKeyValue(kvData)
+    await seedQuadstore(sparqlEndpoint, datasetData)
+  })
 })

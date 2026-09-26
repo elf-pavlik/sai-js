@@ -35,6 +35,12 @@ const POSTGRESQL_VERSION = '16'
 const TEMPORAL_VERSION = '1.31.0'
 const TEMPORAL_ADMINTOOLS_VERSION = '1.31.0'
 
+// OpenTelemetry file dump: a cache volume shared by the services and the
+// test runner; `otelDump` materializes the per-process NDJSON files after
+// the run.
+const OTEL_CACHE_VOLUME = 'sai-otel-dump'
+const otelTracesFile = (runId: string, name: string) => `/otel/${runId}/${name}.ndjson`
+
 type LogLevel = 'error' | 'warn' | 'info' | 'verbose' | 'debug' | 'silly'
 
 const CSS_LOG_LEVEL: LogLevel = 'warn'
@@ -211,7 +217,11 @@ export class SaiJs {
   }
 
   @func()
-  async workerService(): Promise<Service> {
+  @func()
+  async workerService(
+    @argument()
+    runId = 'dev'
+  ): Promise<Service> {
     const temporal = await this.temporalService()
     return (
       dag
@@ -235,6 +245,11 @@ export class SaiJs {
         // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
         // kept so re-enabling needs no dagger change
         .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        // OpenTelemetry: the worker imports the bootstrap from workers/main.ts
+        // (no preload needed); spans land in the shared dump when set
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'worker'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-worker')
         .withServiceBinding('postgresql', this.postgresService())
         .withServiceBinding('temporal', temporal)
         .withServiceBinding('sparql', this.sparqlService())
@@ -247,163 +262,222 @@ export class SaiJs {
   }
 
   @func()
-  idService(): Service {
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('ID_ORIGIN', 'id')
-      .withEnvVariable('DOC_ORIGIN', 'id')
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
-      .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
-      .withExposedPort(443)
-      .withServiceBinding('sparql', this.sparqlService())
-      .asService({
-        args: ['node', '/sai/services/id/https.ts'],
-      })
-      .withHostname('id')
+  idService(
+    @argument()
+    runId = 'dev'
+  ): Service {
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('ID_ORIGIN', 'id')
+        .withEnvVariable('DOC_ORIGIN', 'id')
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
+        .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
+        // OpenTelemetry server-side spans (sync --require preload, like auth)
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'id'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-id')
+        .withExposedPort(443)
+        .withServiceBinding('sparql', this.sparqlService())
+        .asService({
+          args: [
+            'node',
+            '--require=/sai/packages/components/src/tracing/preload.cjs',
+            '/sai/services/id/https.ts',
+          ],
+        })
+        .withHostname('id')
+    )
   }
 
   @func()
-  async authService(): Promise<Service> {
+  async authService(
+    @argument()
+    runId = 'dev'
+  ): Promise<Service> {
     const temporal = await this.temporalService()
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/auth.json')
-      .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
-      .withEnvVariable('CSS_AUTHORIZATION_ENDPOINT', 'https://ui.auth/authorize')
-      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
-      .withEnvVariable('CSS_PORT', CSS_PORT)
-      .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
-      .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
-      .withEnvVariable('CSS_VAPID_PUBLIC_KEY', CSS_VAPID_PUBLIC_KEY)
-      .withEnvVariable('CSS_VAPID_PRIVATE_KEY', CSS_VAPID_PRIVATE_KEY)
-      .withEnvVariable('CSS_PUSH_SENDER', CSS_PUSH_SENDER)
-      .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/auth'
-      )
-      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
-      .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
-      .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
-      .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
-      .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('temporal', temporal)
-      .withServiceBinding('id', this.idService())
-      .withServiceBinding('registry', this.registryService())
-      .withServiceBinding('data', this.dataService())
-      .withExposedPort(443)
-      .withExposedPort(9229)
-      .asService({
-        args: [
-          'node',
-          '--inspect=0.0.0.0:9229',
-          '/sai/node_modules/@solid/community-server/bin/server.js',
-        ],
-      })
-      .withHostname('auth')
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/auth.json')
+        .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
+        .withEnvVariable('CSS_AUTHORIZATION_ENDPOINT', 'https://ui.auth/authorize')
+        .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
+        .withEnvVariable('CSS_PORT', CSS_PORT)
+        .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
+        .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
+        .withEnvVariable('CSS_VAPID_PUBLIC_KEY', CSS_VAPID_PUBLIC_KEY)
+        .withEnvVariable('CSS_VAPID_PRIVATE_KEY', CSS_VAPID_PRIVATE_KEY)
+        .withEnvVariable('CSS_PUSH_SENDER', CSS_PUSH_SENDER)
+        .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/auth'
+        )
+        .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
+        .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
+        .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
+        .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
+        // OpenTelemetry: preload the tracing bootstrap (no-op without
+        // OTEL_TRACES_FILE — set here, so the auth process spans land in the
+        // run-specific dump subdir; per-run dir avoids the exec-cache-
+        // poisoned wipe, see otelDump). CSS has no app-level entrypoint we own.
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'auth'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-uas')
+        .withServiceBinding('postgresql', this.postgresService())
+        .withServiceBinding('temporal', temporal)
+        .withServiceBinding('id', this.idService(runId))
+        .withServiceBinding('registry', this.registryService(runId))
+        .withServiceBinding('data', this.dataService(runId))
+        .withExposedPort(443)
+        .withExposedPort(9229)
+        .asService({
+          args: [
+            'node',
+            '--inspect=0.0.0.0:9229',
+            // CJS on purpose: --require runs synchronously before CSS builds
+            // its HTTP server (--import preloads race — preload.cjs header)
+            '--require=/sai/packages/components/src/tracing/preload.cjs',
+            '/sai/node_modules/@solid/community-server/bin/server.js',
+          ],
+        })
+        .withHostname('auth')
+    )
   }
 
   @func()
-  registryService(): Service {
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/registry.json')
-      .withEnvVariable('CSS_BASE_URL', 'https://registry/')
-      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
-      .withEnvVariable('CSS_PORT', CSS_PORT)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
-      .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/auth'
-      )
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withExposedPort(443)
-      .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('sparql', this.sparqlService())
-      .withExposedPort(9230)
-      .asService({
-        args: [
-          'node',
-          '--inspect=0.0.0.0:9230',
-          '/sai/node_modules/@solid/community-server/bin/server.js',
-        ],
-      })
-      .withHostname('registry')
+  registryService(
+    @argument()
+    runId = 'dev'
+  ): Service {
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/registry.json')
+        .withEnvVariable('CSS_BASE_URL', 'https://registry/')
+        .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
+        .withEnvVariable('CSS_PORT', CSS_PORT)
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
+        .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/auth'
+        )
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        // OpenTelemetry server-side spans (sync --require preload, like auth)
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'registry'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-registry')
+        .withExposedPort(443)
+        .withServiceBinding('postgresql', this.postgresService())
+        .withServiceBinding('sparql', this.sparqlService())
+        .withExposedPort(9230)
+        .asService({
+          args: [
+            'node',
+            '--inspect=0.0.0.0:9230',
+            '--require=/sai/packages/components/src/tracing/preload.cjs',
+            '/sai/node_modules/@solid/community-server/bin/server.js',
+          ],
+        })
+        .withHostname('registry')
+    )
   }
 
   @func()
-  dataService(): Service {
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/data.json')
-      .withEnvVariable('CSS_BASE_URL', 'https://data/')
-      .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
-      .withEnvVariable('CSS_PORT', CSS_PORT)
-      .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
-      .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/auth'
-      )
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
-      .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
-      .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
-      .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
-      .withExposedPort(443)
-      .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('sparql', this.sparqlService())
-      .withServiceBinding('garage', this.garageService())
-      .withExposedPort(9231)
-      .asService({
-        args: [
-          'node',
-          '--inspect=0.0.0.0:9231',
-          '/sai/node_modules/@solid/community-server/bin/server.js',
-        ],
-      })
-      .withHostname('data')
+  dataService(
+    @argument()
+    runId = 'dev'
+  ): Service {
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/data.json')
+        .withEnvVariable('CSS_BASE_URL', 'https://data/')
+        .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
+        .withEnvVariable('CSS_PORT', CSS_PORT)
+        .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
+        .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/auth'
+        )
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
+        .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
+        .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
+        .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
+        // OpenTelemetry server-side spans (sync --require preload, like auth)
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'data'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-data')
+        .withExposedPort(443)
+        .withServiceBinding('postgresql', this.postgresService())
+        .withServiceBinding('sparql', this.sparqlService())
+        .withServiceBinding('garage', this.garageService())
+        .withExposedPort(9231)
+        .asService({
+          args: [
+            'node',
+            '--inspect=0.0.0.0:9231',
+            '--require=/sai/packages/components/src/tracing/preload.cjs',
+            '/sai/node_modules/@solid/community-server/bin/server.js',
+          ],
+        })
+        .withHostname('data')
+    )
   }
 
-  async testBase(): Promise<Container> {
-    const auth = await this.authService()
-    const worker = await this.workerService()
+  async testBase(
+    @argument()
+    runId = 'dev'
+  ): Promise<Container> {
+    const auth = await this.authService(runId)
+    const worker = await this.workerService(runId)
     const temporal = await this.temporalService()
-    return dag
-      .container()
-      .from('node:24-alpine')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
-      .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
-      .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
-      .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
-      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
-      .withServiceBinding('auth', auth)
-      .withServiceBinding('registry', this.registryService())
-      .withServiceBinding('data', this.dataService())
-      .withServiceBinding('worker', worker)
-      .withServiceBinding('temporal', temporal)
-      .withServiceBinding('sparql', this.sparqlService())
-      .withServiceBinding('id', this.idService())
-      .withServiceBinding('garage', this.garageService())
-      .withWorkdir('/sai/test')
+    return (
+      dag
+        .container()
+        .from('node:24-alpine')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
+        .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
+        .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
+        .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+        .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+        // OpenTelemetry: the test runner holds the trace roots (it plays
+        // the browser/App role). The mount makes the shared dump visible to
+        // `otelDump`.
+        .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+        .withEnvVariable('OTEL_TRACES_FILE', otelTracesFile(runId, 'test'))
+        .withEnvVariable('OTEL_SERVICE_NAME', 'sai-test')
+        .withServiceBinding('auth', auth)
+        .withServiceBinding('registry', this.registryService(runId))
+        .withServiceBinding('data', this.dataService(runId))
+        .withServiceBinding('worker', worker)
+        .withServiceBinding('temporal', temporal)
+        .withServiceBinding('sparql', this.sparqlService())
+        .withServiceBinding('id', this.idService(runId))
+        .withServiceBinding('garage', this.garageService())
+        .withWorkdir('/sai/test')
+    )
   }
 
   @func()
@@ -417,6 +491,77 @@ export class SaiJs {
       args.push(...testFile.split(/\s+/))
     }
     return (await this.testBase()).withExec(args).stdout()
+  }
+
+  /**
+   * Run the test suite with the OpenTelemetry file dump enabled and return
+   * the per-process NDJSON traces (auth.ndjson / worker.ndjson / test.ndjson)
+   * from the shared cache volume. View offline:
+   *   dagger call otel-dump --testFile="authorization.test.ts" export --path ./otel-dump
+   *   node scripts/traces-to-otlp.mjs ./otel-dump | curl -X POST \
+   *     http://localhost:4318/v1/traces -H 'Content-Type: application/json' --data-binary @-
+   */
+  @func()
+  /**
+   * Run the test suite with the OpenTelemetry file dump enabled and return
+   * the per-process NDJSON traces (`<runId>/auth.ndjson`, `worker.ndjson`,
+   * `test.ndjson`) from the shared cache volume. Each call uses a fresh run
+   * subdirectory — no wipe needed (dagger execs that `rm` the cache volume
+   * are no-ops after the first run: mounted cache contents are excluded
+   * from exec cache keys, so the wipe never re-executes and old spans
+   * accumulate). View offline:
+   *   dagger call otel-dump --testFile="authorization.test.ts" export --path ./otel-dump
+   *   node scripts/traces-to-otlp.mjs ./otel-dump | curl -X POST \
+   *     http://localhost:4318/v1/traces -H 'Content-Type: application/json' --data-binary @-
+   */
+  @func()
+  async otelDump(
+    @argument()
+    testFile?: string
+  ): Promise<Directory> {
+    // unique per call — also makes the cleanup/copy execs below cache-miss
+    const runId = `run-${Date.now().toString(36)}`
+    // opportunistic cleanup of previous runs (command embeds runId → no
+    // dagger exec-cache hit, actually runs every time)
+    await dag
+      .container()
+      .from('alpine:latest')
+      .withMountedCache('/otel', dag.cacheVolume(OTEL_CACHE_VOLUME))
+      .withExec([
+        'sh',
+        '-c',
+        `find /otel -mindepth 1 -maxdepth 1 -type d ! -name '${runId}' -exec rm -rf {} +`,
+      ])
+      .sync()
+    const args = ['npm', 'run', 'dagger:test']
+    if (testFile) {
+      // allow multiple files: --testFile="share.test.ts roles.test.ts"
+      args.push(...testFile.split(/\s+/))
+    }
+    const result = await (await this.testBase(runId)).withExec(args)
+    // copy the cache-mounted dump into a plain container path — dagger cannot
+    // materialize a cache volume as a Directory (`/otel` is not retrievable);
+    // bounded guard: wait for at least one dump file first (services are
+    // killed right after this exec returns). Empty-run diagnostics kept in
+    // stderr and the exec exits 0 so the export still materializes.
+    return result
+      .withExec([
+        'sh',
+        '-c',
+        `for i in $(seq 60); do [ -n "$(ls -A /otel/${runId} 2>/dev/null)" ] && break; sleep 1; done
+mkdir -p /out
+if [ -d /otel/${runId} ]; then
+  cp -r /otel/${runId}/. /out/
+else
+  echo "NO TRACES EMITTED for run ${runId}" >&2
+  echo '--- OTEL env in test container ---' >&2
+  env | grep -i otel || true
+  echo '--- /otel contents ---' >&2
+  ls -la /otel 2>/dev/null || echo '(no /otel dir)' >&2
+  exit 0
+fi`,
+      ])
+      .directory('/out')
   }
 
   @func()

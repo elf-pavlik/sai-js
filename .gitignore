@@ -31,3 +31,4 @@ tsconfig.tsbuildinfo
 .turbo
 
 traefik/certs/*
+otel-dump

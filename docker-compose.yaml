@@ -47,6 +47,9 @@ services:
     command:
       - node
       - --inspect=0.0.0.0:9229
+      # OpenTelemetry CJS preload (no-op unless an OTEL_* file/endpoint is
+      # set); --require runs before CSS builds its server
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -66,6 +69,10 @@ services:
       CSS_LOGGING_LEVEL: debug
       CSS_BASE_URL: https://auth.docker/
       CSS_AUTHORIZATION_ENDPOINT: https://ui.auth.docker/authorize
+      # OpenTelemetry dev loop — live to the compose jaeger service
+      # (auth process = the UAS)
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: sai-uas
       CSS_PORT: 4800
     labels:
       - traefik.enable=true
@@ -90,6 +97,8 @@ services:
     command:
       - node
       - --inspect=0.0.0.0:9230
+      # OpenTelemetry CJS preload (no-op unless an OTEL_*_file/endpoint is set)
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -99,6 +108,9 @@ services:
       CSS_CONFIG: /sai/environments/css/registry.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://reg.docker/
+      # OpenTelemetry dev loop — live to the compose jaeger service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: sai-registry
       CSS_PORT: 4600
     labels:
       - traefik.enable=true
@@ -123,6 +135,8 @@ services:
     command:
       - node
       - --inspect=0.0.0.0:9231
+      # OpenTelemetry CJS preload (no-op unless an OTEL_*_file/endpoint is set)
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -132,6 +146,9 @@ services:
       CSS_CONFIG: /sai/environments/css/data.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://data.docker/
+      # OpenTelemetry dev loop — live to the compose jaeger service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: sai-data
       CSS_PORT: 4700
     labels:
       - traefik.enable=true
@@ -170,6 +187,9 @@ services:
           *origin-env,
         ]
       CSS_BASE_URL: https://auth.docker/
+      # OpenTelemetry dev loop — live to the compose jaeger service (worker)
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: sai-worker
   ui:
     image: node:22-alpine
     container_name: ui
@@ -401,11 +421,16 @@ services:
     command:
       - node
       - --inspect=0.0.0.0:9236
+      # OpenTelemetry CJS preload (id origin server — live to jaeger)
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/services/id/http.ts
     environment:
       <<: *sparql-env
       ID_ORIGIN: id.docker
       DOC_ORIGIN: id.docker
+      # OpenTelemetry dev loop — live to the compose jaeger service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: sai-id
       # TODO: reuse CSS_ in origin-env
     labels:
       - traefik.enable=true
@@ -429,6 +454,17 @@ services:
       - ./garage/garage.toml:/etc/garage.toml
       - ./garage/meta:/var/lib/garage/meta
       - ./garage/data:/var/lib/garage/data
+
+  jaeger:
+    image: jaegertracing/jaeger:2.10
+    container_name: jaeger
+    restart: on-failure
+    networks:
+      - default
+    ports:
+      - "16686:16686" # UI / query
+      - "4318:4318" # OTLP/HTTP
+      - "4317:4317" # OTLP/gRPC
 
 networks:
   default:

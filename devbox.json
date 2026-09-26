@@ -8,7 +8,7 @@
     "jaq@latest",
     "ducker@latest",
     "pgcli@latest",
-    "github:dagger/nix/851584fd8093ab942b4aa833cdef53050b27279b#packages.x86_64-linux.dagger",
+    "github:dagger/nix/4a39fb35b724a8f85c254fa1513fa0ffc17162e7#packages.x86_64-linux.dagger",
     "bun@latest",
     "nixos-anywhere@latest",
     "nix-prefetch-docker@latest",
@@ -33,7 +33,8 @@
     "scripts": {
       "up": "make up",
       "down": "make down",
-      "seed": "bun packages/repl/cmd.ts -- seed-env"
+      "seed": "bun packages/repl/cmd.ts -- seed-env",
+      "jaeger": "bash scripts/jaeger.sh"
     }
   }
 }

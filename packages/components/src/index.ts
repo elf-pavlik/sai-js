@@ -25,4 +25,6 @@ export * from './GrantRevocationHandler.js'
 
 export * from './util/uriTemplates.js'
 
+export * from './tracing/bootstrap.js'
+
 export * from './services/Account.js'

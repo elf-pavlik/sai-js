@@ -480,16 +480,36 @@ export class SaiJs {
     )
   }
 
+  /**
+   * Run the test suite.
+   *
+   * Narrow to specific file(s) with
+   * `--testFile="authorization.test.ts roles.test.ts"` and to a single
+   * test by name with `--only="<test name>"` (maps to vitest's
+   * `-t`/testNamePattern — a full test name selects exactly one test):
+   *   dagger call test --testFile="authorization.test.ts" \
+   *     --only="alice approves bobs request — authorization data from the request, grants follow"
+   */
   @func()
   async test(
     @argument()
-    testFile?: string
+    testFile?: string,
+    @argument()
+    only?: string
   ): Promise<string> {
     const args = ['npm', 'run', 'dagger:test']
+    const filter: string[] = []
     if (testFile) {
       // allow multiple files: --testFile="share.test.ts roles.test.ts"
-      args.push(...testFile.split(/\s+/))
+      filter.push(...testFile.split(/\s+/))
     }
+    if (only) {
+      // single test: vitest -t <testNamePattern>
+      filter.push('-t', only)
+    }
+    // npm's own arg parser strips/rewrites args placed before `--` (it ate
+    // the `-t` flag), so forward everything after the separator verbatim
+    if (filter.length) args.push('--', ...filter)
     return (await this.testBase()).withExec(args).stdout()
   }
 
@@ -509,15 +529,20 @@ export class SaiJs {
    * subdirectory — no wipe needed (dagger execs that `rm` the cache volume
    * are no-ops after the first run: mounted cache contents are excluded
    * from exec cache keys, so the wipe never re-executes and old spans
-   * accumulate). View offline:
-   *   dagger call otel-dump --testFile="authorization.test.ts" export --path ./otel-dump
+   * accumulate). `--only` (same as `test`) narrows to a single test by name.
+   * View offline:
+   *   dagger call otel-dump --testFile="authorization.test.ts" \
+   *     --only="alice approves bobs request — authorization data from the request, grants follow" \
+   *     export --path ./otel-dump
    *   node scripts/traces-to-otlp.mjs ./otel-dump | curl -X POST \
    *     http://localhost:4318/v1/traces -H 'Content-Type: application/json' --data-binary @-
    */
   @func()
   async otelDump(
     @argument()
-    testFile?: string
+    testFile?: string,
+    @argument()
+    only?: string
   ): Promise<Directory> {
     // unique per call — also makes the cleanup/copy execs below cache-miss
     const runId = `run-${Date.now().toString(36)}`
@@ -534,10 +559,18 @@ export class SaiJs {
       ])
       .sync()
     const args = ['npm', 'run', 'dagger:test']
+    const filter: string[] = []
     if (testFile) {
       // allow multiple files: --testFile="share.test.ts roles.test.ts"
-      args.push(...testFile.split(/\s+/))
+      filter.push(...testFile.split(/\s+/))
     }
+    if (only) {
+      // single test: vitest -t <testNamePattern>
+      filter.push('-t', only)
+    }
+    // npm's own arg parser strips/rewrites args placed before `--` (it ate
+    // the `-t` flag), so forward everything after the separator verbatim
+    if (filter.length) args.push('--', ...filter)
     const result = await (await this.testBase(runId)).withExec(args)
     // copy the cache-mounted dump into a plain container path — dagger cannot
     // materialize a cache volume as a Directory (`/otel` is not retrievable);
@@ -570,10 +603,12 @@ fi`,
     testFile?: string
   ): Promise<Service> {
     const args = ['npm', 'run', 'dagger:debug']
+    const filter: string[] = []
     if (testFile) {
       // allow multiple files: --testFile="share.test.ts roles.test.ts"
-      args.push(...testFile.split(/\s+/))
+      filter.push(...testFile.split(/\s+/))
     }
+    if (filter.length) args.push('--', ...filter)
     return (await this.testBase()).withExposedPort(9240).asService({ args })
   }
 

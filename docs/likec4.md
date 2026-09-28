@@ -145,6 +145,47 @@ Conventions established while working on the invitation views (`invitation`,
 - Intentional doc shortcuts are fine but flagged (e.g. a seeded capabilityUrl
   reused as the "created" invitation's URL in the accept narrative).
 
+## OpenTelemetry → diagram notes
+
+Traces are the source of truth for request/response **payloads** (every
+snippet in `authz-data-need-based-request`/`approve-access-request` comes
+from a captured run). Full mechanics/layout: `opentelemetry.md`.
+
+- **Collect a focused dump** (single test keeps the trace tiny):
+
+  ```bash
+  dagger call otel-dump --testFile=authorization.test.ts \
+    --only="alice approves bobs request — …" export --path ./otel-dump
+  ```
+
+  The dump is per-process NDJSON (`test`/`auth`/`registry`/`data`/`worker`/
+  `id`); one trace = the test root `alice approves bobs request — …`.
+- **Find payloads on spans** (NDJSON `attributes`):
+  - `sai.rpc.handle` → `sai.rpc.request` / `sai.rpc.response` (RPC
+    envelopes, request captured pre-rewrite; response pre-envelope `value`)
+  - `fetchJsonLd` → `sai.jsonld.raw` (wire doc as stored)
+  - `frameDoc` → `sai.jsonld.framed` (framed node, `@context` stripped —
+    the POJO form models consume)
+  - `putJsonLd` → `sai.jsonld.framed` (write POJO) + `sai.jsonld.expanded`
+    (actual wire body)
+  - `sparql.query` → `sai.sparql.query` (verbatim SPARQL text) +
+    `sai.sparql.form`/`sai.sparql.endpoint`/`sai.sparql.resultCount`
+    (results recorded as counts only — not payloads)
+- **Use the framed form for JSON-LD snippets** — compacted aliases
+  (`id`/`type`/term keys, no `@context`), matching how the data-model
+  `fromJsonLd`s consume it (see “Payload data” above for the conventions).
+- **Per-run UUIDs churn** — dogfooded resources (access-request,
+  authorization, grant, activity UUIDs) differ on every run: re-sync the
+  snippet to the latest run or keep the flagged placeholder. Stable across
+  runs: fixture `urn:uuid` access-need(-group) ids and the data-service
+  `/shapetrees/trees/{Project,Task}` URLs.
+- **Pair with the http blocks** — the same spans carry the headers
+  (`Cookie: css-account=…`, `Authorization: DPoP …`, `Accept`) and the
+  `200 OK`/`Content-Type` the note's response block shows.
+- **Spot inaccuracies fast** — e.g. a note field absent from the captured
+  payload (`agentType` was documented but never on the wire) is a schema/
+  note drift to fix in the diagram, not the trace.
+
 ## Flow shape (invitation views)
 
 `open notifications stream` (`GET https://auth/.sai/events`,

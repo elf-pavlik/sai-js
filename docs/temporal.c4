@@ -116,6 +116,8 @@ model {
   security Peers {
     component UAS 'User Authorization Server' 'auth' {
     }
+    component Data 'Data Registry' 'data' {
+    }
   }
   security App {
     component StreamingHTTPReceiver 'StreamingHTTPReceiver' 'app' {
@@ -160,6 +162,7 @@ views {
           ```http
           HTTP/1.1 200 OK
           ```
+
         '''
     }
     Alice.UAS.Temporal -> Alice.UAS.Temporal '(workflow) run updateDelegatedGrants'
@@ -7395,11 +7398,19 @@ views "Authorization" {
   }  dynamic view authz-data-need-based-request {
     title: 'Authorization data (need based access request)'
 
-    include Alice, Bob, Common
-    include Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.Registry, Alice.Data, Common.Shapetrees
+    include Alice, Bob, Peers, Common
+    include Alice.AUI, Alice.UAS, Alice.UAS.UiApi, Alice.Registry, Alice.Data, Peers.Data, Common.Shapetrees
 
     style Alice {
       color: green
+    }
+
+    style Alice.Data {
+      multiple: true
+    }
+
+    style Peers.Data {
+      multiple: true
     }
 
     style Bob {
@@ -7433,9 +7444,8 @@ views "Authorization" {
               "request": {
                 "_tag": "GetAuthoriaztionData",
                 "agentId": "https://id/bob",
-                "agentType": "SocialAgent",
                 "lang": "en",
-                "accessRequestIri": "https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a",
+                "accessRequestIri": "https://registry/alice/access-request/ea96d2d3-a2a1-40ea-bd60-a68d7f9c637b",
                 "context": "https://id/alice"
               }
             }
@@ -7456,7 +7466,7 @@ views "Authorization" {
           > SPARQL read of the immutable request — the group resolves from its embedded copy
 
           ```http
-          GET https://registry/alice/access-request/3d7a5c9e-1f2b-4c6d-8e9a-0b1c2d3e4f5a
+          GET https://registry/alice/access-request/ea96d2d3-a2a1-40ea-bd60-a68d7f9c637b
           Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
           ---
@@ -7464,14 +7474,189 @@ views "Authorization" {
           ```http
           HTTP/1.1 200 OK
           ```
+
+          ###### framed access request (frameNode — @context stripped)
+
+          ```json
+          {
+            "id": "https://registry/alice/access-request/ea96d2d3-a2a1-40ea-bd60-a68d7f9c637b",
+            "type": [
+              "NeedBasedAccessRequest"
+            ],
+            "dataOwner": "https://id/alice",
+            "grantedBy": "https://id/bob",
+            "grantee": "https://id/bob",
+            "hasAccessNeedGroup": {
+              "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+              "type": [
+                "http://www.w3.org/ns/solid/interop#AccessNeedGroup"
+              ],
+              "hasAccessNeed": [
+                {
+                  "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                  "hasInheritingNeed": [
+                    {
+                      "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                      "type": [
+                        "http://www.w3.org/ns/solid/interop#AccessNeed"
+                      ],
+                      "accessMode": [
+                        "http://www.w3.org/ns/auth/acl#Create",
+                        "http://www.w3.org/ns/auth/acl#Read",
+                        "http://www.w3.org/ns/auth/acl#Delete",
+                        "http://www.w3.org/ns/auth/acl#Update"
+                      ],
+                      "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                      "inheritsFromNeed": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                      "registeredShapeTree": "https://data/shapetrees/trees/Task"
+                    }
+                  ],
+                  "type": [
+                    "http://www.w3.org/ns/solid/interop#AccessNeed"
+                  ],
+                  "accessMode": [
+                    "http://www.w3.org/ns/auth/acl#Create",
+                    "http://www.w3.org/ns/auth/acl#Read",
+                    "http://www.w3.org/ns/auth/acl#Delete",
+                    "http://www.w3.org/ns/auth/acl#Update"
+                  ],
+                  "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
+                  "registeredShapeTree": "https://data/shapetrees/trees/Project"
+                }
+              ]
+            }
+          }
+          ```
         '''
     }
-    Alice.UAS.UiApi -> Alice.Data 'find relevant data registrations [Data]' {
-        notes'''
-          #### find relevant data registrations [Data]
-          >[!NOTE]
-          >authorization.test.ts > approval phase
-        '''
+    loop 'for each data registry' {
+      Alice.UAS.UiApi -> Alice.Data 'find relevant data registrations [Data]' {
+          notes'''
+            #### find relevant data registrations [Data]
+            >[!NOTE]
+            >authorization.test.ts > approval phase
+
+            >[!TIP]
+            > per data registry one SPARQL probe, filtered on `registeredShapeTree`
+            > read FROM the `meta:<iri>` GRAPH (the registration's regular graph
+            > only carries `ldp:contains` instances) — registrations that cannot
+            > match the group's trees are never listed nor probed (the Task ones
+            > `btze4a`/`pm1oxz` exist but stay unqueried; alice-home → `x1n3cm/`)
+
+            ```http
+            POST http://sparql/sparql
+            Content-Type: application/sparql-query
+            ```
+
+            ```sparql
+            PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+            PREFIX ldp: <http://www.w3.org/ns/ldp#>
+
+            SELECT DISTINCT ?reg WHERE {
+              GRAPH <https://data/alice-work/> { <https://data/alice-work/> ldp:contains ?reg }
+              GRAPH ?meta {
+                ?reg a interop:DataRegistration ;
+                     interop:registeredShapeTree ?tree
+              }
+              FILTER(?tree IN (<https://data/shapetrees/trees/Project>))
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 200 OK
+            Content-Type: application/sparql-results+json
+            ```
+
+            ```json
+            {
+              "head": { "vars": ["reg"] },
+              "results": {
+                "bindings": [
+                  { "reg": { "type": "uri", "value": "https://data/alice-work/sx86hi/" } }
+                ]
+              }
+            }
+            ```
+            ---
+
+            ```sparql
+            PREFIX ldp: <http://www.w3.org/ns/ldp#>
+
+            CONSTRUCT { ?s ?p ?o } WHERE {
+              { GRAPH <https://data/alice-work/sx86hi/> { ?s ?p ?o } }
+              UNION
+              { GRAPH <meta:https://data/alice-work/sx86hi/> { ?s ?p ?o } }
+            }
+            ```
+
+            ```json
+            {
+              "id": "https://data/alice-work/sx86hi/",
+              "type": [
+                "http://www.w3.org/ns/ldp#Resource",
+                "http://www.w3.org/ns/solid/interop#DataRegistration"
+              ],
+              "contains": [
+                "https://data/alice-work/sx86hi/k3pqsb"
+              ],
+              "registeredShapeTree": "https://data/shapetrees/trees/Project"
+            }
+            ```
+          '''
+      }
+    }
+    loop 'for each data registry of each peer' {
+      Alice.UAS.UiApi -> Peers.Data 'find relevant data registrations [Grant]' {
+          notes'''
+            #### find relevant data registrations [Grant]
+            >[!NOTE]
+            >authorization.test.ts > approval phase
+
+            >[!TIP]
+            > peer branch (`findSocialAgentDataRegistrations`): the reciprocal
+            > registration + data grants are MIRRORED locally
+            > (`syncReciprocalMirror`) — the grant matches on
+            > `registeredShapeTree`; `SelectedFromRegistry` counts come from
+            > `hasDataInstance` ON the mirror — no data fetch (an
+            > `AllFromRegistry` peer grant would deref the registration doc
+            > via `/proxy-admin`)
+
+            ```sparql
+            PREFIX interop: <http://www.w3.org/ns/solid/interop#>
+
+            CONSTRUCT { ?s ?p ?o } WHERE {
+              { GRAPH <https://registry/acme/grant/g4yhtm> { ?s ?p ?o } }
+              UNION
+              { GRAPH <meta:https://registry/acme/grant/g4yhtm> { ?s ?p ?o } }
+            }
+            ```
+            ---
+
+            ```http
+            HTTP/1.1 200 OK
+            Content-Type: text/turtle
+            ```
+
+            ```json
+            {
+              "id": "https://registry/acme/grant/g4yhtm",
+              "type": [
+                "http://www.w3.org/ns/solid/interop#DataGrant",
+                "http://www.w3.org/ns/ldp#Resource"
+              ],
+              "registeredShapeTree": "https://data/shapetrees/trees/Project",
+              "scopeOfGrant": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
+              "hasDataRegistration": "https://data/acme-rnd/reb39k/",
+              "hasDataInstance": [
+                "https://data/acme-rnd/reb39k/pbh2yw"
+              ],
+              "dataOwner": "https://id/acme",
+              "grantee": "https://id/alice"
+            }
+            ```
+          '''
+      }
     }
     Alice.UAS.UiApi -> Common.Shapetrees 'GET shapetrees descriptions' {
         notes'''
@@ -7479,8 +7664,157 @@ views "Authorization" {
           >[!NOTE]
           >authorization.test.ts > approval phase
 
+          >[!TIP]
+          > one tree document + its `desc-en` description per shape tree
+          > (`registeredShapeTree` from the framed access request above) —
+          > fetched locally from the data service
+
           ```http
-          GET https://shapetrees.acme/shapetrees
+          GET https://data/shapetrees/trees/Project
+          Accept: application/ld+json
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ###### framed shape tree (frameNode — @context stripped)
+
+          ```json
+          {
+            "id": "https://data/shapetrees/trees/Project",
+            "type": [
+              "http://www.w3.org/ns/shapetrees#ShapeTree"
+            ],
+            "describesInstance": "http://www.w3.org/2004/02/skos/core#prefLabel",
+            "expectsType": "http://www.w3.org/ns/shapetrees#Resource",
+            "references": [
+              {
+                "id": "urn:uuid86d54925-eeb5-4360-bca4-d53009bae8c7"
+              },
+              {
+                "id": "urn:uuid54b5e4f6-c6b5-4c9a-b885-cbf69d08370d"
+              },
+              {
+                "id": "urn:uuid85a1d32b-5c91-4900-9bc8-f271117675ed"
+              }
+            ],
+            "shape": "https://data/shapetrees/shapes/Project"
+          }
+          ```
+          ---
+
+          ```http
+          GET https://data/shapetrees/trees/desc-en#Project
+          Accept: application/ld+json
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ###### framed description (frameNode — @context stripped)
+
+          ```json
+          {
+            "id": "https://data/shapetrees/trees/desc-en#Project",
+            "type": [
+              "http://www.w3.org/ns/shapetrees#Description"
+            ],
+            "label": {
+              "en": "Projects"
+            },
+            "http://www.w3.org/ns/shapetrees#describes": {
+              "id": "https://data/shapetrees/trees/Project"
+            },
+            "http://www.w3.org/ns/shapetrees#inDescriptionSet": {
+              "id": "https://data/shapetrees/trees/desc-en",
+              "type": [
+                "http://www.w3.org/ns/shapetrees#DescriptionSet"
+              ],
+              "descriptionLanguages": [
+                {
+                  "type": "http://www.w3.org/2001/XMLSchema#language",
+                  "@value": "en"
+                }
+              ]
+            }
+          }
+          ```
+          ---
+
+          ```http
+          GET https://data/shapetrees/trees/Task
+          Accept: application/ld+json
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ###### framed shape tree (frameNode — @context stripped)
+
+          ```json
+          {
+            "id": "https://data/shapetrees/trees/Task",
+            "type": [
+              "http://www.w3.org/ns/shapetrees#ShapeTree"
+            ],
+            "describesInstance": "http://www.w3.org/2004/02/skos/core#prefLabel",
+            "expectsType": "http://www.w3.org/ns/shapetrees#Resource",
+            "shape": "https://data/shapetrees/shapes/Task"
+          }
+          ```
+          ---
+
+          ```http
+          GET https://data/shapetrees/trees/desc-en#Task
+          Accept: application/ld+json
+          Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
+          ```
+          ---
+
+          ```http
+          HTTP/1.1 200 OK
+          Content-Type: application/ld+json
+          ```
+
+          ###### framed description (frameNode — @context stripped)
+
+          ```json
+          {
+            "id": "https://data/shapetrees/trees/desc-en#Task",
+            "type": [
+              "http://www.w3.org/ns/shapetrees#Description"
+            ],
+            "label": {
+              "en": "Tasks"
+            },
+            "http://www.w3.org/ns/shapetrees#describes": {
+              "id": "https://data/shapetrees/trees/Task"
+            },
+            "http://www.w3.org/ns/shapetrees#inDescriptionSet": {
+              "id": "https://data/shapetrees/trees/desc-en",
+              "type": [
+                "http://www.w3.org/ns/shapetrees#DescriptionSet"
+              ],
+              "descriptionLanguages": [
+                {
+                  "type": "http://www.w3.org/2001/XMLSchema#language",
+                  "@value": "en"
+                }
+              ]
+            }
+          }
           ```
         '''
     }
@@ -7489,6 +7823,88 @@ views "Authorization" {
           #### OK authorization data
           >[!NOTE]
           >authorization.test.ts > approval phase
+
+          ```json
+          {
+            "id": "https://id/bob",
+            "accessNeedGroup": {
+              "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+              "label": "",
+              "needs": [
+                {
+                  "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                  "label": "",
+                  "required": true,
+                  "access": [
+                    "http://www.w3.org/ns/auth/acl#Create",
+                    "http://www.w3.org/ns/auth/acl#Read",
+                    "http://www.w3.org/ns/auth/acl#Delete",
+                    "http://www.w3.org/ns/auth/acl#Update"
+                  ],
+                  "shapeTree": {
+                    "id": "https://data/shapetrees/trees/Project",
+                    "label": "Projects"
+                  },
+                  "children": [
+                    {
+                      "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
+                      "label": "",
+                      "required": true,
+                      "access": [
+                        "http://www.w3.org/ns/auth/acl#Create",
+                        "http://www.w3.org/ns/auth/acl#Read",
+                        "http://www.w3.org/ns/auth/acl#Delete",
+                        "http://www.w3.org/ns/auth/acl#Update"
+                      ],
+                      "shapeTree": {
+                        "id": "https://data/shapetrees/trees/Task",
+                        "label": "Tasks"
+                      },
+                      "parent": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                      "children": []
+                    }
+                  ]
+                }
+              ],
+              "descriptionLanguages": [],
+              "lang": "en"
+            },
+            "dataOwners": [
+              {
+                "id": "https://id/alice",
+                "label": "https://id/alice",
+                "dataRegistrations": [
+                  {
+                    "id": "https://data/alice-work/sx86hi/",
+                    "shapeTree": "https://data/shapetrees/trees/Project",
+                    "dataRegistry": "https://data/alice-work/",
+                    "count": 1,
+                    "label": "https://data/alice-work/"
+                  },
+                  {
+                    "id": "https://data/alice-home/x1n3cm/",
+                    "shapeTree": "https://data/shapetrees/trees/Project",
+                    "dataRegistry": "https://data/alice-home/",
+                    "count": 3,
+                    "label": "https://data/alice-home/"
+                  }
+                ]
+              },
+              {
+                "id": "https://id/acme",
+                "label": "ACME",
+                "dataRegistrations": [
+                  {
+                    "id": "https://data/acme-rnd/reb39k/",
+                    "shapeTree": "https://data/shapetrees/trees/Project",
+                    "count": 1,
+                    "label": "https://data/acme-rnd/"
+                  }
+                ]
+              }
+            ]
+          }
+          ```
         '''
     }
     Alice.AUI .overview Alice.UAS 'authorize' {

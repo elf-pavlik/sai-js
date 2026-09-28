@@ -17,6 +17,7 @@ import {
   listContained,
   listRegistrationsByShapeTrees,
   localSparqlTransport,
+  withSparqlTracing,
 } from '@janeirodigital/interop-authorization-agent'
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
 import { discoverAuthorizationAgent, parseTurtle } from '@janeirodigital/interop-utils'
@@ -126,28 +127,31 @@ function termFromJson(term: Record<string, string>): SparqlBindingTerm {
  * CONSTRUCT → `text/turtle`; updates rejected).
  */
 function adminSparqlTransport(adminSession: AuthorizationAgent, orgWebId: string): SparqlTransport {
-  return {
-    async fetchBindings(query) {
-      const response = await adminSparqlQuery(adminSession, orgWebId, query)
-      const json = (await response.json()) as {
-        head: { vars: string[] }
-        results?: { bindings: Record<string, Record<string, string>>[] }
-        boolean?: boolean
-      }
-      if (json.boolean !== undefined) {
-        throw new Error(`unexpected ASK result for query: ${query}`)
-      }
-      return (json.results?.bindings ?? []).map((binding) =>
-        Object.fromEntries(
-          Object.entries(binding).map(([name, term]) => [name, termFromJson(term)])
+  return withSparqlTracing(
+    {
+      async fetchBindings(query) {
+        const response = await adminSparqlQuery(adminSession, orgWebId, query)
+        const json = (await response.json()) as {
+          head: { vars: string[] }
+          results?: { bindings: Record<string, Record<string, string>>[] }
+          boolean?: boolean
+        }
+        if (json.boolean !== undefined) {
+          throw new Error(`unexpected ASK result for query: ${query}`)
+        }
+        return (json.results?.bindings ?? []).map((binding) =>
+          Object.fromEntries(
+            Object.entries(binding).map(([name, term]) => [name, termFromJson(term)])
+          )
         )
-      )
+      },
+      async fetchTriples(query) {
+        const response = await adminSparqlQuery(adminSession, orgWebId, query)
+        return parseTurtle(await response.text())
+      },
     },
-    async fetchTriples(query) {
-      const response = await adminSparqlQuery(adminSession, orgWebId, query)
-      return parseTurtle(await response.text())
-    },
-  }
+    `/.sai/sparql-admin/${Buffer.from(orgWebId).toString('base64url')}`
+  )
 }
 
 /**

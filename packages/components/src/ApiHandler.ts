@@ -82,6 +82,14 @@ export class ApiHandler extends OperationHttpHandler {
         }
 
         const requestBody = JSON.parse(await readableToString(operation.body.data))
+        // capture the full incoming RPC payload (all request envelopes) on
+        // this span — same shape as the request snippets in the dynamic
+        // views (docs/temporal.c4); recording-only guard keeps the stringify
+        // cost off non-sampled runs, and it sits BEFORE the envelope
+        // trace-rewrite below so it reflects the wire request as received
+        if (span.isRecording()) {
+          span.setAttribute('sai.rpc.request', JSON.stringify(requestBody))
+        }
         // make the @effect/rpc envelope carry the REAL trace: RpcRouter uses
         // req.traceId/req.spanId as the Effect span's explicit ExternalSpan
         // parent — the envelope placeholders would collapse every Effect span
@@ -227,6 +235,11 @@ export class ApiHandler extends OperationHttpHandler {
           return yield* rpcHandler(requestBody)
         }).pipe(Effect.provide(SaiServiceLive))
         const payload = await Effect.runPromise(withEffectTracing(program, 'sai-uas'))
+        // capture the RPC response / return value on the same span (the
+        // @effect/rpc response envelope: {_tag: 'Success'|'Failure', …})
+        if (span.isRecording()) {
+          span.setAttribute('sai.rpc.response', JSON.stringify(payload))
+        }
 
         const doc = JSON.stringify(payload)
         const representation = new BasicRepresentation(doc, operation.target, 'application/json')

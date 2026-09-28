@@ -14,6 +14,7 @@ import {
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
 import { AS, INTEROP, LDP, type LanguageMap, frameDoc } from '@janeirodigital/interop-utils'
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 /**
  * Registry-plane SPARQL transport + queries, shared by the AuthorizationAgent
  * (session reads its own registry via the internal endpoint) and the
@@ -71,16 +72,72 @@ async function arrayifyStream<T>(stream: NodeJS.ReadableStream): Promise<T[]> {
 
 /** Query runner against an internal SPARQL endpoint (SparqlEndpointFetcher). */
 export function localSparqlTransport(sparqlEndpoint: string): SparqlTransport {
+  return withSparqlTracing(
+    {
+      async fetchBindings(query) {
+        const bindingsStream = await fetcher.fetchBindings(sparqlEndpoint, query)
+        return arrayifyStream<IBindings>(bindingsStream)
+      },
+      async fetchTriples(query) {
+        const quadsStream = await fetcher.fetchTriples(sparqlEndpoint, query)
+        const store = new Store()
+        store.addQuads(await arrayifyStream(quadsStream))
+        return store
+      },
+    },
+    sparqlEndpoint
+  )
+}
+
+/** First keyword of a SPARQL query (SELECT / CONSTRUCT / …) — used as a span form label. */
+function sparqlForm(query: string): string {
+  const match = /^\s*(SELECT|CONSTRUCT|DESCRIBE|ASK|UPDATE)\b/i.exec(query)
+  return match ? match[1].toUpperCase() : 'SPARQL'
+}
+
+/** Row/triple count for a transport result (bindings array or N3 Store / dataset). */
+function resultCount(result: unknown): number | undefined {
+  if (Array.isArray(result)) return result.length
+  const size = (result as { size?: unknown } | null)?.size
+  return typeof size === 'number' ? size : undefined
+}
+
+/**
+ * Wrap a SparqlTransport so every query runs inside a `sparql.query` span:
+ * `sai.sparql.query` (full text), `sai.sparql.endpoint`, `sai.sparql.form`
+ * and `sai.sparql.resultCount` — recording-only (no-op spans cost zero when
+ * tracing is off), ERROR + `recordException` on failure. Applied by BOTH
+ * transport implementations (personal internal endpoint and org
+ * `/sparql-admin`) so every registry-plane read lands in the dump no matter
+ * which context/endpoint produced it (docs/opentelemetry.md).
+ */
+export function withSparqlTracing(transport: SparqlTransport, endpoint: string): SparqlTransport {
+  const run = async <T>(query: string, fn: () => Promise<T>): Promise<T> =>
+    trace.getTracer('sai-sparql').startActiveSpan('sparql.query', async (span) => {
+      try {
+        span.setAttribute('sai.sparql.endpoint', endpoint)
+        span.setAttribute('sai.sparql.form', sparqlForm(query))
+        if (span.isRecording()) span.setAttribute('sai.sparql.query', query)
+        const result = await fn()
+        if (span.isRecording()) {
+          const count = resultCount(result)
+          if (count !== undefined) span.setAttribute('sai.sparql.resultCount', count)
+        }
+        span.end()
+        return result
+      } catch (err) {
+        span.recordException(err as Error)
+        span.setStatus({ code: SpanStatusCode.ERROR })
+        span.end()
+        throw err
+      }
+    })
   return {
     async fetchBindings(query) {
-      const bindingsStream = await fetcher.fetchBindings(sparqlEndpoint, query)
-      return arrayifyStream<IBindings>(bindingsStream)
+      return run(query, () => transport.fetchBindings(query))
     },
     async fetchTriples(query) {
-      const quadsStream = await fetcher.fetchTriples(sparqlEndpoint, query)
-      const store = new Store()
-      store.addQuads(await arrayifyStream(quadsStream))
-      return store
+      return run(query, () => transport.fetchTriples(query))
     },
   }
 }

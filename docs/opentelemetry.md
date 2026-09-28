@@ -41,12 +41,41 @@ prioritizing OTLP would silently ship our spans to their collector.
   `context.attach` via the private `_getContextManager` (api 1.9 removed
   `attach` from the public facade).
 - **RPC**: `ApiHandler` wraps the call in an active `sai.rpc.handle` span
-  (`sai.webid`/`sai.account`/`sai.rpc.method`); the `@effect/rpc` envelope
+  (`sai.webid`/`sai.account`/`sai.rpc.method`); full payloads on the same
+  span — `sai.rpc.request` (all incoming RPC envelopes, captured before the
+  envelope trace rewrite so it's the wire payload as received) and
+  `sai.rpc.response` (the @effect/rpc response/return value, `Success`/`Failure`
+  envelope) — both recording-only (`span.isRecording()`, zero stringify cost
+  when tracing is off/un-sampled); the `@effect/rpc` envelope
   `traceId`/`spanId` are rewritten from that span (else Effect spans collapse
   into the envelope pseudo-trace); the Effect bridge
   (`tracing/effect-tracer.ts`) exports @effect/rpc's per-method spans
   (`Rpc.router <Tag>`) with `Effect.fail` → ERROR + event, via `Tracer.layerGlobal`
   (the SDK-registered global provider).
+- **JSON-LD payloads** (`packages/utils/src/jsonld.ts` — the
+  `@janeirodigital/interop-utils` workspace source): manual spans around the
+  uniform fetch/decode/write helpers, so every documented payload lands in
+  the dump:
+  - `fetchJsonLd` → `sai.jsonld.raw` — the wire document as received
+    (expanded/compacted/flattened); the auto HTTP client span nests inside
+    as the actual GET
+  - `frameDoc` → `sai.jsonld.framed` — the framed node with its embedded
+    `@context` stripped (`withoutContext`, the POJO form `frameNode`
+    produces) — the decoded payload consumers actually read; appears as a
+    sibling of `fetchJsonLd` under the same RPC span
+  - `putJsonLd` → `sai.jsonld.framed` (the caller's context-attached POJO,
+    `@context` stripped) + `sai.jsonld.expanded` (the actual wire body PUT)
+  All carry `sai.jsonld.uri`, are recording-only (`span.isRecording()`), and
+  set ERROR + `recordException` on failures. Requires
+  `@opentelemetry/api` as a direct dep of `packages/utils`.
+- **SPARQL** (`withSparqlTracing` in `packages/authorization-agent/src/sparql.ts`,
+  applied to BOTH transports — personal internal endpoint and org
+  `/sparql-admin`): every registry-plane read (SELECT/CONSTRUCT) runs inside a
+  `sparql.query` span with `sai.sparql.query` (verbatim text),
+  `sai.sparql.endpoint`, `sai.sparql.form`, `sai.sparql.resultCount`
+  (bindings/triples count — result payloads are not recorded, only counts).
+  Recording-only; ERROR + `recordException` on failure. Requires
+  `@opentelemetry/api` as a direct dep of `packages/authorization-agent`.
 - **Temporal**: `@temporalio/interceptors-opentelemetry-v2` `OpenTelemetryPlugin`
   on the three workers + the client, sharing the same `spanProcessor`
   (holder: `tracing/otel-state.ts`, cross-realm via `Symbol.for`).
@@ -68,7 +97,17 @@ races the main module), `ndjson-exporter.ts`, `otel-state.ts`,
 Added to existing files:
 
 - `packages/components/src/ApiHandler.ts` — `sai.rpc.handle` active span,
-  envelope trace rewrite, `withEffectTracing`
+  `sai.rpc.request`/`sai.rpc.response` payload capture, envelope trace
+  rewrite, `withEffectTracing`
+- `packages/utils/src/jsonld.ts` — `fetchJsonLd`/`frameDoc`/`putJsonLd`
+  spans with `sai.jsonld.raw`/`sai.jsonld.framed`/`sai.jsonld.expanded`
+  payload attributes (`@context` stripped; recording-only)
+- `packages/utils/package.json` — `@opentelemetry/api` dep
+- `packages/authorization-agent/src/sparql.ts` — `withSparqlTracing` +
+  `sparql.query` spans on `localSparqlTransport` (personal context)
+- `packages/components/src/services/queries/org.ts` — same wrap on
+  `adminSparqlTransport` (org `/sparql-admin`)
+- `packages/authorization-agent/package.json` — `@opentelemetry/api` dep
 - `packages/components/src/workers/main.ts` — init, Temporal plugin on the 3
   workers, `sdk.shutdown()`
 - `packages/components/src/temporal/client.ts` — `OpenTelemetryPlugin` on `Client`

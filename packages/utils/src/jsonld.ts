@@ -1,3 +1,4 @@
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import * as jsonldNs from 'jsonld'
 import { Store } from 'n3'
@@ -101,11 +102,27 @@ export async function frameDataset(
 }
 
 /**
+ * Strip the embedded `@context` from a framed node — the payload-only form
+ * model POJOs consume (`frameNode`); used for the `sai.jsonld.framed` span
+ * attribute so dumps don't carry the shared context (~40 lines per span).
+ */
+function withoutContext(doc: Record<string, unknown>): Record<string, unknown> {
+  const { '@context': _context, ...rest } = doc
+  return rest
+}
+
+/**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into a
  * framed node. The document can be in expanded, compacted, or flattened form.
  * Uses jsonld.frame to resolve @reverse relationships automatically, without
  * embedding child nodes.
  * Throws if the node is not in the framed output.
+ *
+ * Tracing: emits a `frameDoc` span carrying the FRAMED payload
+ * (`sai.jsonld.framed`) — the decoded form consumers actually read; for GETs
+ * this is the framed version of a `fetchJsonLd` raw document (the two appear
+ * as siblings under the same RPC/RPC-adjacent span). Recording-only:
+ * no-op spans cost zero when tracing is off.
  */
 export async function frameDoc(
   doc: unknown,
@@ -113,13 +130,32 @@ export async function frameDoc(
   iri: string,
   overrides: Record<string, Record<string, unknown>> = {}
 ): Promise<Record<string, unknown>> {
-  const framed = await jsonld.frame(doc, buildFrame(context, iri, overrides) as any, {
-    documentLoader,
+  return trace.getTracer('sai-jsonld').startActiveSpan('frameDoc', async (span) => {
+    try {
+      span.setAttribute('sai.jsonld.uri', iri)
+      const framed = await jsonld.frame(doc, buildFrame(context, iri, overrides) as any, {
+        documentLoader,
+      })
+      if (!(framed as any).id && !(framed as any)['@id']) {
+        throw new Error(`Node ${iri} not found in framed output`)
+      }
+      // the framed node — @context stripped for the payload (frameNode does
+      // the same for the model POJOs); the span attribute set before end()
+      if (span.isRecording()) {
+        span.setAttribute(
+          'sai.jsonld.framed',
+          JSON.stringify(withoutContext(framed as Record<string, unknown>))
+        )
+      }
+      span.end()
+      return framed as Record<string, unknown>
+    } catch (err) {
+      span.recordException(err as Error)
+      span.setStatus({ code: SpanStatusCode.ERROR })
+      span.end()
+      throw err
+    }
   })
-  if (!(framed as any).id && !(framed as any)['@id']) {
-    throw new Error(`Node ${iri} not found in framed output`)
-  }
-  return framed as Record<string, unknown>
 }
 
 /**
@@ -309,15 +345,32 @@ export async function toStore(doc: Record<string, unknown>, base?: string): Prom
 /**
  * Raw JSON-LD GET — returns the parsed document (expanded, compacted, or
  * flattened form). Throws if the request fails.
+ *
+ * Tracing: emits a `fetchJsonLd` span carrying the RAW wire document
+ * (`sai.jsonld.raw` — no envelope). The auto HTTP client span (undici/http
+ * instrumentation) nests inside as the actual GET. Recording-only.
  */
 export async function fetchJsonLd(iri: string, fetch: WhatwgFetch): Promise<unknown> {
-  const response = await fetch(iri, {
-    headers: { Accept: 'application/ld+json' },
+  return trace.getTracer('sai-jsonld').startActiveSpan('fetchJsonLd', async (span) => {
+    try {
+      span.setAttribute('sai.jsonld.uri', iri)
+      const response = await fetch(iri, {
+        headers: { Accept: 'application/ld+json' },
+      })
+      if (!response.ok) {
+        throw new Error(`failed to fetch ${iri}: ${response.status}`)
+      }
+      const doc: unknown = await response.json()
+      if (span.isRecording()) span.setAttribute('sai.jsonld.raw', JSON.stringify(doc))
+      span.end()
+      return doc
+    } catch (err) {
+      span.recordException(err as Error)
+      span.setStatus({ code: SpanStatusCode.ERROR })
+      span.end()
+      throw err
+    }
   })
-  if (!response.ok) {
-    throw new Error(`failed to fetch ${iri}: ${response.status}`)
-  }
-  return response.json()
 }
 
 /**
@@ -351,6 +404,10 @@ export async function expandedJsonLd(doc: Record<string, unknown>): Promise<unkn
  * `expandedJsonLd`; the document's embedded context is only used to expand).
  * Throws if the request fails. Extra headers (e.g. If-None-Match) can be
  * passed through.
+ *
+ * Tracing: emits a `putJsonLd` span carrying BOTH the framed POJO the
+ * caller wrote (`sai.jsonld.framed`, @context stripped) and the expanded
+ * wire body actually PUT (`sai.jsonld.expanded`). Recording-only.
  */
 export async function putJsonLd(
   iri: string,
@@ -358,14 +415,31 @@ export async function putJsonLd(
   doc: Record<string, unknown>,
   headers?: Record<string, string>
 ): Promise<void> {
-  const response = await fetch(iri, {
-    method: 'PUT',
-    body: JSON.stringify(await expandedJsonLd(doc)),
-    headers: { 'Content-Type': 'application/ld+json', ...headers },
+  await trace.getTracer('sai-jsonld').startActiveSpan('putJsonLd', async (span) => {
+    try {
+      span.setAttribute('sai.jsonld.uri', iri)
+      const expanded = await expandedJsonLd(doc)
+      const body = JSON.stringify(expanded)
+      if (span.isRecording()) {
+        span.setAttribute('sai.jsonld.framed', JSON.stringify(withoutContext(doc)))
+        span.setAttribute('sai.jsonld.expanded', body)
+      }
+      const response = await fetch(iri, {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/ld+json', ...headers },
+      })
+      if (!response.ok) {
+        throw new Error(`failed to put ${iri}: ${response.status}`)
+      }
+      span.end()
+    } catch (err) {
+      span.recordException(err as Error)
+      span.setStatus({ code: SpanStatusCode.ERROR })
+      span.end()
+      throw err
+    }
   })
-  if (!response.ok) {
-    throw new Error(`failed to put ${iri}: ${response.status}`)
-  }
 }
 
 /**

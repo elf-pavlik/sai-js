@@ -129,6 +129,36 @@ export async function listContained(
 }
 
 /**
+ * Data registrations in a data registry whose `registeredShapeTree` is among
+ * `shapeTrees` — the filtered counterpart of `listContained` for data
+ * registries: membership comes from the container's REGULAR graph
+ * (`ldp:contains`), while the shape tree lives in the registration's
+ * `meta:<iri>` graph (type + `registeredShapeTree` — the registration's own
+ * graph holds only `ldp:contains` instance members). Used by
+ * `findUserDataRegistrations` to load only the registrations that can match
+ * an access need group, instead of listing + probing every registration.
+ */
+export async function listRegistrationsByShapeTrees(
+  transport: SparqlTransport,
+  registryIri: string,
+  shapeTrees: string[]
+): Promise<string[]> {
+  if (shapeTrees.length === 0) return []
+  const trees = shapeTrees.map((tree) => `<${tree}>`).join(', ')
+  const bindings = await transport.fetchBindings(
+    `SELECT DISTINCT ?reg WHERE {
+  GRAPH <${registryIri}> { <${registryIri}> <${LDP.contains}> ?reg }
+  GRAPH ?meta {
+    ?reg a <${INTEROP.DataRegistration}> ;
+         <${INTEROP.registeredShapeTree}> ?tree
+  }
+  FILTER(?tree IN (${trees}))
+}`
+  )
+  return bindings.map((binding) => binding.reg.value)
+}
+
+/**
  * Registration body (e.g. a reciprocal registration) from its graph —
  * framed with the data-model context exactly like `loadSocialAgentRegistration`
  * frames an HTTP-fetched document, so callers receive the same

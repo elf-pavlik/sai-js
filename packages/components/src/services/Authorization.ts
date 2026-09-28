@@ -48,7 +48,7 @@ import {
   getDataGrant as getDataGrantFromSparql,
   getDataRegistration as getDataRegistrationFromSparql,
   getSocialAgentRegistration as getRegistrationFromSparql,
-  listContained,
+  listRegistrationsByShapeTrees,
   sparqlTransportFor,
 } from './queries/org.js'
 
@@ -94,8 +94,14 @@ async function findUserDataRegistrations(
 ) {
   const dataRegistrations = []
   const transport = sparqlTransportFor(ctx)
+  // only the shape trees the access need group asks for — the SPARQL read
+  // filters on the registration meta graphs (`registeredShapeTree`), so
+  // non-matching registrations are never listed nor probed
+  const shapeTrees = [
+    ...new Set(accessNeedGroup.accessNeeds.map((accessNeed) => accessNeed.registeredShapeTree)),
+  ]
   for (const dataRegistry of ctx.registrySet.hasDataRegistry) {
-    const iris = await listContained(transport, dataRegistry.id)
+    const iris = await listRegistrationsByShapeTrees(transport, dataRegistry.id, shapeTrees)
     const registrations = await Promise.all(
       iris.map((iri) => getDataRegistrationFromSparql(transport, iri))
     )

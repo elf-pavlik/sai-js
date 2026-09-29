@@ -23,6 +23,6 @@ jobs:
       - name: Integration tests
         uses: dagger/dagger-for-github@v8.2.0
         with:
-          version: 0.20.6
+          version: 0.21.9
           args: test
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}

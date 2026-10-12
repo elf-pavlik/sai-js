@@ -27,6 +27,14 @@
     "vuetify": "^3.5.6",
     "webfontloader": "^1.6.28"
   },
+  "overrides": {
+    "@solid-notifications/subscription": {
+      "@janeirodigital/interop-utils": "1.0.0-rc.26"
+    },
+    "@solid-notifications/discovery": {
+      "@janeirodigital/interop-utils": "1.0.0-rc.26"
+    }
+  },
   "devDependencies": {
     "@babel/types": "^7.23.0",
     "@ldo/cli": "1.0.0-alpha.32",

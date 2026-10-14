@@ -1,6 +1,6 @@
 {
   "packages": [
-    "nodejs@latest",
+    "nodejs@26",
     "mkcert@latest",
     "openssl@latest",
     "xh@latest",
@@ -9,7 +9,6 @@
     "ducker@latest",
     "pgcli@latest",
     "github:dagger/nix/4a39fb35b724a8f85c254fa1513fa0ffc17162e7#packages.x86_64-linux.dagger",
-    "bun@latest",
     "nixos-anywhere@latest",
     "nix-prefetch-docker@latest",
     "skopeo@latest",
@@ -33,7 +32,7 @@
     "scripts": {
       "up": "make up",
       "down": "make down",
-      "seed": "bun packages/repl/cmd.ts -- seed-env"
+      "seed": "node packages/repl/cmd.ts -- seed-env"
     }
   }
 }

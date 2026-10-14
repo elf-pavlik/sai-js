@@ -13,7 +13,7 @@ pkgs.dockerTools.buildImage {
     paths = [
       pkgs.busybox
       pkgs.cacert
-      pkgs.nodejs
+      pkgs.nodejs_26
       sai-worker
       ];
     pathsToLink = [ "/bin" "/app" "/etc" ];

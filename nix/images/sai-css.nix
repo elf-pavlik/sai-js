@@ -13,7 +13,7 @@ pkgs.dockerTools.buildImage {
     paths = [
       pkgs.busybox
       pkgs.cacert
-      pkgs.nodejs
+      pkgs.nodejs_26
       sai-css
       (pkgs.runCommand "data-dirs" {} ''
         mkdir -p $out/data $out/config

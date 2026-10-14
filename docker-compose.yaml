@@ -32,7 +32,7 @@ x-origin-env: &origin-env
 
 services:
   auth:
-    image: oven/bun:1.4.2-slim
+    image: node:26-slim
     container_name: auth
     restart: on-failure
     networks:
@@ -45,11 +45,11 @@ services:
       - '9229:9229'
     working_dir: /sai/environments/css
     command:
-      - bun
+      - node
       - --inspect=0.0.0.0:9229
       # OpenTelemetry CJS preload (no-op unless an OTEL_* file/endpoint is
-      # set); --preload runs before CSS builds its server
-      - --preload=/sai/packages/components/src/tracing/preload.cjs
+      # set); --require runs before CSS builds its server
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -73,7 +73,7 @@ services:
       - traefik.http.services.auth.loadbalancer.server.port=4800
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   registry:
-    image: oven/bun:1.4.2-slim
+    image: node:26-slim
     container_name: registry
     restart: on-failure
     networks:
@@ -86,10 +86,10 @@ services:
       - '9230:9230'
     working_dir: /sai/environments/css
     command:
-      - bun
+      - node
       - --inspect=0.0.0.0:9230
       # OpenTelemetry CJS preload (no-op unless an OTEL_*_file/endpoint is set)
-      - --preload=/sai/packages/components/src/tracing/preload.cjs
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -111,7 +111,7 @@ services:
       - traefik.http.services.registry.loadbalancer.server.port=4600
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   data:
-    image: oven/bun:1.4.2-slim
+    image: node:26-slim
     container_name: data
     restart: on-failure
     networks:
@@ -124,10 +124,10 @@ services:
       - '9231:9231'
     working_dir: /sai/environments/css
     command:
-      - bun
+      - node
       - --inspect=0.0.0.0:9231
       # OpenTelemetry CJS preload (no-op unless an OTEL_*_file/endpoint is set)
-      - --preload=/sai/packages/components/src/tracing/preload.cjs
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/node_modules/@solid/community-server/bin/server.js
     volumes:
       - ./:/sai
@@ -149,7 +149,7 @@ services:
       - traefik.http.services.data.loadbalancer.server.port=4700
       - traefik.http.middlewares.testheader.headers.customrequestheaders.X-Forwarded-Proto=https
   worker:
-    image: oven/bun:1.4.2-slim
+    image: node:26-slim
     container_name: worker
     restart: on-failure
     networks:
@@ -160,7 +160,7 @@ services:
       - '9235:9235'
     working_dir: /sai/packages/components
     command:
-      - bun
+      - node
       - --inspect=0.0.0.0:9235
       - /sai/packages/components/dist/workers/main.js
     volumes:
@@ -172,7 +172,7 @@ services:
       # OpenTelemetry dev loop — live to the compose tempo service (worker)
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
   ui:
-    image: node:22-alpine
+    image: node:26-alpine
     container_name: ui
     restart: on-failure
     networks:
@@ -190,7 +190,7 @@ services:
       - traefik.http.routers.ui-sai.tls=true
       - traefik.http.services.ui-sai.loadbalancer.server.port=4200
   vuejectron:
-    image: node:22-alpine
+    image: node:26-alpine
     container_name: vuejectron
     restart: on-failure
     networks:
@@ -387,7 +387,7 @@ services:
       - ./environments/css/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
 
   id:
-    image: oven/bun:1.4.2-slim
+    image: node:26-slim
     container_name: id
     restart: on-failure
     networks:
@@ -400,10 +400,10 @@ services:
     ports:
       - '9236:9236'
     command:
-      - bun
+      - node
       - --inspect=0.0.0.0:9236
       # OpenTelemetry CJS preload (id origin server)
-      - --preload=/sai/packages/components/src/tracing/preload.cjs
+      - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/services/id/http.ts
     environment:
       <<: *sparql-env

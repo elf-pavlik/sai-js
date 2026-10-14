@@ -1,50 +1,10 @@
 'use strict'
 
-// ── Bun compatibility: jose's `bun` export condition ────────────────────────
-// jose 5.x maps the `bun` condition to its browser/WebCrypto build. CSS's
-// CachedJwkGenerator generates a key pair and then exports the private key as a
-// JWK; the WebCrypto build defaults `extractable` to false and cannot export
-// Node KeyObjects, so it throws:
-//   "non-extractable CryptoKey cannot be exported as a JWK".
-// Node loads jose's node build (node:crypto KeyObjects), where this works.
-// Under Bun, redirect `require('jose')` coming from @solid/community-server to
-// that package's node build. Scoped to CSS so our own jose v6 usage is
-// untouched. No-op on Node.
-if (process.versions.bun) {
-  const fs = require('node:fs')
-  const path = require('node:path')
-  const Module = require('node:module')
-  const marker = `${path.sep}@solid${path.sep}community-server${path.sep}`
-  const nodeJoseFor = (parentFilename) => {
-    const idx = parentFilename.indexOf(marker)
-    if (idx === -1) return undefined
-    const cssRoot = parentFilename.slice(0, idx + marker.length - 1)
-    const nodeModules = path.dirname(path.dirname(cssRoot))
-    const candidates = [
-      path.join(cssRoot, 'node_modules', 'jose', 'dist', 'node', 'cjs', 'index.js'),
-      path.join(nodeModules, 'jose', 'dist', 'node', 'cjs', 'index.js'),
-    ]
-    return candidates.find((candidate) => fs.existsSync(candidate))
-  }
-  // Module._resolveFilename is private API — the only hook Bun exposes for this.
-  // eslint-disable-next-line no-underscore-dangle
-  const originalResolve = Module._resolveFilename
-  // eslint-disable-next-line no-underscore-dangle
-  Module._resolveFilename = function (request, parent, ...rest) {
-    if (request === 'jose' && parent && typeof parent.filename === 'string') {
-      const target = nodeJoseFor(parent.filename)
-      if (target) return target
-    }
-    return originalResolve.call(this, request, parent, ...rest)
-  }
-}
-
 /**
  * Synchronous CJS side-effect bootstrap for CSS servers (no app-level
  * entrypoint we own). Usage:
  *
  *   node --require /sai/packages/components/src/tracing/preload.cjs <css-server.js>
- *   bun  --preload /sai/packages/components/src/tracing/preload.cjs <css-server.js>
  *
  * MUST use a *preload* (not an import): it runs synchronously before the main
  * module, so the http instrumentation patches `http.Server.prototype.emit`

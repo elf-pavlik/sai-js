@@ -1,4 +1,4 @@
-import type { GrantData } from '.'
+import type { GrantData } from './index.ts'
 
 export type DataOwnerData = {
   id: string

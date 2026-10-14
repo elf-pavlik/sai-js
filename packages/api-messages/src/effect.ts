@@ -6,14 +6,18 @@ import type { PushSubscription } from 'web-push'
 export const IRI = pipe(S.String, S.brand('IRI'))
 export type IRI = S.Schema.Type<typeof IRI>
 
-export enum Scopes {
-  Inherited = 'Inherited',
-  All = 'All',
-  AllFromAgent = 'AllFromAgent',
-  AllFromRole = 'AllFromRole',
-  AllFromRegistry = 'AllFromRegistry',
-  SelectedFromRegistry = 'SelectedFromRegistry',
-}
+// Node 26 runs TypeScript in strip-only mode, which does not support `enum`.
+// A frozen const object + a derived union type keeps the same value/type API.
+export const Scopes = {
+  Inherited: 'Inherited',
+  All: 'All',
+  AllFromAgent: 'AllFromAgent',
+  AllFromRole: 'AllFromRole',
+  AllFromRegistry: 'AllFromRegistry',
+  SelectedFromRegistry: 'SelectedFromRegistry',
+} as const
+
+export type Scopes = (typeof Scopes)[keyof typeof Scopes]
 
 export const AccessModes = {
   Read: 'http://www.w3.org/ns/auth/acl#Read',

@@ -13,11 +13,14 @@ export class NotificationManager extends EventTarget {
 
   private streamMap = new Map<string, Response>()
 
-  constructor(
-    private authnFetch: typeof fetch,
-    private authorizationAgentIri: string
-  ) {
+  private authnFetch: typeof fetch
+
+  private authorizationAgentIri: string
+
+  constructor(authnFetch: typeof fetch, authorizationAgentIri: string) {
     super()
+    this.authnFetch = authnFetch
+    this.authorizationAgentIri = authorizationAgentIri
   }
 
   public async subscribeViaPush(

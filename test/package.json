@@ -6,8 +6,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dagger:test": "bunx --bun vitest run --no-file-parallelism",
-    "dagger:debug": "bun --inspect-brk=0.0.0.0:9240 ../node_modules/vitest/vitest.mjs run --no-file-parallelism"
+    "dagger:test": "vitest run --no-file-parallelism",
+    "dagger:debug": "node --inspect-brk=0.0.0.0:9240 ../node_modules/vitest/vitest.mjs run --no-file-parallelism"
   },
   "author": "",
   "license": "MIT",

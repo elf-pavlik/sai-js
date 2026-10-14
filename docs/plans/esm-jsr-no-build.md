@@ -1,4 +1,4 @@
-# ESM-only, no build step, tsgo typecheck (Bun runtime)
+# ESM-only, no build step, tsgo typecheck (Node 26 runtime)
 
 > **Status:** ✅ **complete** — all in-scope phases implemented (0–4, 7, 8, 10).
 > The deferred follow-ups were split into their own plans:
@@ -8,15 +8,25 @@
 > [`extract-temporal-workflows.md`](extract-temporal-workflows.md) (Phase 9).
 >
 > This plan tracked the move of the publishable packages to **ESM-only source
-> with no build step**, running **everything under Bun** (native TS, incl.
+> with no build step**, running **everything under a native-TS runtime** (incl.
 > production OCI images), and type-checking with **`tsgo --noEmit`**
 > (`@typescript/native-preview`).
+>
+> **Revision — runtime reverted to Node 26.** The original resolution ran
+> everything under **Bun**; that was later reversed. Everything now runs under
+> **Node 26** (native `.ts` strip-only mode), vitest runs under Node, and the
+> Bun-only jose `preload.cjs` workaround was removed. Two strip-only fixes were
+> needed in the no-build sources: parameter properties and one `enum`. The
+> no-build tsconfig also moved from `module: preserve` + `moduleResolution:
+> bundler` to **`nodenext`** for the no-build packages (`components` keeps
+> `esnext`/`bundler`). [`jsr-publishing.md`](jsr-publishing.md) is unchanged and
+> remains the publish goal.
 
 ## 1. Goal
 
 1. **ESM-only.** Drop the dual CJS/ESM rollup output; packages are `"type": "module"` and expose TypeScript source.
 2. **No build step** for the interop library packages (and, where feasible, everything else).
-3. **Dev/test on Bun** loading `.ts` natively.
+3. **Dev/test on Node 26** loading `.ts` natively (strip-only mode).
 4. **Typecheck with `tsgo --noEmit`.**
 5. **Publish packages to JSR** (`jsr.io`) instead of / alongside npm — **split out to [`jsr-publishing.md`](jsr-publishing.md)**; not part of this plan.
 
@@ -99,11 +109,11 @@ Each decision is listed with options, a recommendation, and a placeholder for th
 | D2 | TypeScript strictness under tsgo | `strict: true` migration (~121 fixes) | ✅ **B** — pin `strict: false` now; **Phase 7** migrates to `strict: true` |
 | D3 | Module/resolution mode + import extensions | `module: preserve` + `moduleResolution: bundler` + explicit `.ts` imports | ✅ **A** — `module: preserve` + `moduleResolution: bundler`; imports stay mixed; normalization deferred to **Phase 8** |
 | D4 | JSR cross-package dependency specifiers | publish-time rewrite to `jsr:` | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
-| D5 | Production runtime for CSS/worker/services | pending D1 | ✅ **A** — Bun everywhere, including the production OCI images in `flake.nix` |
+| D5 | Production runtime for CSS/worker/services | pending D1 | ✅ **A** — Node 26 everywhere, including the production OCI images in `flake.nix` (originally resolved as Bun; reverted — see the revision note) |
 | D6 | npm publishing | keep npm for `components` only (per D1) | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
 | D7 | Slow types | fix utils/auth-agent/components; `--allow-slow-types` for `api-messages` | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
 | D8 | JSR publish trigger + version source of truth | GitHub Actions on release, `jsr.json`/`package.json` synced by script | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
-| D9 | Test runner under Bun | keep vitest, run via `bunx --bun` | ✅ **A** — keep vitest, run via `bunx --bun` |
+| D9 | Test runner runtime | keep vitest, run under Node | ✅ **A** — keep vitest, run under Node 26 (originally `bunx --bun`; reverted) |
 | D10 | npm publish/release behavior while JSR is deferred | keep npm releases via a publish-time build; no build in dev/test | ✅ **B** — pause npm releases for the 5 interop libs; only `components` keeps publishing |
 
 ### D1 — `@elfpavlik/sai-components` strategy
@@ -218,18 +228,17 @@ maintain. Implications:
 - Production no longer depends on npm releases, which is consistent with
   D10 = B.
 
-### D9 — Test runner under Bun
+### D9 — Test runner under Node
 
 **Options**
-- **A. Keep vitest, run with `bunx --bun vitest`** (verified working).
-- **B. Migrate to `bun test`** — tests import from `vitest`, so this needs a compatibility shim or a large rewrite.
+- **A. Keep vitest, run under Node 26** (`npx vitest run`) — verified working.
+- **B. Migrate to `node --test`** — tests import from `vitest`, so this needs a compatibility shim or a large rewrite.
 
 **Recommendation:** A.
 
-**Resolution:** ✅ **A** — keep vitest. Originally G1 ran on the Node runtime
-because `bunx --bun vitest` (Bun) did not apply `vi.mock`. **Phase 10 fixed
-this by upgrading to vitest 5**, so G1 now runs on the **Bun runtime**
-(`bunx --bun vitest run`) — and `bunx vitest run` (Node) is also green.
+**Resolution:** ✅ **A** — keep vitest, run under **Node 26** (`npx vitest run`).
+(The plan originally resolved this as the Bun runtime via `bunx --bun`; reverted
+together with D5.)
 
 ## 4. Verification & phased implementation plan
 
@@ -246,7 +255,7 @@ in place) and — until Phase 4 — `packages/components/dist` built
 
 | Gate | Command | Notes |
 |---|---|---|
-| **G1 — unit tests** | `bunx --bun vitest run` | Runs vitest under **Bun** (vitest 5, Phase 10). **Green: 70/70 files, 298 passed, 0 failed.** `bunx vitest run` (Node runtime) is also green. |
+| **G1 — unit tests** | `npx vitest run` | Runs vitest under **Node 26**. **Green: 70/70 files, 298 passed, 0 failed.** |
 | **G2 — typecheck** | `npx tsgo --noEmit -p packages/<pkg>/tsconfig.json` (or a root `typecheck` script) | Activates in **Phase 2**. Before that, the `tsc` build is the de-facto type gate. |
 | **G3 — integration** | `dagger call test` | Runs `test/` against the CSS + worker + id services. Requires `packages/components/dist`. User-run. |
 
@@ -256,11 +265,12 @@ keep it green while the tree changes.
 
 ### 4.2 Why this order
 
-No-build only works where TS is loaded natively (Bun). So the **runtime switch
-must land before package `exports` move to `src/*.ts`**. Phase 1 switches the
-dagger/dev/test services to Bun while the interop packages are still built
-(`dist` present), which is what lets `dagger call test` run under Bun early and
-stay green through every later phase.
+No-build only works where TS is loaded natively (Node 26 / Bun). So the
+**runtime switch must land before package `exports` move to `src/*.ts`**.
+Phase 1 switched the dagger/dev/test services to a native-TS runtime (Bun at the
+time; later reverted to Node 26) while the interop packages were still built
+(`dist` present), which is what let `dagger call test` stay green through every
+later phase.
 
 ### Phase 0 — baseline (no changes)
 
@@ -448,7 +458,7 @@ Confirm `tsc` still resolves the now-TS interop packages and that the generated
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Bun cannot run CSS / Temporal worker | would block the entire runtime story (no Node fallback after D5=A) | ✅ **spike passed** (§8); residual: see §8 caveats |
+| Native-TS runtime cannot run CSS / Temporal worker | would have blocked the runtime story | ✅ **spike passed** (§8, run on Bun); the runtime was later reverted to Node 26, so the risk is moot |
 | Strict-mode migration changes runtime behavior | null/undefined paths now guard/throw | ✅ fixed in Phase 7; G1 + G2 + build green |
 
 JSR-specific risks (slow types, npm-compat `lsd:*`, version divergence,
@@ -462,8 +472,8 @@ D4/D6/D7/D8 and the consumer-side facts.
 ## 7. Appendix — validation commands
 
 ```sh
-# G1 — unit tests under Bun (root, workspace = packages/*)
-bunx --bun vitest run
+# G1 — unit tests under Node (root, workspace = packages/*)
+npx vitest run
 
 # G2 — typecheck (activates in Phase 2)
 npx -y -p @typescript/native-preview tsgo --noEmit -p packages/utils/tsconfig.json
@@ -472,14 +482,18 @@ npx -y -p @typescript/native-preview tsgo --noEmit -p packages/utils/tsconfig.js
 npm run build -w @elfpavlik/sai-components   # or, until Phase 3: npm run build
 dagger call test
 
-# Bun native TS
-bun packages/repl/cmd.ts --help
+# Node native TS
+node packages/repl/cmd.ts --help
 ```
 
 (The JSR `publish --dry-run` command lives in
 [`jsr-publishing.md`](jsr-publishing.md).)
 
-## 8. Bun feasibility spike results (D5 = A) — ✅ passed
+## 8. Bun feasibility spike results (D5, later reverted to Node 26) — ✅ passed
+
+> Historical: this spike validated Bun as the runtime. The runtime was
+> subsequently reverted to Node 26, so the results are retained for reference
+> only.
 
 Run against the tree at planning time (Bun 1.4.2, no source changes).
 

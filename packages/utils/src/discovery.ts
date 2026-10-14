@@ -9,34 +9,34 @@ import { INTEROP, NOTIFY, SPACE } from './namespaces.ts'
 import type { WhatwgFetch } from './whatwg-fetch.ts'
 
 export class RequestError extends Error {
-  constructor(
-    message: string,
-    public response: Response
-  ) {
+  response: Response
+
+  constructor(message: string, response: Response) {
     super(message)
+    this.response = response
   }
 }
 
 export class AgentRegistrationDiscoveryError extends RequestError {
-  constructor(public response: Response) {
+  constructor(response: Response) {
     super('Discovery: Agent Registration - request failed', response)
   }
 }
 
 export class DescriptionResourceDiscoveryError extends RequestError {
-  constructor(public response: Response) {
+  constructor(response: Response) {
     super('Discovery: Resource Description - request failed', response)
   }
 }
 
 export class AccessResourceDiscoveryError extends RequestError {
-  constructor(public response: Response) {
+  constructor(response: Response) {
     super('Discovery: Access Resource - request failed', response)
   }
 }
 
 export class StorageDescriptionDiscoveryError extends RequestError {
-  constructor(public response: Response) {
+  constructor(response: Response) {
     super('Discovery: Storage Description - request failed', response)
   }
 }

@@ -16,7 +16,7 @@ pkgs.buildNpmPackage {
     mkdir -p $out/app
     cp -r node_modules package.json $out/app/
 
-    makeWrapper ${pkgs.nodejs}/bin/node $out/bin/sai-worker \
+    makeWrapper ${pkgs.nodejs_26}/bin/node $out/bin/sai-worker \
       --add-flags "$out/app/node_modules/@elfpavlik/sai-components/dist/workers/main.js" \
       --chdir "$out/app"
   '';

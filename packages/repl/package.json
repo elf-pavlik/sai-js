@@ -29,7 +29,7 @@
     "test": "test"
   },
   "scripts": {
-    "cmd": "bun ./cmd.ts"
+    "cmd": "node ./cmd.ts"
   },
   "dependencies": {
     "@effect/cli": "^0.73.2",

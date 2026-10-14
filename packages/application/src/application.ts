@@ -55,11 +55,13 @@ export class Application {
 
   public childMap: Map<string, ChildInfo> = new Map()
 
-  constructor(
-    public webId: string,
-    public applicationId: string,
-    dependencies: ApplicationDependencies
-  ) {
+  webId: string
+
+  applicationId: string
+
+  constructor(webId: string, applicationId: string, dependencies: ApplicationDependencies) {
+    this.webId = webId
+    this.applicationId = applicationId
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
   }

@@ -12,8 +12,8 @@ import {
 import type { NamedNode } from '@rdfjs/types'
 import { DataFactory } from 'n3'
 
-import type { ShapeTreeDescriptionData } from '.'
 import { dataModelContext } from './context.ts'
+import type { ShapeTreeDescriptionData } from './index.ts'
 import { fromJsonLd as shapeTreeDescriptionFromJsonLd } from './shape-tree-description.ts'
 
 export interface ShapeTreeReference {

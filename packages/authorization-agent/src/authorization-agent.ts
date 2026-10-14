@@ -136,12 +136,21 @@ export class AuthorizationAgent {
    */
   registrySets: Map<string, RegistrySetData> = new Map()
 
+  webId: string
+
+  agentId: string
+
+  registrySetId?: string
+
   constructor(
-    public webId: string,
-    public agentId: string,
+    webId: string,
+    agentId: string,
     dependencies: AuthorizationAgentDependencies,
-    public registrySetId?: string
+    registrySetId?: string
   ) {
+    this.webId = webId
+    this.agentId = agentId
+    this.registrySetId = registrySetId
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
     this.sparqlEndpoint = dependencies.sparqlEndpoint

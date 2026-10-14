@@ -24,7 +24,7 @@ The setup is using modified `Makefile` and `docker-compose.yaml` from [docker-sh
 
 ### Node, corepack and npm
 
-Requires node.js 22 or higher
+Requires Node.js 26 or higher
 
 ### Local DNS
 
@@ -181,7 +181,7 @@ You can replace `vapidPublicKey` in your config with generated public key. Priva
 You can generate base64url encoded JWK, including a private key, by running:
 
 ```bash
-bun packages/repl/cmd.ts -- gen-jwk -b
+node packages/repl/cmd.ts -- gen-jwk -b
 ```
 
 It will be used when we encrypt `auth.age` file.

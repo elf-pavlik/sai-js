@@ -16,7 +16,7 @@ pkgs.buildNpmPackage {
     mkdir -p $out/app
     cp -r node_modules *.ts package.json $out/app/
 
-    makeWrapper ${pkgs.nodejs}/bin/node $out/bin/sai-css \
+    makeWrapper ${pkgs.nodejs_26}/bin/node $out/bin/sai-css \
       --add-flags "$out/app/node_modules/@solid/community-server/bin/server.js" \
       --chdir "$out/app"
   '';

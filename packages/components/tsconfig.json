@@ -6,11 +6,18 @@
     "outDir": "dist",
     "typeRoots": ["test/@types"],
     // This package still emits (`build:ts` = tsc + componentsjs-generator, D1),
-    // so it opts out of the base typecheck-only settings.
+    // so it opts out of the base typecheck-only settings. It stays a CommonJS
+    // package and keeps the bundler-style resolution (`nodenext` would force
+    // `import.meta` errors here).
     "module": "esnext",
+    "moduleResolution": "bundler",
     "noEmit": false,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
+    // This package is compiled by `tsc` and loaded as JS, so it does not need
+    // to satisfy Node's strip-only (erasable syntax) restriction: it keeps
+    // parameter properties and the `TargetType` enum.
+    "erasableSyntaxOnly": false,
     // strict migration for components is deferred (Phase 7 keeps it out of G2).
     "strict": false
   },

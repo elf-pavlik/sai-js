@@ -1,3 +1,3 @@
-export * from './fetch-mock'
-export * from './postgres'
-export * from './env'
+export * from './fetch-mock.ts'
+export * from './postgres.ts'
+export * from './env.ts'

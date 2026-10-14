@@ -4,10 +4,14 @@ import type { Sql } from 'postgres'
 export class Postgres {
   public sql!: Sql
 
-  constructor(
-    private readonly connectionString: string,
-    private readonly tableName: string
-  ) {}
+  private readonly connectionString: string
+
+  private readonly tableName: string
+
+  constructor(connectionString: string, tableName: string) {
+    this.connectionString = connectionString
+    this.tableName = tableName
+  }
 
   init(): void {
     if (!this.sql) {

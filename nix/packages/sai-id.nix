@@ -16,7 +16,7 @@ pkgs.buildNpmPackage {
     mkdir -p $out/app
     cp -r node_modules *.ts package.json $out/app/
 
-    makeWrapper ${pkgs.nodejs}/bin/node $out/bin/sai-id \
+    makeWrapper ${pkgs.nodejs_26}/bin/node $out/bin/sai-id \
       --add-flags "http.ts" \
       --chdir "$out/app"
   '';

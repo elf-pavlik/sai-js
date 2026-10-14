@@ -3,8 +3,8 @@
 > **Status:** ✅ **complete** — all in-scope phases implemented (0–4, 7, 8, 10).
 > The deferred follow-ups were split into their own plans:
 > [`production-consumer-cleanup.md`](production-consumer-cleanup.md) (Phase 5),
-> [`jsr-publishing.md`](jsr-publishing.md) (Phase 6 + §6 + the JSR decisions
-> D4/D6/D7/D8), and
+> [`npm-publishing.md`](npm-publishing.md) (Phase 6 + §6 + the publishing
+> decisions D4/D6/D7/D8), and
 > [`extract-temporal-workflows.md`](extract-temporal-workflows.md) (Phase 9).
 >
 > This plan tracked the move of the publishable packages to **ESM-only source
@@ -19,8 +19,8 @@
 > needed in the no-build sources: parameter properties and one `enum`. The
 > no-build tsconfig also moved from `module: preserve` + `moduleResolution:
 > bundler` to **`nodenext`** for the no-build packages (`components` keeps
-> `esnext`/`bundler`). [`jsr-publishing.md`](jsr-publishing.md) is unchanged and
-> remains the publish goal.
+> `esnext`/`bundler`). Publishing is now tracked under npm in
+> [`npm-publishing.md`](npm-publishing.md) (the JSR plan was dropped).
 
 ## 1. Goal
 
@@ -28,7 +28,7 @@
 2. **No build step** for the interop library packages (and, where feasible, everything else).
 3. **Dev/test on Node 26** loading `.ts` natively (strip-only mode).
 4. **Typecheck with `tsgo --noEmit`.**
-5. **Publish packages to JSR** (`jsr.io`) instead of / alongside npm — **split out to [`jsr-publishing.md`](jsr-publishing.md)**; not part of this plan.
+5. **Publish packages to npm** under `@hackers4peace` — **split out to [`npm-publishing.md`](npm-publishing.md)**; not part of this plan.
 
 ## 2. Current state (evidence)
 
@@ -42,7 +42,7 @@
 - `tsconfig.base.json`: `module: ESNext`, `moduleResolution: node` (node10), per-package `composite: true`, `outDir: dist`.
 - Only `repl` and `test-utils` currently have `"type": "module"`.
 - Relative imports are mixed: **139 with `.js` extension**, **189 extensionless**.
-- No `jsr.json` anywhere; no JSR publish workflow; no changesets/release tooling.
+- No `jsr.json`/publish workflow; no changesets/release tooling.
 - Each interop package already has `LICENSE` + `README.md`; `components` has neither.
 
 ### 2.2 Validated facts
@@ -108,13 +108,13 @@ Each decision is listed with options, a recommendation, and a placeholder for th
 | D1 | `@elfpavlik/sai-components` strategy | keep on npm with its build | ✅ **A** — keep on npm with its build |
 | D2 | TypeScript strictness under tsgo | `strict: true` migration (~121 fixes) | ✅ **B** — pin `strict: false` now; **Phase 7** migrates to `strict: true` |
 | D3 | Module/resolution mode + import extensions | `module: preserve` + `moduleResolution: bundler` + explicit `.ts` imports | ✅ **A** — `module: preserve` + `moduleResolution: bundler`; imports stay mixed; normalization deferred to **Phase 8** |
-| D4 | JSR cross-package dependency specifiers | publish-time rewrite to `jsr:` | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
+| D4 | JSR cross-package dependency specifiers | publish-time rewrite to `jsr:` | ⛔ dropped — JSR plan removed; see [`npm-publishing.md`](npm-publishing.md) |
 | D5 | Production runtime for CSS/worker/services | pending D1 | ✅ **A** — Node 26 everywhere, including the production OCI images in `flake.nix` (originally resolved as Bun; reverted — see the revision note) |
-| D6 | npm publishing | keep npm for `components` only (per D1) | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
-| D7 | Slow types | fix utils/auth-agent/components; `--allow-slow-types` for `api-messages` | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
-| D8 | JSR publish trigger + version source of truth | GitHub Actions on release, `jsr.json`/`package.json` synced by script | ↪ moved to [`jsr-publishing.md`](jsr-publishing.md) |
+| D6 | npm publishing | keep npm for `components` only (per D1) | ↪ superseded — see [`npm-publishing.md`](npm-publishing.md) |
+| D7 | Slow types | fix utils/auth-agent/components; `--allow-slow-types` for `api-messages` | ⛔ dropped — JSR plan removed; see [`npm-publishing.md`](npm-publishing.md) |
+| D8 | JSR publish trigger + version source of truth | GitHub Actions on release, `jsr.json`/`package.json` synced by script | ⛔ dropped — JSR plan removed; see [`npm-publishing.md`](npm-publishing.md) |
 | D9 | Test runner runtime | keep vitest, run under Node | ✅ **A** — keep vitest, run under Node 26 (originally `bunx --bun`; reverted) |
-| D10 | npm publish/release behavior while JSR is deferred | keep npm releases via a publish-time build; no build in dev/test | ✅ **B** — pause npm releases for the 5 interop libs; only `components` keeps publishing |
+| D10 | npm publish/release behavior while publishing is deferred | keep npm releases via a publish-time build; no build in dev/test | ✅ **B** — pause npm releases for the 5 interop libs; only `components` keeps publishing |
 
 ### D1 — `@elfpavlik/sai-components` strategy
 
@@ -155,12 +155,12 @@ Each decision is listed with options, a recommendation, and a placeholder for th
 
 **Resolution:** ✅ **A** — `module: "preserve"` + `moduleResolution: "bundler"` + `allowImportingTsExtensions: true`. To keep the initial diff small, the existing mixed imports (`.js` + extensionless) are left as-is; `bundler` resolves all three. Normalizing every relative import to explicit `.ts` is deferred to **Phase 8** (same pattern as D2 → **Phase 7**).
 
-> **D4, D6, D7, D8** (all JSR-related) moved to
-> [`jsr-publishing.md`](jsr-publishing.md).
+> **D4, D6, D7, D8** (all JSR-related) are dropped with the JSR plan; see
+> [`npm-publishing.md`](npm-publishing.md).
 
-### D10 — npm publish/release behavior while JSR is deferred
+### D10 — npm publish/release behavior while publishing is deferred
 
-Surfaced by deferring JSR (D4): the interop libs become TS-source-only with no
+Surfaced by deferring publishing (D4): the interop libs become TS-source-only with no
 `dist` in dev/test, but they are still `@janeirodigital/*` npm packages. A plain
 `npm publish` would ship TS source, which Node consumers cannot load from
 `node_modules`.
@@ -169,15 +169,15 @@ Surfaced by deferring JSR (D4): the interop libs become TS-source-only with no
 - **A. Publish-time build only** — dev/test run source TS under Bun with no build;
   the `publish`/`prepublishOnly` script still builds `dist` (rollup or `tsc`)
   just for the npm tarball. "No build step" applies to the dev/test loop.
-- **B. Pause npm releases** for the interop libs until JSR publishing lands.
+- **B. Pause npm releases** for the interop libs until npm publishing lands.
   No build at all; `components` (D1) keeps building/publishing.
 - **C. Publish TS-only to npm** — simplest pipeline, breaks Node consumers.
   Rejected.
 
 **Recommendation:** A if there are external npm consumers that must keep
-working; B if the packages are consumed only inside this repo until JSR.
+working; B if the packages are consumed only inside this repo until npm publishing.
 
-**Resolution:** ✅ **B** — pause npm releases for the 5 interop libs until JSR
+**Resolution:** ✅ **B** — pause npm releases for the 5 interop libs until npm
 publishing lands. `@elfpavlik/sai-components` (D1) keeps its build + npm
 releases. Consequences:
 
@@ -206,12 +206,12 @@ Bun; the question is what the servers (and production) run.
   Bun; still needs the generated Components.js descriptors.
 - **B. Consume frozen npm releases** for the servers/production — i.e. the last
   published (built) interop versions. Servers keep running under Node; they just
-  do not see new interop code until JSR. Local dev of the interop libs is Bun-only.
+  do not see new interop code until npm publishing. Local dev of the interop libs is Bun-only.
 - **C. Split dev vs production** — dev servers run under Bun on source; the
   production/nix images keep installing built npm releases (frozen per B).
 
 **Recommendation:** C if Bun cannot cleanly run CSS/Temporal; otherwise A. B
-alone is the floor (production frozen until JSR).
+alone is the floor (production frozen until npm publishing).
 
 **Resolution:** ✅ **A** — Bun is the runtime everywhere: dev, test, and the
 production OCI images built from `flake.nix`. There is no Node runtime story to
@@ -242,8 +242,8 @@ together with D5.)
 
 ## 4. Verification & phased implementation plan
 
-> All decisions resolved (the JSR-related D4/D6/D7/D8 moved to
-> [`jsr-publishing.md`](jsr-publishing.md)).
+> All decisions resolved (D4/D6/D7/D8 dropped with the JSR plan; see
+> [`npm-publishing.md`](npm-publishing.md)).
 > **Verification is the organizing principle:** the runtime switch must land
 > before the no-build switch, so `dagger call test` stays runnable throughout.
 
@@ -386,8 +386,8 @@ Confirm `tsc` still resolves the now-TS interop packages and that the generated
 > **Phase 5** (production + consumer cleanup) was split into its own plan:
 > [`production-consumer-cleanup.md`](production-consumer-cleanup.md).
 >
-> **Phase 6** (JSR publishing) was split into its own plan:
-> [`jsr-publishing.md`](jsr-publishing.md).
+> **Phase 6** (publishing) was split into its own plan:
+> [`npm-publishing.md`](npm-publishing.md).
 
 ### Phase 7 — strict-mode migration (follow-up) — ✅ implemented (components still excluded)
 
@@ -461,12 +461,12 @@ Confirm `tsc` still resolves the now-TS interop packages and that the generated
 | Native-TS runtime cannot run CSS / Temporal worker | would have blocked the runtime story | ✅ **spike passed** (§8, run on Bun); the runtime was later reverted to Node 26, so the risk is moot |
 | Strict-mode migration changes runtime behavior | null/undefined paths now guard/throw | ✅ fixed in Phase 7; G1 + G2 + build green |
 
-JSR-specific risks (slow types, npm-compat `lsd:*`, version divergence,
-prerelease ranges) moved to [`jsr-publishing.md`](jsr-publishing.md).
+Publishing-specific risks (slow types, npm-compat `lsd:*`, version divergence,
+prerelease ranges) moved to [`npm-publishing.md`](npm-publishing.md).
 
-## 6. Future work — JSR publishing (deferred)
+## 6. Future work — npm publishing (deferred)
 
-Moved to [`jsr-publishing.md`](jsr-publishing.md) — together with decisions
+Moved to [`npm-publishing.md`](npm-publishing.md) — together with decisions
 D4/D6/D7/D8 and the consumer-side facts.
 
 ## 7. Appendix — validation commands
@@ -486,8 +486,8 @@ dagger call test
 node packages/repl/cmd.ts --help
 ```
 
-(The JSR `publish --dry-run` command lives in
-[`jsr-publishing.md`](jsr-publishing.md).)
+(The npm publish steps live in
+[`npm-publishing.md`](npm-publishing.md).)
 
 ## 8. Bun feasibility spike results (D5, later reverted to Node 26) — ✅ passed
 

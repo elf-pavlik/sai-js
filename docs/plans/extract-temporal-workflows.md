@@ -3,7 +3,7 @@
 > **Status:** 📋 planning — blocked on a dependency-cycle decision (see
 > "Dependency cycle"). Extracted from `esm-jsr-no-build.md` (where it was
 > Phase 9) so that plan can close out; this refactor is independent of the
-> ESM/no-build/JSR work and is **not** part of it.
+> ESM/no-build/publishing work and is **not** part of it.
 
 ## Goal
 
@@ -100,7 +100,7 @@ cycle:
    `components-tweaks.md`, which already plans to move residual SAI domain logic
    to the AA).
 3. Whether `temporal-workflows` is private (likely) and whether it affects the
-   JSR plan (`esm-jsr-no-build.md` §6).
+   publishing plan (`npm-publishing.md`).
 4. Whether `config/` still needs to live in `components` (yes, Components.js
    configs must ship with the descriptors) and how the lsd `importPaths` change.
 

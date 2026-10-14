@@ -16,7 +16,7 @@ in `esm-jsr-no-build.md`:
 - Node 26 strips `.ts` natively (strip-only mode) and resolves workspace
   packages through their symlinks (realpath outside `node_modules`). A real
   installed `node_modules` copy still cannot be stripped, so published packages
-  stay built JS until JSR lands — production ships the repo source (symlinked
+  stay built JS until npm publishing lands — production ships the repo source (symlinked
   workspaces) rather than installed interop tarballs.
 
 ## Work items

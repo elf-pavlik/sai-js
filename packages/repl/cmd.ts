@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { Args, Command, Options } from '@effect/cli'
 import * as NodeContext from '@effect/platform-node/NodeContext'
 import * as Runtime from '@effect/platform-node/NodeRuntime'
-import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
+import { Postgres, seedFusekiDataset } from '@janeirodigital/interop-test-utils'
 import { Console, Effect, Option } from 'effect'
 import { exportJWK, generateKeyPair } from 'jose'
 
@@ -191,14 +191,14 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
     yield* Console.log(`Seeding data for ${env}`)
 
     const connectionString = 'postgres://temporal:temporal@localhost:5432/auth'
-    const sparqlEndpoint = 'http://localhost:7878/store'
+    const fusekiBaseUrl = 'http://localhost:3030/shared'
     const pg = new Postgres(connectionString, 'key_value')
 
     const kv = yield* generateRegistry(kvSourcePath, env)
     const dataset = yield* generateRegistry(datasetSourcePath, env)
 
     yield* Effect.promise(() => pg.seedKeyValue(JSON.parse(kv)))
-    yield* Effect.promise(() => seedQuadstore(sparqlEndpoint, dataset))
+    yield* Effect.promise(() => seedFusekiDataset(fusekiBaseUrl, dataset))
     pg.sql.end()
 
     yield* Console.log('Data seeded successfully')

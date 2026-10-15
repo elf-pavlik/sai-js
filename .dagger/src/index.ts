@@ -24,7 +24,7 @@ const CSS_ENCODED_PRIVATE_JWK =
 const CSS_HTTPS_KEY = '/sai/environments/css/certs/key.pem'
 const CSS_HTTPS_CERT = '/sai/environments/css/certs/cert.pem'
 const NODE_TLS_REJECT_UNAUTHORIZED = '0'
-const CSS_SPARQL_ENDPOINT = 'http://sparql/sparql'
+const CSS_SPARQL_ENDPOINT = 'http://fuseki:3030/shared/sparql'
 const CSS_S3_ENDPOINT = 'http://garage:3900/sai-dev'
 const CSS_S3_ACCESS_KEY_ID = 'GKd0656430cbd2bba62e2cc12b'
 const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c'
@@ -129,28 +129,29 @@ export class SaiJs {
   }
 
   @func()
-  oxigraphService(): Service {
+  fusekiService(): Service {
     return dag
       .container()
-      .from('oxigraph/oxigraph:latest')
-      .withExposedPort(7878)
-      .asService({ args: ['oxigraph', 'serve', '--location', '/data', '--bind', '0.0.0.0:7878'] })
-      .withHostname('oxigraph')
-  }
-
-  @func()
-  sparqlService(): Service {
-    return dag
-      .container()
-      .from('nginx:alpine')
+      .from('secoresearch/fuseki:5.6.0')
       .withMountedFile(
-        '/etc/nginx/nginx.conf',
-        this.source.file('environments/css/oxigraph.nginx.conf')
+        '/tmp/fuseki.config.ttl',
+        this.source.file('environments/css/fuseki.config.ttl')
       )
-      .withServiceBinding('oxigraph', this.oxigraphService())
-      .withExposedPort(80)
-      .asService()
-      .withHostname('sparql')
+      .withExposedPort(3030)
+      .asService({
+        // the image entrypoint initializes $FUSEKI_BASE/shiro.ini; keep it and
+        // pass the FusekiServerCmd invocation as its args
+        useEntrypoint: true,
+        args: [
+          'java',
+          '-cp',
+          '*:/javalibs/*',
+          'org.apache.jena.fuseki.main.cmds.FusekiServerCmd',
+          '--conf',
+          '/tmp/fuseki.config.ttl',
+        ],
+      })
+      .withHostname('fuseki')
   }
 
   @func()
@@ -276,7 +277,7 @@ export class SaiJs {
         .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
         .withServiceBinding('postgresql', this.postgresService())
         .withServiceBinding('temporal', temporal)
-        .withServiceBinding('sparql', this.sparqlService())
+        .withServiceBinding('fuseki', this.fusekiService())
         .withExposedPort(9235)
         .asService({
           args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],
@@ -295,7 +296,7 @@ export class SaiJs {
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
       .withExposedPort(443)
-      .withServiceBinding('sparql', this.sparqlService())
+      .withServiceBinding('fuseki', this.fusekiService())
       .asService({
         args: [
           'node',
@@ -338,6 +339,7 @@ export class SaiJs {
       .withServiceBinding('id', this.idService())
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
+      .withServiceBinding('fuseki', this.fusekiService())
       .withExposedPort(443)
       .withExposedPort(9229)
       .asService({
@@ -371,7 +373,7 @@ export class SaiJs {
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
       .withExposedPort(443)
       .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('sparql', this.sparqlService())
+      .withServiceBinding('fuseki', this.fusekiService())
       .withExposedPort(9230)
       .asService({
         args: [
@@ -406,7 +408,7 @@ export class SaiJs {
       .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
       .withExposedPort(443)
       .withServiceBinding('postgresql', this.postgresService())
-      .withServiceBinding('sparql', this.sparqlService())
+      .withServiceBinding('fuseki', this.fusekiService())
       .withServiceBinding('garage', this.garageService())
       .withExposedPort(9231)
       .asService({
@@ -438,7 +440,7 @@ export class SaiJs {
       .withServiceBinding('data', this.dataService())
       .withServiceBinding('worker', worker)
       .withServiceBinding('temporal', temporal)
-      .withServiceBinding('sparql', this.sparqlService())
+      .withServiceBinding('fuseki', this.fusekiService())
       .withServiceBinding('id', this.idService())
       .withServiceBinding('garage', this.garageService())
       .withWorkdir('/sai/test')

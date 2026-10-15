@@ -16,7 +16,7 @@ x-idp-env: &idp-env
   CSS_ENCODED_PRIVATE_JWK: eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
 
 x-sparql-env: &sparql-env
-  CSS_SPARQL_ENDPOINT: http://sparql/sparql
+  CSS_SPARQL_ENDPOINT: http://fuseki:3030/shared/sparql
 
 x-certs-env: &certs-env
   NODE_EXTRA_CA_CERTS: /mkcert/rootCA.pem
@@ -361,30 +361,28 @@ services:
       - traefik.http.routers.temporal-ui.tls=true
       - traefik.http.services.temporal-ui.loadbalancer.server.port=8080
 
-  oxigraph:
-    image: oxigraph/oxigraph:latest
-    container_name: oxigraph
+  fuseki:
+    image: secoresearch/fuseki:5.6.0
+    container_name: fuseki
     restart: on-failure
     networks:
       - default
-    environment:
-      - RUST_LOG=debug
     expose:
-      - 7878 # internal only
-    command: ['serve', '--location', '/data', '--bind', '0.0.0.0:7878']
-
-  sparql:
-    image: nginx:alpine
-    container_name: sparql
-    restart: on-failure
-    networks:
-      - default
-    depends_on:
-      - oxigraph
+      - 3030 # internal only
     ports:
-      - 7878:80
+      - 3030:3030 # host access for `devbox run seed`
     volumes:
-      - ./environments/css/oxigraph.nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./environments/css/fuseki.config.ttl:/tmp/fuseki.config.ttl:ro
+    # `command` overrides the image Cmd and is passed as `$@` to the
+    # entrypoint (which execs it after initializing shiro.ini), so it must be
+    # the full FusekiServerCmd invocation
+    command:
+      - java
+      - -cp
+      - '*:/javalibs/*'
+      - org.apache.jena.fuseki.main.cmds.FusekiServerCmd
+      - --conf
+      - /tmp/fuseki.config.ttl
 
   id:
     image: node:26-slim
@@ -394,7 +392,7 @@ services:
       - default
     depends_on:
       - router
-      - sparql
+      - fuseki
     volumes:
       - ./:/sai
     ports:

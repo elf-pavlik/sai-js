@@ -1,0 +1,21 @@
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix fuseki: <http://jena.apache.org/fuseki#> .
+@prefix tdb2:   <http://jena.apache.org/2016/tdb#> .
+
+# Stage 1 of docs/plans/fuseki-per-pod-sparql.md: a single `shared` dataset so
+# the Oxigraph -> Fuseki swap is a drop-in (no behavior change). Stage 3
+# replaces this with one `fuseki:Service` per pod (registry + data) plus
+# `shared`.
+#
+# The dataset base is /shared:
+#   SPARQL query + update : http://fuseki:3030/shared/sparql
+#   Graph Store Protocol  : http://fuseki:3030/shared/data
+<#service> rdf:type fuseki:Service ;
+    fuseki:name "shared" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#dataset> .
+
+<#dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/shared" .

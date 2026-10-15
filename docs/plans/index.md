@@ -12,11 +12,11 @@ is documented in the [OpenWiki](../openwiki/index.md).
 | Status | Count | Plans |
 |---|---|---|
 | ✅ complete | 1 | `esm-jsr-no-build` |
-| 🔶 partial | 1 | `revoke-delegation-chain` |
+| 🔶 partial | 2 | `revoke-delegation-chain`, `fuseki-per-pod-sparql` |
 | ⬜ not started / design only | 16 | `authorization-revoked`, `authorization-revocation`, `check-equivalence`, `durable-webhook-delivery`, `remove-turtle-serialization`, `webhook-subscription-bootstrap`, `federation`, `events`, `registry-set-permissions`, `isolated-datasets-and-sparql`, `components-tweaks`, `specific-instance-access-requests`, `generic-auditing`, `extract-temporal-workflows`, `production-consumer-cleanup`, `npm-publishing` |
 | ⬜ follow-up backlog (all items open) | 1 | `revoke-delegation-chain-follow-ups` |
 
-**19 plans total.**
+**20 plans total.**
 
 ## Full table
 
@@ -33,7 +33,8 @@ is documented in the [OpenWiki](../openwiki/index.md).
 | `federation.md` | ⬜ design note (org-admin companion) | Single-deployment shortcuts the org-admin data-plane relies on: shared SPARQL endpoint, global-fetch UAS/storage discovery, local pod-storage ownership, `hasRegistrySet` link across servers, webhook delivery; future federated lookups | `org-admin-feature` (umbrella) |
 | `events.md` | ⬜ design note (org-admin companion) | Domain-event (activityType) catalogue incl. the new `adminAuthorizationRecorded` event → parallel `createAdminGrants` + `syncAdminAcr` workflows; deferred/future events (data-registry-added regeneration, admin revocation) | `org-admin-feature` (umbrella) |
 | `registry-set-permissions.md` | ⬜ not started (design) | Scope the blanket `#fullAdminAccess` per structural registry: per-container ACRs, GrantRegistry owner-only (admins never write grants; per-grant ACRs serve reads), ActivityRegistry Read + create/append (append-only immutable log) instead of blanket Write; seed ACR hygiene for the ACR-less yoyo DataGrants | `org-admin-feature` R1 |
-| `isolated-datasets-and-sparql.md` | ⬜ not started (design only) | Per-owner datasets + SPARQL: 4a endpoint registry in `AccountLoginStorage` (env-var fallback) → 4b per-owner store cutover (joint checkpoint): mirror activation + backfill, serialized syncs, `/sparql-admin` → the org's own store, external admin-endpoint discovery, environment work, cross-owner isolation + mirror-freshness tests. The IRI-parametrized org-context SPARQL reads resolve to mirrors unchanged | `federation.md` shortcuts 1/1a |
+| `isolated-datasets-and-sparql.md` | ⬜ not started (design only) | Per-pod datasets + SPARQL: 4a endpoint registry in `AccountLoginStorage` (registry pod + each data pod, env-var fallback) → 4b per-pod store cutover (joint checkpoint): mirror activation + backfill, serialized syncs, `/sparql-admin` → the org's own registry pod, external admin-endpoint discovery, environment work, cross-pod isolation + mirror-freshness tests. The IRI-parametrized org-context SPARQL reads resolve to mirrors unchanged | `federation.md` shortcuts 1/1a |
+| `fuseki-per-pod-sparql.md` | 🔶 stage 1 landed (Fuseki drop-in, single `shared` dataset); stages 2–3 design | Infrastructure realization of 4a/4b: Oxigraph → Apache Jena Fuseki swap (dev compose + dagger), fixture split into one dataset per pod (registry pod + each data pod, + a `shared` public dataset), CSS `SparqlEndpointStore` + `Account.ts` bootstrap (creates both datasets) + `RoutedSparqlDataAccessor` + permission-engine resolution so the LDP write path and grant lookups isolate too, `kv.json` endpoint seeds; three green stages (Fuseki drop-in → endpoint registry → per-pod split), production Nix + separate S3-per-data-pod deferred | `isolated-datasets-and-sparql` (4a/4b); `federation.md` 1/1a |
 | `components-tweaks.md` | ⬜ design only (investigation write-up) | Residual SAI domain/spec logic still in components after the reorganize phases: extract `SaiPermissionsEngine`'s grant-evaluation predicates (grant→request coverage, Inherited-chain resolution, admin modes) and the 4×-duplicated `hasAdminGrant` admin-marker rule to AA session methods/predicates; move the delegation-endpoint inheritance completion (`GrantIssuanceHandler`) and `buildAdminGrants` materialization to AA; plane-based session `findRegistration` | — |
 | `esm-jsr-no-build.md` | ✅ complete | ESM-only source, no build step for the 5 interop libs, Node 26 native TS everywhere, `tsgo --noEmit` typecheck (strict), `.ts` imports, vitest 5 on Node; deferred work split into the plans below | — |
 | `production-consumer-cleanup.md` | ⬜ not started | nix packages/images → Node 26 + repo source (drop `buildNpmPackage`/`pkgs.nodejs`/`dist`); `services/id`, `ui/authorization`, `docs/website`, README, dagger/compose | `esm-jsr-no-build` (D5=A, D10=B) |
@@ -73,9 +74,12 @@ tracked in this index). The landed org-context read plane and the
 - `events.md` — design note; builds on the activity outbox model (the
   `activityWorkflows` map / `GRANTEE_ACTIVITY_TYPES` dispatch).
 - `registry-set-permissions.md` — ⬜ design; follow-up to `org-admin-feature` R1.
-- `isolated-datasets-and-sparql.md` — ⬜ design; per-owner datasets + SPARQL
+- `isolated-datasets-and-sparql.md` — ⬜ design; per-pod datasets + SPARQL
   endpoints, mirror activation + backfill, external admin-endpoint discovery —
   joint `/test` checkpoint at the store-split cutover.
+- `fuseki-per-pod-sparql.md` — 🔶 stage 1 landed; the infra realization of the
+  above (Fuseki swap, per-pod fixture split, CSS endpoint store + routed
+  accessor, `kv.json` seeds) in three green stages.
 
 ### Independent / deferred
 
@@ -105,12 +109,12 @@ tracked in this index). The landed org-context read plane and the
 **[`federation.md`](federation.md)** — design note, not a tracked plan:
 documents the **single-deployment shortcuts** the org-admin data plane
 relies on and what actually breaks once servers/stores split. It is the
-primary reference for the per-owner work; each shortcut maps to a plan
+primary reference for the isolation work; each shortcut maps to a plan
 below:
 
 | `federation.md` shortcut | What it is | Plan(s) that address / depend on it |
 |---|---|---|
-| **1 — shared SPARQL store** | one triple store behind the registry + data servers; every graph visible from every endpoint | the org-context SPARQL read plane (reads resolve against it today; see the OpenWiki); ended by the `isolated-datasets-and-sparql.md` 4b store split |
+| **1 — shared SPARQL store** | one triple store behind the registry + data servers; every graph visible from every endpoint | the org-context SPARQL read plane (reads resolve against it today; see the OpenWiki); ended by the `isolated-datasets-and-sparql.md` 4b store split, concretely by `fuseki-per-pod-sparql.md` (Fuseki datasets per pod + routed CSS accessor) |
 | **1a — reciprocal mirrors** | the federated replacement for cross-graph reads: org-local copies of peers' registrations + grants, named after the source IRIs | the dormant reciprocal-mirror writer (see the OpenWiki); `isolated-datasets-and-sparql.md` 4b (activation, backfill, serialized syncs) |
 | **2 — UAS/storage discovery via global fetch** | discovery uses the global fetch, not a session-bound one — fine on one compose network | no dedicated plan yet; revisit when servers split across hosts (noted in `federation.md`) |
 | **3 — pod/storage ownership is local** | `podStore.getOwners` decides "owner of this storage" per server | no dedicated plan yet (the data-plane admin-status path, see "Cases the design must keep working" in `federation.md`) |
@@ -118,7 +122,8 @@ below:
 | **5 — activity/outbox delivery on one notification path** | webhooks from the org's Activity Registry → admin UI assume co-location | `durable-webhook-delivery.md` (cross-server delivery, ⬜); `webhook-subscription-bootstrap.md` (channel provisioning for real deployments, ⬜) |
 
 Directly related plans: **`isolated-datasets-and-sparql.md`** (the
-per-owner cutover that ends shortcut 1 and makes 1a load-bearing), the two
+per-pod cutover that ends shortcut 1 and makes 1a load-bearing) and its
+environment realization **`fuseki-per-pod-sparql.md`**, the two
 webhook-delivery plans above (shortcut 5), and `registry-set-permissions.md`
 (which server's ACRs grant what across owners — seed hygiene for ACR-less
 yoyo DataGrants). The landed org-context read plane and proxy endpoints are
@@ -131,13 +136,20 @@ the plan is only listed once the plan spells out an enforcement boundary.
 For now:
 
 - **[`isolated-datasets-and-sparql.md`](isolated-datasets-and-sparql.md)** —
-  the per-owner SPARQL read plane's authorization boundaries: per-owner
+  the per-pod SPARQL read plane's authorization boundaries: per-pod
   endpoint records in `AccountLoginStorage` (4a), the `/sparql-admin`
   `hasAdminGrant` gate forwarding into the org's own store (4b, closing
   the who-not-which-graphs caveat), the mirror **single-writer invariant**
   (only server-side sync writes mirror graphs; admin code read-only), and
   the cross-owner isolation tests (Dan querying Alice's endpoint → 403 by
   gate; no cross-graph leakage even at his own endpoint).
+- **[`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md)** — the physical
+  boundary that makes those gates meaningful: one Fuseki dataset per pod
+  (registry + data), the endpoint as a stored capability, and the
+  `RoutedSparqlDataAccessor` that prevents the LDP write path from
+  cross-writing. Note the open item on Fuseki auth on the internal network (a
+  leaked endpoint URL is a real capability
+  leak).
 - The landed `/.sai/proxy-admin` / `/sparql-admin` enforcement boundaries —
   `requireOrgAdmin` (caller must be an admin of the org; unknown org
   indistinguishable from non-admin), GET/QUERY-only, JSON-LD-only contract
@@ -179,6 +191,7 @@ independent. They are the **only** plans that rewrite CSS internals.
 | Plan | Custom components added |
 |---|---|
 | `revoke-delegation-chain.md` 🔶 | `GrantRevocationHandler` + `AccessRevocation` dispatch on the delegation endpoint (`GrantIssuanceRouter`), and the `RevokeGrants` RPC (`services/Revocation.ts` via `ApiHandler`) |
+| `fuseki-per-pod-sparql.md` ⬜ | `SparqlEndpointStore` (AccountLoginStorage type `sparqlEndpoint`) + `RoutedSparqlDataAccessor` (selects the per-pod dataset for every LDP read/write); no CSS built-in is replaced in the notification sense — a new backend accessor is added |
 | `webhook-subscription-bootstrap.md` ⬜ | Reuses the existing `ActivityWebhookStore` + the **stock** CSS notification API (`SubscriptionClient` → `WebhookChannel2023`, kv-backed `KeyValueChannelStorage`) — no new components |
 
 ### No CSS components needed

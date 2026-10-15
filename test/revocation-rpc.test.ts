@@ -80,9 +80,12 @@ describe('DataOwnerGrantRevocationRpc', () => {
     expect(await rpcCall(rpcPayload([p9m2vr]), acmeCookie)).toEqual([p9m2vr])
 
     // p9m2vr + its inheriting child hdaymz removed; the unrelated parent
-    // x4j8lm subtree is untouched
+    // x4j8lm subtree is untouched (order-independent — the SPARQL result
+    // order is not guaranteed across stores)
     expect(await countGrants()).toBe(seededGrantCount - 2)
-    expect(await registrationGrantIris(bobId)).toEqual([x4j8lm, q2v9pt])
+    const remaining = await registrationGrantIris(bobId)
+    expect(remaining).toHaveLength(2)
+    expect(remaining).toEqual(expect.arrayContaining([x4j8lm, q2v9pt]))
   })
 
   test('mixing existing and already-removed grants echoes both and removes the existing', async (): Promise<void> => {

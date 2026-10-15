@@ -36,12 +36,15 @@ but today the registry and data servers point at **the same triple store**
   graphs directly** from this shared store — reciprocal registrations and
   their data grants are read cross-graph instead of being dereferenced over
   HTTP. This shortcut silently stands in for replication: the moment stores
-  split per owner (phase 4b), those graphs vanish from the org's endpoint
+  split per pod (phase 4b), those graphs vanish from the org's endpoint
   and the **local reciprocal mirrors become load-bearing** (see below).
 
 **Future:** federated SPARQL endpoints / per-server query fan-out, or an
 explicit cross-server grant lookup. TODO — not blocking the current
-single-store deployments.
+single-store deployments. The concrete replacement (one Fuseki dataset per
+owner + a CSS accessor that routes by owner) is
+[`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md), the environment
+realization of `isolated-datasets-and-sparql.md` 4a/4b.
 
 ### 1a. Reciprocal mirroring is the federated replacement for cross-graph reads
 
@@ -56,10 +59,10 @@ workflows. In a federated deployment this is not an optimization but the
 - the org's store contains nothing about peers except what the org mirrored;
 - freshness is eventually-consistent via webhook delivery (depends on
   shortcut 5 / `durable-webhook-delivery.md`);
-- **the sync workflows are implemented but disabled until the per-owner
+- **the sync workflows are implemented but disabled until the per-pod
   cutover** — with one shared store, mirror graphs would collide with the
   live peer graphs of the same name;
-- existing registrations need a one-time **backfill** before any per-owner
+- existing registrations need a one-time **backfill** before any per-pod
   cutover — a listed prerequisite of `isolated-datasets-and-sparql.md`
   phase 4b;
 - unregister propagation (mirror deletion when a peer removes the
@@ -114,7 +117,7 @@ for cross-server webhook delivery.
   a storage-ownership registry.
 - **Webhook/Activity cross-server delivery** (shortcut 5) so admin UI events
   don't depend on co-location.
-- **Mirror completeness at per-owner cutover** (shortcut 1a): every live
+- **Mirror completeness at per-pod cutover** (shortcut 1a): every live
   reciprocal registration must be mirrored and fresh before an org moves to
   its own store — otherwise org-context views silently lose peer-derived
   rows (labels, access-requested flags, grants).

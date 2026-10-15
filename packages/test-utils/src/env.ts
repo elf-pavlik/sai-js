@@ -1,27 +1,39 @@
-export async function seedQuadstore(sparqlEndpoint: string, data: string): Promise<void> {
-  await dropQuadstore(sparqlEndpoint)
-  const response = await fetch(sparqlEndpoint, {
+/**
+ * Seed a Fuseki dataset with a TriG payload.
+ *
+ * `datasetBaseUrl` is the dataset URL *without* a trailing service name, e.g.
+ * `http://fuseki:3030/shared` (Stage 1 of docs/plans/fuseki-per-pod-sparql.md). The
+ * helper derives the SPARQL update endpoint (`/sparql`) and the Graph Store
+ * Protocol endpoint (`/data`) from it.
+ *
+ * Fuseki loads the named graphs of a TriG payload verbatim on a GSP POST, so a
+ * single request seeds the whole dataset (verified against
+ * `secoresearch/fuseki:5.6.0`).
+ */
+export async function seedFusekiDataset(datasetBaseUrl: string, data: string): Promise<void> {
+  await dropFusekiDataset(datasetBaseUrl)
+  const response = await fetch(`${datasetBaseUrl}/data`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/trig',
     },
     body: data,
   })
-  if (!response.ok) throw new Error('seeding quadstore failed')
+  if (!response.ok) throw new Error('seeding fuseki dataset failed')
 }
 
-export async function fetchQuadstore(sparqlEndpoint: string): Promise<string> {
-  const response = await fetch(sparqlEndpoint, {
+/**
+ * Remove every graph from a Fuseki dataset. Unlike Oxigraph's `DELETE <store>`,
+ * Fuseki's GSP `DELETE /data` only clears the default graph, so the whole
+ * dataset is dropped with a SPARQL `DROP ALL` update instead.
+ */
+export async function dropFusekiDataset(datasetBaseUrl: string): Promise<void> {
+  const response = await fetch(`${datasetBaseUrl}/sparql`, {
+    method: 'POST',
     headers: {
-      Accept: 'application/trig',
+      'Content-Type': 'application/sparql-update',
     },
+    body: 'DROP ALL',
   })
-  return response.text()
-}
-
-export async function dropQuadstore(sparqlEndpoint: string): Promise<void> {
-  const response = await fetch(sparqlEndpoint, {
-    method: 'DELETE',
-  })
-  if (!response.ok) throw new Error('dropping quadstore failed')
+  if (!response.ok) throw new Error('dropping fuseki dataset failed')
 }

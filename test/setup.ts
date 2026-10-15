@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 
 import { initNodeTracing } from '@elfpavlik/sai-components'
-import { Postgres, seedQuadstore } from '@janeirodigital/interop-test-utils'
+import { Postgres, seedFusekiDataset } from '@janeirodigital/interop-test-utils'
 import { context, trace } from '@opentelemetry/api'
 import type { Context, Span } from '@opentelemetry/api'
 import { suppressTracing } from '@opentelemetry/core'
@@ -59,7 +59,7 @@ afterEach(() => {
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
 const keyValuePath = '../environments/data/kv.json'
 
-const sparqlEndpoint = 'http://sparql/store'
+const fusekiBaseUrl = 'http://fuseki:3030/shared'
 const datasetPath = '../environments/data/registry.trig'
 
 const kvData = JSON.parse(await readFile(keyValuePath, 'utf8'))
@@ -101,6 +101,6 @@ afterAll(async () => {
 beforeEach(async () => {
   await withoutTracing(async () => {
     await pg.seedKeyValue(kvData)
-    await seedQuadstore(sparqlEndpoint, datasetData)
+    await seedFusekiDataset(fusekiBaseUrl, datasetData)
   })
 })

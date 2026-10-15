@@ -174,7 +174,7 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data-65468484684646654484')
+    const pgData = dag.cacheVolume('temporal-pg-data-384468468468454684684')
 
     const pg = dag
       .container()
@@ -397,6 +397,10 @@ export class SaiJs {
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
       .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+      .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
+      .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
+      .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
+      .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withEnvVariable(
         'CSS_POSTGRES_CONNECTION_STRING',
         'postgres://temporal:temporal@postgresql:5432/auth'
@@ -433,6 +437,10 @@ export class SaiJs {
       .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
       .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+      .withEnvVariable(
+        'CSS_POSTGRES_CONNECTION_STRING',
+        'postgres://temporal:temporal@postgresql:5432/auth'
+      )
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withServiceBinding('auth', auth)

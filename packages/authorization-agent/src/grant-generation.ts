@@ -28,6 +28,7 @@ import {
   getRole,
   getSocialAgentRegistration,
   listContained,
+  localSparqlTransport,
 } from './sparql.ts'
 import type { DataModelDependencies } from './types.ts'
 
@@ -305,7 +306,8 @@ async function generateSourceDataGrants(
   registrySet: RegistrySetData,
   grantee: string,
   deps: DataModelDependencies,
-  transport: SparqlTransport
+  transport: SparqlTransport,
+  endpoints?: Map<string, string>
 ): Promise<FinalGrantData[]> {
   if (data.scopeOfAuthorization === INTEROP.Inherited) {
     throw new Error('this method should not be callend on data authorizations with Inherited scope')
@@ -313,14 +315,19 @@ async function generateSourceDataGrants(
 
   const result: FinalGrantData[] = []
 
-  for (const dataRegistry of registrySet.hasDataRegistry) {
-    // FIXME handle each data registry independently
+  // data pods from the account-storage allowlist when available (the caller
+  // excludes the registry pod); the registry set is only the fallback
+  const pods: [string, string | undefined][] = endpoints
+    ? [...endpoints.entries()]
+    : registrySet.hasDataRegistry.map((registry) => [registry.id, undefined])
+  for (const [podUrl, endpoint] of pods) {
+    const podTransport = endpoint ? localSparqlTransport(endpoint) : transport
 
     // the `ldp:contains` listing + bodies via the registry plane
     // (replaces the HTTP `DataRegistry.registrations` iterator)
-    const registrationIris = await listContained(transport, dataRegistry.id)
+    const registrationIris = await listContained(podTransport, podUrl)
     const dataRegistrations = await Promise.all(
-      registrationIris.map((iri) => getDataRegistration(transport, iri))
+      registrationIris.map((iri) => getDataRegistration(podTransport, iri))
     )
 
     let matchingRegistration: DataRegistrationData | undefined
@@ -349,7 +356,7 @@ async function generateSourceDataGrants(
       dataRegistrations,
       registrySet,
       grantee,
-      await storageIri(dataRegistry, deps.fetch),
+      await storageIri({ id: podUrl }, deps.fetch),
       deps,
       transport
     )
@@ -365,7 +372,7 @@ async function generateSourceDataGrants(
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
       hasDataRegistration: matchingRegistration.id,
-      hasStorage: await storageIri(dataRegistry, deps.fetch),
+      hasStorage: await storageIri({ id: podUrl }, deps.fetch),
       scopeOfGrant,
       accessMode: data.accessMode,
     }
@@ -394,7 +401,8 @@ export async function generateDataGrants(
   registrySet: RegistrySetData,
   grantee: string,
   deps: DataModelDependencies,
-  transport: SparqlTransport
+  transport: SparqlTransport,
+  endpoints?: Map<string, string>
 ): Promise<SourceAndDelegatedGrants> {
   const dataGrantData: SourceAndDelegatedGrants = {
     source: [],
@@ -411,7 +419,8 @@ export async function generateDataGrants(
           registrySet,
           grantee,
           deps,
-          transport
+          transport,
+          endpoints
         )
         dataGrantData.source.push(...sourceGrants)
       } else {
@@ -442,7 +451,8 @@ export async function generateDataGrants(
       registrySet,
       grantee,
       deps,
-      transport
+      transport,
+      endpoints
     )
   }
 
@@ -480,7 +490,8 @@ export async function generateGrantsForAuthorization(
   registrySet: RegistrySetData,
   grantee: string,
   deps: DataModelDependencies,
-  transport: SparqlTransport
+  transport: SparqlTransport,
+  endpoints?: Map<string, string>
 ): Promise<GeneratedGrants> {
   const sourceGrants: FinalGrantData[] = []
   const delegatedGrants: GrantData[] = []
@@ -494,7 +505,8 @@ export async function generateGrantsForAuthorization(
       registrySet,
       grantee,
       deps,
-      transport
+      transport,
+      endpoints
     )
     sourceGrants.push(...grants.source)
     delegatedGrants.push(...grants.delegated)

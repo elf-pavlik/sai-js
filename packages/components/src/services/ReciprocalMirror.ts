@@ -9,6 +9,8 @@ import {
 } from '@janeirodigital/interop-utils'
 import { arrayifyStream } from '@solid/community-server'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
+import { DataFactory, Parser, Writer } from 'n3'
+import type { Quad } from 'n3'
 
 /**
  * Read-only local copies of peer-side registry data (org-context-sparql.md
@@ -40,6 +42,35 @@ import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
  */
 
 const fetcher = new SparqlEndpointFetcher()
+
+/**
+ * Convert N-Quads to `GRAPH <g> { <triples> }` blocks. SPARQL `INSERT DATA`
+ * only accepts triples or `GRAPH` blocks — 4-term N-Quads lines are invalid
+ * (Fuseki rejects them with 400; Oxigraph happened to accept them).
+ */
+async function toGraphBlocks(nquads: string): Promise<string> {
+  const quads = new Parser({ format: 'N-Quads' }).parse(nquads)
+  const byGraph = new Map<string, Quad[]>()
+  for (const quad of quads) {
+    const graph = quad.graph.termType === 'DefaultGraph' ? '' : quad.graph.value
+    const bucket = byGraph.get(graph)
+    if (bucket) bucket.push(quad)
+    else byGraph.set(graph, [quad])
+  }
+  const blocks: string[] = []
+  for (const [graph, graphQuads] of byGraph) {
+    const triples = await new Promise<string>((resolve, reject) => {
+      const writer = new Writer({ format: 'N-Triples' })
+      // strip the graph term (the N-Triples writer would otherwise emit quads)
+      writer.addQuads(
+        graphQuads.map((quad) => DataFactory.quad(quad.subject, quad.predicate, quad.object))
+      )
+      writer.end((error, result) => (error ? reject(error) : resolve(result)))
+    })
+    blocks.push(graph ? `GRAPH <${graph}> {\n${triples}}` : triples)
+  }
+  return blocks.join('\n')
+}
 
 /** Fetch a resource with the given credentials as JSON-LD (expanded). */
 async function fetchDoc(iri: string, fetch: WhatwgFetch): Promise<unknown> {
@@ -107,14 +138,14 @@ export async function updateReciprocalMirror(
     .map((iri) => `DROP SILENT GRAPH <${iri}>;`)
     .join('\n')
 
-  // each document becomes a named graph (N-Quads carry the graph label in the
-  // 4th term, so no `GRAPH <…> { … }` wrapper is needed)
+  // each document becomes a named graph — as a `GRAPH <…> { … }` block, which
+  // is what SPARQL `INSERT DATA` accepts (N-Quads lines are invalid there)
   const inserts: string[] = []
   for (const [graphIri, doc] of [[reciprocalIri, reciprocalDoc], ...grantDocs.entries()] as [
     string,
     unknown,
   ][]) {
-    inserts.push(await toNQuads({ '@id': graphIri, '@graph': doc }))
+    inserts.push(await toGraphBlocks(await toNQuads({ '@id': graphIri, '@graph': doc })))
   }
 
   await fetcher.fetchUpdate(sparqlEndpoint, `${drops}\nINSERT DATA {\n${inserts.join('\n')}\n}`)

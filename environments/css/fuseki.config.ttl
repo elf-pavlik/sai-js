@@ -1,21 +1,207 @@
+# Per-pod Fuseki datasets (docs/plans/fuseki-per-pod-sparql.md stage 3).
+# Generated from environments/data/registry.trig + kv.json — do not hand-edit.
+# Datasets: shared, data-acme-hr, data-acme-rnd, data-alice-home, data-alice-work, data-bob, data-dan-east, data-dan-west, data-kim-blue, data-kim-red, data-shapetrees, data-test-client, data-yoyo-eu, data-yoyo-na, reg-acme, reg-alice, reg-bob, reg-dan, reg-kim, reg-yoyo
+
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix fuseki: <http://jena.apache.org/fuseki#> .
 @prefix tdb2:   <http://jena.apache.org/2016/tdb#> .
 
-# Stage 1 of docs/plans/fuseki-per-pod-sparql.md: a single `shared` dataset so
-# the Oxigraph -> Fuseki swap is a drop-in (no behavior change). Stage 3
-# replaces this with one `fuseki:Service` per pod (registry + data) plus
-# `shared`.
-#
-# The dataset base is /shared:
-#   SPARQL query + update : http://fuseki:3030/shared/sparql
-#   Graph Store Protocol  : http://fuseki:3030/shared/data
-<#service> rdf:type fuseki:Service ;
+<#shared> rdf:type fuseki:Service ;
     fuseki:name "shared" ;
     fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
     fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
     fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
-    fuseki:dataset <#dataset> .
+    fuseki:dataset <#shared-dataset> .
 
-<#dataset> rdf:type tdb2:DatasetTDB2 ;
+<#shared-dataset> rdf:type tdb2:DatasetTDB2 ;
     tdb2:location "/fuseki-base/databases/shared" .
+
+<#data-acme-hr> rdf:type fuseki:Service ;
+    fuseki:name "data-acme-hr" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-acme-hr-dataset> .
+
+<#data-acme-hr-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-acme-hr" .
+
+<#data-acme-rnd> rdf:type fuseki:Service ;
+    fuseki:name "data-acme-rnd" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-acme-rnd-dataset> .
+
+<#data-acme-rnd-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-acme-rnd" .
+
+<#data-alice-home> rdf:type fuseki:Service ;
+    fuseki:name "data-alice-home" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-alice-home-dataset> .
+
+<#data-alice-home-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-alice-home" .
+
+<#data-alice-work> rdf:type fuseki:Service ;
+    fuseki:name "data-alice-work" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-alice-work-dataset> .
+
+<#data-alice-work-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-alice-work" .
+
+<#data-bob> rdf:type fuseki:Service ;
+    fuseki:name "data-bob" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-bob-dataset> .
+
+<#data-bob-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-bob" .
+
+<#data-dan-east> rdf:type fuseki:Service ;
+    fuseki:name "data-dan-east" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-dan-east-dataset> .
+
+<#data-dan-east-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-dan-east" .
+
+<#data-dan-west> rdf:type fuseki:Service ;
+    fuseki:name "data-dan-west" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-dan-west-dataset> .
+
+<#data-dan-west-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-dan-west" .
+
+<#data-kim-blue> rdf:type fuseki:Service ;
+    fuseki:name "data-kim-blue" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-kim-blue-dataset> .
+
+<#data-kim-blue-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-kim-blue" .
+
+<#data-kim-red> rdf:type fuseki:Service ;
+    fuseki:name "data-kim-red" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-kim-red-dataset> .
+
+<#data-kim-red-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-kim-red" .
+
+<#data-shapetrees> rdf:type fuseki:Service ;
+    fuseki:name "data-shapetrees" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-shapetrees-dataset> .
+
+<#data-shapetrees-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-shapetrees" .
+
+<#data-test-client> rdf:type fuseki:Service ;
+    fuseki:name "data-test-client" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-test-client-dataset> .
+
+<#data-test-client-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-test-client" .
+
+<#data-yoyo-eu> rdf:type fuseki:Service ;
+    fuseki:name "data-yoyo-eu" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-yoyo-eu-dataset> .
+
+<#data-yoyo-eu-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-yoyo-eu" .
+
+<#data-yoyo-na> rdf:type fuseki:Service ;
+    fuseki:name "data-yoyo-na" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#data-yoyo-na-dataset> .
+
+<#data-yoyo-na-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/data-yoyo-na" .
+
+<#reg-acme> rdf:type fuseki:Service ;
+    fuseki:name "reg-acme" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-acme-dataset> .
+
+<#reg-acme-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-acme" .
+
+<#reg-alice> rdf:type fuseki:Service ;
+    fuseki:name "reg-alice" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-alice-dataset> .
+
+<#reg-alice-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-alice" .
+
+<#reg-bob> rdf:type fuseki:Service ;
+    fuseki:name "reg-bob" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-bob-dataset> .
+
+<#reg-bob-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-bob" .
+
+<#reg-dan> rdf:type fuseki:Service ;
+    fuseki:name "reg-dan" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-dan-dataset> .
+
+<#reg-dan-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-dan" .
+
+<#reg-kim> rdf:type fuseki:Service ;
+    fuseki:name "reg-kim" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-kim-dataset> .
+
+<#reg-kim-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-kim" .
+
+<#reg-yoyo> rdf:type fuseki:Service ;
+    fuseki:name "reg-yoyo" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
+    fuseki:dataset <#reg-yoyo-dataset> .
+
+<#reg-yoyo-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/reg-yoyo" .

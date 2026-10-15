@@ -63,14 +63,12 @@ export async function establishReciprocal(
 ): Promise<void> {
   const result = await reciprocalRegistration(webId, registration, accountId)
   await reciprocalWebhook(result)
-  // TODO(org-context-sparql phase 4b): create the initial mirror here once
-  // SPARQL endpoints are per-owner — until then mirror graphs share their
-  // names with the LIVE peer graphs in the single shared store and writing
-  // them would destroy the peer's actual resources (federation.md 1a):
-  // await syncMirrorActivity({
-  //   webId: { id: webId, type: [SOCIAL_AGENT_TYPE] },
-  //   peerId: { id: registration.registeredAgent, type: [SOCIAL_AGENT_TYPE] },
-  // })
+  // phase 4b: stores are per-pod, so mirror the peer's reciprocal registration
+  // (federation.md 1a — the mirror is the only source for peer data now)
+  await syncMirrorActivity({
+    webId: { id: webId, type: [SOCIAL_AGENT_TYPE] },
+    peerId: { id: registration.registeredAgent, type: [SOCIAL_AGENT_TYPE] },
+  })
   await markActivitiesDone({
     webId: { id: webId, type: [SOCIAL_AGENT_TYPE] },
     activities: [activity],

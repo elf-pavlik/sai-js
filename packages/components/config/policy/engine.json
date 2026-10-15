@@ -12,7 +12,9 @@
       "@type": "SaiAuthorizationManager",
       "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
       "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
-      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" }
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" },
+      "podStore": { "@id": "urn:solid-server:default:PodStore" },
+      "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
     },
     {
       "@id": "urn:sai:default:OverrideBaseHttpHandler",

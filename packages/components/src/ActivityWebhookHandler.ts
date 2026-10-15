@@ -56,7 +56,11 @@ import {
   updateDelegatedGrants,
 } from './temporal/workflows/grants.js'
 import { createInvitation } from './temporal/workflows/invitation.js'
-import { acceptInvitation, establishReciprocal } from './temporal/workflows/reciprocal.js'
+import {
+  acceptInvitation,
+  establishReciprocal,
+  syncReciprocalMirror,
+} from './temporal/workflows/reciprocal.js'
 
 /** The webhook channel (owner or admin subscription) for the current topic. */
 type ActivityChannel = NonNullable<Awaited<ReturnType<ActivityWebhookStore['findBySendTo']>>>
@@ -444,6 +448,23 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
         ],
         workflowId: crypto.randomUUID(),
       })
+      // mirror sync in parallel (phase 4b), serialized per (webId, peerId):
+      // a running sync re-fetches the latest peer state, so a concurrent
+      // update is absorbed by the deterministic workflowId
+      try {
+        await client.workflow.start(syncReciprocalMirror, {
+          taskQueue: 'reciprocal-registration',
+          args: [
+            {
+              webId: socialAgentRef(channel.webId),
+              peerId: socialAgentRef(decoded.target),
+            },
+          ],
+          workflowId: `mirror:${channel.webId}:${decoded.target}`,
+        })
+      } catch (err) {
+        if (!(err instanceof WorkflowExecutionAlreadyStartedError)) throw err
+      }
       return
     }
   }

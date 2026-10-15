@@ -5,6 +5,8 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import { type RegistrySetData, getAdminGrantIris } from '@janeirodigital/interop-data-model'
 
+import type { SparqlEndpointStore } from '../SparqlEndpointStore.js'
+
 /** The requested context is not allowed for the signed-in user. */
 export class ContextError extends Error {}
 
@@ -24,6 +26,11 @@ export type ResolvedContext = {
   webId: string
   /** the signed-in user's webId */
   userWebId: string
+  /**
+   * Owner-scoped endpoint allowlist for `webId` (`podUrl -> endpoint`) from
+   * the internal account storage. Data-plane reads may only use these.
+   */
+  endpoints: Map<string, string>
 }
 
 /**
@@ -59,7 +66,8 @@ async function isAdminOf(userSession: AuthorizationAgent, orgWebId: string): Pro
  */
 export async function resolveContext(
   userSession: AuthorizationAgent,
-  context: string
+  context: string,
+  endpointStore: SparqlEndpointStore
 ): Promise<ResolvedContext> {
   if (context === userSession.webId) {
     return {
@@ -67,11 +75,22 @@ export async function resolveContext(
       registrySet: userSession.registrySet,
       webId: userSession.webId,
       userWebId: userSession.webId,
+      endpoints: userSession.sparqlEndpoints,
     }
   }
   if (!(await isAdminOf(userSession, context))) {
     throw new ContextError(`not an admin of ${context}`)
   }
   const registrySet = await userSession.getRegistrySet(context)
-  return { session: userSession, registrySet, webId: context, userWebId: userSession.webId }
+  // the org's own records from the internal account storage — the org context's
+  // allowlist (the admin never gets a wider set than the context's pods)
+  const records = await endpointStore.findByWebId(context)
+  const endpoints = new Map(records.map((record) => [record.podUrl, record.endpoint]))
+  return {
+    session: userSession,
+    registrySet,
+    webId: context,
+    userWebId: userSession.webId,
+    endpoints,
+  }
 }

@@ -48,6 +48,7 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   listRegistrationsByShapeTrees,
   sparqlTransportFor,
+  sparqlTransportForPod,
 } from './queries/org.js'
 import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
@@ -92,15 +93,18 @@ async function findUserDataRegistrations(
   accessNeedGroup: AccessNeedGroupData
 ) {
   const dataRegistrations = []
-  const transport = sparqlTransportFor(ctx)
   // only the shape trees the access need group asks for — the SPARQL read
   // filters on the registration meta graphs (`registeredShapeTree`), so
   // non-matching registrations are never listed nor probed
   const shapeTrees = [
     ...new Set(accessNeedGroup.accessNeeds.map((accessNeed) => accessNeed.registeredShapeTree)),
   ]
-  for (const dataRegistry of ctx.registrySet.hasDataRegistry) {
-    const iris = await listRegistrationsByShapeTrees(transport, dataRegistry.id, shapeTrees)
+  // iterate the context's pods from the internal account storage (the
+  // allowlist) — not `registrySet.hasDataRegistry`. The registry pod yields no
+  // data registrations; each data pod yields its own.
+  for (const podUrl of ctx.endpoints.keys()) {
+    const transport = sparqlTransportForPod(ctx, podUrl)
+    const iris = await listRegistrationsByShapeTrees(transport, podUrl, shapeTrees)
     const registrations = await Promise.all(
       iris.map((iri) => getDataRegistrationFromSparql(transport, iri))
     )
@@ -109,7 +113,7 @@ async function findUserDataRegistrations(
         if (dataRegistration.registeredShapeTree !== accessNeed.registeredShapeTree) continue
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),
-          dataRegistry: IRI.make(dataRegistry.id),
+          dataRegistry: IRI.make(podUrl),
           label: `${dataRegistration.id.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
           shapeTree: accessNeed.registeredShapeTree,
           count: dataRegistration.contains.length,

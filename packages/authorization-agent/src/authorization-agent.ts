@@ -73,11 +73,18 @@ import {
   listContained,
   localSparqlTransport,
 } from './sparql.ts'
+import type { SparqlTransport } from './sparql.ts'
 interface AuthorizationAgentDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
   /** Internal SPARQL endpoint the session reads registry data from (org-context-sparql.md §2.3). */
   sparqlEndpoint: string
+  /**
+   * Owner-scoped endpoint allowlist from the internal account storage
+   * (`podUrl -> endpoint`, the session owner's records). The session may only
+   * read pods in this map; anything else is denied.
+   */
+  sparqlEndpoints?: Map<string, string>
 }
 
 export interface AgentWithAccess {
@@ -123,6 +130,9 @@ export class AuthorizationAgent {
   /** Internal SPARQL endpoint (shared store) this session reads registry data from. */
   sparqlEndpoint: string
 
+  /** Owner-scoped endpoint allowlist (`podUrl -> endpoint`) from the account storage. */
+  sparqlEndpoints: Map<string, string>
+
   webIdProfile!: WebIdProfileData
 
   registrySet!: RegistrySetData
@@ -154,6 +164,29 @@ export class AuthorizationAgent {
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
     this.sparqlEndpoint = dependencies.sparqlEndpoint
+    this.sparqlEndpoints = dependencies.sparqlEndpoints ?? new Map()
+  }
+
+  /**
+   * Resolve a resource/pod IRI to an endpoint the session is allowed to use —
+   * longest pod-URL prefix over the account-storage allowlist. `undefined`
+   * when the IRI is not under any of the owner's pods (isolation).
+   */
+  public resolveEndpoint(iri: string): string | undefined {
+    let best: string | undefined
+    for (const podUrl of this.sparqlEndpoints.keys()) {
+      if ((iri === podUrl || iri.startsWith(podUrl)) && (!best || podUrl.length > best.length)) {
+        best = podUrl
+      }
+    }
+    return best ? this.sparqlEndpoints.get(best) : undefined
+  }
+
+  /** A transport restricted to the session's own pods; throws when not allowed. */
+  public sparqlTransportFor(iri: string): SparqlTransport {
+    const endpoint = this.resolveEndpoint(iri)
+    if (!endpoint) throw new Error(`session is not allowed to read ${iri}`)
+    return localSparqlTransport(endpoint)
   }
 
   /**
@@ -500,12 +533,18 @@ export class AuthorizationAgent {
     const dataAuthorizations = await Promise.all(
       dataAuthorizationIris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
+    // data pods from the account-storage allowlist (the registry pod is not a
+    // data registry) — the data registrations live in these per-pod datasets
+    const dataPodEndpoints = new Map(
+      [...this.sparqlEndpoints].filter(([podUrl]) => podUrl !== this.registrySetId)
+    )
     return generateGrantsForAuthorization(
       dataAuthorizations,
       this.registrySet,
       grantee,
       { fetch: this.fetch, randomUUID: this.randomUUID },
-      transport
+      transport,
+      dataPodEndpoints.size ? dataPodEndpoints : undefined
     )
   }
 

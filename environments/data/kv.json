@@ -25,6 +25,14 @@
         "sendTo": "https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e",
         "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/kim/social-agent/plp3a3/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e\"}",
         "id": "8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f"
+      },
+      "6af15846-c0e2-4f9c-9221-b9945ee7b4de": {
+        "webId": "https://id/alice",
+        "peerId": "https://id/acme",
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/social-agent/je0s7n/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21\"}",
+        "id": "6af15846-c0e2-4f9c-9221-b9945ee7b4de"
       }
     },
     "**password**": {
@@ -81,45 +89,35 @@
         "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/b28700a4-eb9d-400f-aabf-ff0bcc765859\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/alice/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/b1ceb966-e444-4cc3-be54-bf5bfec8750a\"}",
         "id": "fd4cd23d-d8c4-4596-a52d-ce696a6f78c8"
       }
+    },
+    "**sparqlEndpoint**": {
+      "bf92c601-0339-4329-8df5-e49e3a037e8f": {
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "webId": "https://id/alice",
+        "podUrl": "https://registry/alice/",
+        "endpoint": "http://fuseki:3030/reg-alice/sparql",
+        "id": "bf92c601-0339-4329-8df5-e49e3a037e8f"
+      },
+      "a2c34f00-f9fe-4e32-a49e-3ebf1c511f84": {
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "webId": "https://id/alice",
+        "podUrl": "https://data/alice-work/",
+        "endpoint": "http://fuseki:3030/data-alice-work/sparql",
+        "id": "a2c34f00-f9fe-4e32-a49e-3ebf1c511f84"
+      },
+      "f3b785f4-7a76-4ae0-a392-b16ac22e4134": {
+        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+        "webId": "https://id/alice",
+        "podUrl": "https://data/alice-home/",
+        "endpoint": "http://fuseki:3030/data-alice-home/sparql",
+        "id": "f3b785f4-7a76-4ae0-a392-b16ac22e4134"
+      }
     }
   },
   "accounts/index/password/d7c9cb32-9e18-4c9d-8998-491a22edd3f7": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ],
   "accounts/index/password/email/alice%40acme.example": ["e4fcefdc-5251-4e7c-9374-93ae71f188e3"],
-  "accounts/index/reciprocalWebhook/cb950007-7b6b-427f-8d8b-f96458bfbba3": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fbob": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F26bf5f67-7858-4c18-ab1a-7404ed530c1b": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Falice": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fkim": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fb4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/reciprocalWebhook/6e535a99-6762-429b-b93c-10925885519d": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Fbob": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fyoyo": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fa2469691-b538-428e-b753-b9aa7b8076fd": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
   "accounts/index/webIdLink/823e97fa-7436-4cf7-8e84-72aa2ba56f68": [
     "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
   ],
@@ -164,6 +162,30 @@
         "sendTo": "https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd",
         "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/social-agent/z3k7wm/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd\"}",
         "id": "6e535a99-6762-429b-b93c-10925885519d"
+      },
+      "64fb7f69-b872-4149-a99a-9ee84b9092df": {
+        "webId": "https://id/bob",
+        "peerId": "https://id/alice",
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/vzp6ky/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d\"}",
+        "id": "64fb7f69-b872-4149-a99a-9ee84b9092df"
+      },
+      "79962189-ac8a-499c-a44f-f45e278c0abe": {
+        "webId": "https://id/bob",
+        "peerId": "https://id/acme",
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/social-agent/m4k9wp/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da\"}",
+        "id": "79962189-ac8a-499c-a44f-f45e278c0abe"
+      },
+      "04a09f47-9378-4462-9e99-cd827f314fc8": {
+        "webId": "https://id/bob",
+        "peerId": "https://id/dan",
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/social-agent/moi15b/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95\"}",
+        "id": "04a09f47-9378-4462-9e99-cd827f314fc8"
       }
     },
     "**password**": {
@@ -207,6 +229,22 @@
         "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/d0f316ad-c7a0-410b-82eb-9a83489d3fdb\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/bob/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/b82fc383-a56f-4736-8724-17c9cec6eea3\"}",
         "id": "087929d4-0786-40c6-90cd-dd920441b903"
       }
+    },
+    "**sparqlEndpoint**": {
+      "f0a6a628-c51e-4de1-a849-fd51c4cf4328": {
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "webId": "https://id/bob",
+        "podUrl": "https://registry/bob/",
+        "endpoint": "http://fuseki:3030/reg-bob/sparql",
+        "id": "f0a6a628-c51e-4de1-a849-fd51c4cf4328"
+      },
+      "aeae375d-4577-4309-8298-08f603d7e121": {
+        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
+        "webId": "https://id/bob",
+        "podUrl": "https://data/bob/",
+        "endpoint": "http://fuseki:3030/data-bob/sparql",
+        "id": "aeae375d-4577-4309-8298-08f603d7e121"
+      }
     }
   },
   "accounts/index/password/958d5f04-57df-4cff-a848-06efab13a2b0": [
@@ -234,7 +272,16 @@
     "linkedLoginsCount": 1,
     "id": "9f942f30-2631-4403-9a1a-300f8faae267",
     "**uiPushSubscription**": {},
-    "**reciprocalWebhook**": {},
+    "**reciprocalWebhook**": {
+      "5278b054-3f45-4b21-ad6a-fe1f95647fbb": {
+        "webId": "https://id/kim",
+        "peerId": "https://id/alice",
+        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/fpn3ih/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932\"}",
+        "id": "5278b054-3f45-4b21-ad6a-fe1f95647fbb"
+      }
+    },
     "**password**": {
       "fe116276-ed94-4e87-8917-70b7985244b4": {
         "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
@@ -289,6 +336,29 @@
         "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/dcdb6992-f033-4b01-b6cf-4065814a835b\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/kim/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/ccad737e-f100-4f78-841b-46fb4daf7310\"}",
         "id": "0f6a2d80-8a9f-41e8-afa3-3687eae3d4eb"
       }
+    },
+    "**sparqlEndpoint**": {
+      "46c98767-9942-4ca1-9041-0c4ed63b0789": {
+        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+        "webId": "https://id/kim",
+        "podUrl": "https://registry/kim/",
+        "endpoint": "http://fuseki:3030/reg-kim/sparql",
+        "id": "46c98767-9942-4ca1-9041-0c4ed63b0789"
+      },
+      "62ee19a8-e5d5-47cc-838f-659b3c09a718": {
+        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+        "webId": "https://id/kim",
+        "podUrl": "https://data/kim-red/",
+        "endpoint": "http://fuseki:3030/data-kim-red/sparql",
+        "id": "62ee19a8-e5d5-47cc-838f-659b3c09a718"
+      },
+      "99991465-57f9-4f3c-8a0b-c945dca160c6": {
+        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
+        "webId": "https://id/kim",
+        "podUrl": "https://data/kim-blue/",
+        "endpoint": "http://fuseki:3030/data-kim-blue/sparql",
+        "id": "99991465-57f9-4f3c-8a0b-c945dca160c6"
+      }
     }
   },
   "accounts/index/password/fe116276-ed94-4e87-8917-70b7985244b4": [
@@ -321,7 +391,24 @@
     "linkedLoginsCount": 1,
     "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
     "**uiPushSubscription**": {},
-    "**reciprocalWebhook**": {},
+    "**reciprocalWebhook**": {
+      "bbdef4d5-414e-47f4-8ffe-bd9d48003c7c": {
+        "webId": "https://id/acme",
+        "peerId": "https://id/alice",
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/cp9g7p/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc\"}",
+        "id": "bbdef4d5-414e-47f4-8ffe-bd9d48003c7c"
+      },
+      "6ab253d7-d4d2-4cc1-ab4f-b7aa253d4853": {
+        "webId": "https://id/acme",
+        "peerId": "https://id/bob",
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/x7n2qv/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e\"}",
+        "id": "6ab253d7-d4d2-4cc1-ab4f-b7aa253d4853"
+      }
+    },
     "**password**": {
       "f8a9b1c2-d3e4-4f5a-6b7c-8d9e0f1a2b3c": {
         "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -358,6 +445,32 @@
             "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
           }
         }
+      },
+      "daa74ec1-2e49-4df2-b569-208e7156b4e7": {
+        "baseUrl": "https://data/shapetrees/",
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "id": "daa74ec1-2e49-4df2-b569-208e7156b4e7",
+        "**owner**": {
+          "39909e4c-a676-4fd8-9bbb-06c81e70edd0": {
+            "webId": "https://id/acme",
+            "visible": true,
+            "podId": "daa74ec1-2e49-4df2-b569-208e7156b4e7",
+            "id": "39909e4c-a676-4fd8-9bbb-06c81e70edd0"
+          }
+        }
+      },
+      "8bd91f11-4a60-4fe5-849f-5185f75ee293": {
+        "baseUrl": "https://data/test-client/",
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "id": "8bd91f11-4a60-4fe5-849f-5185f75ee293",
+        "**owner**": {
+          "c182951f-dd99-4d2b-991d-3082f319bb71": {
+            "webId": "https://id/acme",
+            "visible": true,
+            "podId": "8bd91f11-4a60-4fe5-849f-5185f75ee293",
+            "id": "c182951f-dd99-4d2b-991d-3082f319bb71"
+          }
+        }
       }
     },
     "**webIdLink**": {
@@ -365,6 +478,43 @@
         "webId": "https://id/acme",
         "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
         "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
+      }
+    },
+    "**sparqlEndpoint**": {
+      "018aebb7-fff3-4424-b789-8aac05cd420d": {
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "webId": "https://id/acme",
+        "podUrl": "https://registry/acme/",
+        "endpoint": "http://fuseki:3030/reg-acme/sparql",
+        "id": "018aebb7-fff3-4424-b789-8aac05cd420d"
+      },
+      "c25d2068-766c-4aea-b931-891e066fbacf": {
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "webId": "https://id/acme",
+        "podUrl": "https://data/acme-rnd/",
+        "endpoint": "http://fuseki:3030/data-acme-rnd/sparql",
+        "id": "c25d2068-766c-4aea-b931-891e066fbacf"
+      },
+      "0598b0e0-2a02-4446-a3e3-a2c5c1084a10": {
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "webId": "https://id/acme",
+        "podUrl": "https://data/acme-hr/",
+        "endpoint": "http://fuseki:3030/data-acme-hr/sparql",
+        "id": "0598b0e0-2a02-4446-a3e3-a2c5c1084a10"
+      },
+      "1fb28ba3-4de4-4aed-ae3c-84e2a7becc73": {
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "webId": "https://id/acme",
+        "podUrl": "https://data/shapetrees/",
+        "endpoint": "http://fuseki:3030/data-shapetrees/sparql",
+        "id": "1fb28ba3-4de4-4aed-ae3c-84e2a7becc73"
+      },
+      "a03371d0-ad4f-4740-a3fc-3872180a011d": {
+        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "webId": "https://id/acme",
+        "podUrl": "https://data/test-client/",
+        "endpoint": "http://fuseki:3030/data-test-client/sparql",
+        "id": "a03371d0-ad4f-4740-a3fc-3872180a011d"
       }
     }
   },
@@ -400,7 +550,24 @@
     "linkedLoginsCount": 1,
     "id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
     "**uiPushSubscription**": {},
-    "**reciprocalWebhook**": {},
+    "**reciprocalWebhook**": {
+      "91a4e228-9b11-4467-a041-09221af94bfc": {
+        "webId": "https://id/yoyo",
+        "peerId": "https://id/bob",
+        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/n4m8qx/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2\"}",
+        "id": "91a4e228-9b11-4467-a041-09221af94bfc"
+      },
+      "5fced755-03b6-4a96-8e85-36e4d8b556f5": {
+        "webId": "https://id/yoyo",
+        "peerId": "https://id/dan",
+        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/social-agent/zdujx0/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17\"}",
+        "id": "5fced755-03b6-4a96-8e85-36e4d8b556f5"
+      }
+    },
     "**password**": {
       "e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b": {
         "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
@@ -455,6 +622,29 @@
         "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/dbe91413-0feb-4c32-8c92-1cad21a296a5\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/yoyo/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/bb857af1-5cb5-4ace-b25a-a3f5d1a66165\"}",
         "id": "5eb86482-3c89-435f-945e-6b5db56cc518"
       }
+    },
+    "**sparqlEndpoint**": {
+      "04d73159-7f06-4d5c-b9a9-c11fb6bc2d38": {
+        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+        "webId": "https://id/yoyo",
+        "podUrl": "https://registry/yoyo/",
+        "endpoint": "http://fuseki:3030/reg-yoyo/sparql",
+        "id": "04d73159-7f06-4d5c-b9a9-c11fb6bc2d38"
+      },
+      "d17b8872-9cdf-4814-8111-5fa5924f9bdd": {
+        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+        "webId": "https://id/yoyo",
+        "podUrl": "https://data/yoyo-eu/",
+        "endpoint": "http://fuseki:3030/data-yoyo-eu/sparql",
+        "id": "d17b8872-9cdf-4814-8111-5fa5924f9bdd"
+      },
+      "a5b30322-85ec-4027-808d-15d13a3b16bb": {
+        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+        "webId": "https://id/yoyo",
+        "podUrl": "https://data/yoyo-na/",
+        "endpoint": "http://fuseki:3030/data-yoyo-na/sparql",
+        "id": "a5b30322-85ec-4027-808d-15d13a3b16bb"
+      }
     }
   },
   "accounts/index/password/e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b": [
@@ -493,7 +683,24 @@
     "linkedLoginsCount": 1,
     "id": "9f137c45-2889-430b-8fb0-e1f41312dc09",
     "**uiPushSubscription**": {},
-    "**reciprocalWebhook**": {},
+    "**reciprocalWebhook**": {
+      "00982bbb-18f5-4f26-9a74-9ac646686340": {
+        "webId": "https://id/dan",
+        "peerId": "https://id/bob",
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/n78inc/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7\"}",
+        "id": "00982bbb-18f5-4f26-9a74-9ac646686340"
+      },
+      "4d0bdd12-b476-4067-af58-ef99a59a3906": {
+        "webId": "https://id/dan",
+        "peerId": "https://id/yoyo",
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "sendTo": "https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/social-agent/ph8e70/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b\"}",
+        "id": "4d0bdd12-b476-4067-af58-ef99a59a3906"
+      }
+    },
     "**password**": {
       "4fbb04ad-5455-46c0-a7a1-7fcf765332db": {
         "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
@@ -555,6 +762,29 @@
         "sendTo": "https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c",
         "channel": "{\"id\": \"https://registry/.notifications/WebhookChannel2023/7fc1e782-e6bd-4bb8-a948-b64b90decf9c\", \"type\": \"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\", \"topic\": \"https://registry/yoyo/activity/\", \"sendTo\": \"https://auth/.sai/activity-webhook/8b8bc4f8-fab2-4e43-9232-cf9243b7184c\"}",
         "id": "c021caea-cb38-4084-bac1-b4dce3f76bc7"
+      }
+    },
+    "**sparqlEndpoint**": {
+      "bc27f167-ba08-47db-8ba8-6cb4d682caea": {
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "webId": "https://id/dan",
+        "podUrl": "https://registry/dan/",
+        "endpoint": "http://fuseki:3030/reg-dan/sparql",
+        "id": "bc27f167-ba08-47db-8ba8-6cb4d682caea"
+      },
+      "7b90a85e-b09b-4a84-8561-1a5398699f5f": {
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "webId": "https://id/dan",
+        "podUrl": "https://data/dan-east/",
+        "endpoint": "http://fuseki:3030/data-dan-east/sparql",
+        "id": "7b90a85e-b09b-4a84-8561-1a5398699f5f"
+      },
+      "6ae7c72c-a467-4900-aa70-163f9ce1d79b": {
+        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
+        "webId": "https://id/dan",
+        "podUrl": "https://data/dan-west/",
+        "endpoint": "http://fuseki:3030/data-dan-west/sparql",
+        "id": "6ae7c72c-a467-4900-aa70-163f9ce1d79b"
       }
     }
   },
@@ -733,5 +963,382 @@
   },
   "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fsocial-agent%2Fz3k7wm%2F": [
     "https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76"
+  ],
+  "accounts/index/pod/daa74ec1-2e49-4df2-b569-208e7156b4e7": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Fshapetrees%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/owner/39909e4c-a676-4fd8-9bbb-06c81e70edd0": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/pod/8bd91f11-4a60-4fe5-849f-5185f75ee293": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/pod/baseUrl/https%3A%2F%2Fdata%2Ftest-client%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/owner/c182951f-dd99-4d2b-991d-3082f319bb71": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/bf92c601-0339-4329-8df5-e49e3a037e8f": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Falice%2F": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/a2c34f00-f9fe-4e32-a49e-3ebf1c511f84": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Falice-work%2F": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/f3b785f4-7a76-4ae0-a392-b16ac22e4134": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Falice-home%2F": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Falice": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/sparqlEndpoint/f0a6a628-c51e-4de1-a849-fd51c4cf4328": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Fbob%2F": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/sparqlEndpoint/aeae375d-4577-4309-8298-08f603d7e121": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fbob%2F": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Fbob": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/sparqlEndpoint/46c98767-9942-4ca1-9041-0c4ed63b0789": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Fkim%2F": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/62ee19a8-e5d5-47cc-838f-659b3c09a718": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fkim-red%2F": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/99991465-57f9-4f3c-8a0b-c945dca160c6": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fkim-blue%2F": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Fkim": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/sparqlEndpoint/018aebb7-fff3-4424-b789-8aac05cd420d": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Facme%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/c25d2068-766c-4aea-b931-891e066fbacf": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Facme-rnd%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/0598b0e0-2a02-4446-a3e3-a2c5c1084a10": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Facme-hr%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/1fb28ba3-4de4-4aed-ae3c-84e2a7becc73": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fshapetrees%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/a03371d0-ad4f-4740-a3fc-3872180a011d": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Ftest-client%2F": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Facme": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/sparqlEndpoint/04d73159-7f06-4d5c-b9a9-c11fb6bc2d38": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Fyoyo%2F": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/d17b8872-9cdf-4814-8111-5fa5924f9bdd": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fyoyo-eu%2F": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/a5b30322-85ec-4027-808d-15d13a3b16bb": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fyoyo-na%2F": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Fyoyo": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/sparqlEndpoint/bc27f167-ba08-47db-8ba8-6cb4d682caea": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fregistry%2Fdan%2F": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/7b90a85e-b09b-4a84-8561-1a5398699f5f": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fdan-east%2F": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/6ae7c72c-a467-4900-aa70-163f9ce1d79b": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/podUrl/https%3A%2F%2Fdata%2Fdan-west%2F": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/sparqlEndpoint/webId/https%3A%2F%2Fid%2Fdan": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa468d332-ec8e-486c-91ab-38816e0baf12": {
+    "id": "https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/alice/social-agent/vzp6ky/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Fvzp6ky%2F": [
+    "https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F3aefc643-8444-41a3-ad4b-58e20b2b5aa4": {
+    "id": "https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/alice/social-agent/fpn3ih/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Ffpn3ih%2F": [
+    "https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F0c42fb37-13d1-40f7-907a-af8a3a1d6255": {
+    "id": "https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/bob/social-agent/n4m8qx/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fn4m8qx%2F": [
+    "https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fdff318b1-69cd-45ee-8880-2c9e66e92b33": {
+    "id": "https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/alice/social-agent/cp9g7p/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Fcp9g7p%2F": [
+    "https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F91af16a2-39a9-4f98-8fef-5b80158d2589": {
+    "id": "https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/acme/social-agent/je0s7n/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Facme%2Fsocial-agent%2Fje0s7n%2F": [
+    "https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fc477268e-436b-4502-a153-96a3ea9024c4": {
+    "id": "https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/bob/social-agent/x7n2qv/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fx7n2qv%2F": [
+    "https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F254bb72c-9b52-44f4-b2df-6ffa7f456ee6": {
+    "id": "https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/acme/social-agent/m4k9wp/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Facme%2Fsocial-agent%2Fm4k9wp%2F": [
+    "https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa9780109-b529-4bdd-8c6d-098b6b3f5599": {
+    "id": "https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/dan/social-agent/moi15b/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fsocial-agent%2Fmoi15b%2F": [
+    "https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa57ef747-bf77-4da4-be24-7dccddc8a1d5": {
+    "id": "https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/bob/social-agent/n78inc/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fn78inc%2F": [
+    "https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F17495ef4-2b24-4622-8c97-2d3c522e38a5": {
+    "id": "https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/dan/social-agent/zdujx0/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fsocial-agent%2Fzdujx0%2F": [
+    "https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5"
+  ],
+  "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F4fecb811-d33a-4bd0-be56-dad87cae6c6a": {
+    "id": "https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a",
+    "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
+    "topic": "https://registry/yoyo/social-agent/ph8e70/",
+    "sendTo": "https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b"
+  },
+  "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fsocial-agent%2Fph8e70%2F": [
+    "https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a"
+  ],
+  "accounts/index/reciprocalWebhook/cb950007-7b6b-427f-8d8b-f96458bfbba3": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Falice": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fbob": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F26bf5f67-7858-4c18-ab1a-7404ed530c1b": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fkim": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fb4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/6af15846-c0e2-4f9c-9221-b9945ee7b4de": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Facme": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F951b3c79-657a-473b-9f21-b28965ae1e21": [
+    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
+  ],
+  "accounts/index/reciprocalWebhook/6e535a99-6762-429b-b93c-10925885519d": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Fbob": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fyoyo": [
+    "281efdff-8a0a-4f57-b058-250717899fae",
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fa2469691-b538-428e-b753-b9aa7b8076fd": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/64fb7f69-b872-4149-a99a-9ee84b9092df": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Falice": [
+    "281efdff-8a0a-4f57-b058-250717899fae",
+    "9f942f30-2631-4403-9a1a-300f8faae267",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F7f7bac3e-72ad-461c-b28b-63238ea3556d": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/79962189-ac8a-499c-a44f-f45e278c0abe": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F056d0399-abd3-4b96-a8c7-6d740e8839da": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/04a09f47-9378-4462-9e99-cd827f314fc8": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/peerId/https%3A%2F%2Fid%2Fdan": [
+    "281efdff-8a0a-4f57-b058-250717899fae",
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fa2f7088e-f80f-472a-97d8-d66177c88f95": [
+    "281efdff-8a0a-4f57-b058-250717899fae"
+  ],
+  "accounts/index/reciprocalWebhook/5278b054-3f45-4b21-ad6a-fe1f95647fbb": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Fkim": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fa4c866de-451d-4070-ac97-06024f360932": [
+    "9f942f30-2631-4403-9a1a-300f8faae267"
+  ],
+  "accounts/index/reciprocalWebhook/bbdef4d5-414e-47f4-8ffe-bd9d48003c7c": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Facme": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/6ab253d7-d4d2-4cc1-ab4f-b7aa253d4853": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Fca4cdfeb-36c4-485e-b40a-ed099500e02e": [
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ],
+  "accounts/index/reciprocalWebhook/91a4e228-9b11-4467-a041-09221af94bfc": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Fyoyo": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2Ffac10b8c-329a-4bf2-94e2-5fa13601e6f2": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/5fced755-03b6-4a96-8e85-36e4d8b556f5": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F12661e7e-b1bf-4ebf-a854-63abd83fac17": [
+    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
+  ],
+  "accounts/index/reciprocalWebhook/00982bbb-18f5-4f26-9a74-9ac646686340": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/webId/https%3A%2F%2Fid%2Fdan": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F4afd03b4-1892-4083-9c5b-cfdec6605cb7": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/4d0bdd12-b476-4067-af58-ef99a59a3906": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
+  ],
+  "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b": [
+    "9f137c45-2889-430b-8fb0-e1f41312dc09"
   ]
 }

@@ -2,6 +2,7 @@ import { jsonld } from '@janeirodigital/interop-utils'
 import {
   BadRequestHttpError,
   BasicRepresentation,
+  ForbiddenHttpError,
   MethodNotAllowedHttpError,
   OkResponseDescription,
   OperationHttpHandler,
@@ -19,8 +20,17 @@ import { getLoggerFor } from 'global-logger-factory'
 
 import { orgWebIdFromPath, requireOrgAdmin } from './services/adminGate.js'
 import type { SessionManager } from './SessionManager'
+import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
+import { registryId } from './util/uriTemplates.js'
 
 const SPARQL_QUERY_MEDIA_TYPE = 'application/sparql-query'
+
+/** The `?pod=<podUrl>` target of an org-context data-plane query, if any. */
+function podFromPath(targetPath: string): string | undefined {
+  const queryIndex = targetPath.indexOf('?')
+  if (queryIndex < 0) return undefined
+  return new URLSearchParams(targetPath.slice(queryIndex + 1)).get('pod') ?? undefined
+}
 
 /**
  * Serialize one SPARQL binding term into the W3C SPARQL JSON results format
@@ -77,9 +87,32 @@ export class AdminSparqlHandler extends OperationHttpHandler {
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
     private readonly sessionManager: SessionManager,
-    private readonly sparqlEndpoint: string
+    private readonly sparqlEndpoint: string,
+    private readonly endpointStore: SparqlEndpointStore
   ) {
     super()
+  }
+
+  /**
+   * The endpoint to forward to. Without `?pod`, the org's registry pod. With
+   * `?pod=<podUrl>`, that pod — but only if the account-storage record belongs
+   * to the org (isolation; an admin cannot read another owner's dataset).
+   */
+  private async resolveEndpoint(orgWebId: string, podUrl?: string): Promise<string> {
+    try {
+      if (podUrl) {
+        const record = await this.endpointStore.findByPodUrl(podUrl)
+        if (!record || record.webId !== orgWebId) {
+          throw new ForbiddenHttpError(`pod ${podUrl} is not owned by ${orgWebId}`)
+        }
+        return record.endpoint
+      }
+      const record = await this.endpointStore.findByPodUrl(registryId(orgWebId))
+      return record?.endpoint ?? this.sparqlEndpoint
+    } catch (err) {
+      if (ForbiddenHttpError.isInstance(err)) throw err
+      return this.sparqlEndpoint
+    }
   }
 
   public async handle({
@@ -97,6 +130,7 @@ export class AdminSparqlHandler extends OperationHttpHandler {
     // AgentIdHandler pattern); admin check shared with `/proxy-admin`.
     const orgWebId = orgWebIdFromPath(operation.target.path)
     await requireOrgAdmin(this.sessionManager, this.credentialsExtractor, request, orgWebId)
+    const endpoint = await this.resolveEndpoint(orgWebId, podFromPath(operation.target.path))
 
     // Query-only: require the sparql-query media type and reject updates.
     if (operation.body.metadata.contentType !== SPARQL_QUERY_MEDIA_TYPE) {
@@ -128,7 +162,7 @@ export class AdminSparqlHandler extends OperationHttpHandler {
     let mediaType: string
     switch (queryType) {
       case 'SELECT': {
-        const bindingsStream = await this.fetcher.fetchBindings(this.sparqlEndpoint, query)
+        const bindingsStream = await this.fetcher.fetchBindings(endpoint, query)
         const bindings = await arrayifyStream<IBindings>(bindingsStream)
         payload = JSON.stringify({
           head: { vars: [...new Set(bindings.flatMap((binding) => Object.keys(binding)))] },
@@ -144,13 +178,13 @@ export class AdminSparqlHandler extends OperationHttpHandler {
         break
       }
       case 'ASK': {
-        const boolean = await this.fetcher.fetchAsk(this.sparqlEndpoint, query)
+        const boolean = await this.fetcher.fetchAsk(endpoint, query)
         payload = JSON.stringify({ head: {}, boolean })
         mediaType = 'application/sparql-results+json'
         break
       }
       case 'CONSTRUCT': {
-        const triplesStream = await this.fetcher.fetchTriples(this.sparqlEndpoint, query)
+        const triplesStream = await this.fetcher.fetchTriples(endpoint, query)
         const quads = await arrayifyStream<unknown>(triplesStream)
         payload = JSON.stringify(await jsonld.fromRDF(quads))
         mediaType = 'application/ld+json'

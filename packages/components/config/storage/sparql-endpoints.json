@@ -1,0 +1,42 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "Per-pod SPARQL endpoint registry — needed on the registry/data servers so the routed accessor can resolve pod URLs (the auth server defines it in storage/account.json).",
+      "@id": "urn:sai:default:SparqlEndpointStore",
+      "@type": "SparqlEndpointStore",
+      "storage": { "@id": "urn:solid-server:default:AccountStorage" }
+    },
+    {
+      "@id": "urn:sai:default:AppendSparqlEndpointStorePrimary",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:PrimaryParallelInitializer" },
+      "overrideSteps": [
+        {
+          "@type": "OverrideListInsertAt",
+          "overrideParameter": { "@id": "ParallelHandler:_handlers" },
+          "overrideTarget": { "@value": "-0" },
+          "overrideValue": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        }
+      ]
+    },
+    {
+      "@id": "urn:sai:default:AppendSparqlEndpointStoreEarly",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:EarlyProcessParallelInitializer" },
+      "overrideSteps": [
+        {
+          "@type": "OverrideListInsertAt",
+          "overrideParameter": { "@id": "ParallelHandler:_handlers" },
+          "overrideTarget": { "@value": "-0" },
+          "overrideValue": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        }
+      ]
+    }
+  ]
+}

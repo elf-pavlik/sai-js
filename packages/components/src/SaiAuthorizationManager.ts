@@ -1,10 +1,13 @@
 import { INTEROP } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import { NotFoundHttpError, arrayifyStream } from '@solid/community-server'
-import type { IdentifierStrategy, StorageLocationStrategy } from '@solid/community-server'
+import type { IdentifierStrategy, PodStore, StorageLocationStrategy } from '@solid/community-server'
 import type { AuthorizationManager } from '@solidlab/policy-engine'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
+
+import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
+import { registryId } from './util/uriTemplates.js'
 
 export class SaiAuthorizationManager implements AuthorizationManager {
   private fetcher: SparqlEndpointFetcher
@@ -13,7 +16,9 @@ export class SaiAuthorizationManager implements AuthorizationManager {
   public constructor(
     protected readonly identifierStrategy: IdentifierStrategy,
     private readonly sparqlEndpoint: string,
-    protected readonly storageStrategy: StorageLocationStrategy
+    protected readonly storageStrategy: StorageLocationStrategy,
+    private readonly podStore: PodStore,
+    private readonly endpointStore: SparqlEndpointStore
   ) {
     this.fetcher = new SparqlEndpointFetcher()
   }
@@ -30,12 +35,31 @@ export class SaiAuthorizationManager implements AuthorizationManager {
     return storage.path
   }
 
+  /**
+   * With per-pod datasets the grants live in the storage owner's **registry
+   * pod** dataset, not the data pod's. Resolve it from the pod's owner WebID;
+   * fall back to the env endpoint (shared) when unknown.
+   */
+  private async resolveRegistryEndpoint(storageUrl: string): Promise<string> {
+    try {
+      const pod = await this.podStore.findByBaseUrl(storageUrl)
+      if (!pod) return this.sparqlEndpoint
+      const owner = (await this.podStore.getOwners(pod.id))?.[0]?.webId
+      if (!owner) return this.sparqlEndpoint
+      const record = await this.endpointStore.findByPodUrl(registryId(owner))
+      return record?.endpoint ?? this.sparqlEndpoint
+    } catch {
+      return this.sparqlEndpoint
+    }
+  }
+
   public async getAuthorizationData(id: string): Promise<DatasetCore | Quad[] | undefined> {
     const storage = await this.storageStrategy.getStorageIdentifier({ path: id })
+    const endpoint = await this.resolveRegistryEndpoint(storage.path)
 
     try {
       const bindingsStream = await this.fetcher.fetchBindings(
-        this.sparqlEndpoint,
+        endpoint,
         `
         SELECT * WHERE {
           GRAPH ?g {?s <${INTEROP.hasStorage}> <${storage.path}> }
@@ -48,7 +72,7 @@ export class SaiAuthorizationManager implements AuthorizationManager {
       let data: Quad[] = []
       for (const grant of grants) {
         const grantsStream = await this.fetcher.fetchTriples(
-          this.sparqlEndpoint,
+          endpoint,
           `
             CONSTRUCT { <${grant}> ?p ?o } WHERE {
               GRAPH ?g { <${grant}> ?p ?o }

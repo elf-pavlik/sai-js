@@ -153,6 +153,14 @@ function sparqlEndpoint(): string {
 }
 
 /**
+ * The owner's registry-pod endpoint — the mirror graphs are written there
+ * (per-pod datasets), not to the shared dataset.
+ */
+function ownerEndpoint(session: { sparqlEndpoint: string }): string {
+  return session.sparqlEndpoint || sparqlEndpoint()
+}
+
+/**
  * Refresh the local read-only mirror of the peer's reciprocal registration
  * and its linked data grants (org-context-sparql.md phase 1). Runs with the
  * org's own session credentials — server-side, where they are legitimate.
@@ -162,7 +170,7 @@ export async function syncReciprocalMirror(payload: SyncReciprocalMirrorInput): 
   const session = await manager.getSession(payload.webId.id)
   const registration = await session.findSocialAgentRegistration(payload.peerId.id)
   if (!registration?.reciprocalRegistration) return
-  await updateReciprocalMirror(session, registration, sparqlEndpoint())
+  await updateReciprocalMirror(session, registration, ownerEndpoint(session))
 }
 
 /**
@@ -181,7 +189,7 @@ export async function deleteReciprocalMirror(payload: {
   const session = await manager.getSession(payload.webId.id)
   const registration = await session.findSocialAgentRegistration(payload.peerId.id)
   if (!registration?.reciprocalRegistration) return
-  await deleteMirror(registration, sparqlEndpoint())
+  await deleteMirror(registration, ownerEndpoint(session))
 }
 
 export async function reciprocalWebhook(payload: ReciprocalWebhookInput): Promise<void> {

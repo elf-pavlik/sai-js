@@ -133,7 +133,7 @@ services:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
-      <<: [*postgres-env, *garage-env, *sparql-env, *certs-env]
+      <<: [*postgres-env, *garage-env, *sparql-env, *certs-env, *origin-env]
       CSS_CONFIG: /sai/environments/css/data.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://data.docker/

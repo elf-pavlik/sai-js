@@ -61,7 +61,8 @@ export type { SparqlTransport }
 async function adminSparqlQuery(
   adminSession: AuthorizationAgent,
   orgWebId: string,
-  query: string
+  query: string,
+  podUrl?: string
 ): Promise<Response> {
   let orgAA: string | undefined
   try {
@@ -72,8 +73,13 @@ async function adminSparqlQuery(
   if (!orgAA) {
     throw new Error(`cannot discover authorization agent for ${orgWebId}`)
   }
-  const url = `${new URL(orgAA).origin}/.sai/sparql-admin/${Buffer.from(orgWebId).toString('base64url')}`
-  const response = await adminSession.fetch(url, {
+  const url = new URL(
+    `${new URL(orgAA).origin}/.sai/sparql-admin/${Buffer.from(orgWebId).toString('base64url')}`
+  )
+  // the org's pod the query targets; the handler restricts it to the org's
+  // account-storage records (defaults to the registry pod)
+  if (podUrl) url.searchParams.set('pod', podUrl)
+  const response = await adminSession.fetch(url.href, {
     method: 'QUERY',
     headers: {
       'Content-Type': 'application/sparql-query',
@@ -127,11 +133,15 @@ function termFromJson(term: Record<string, string>): SparqlBindingTerm {
  * (`AdminSparqlHandler`: SELECT → `application/sparql-results+json`,
  * CONSTRUCT → `application/ld+json`; updates rejected).
  */
-function adminSparqlTransport(adminSession: AuthorizationAgent, orgWebId: string): SparqlTransport {
+function adminSparqlTransport(
+  adminSession: AuthorizationAgent,
+  orgWebId: string,
+  podUrl?: string
+): SparqlTransport {
   return withSparqlTracing(
     {
       async fetchBindings(query) {
-        const response = await adminSparqlQuery(adminSession, orgWebId, query)
+        const response = await adminSparqlQuery(adminSession, orgWebId, query, podUrl)
         const json = (await response.json()) as {
           head: { vars: string[] }
           results?: { bindings: Record<string, Record<string, string>>[] }
@@ -147,7 +157,7 @@ function adminSparqlTransport(adminSession: AuthorizationAgent, orgWebId: string
         )
       },
       async fetchTriples(query) {
-        const response = await adminSparqlQuery(adminSession, orgWebId, query)
+        const response = await adminSparqlQuery(adminSession, orgWebId, query, podUrl)
         return toStore((await response.json()) as Record<string, unknown>)
       },
     },
@@ -167,4 +177,17 @@ export function sparqlTransportFor(ctx: ResolvedContext): SparqlTransport {
   return ctx.webId === ctx.userWebId
     ? localSparqlTransport(ctx.session.sparqlEndpoint)
     : adminSparqlTransport(ctx.session, ctx.webId)
+}
+
+/**
+ * Transport for a specific pod of the context: personal reads the owner's own
+ * dataset directly (restricted to the session's account-storage allowlist);
+ * org context queries the org's pod through `/sparql-admin` (the handler
+ * verifies the pod belongs to the org). Used by the data-plane reads, which
+ * target data pods rather than the registry pod.
+ */
+export function sparqlTransportForPod(ctx: ResolvedContext, podUrl: string): SparqlTransport {
+  return ctx.webId === ctx.userWebId
+    ? ctx.session.sparqlTransportFor(podUrl)
+    : adminSparqlTransport(ctx.session, ctx.webId, podUrl)
 }

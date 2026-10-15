@@ -27,12 +27,18 @@
       "storage": { "@id": "urn:solid-server:default:AccountStorage" }
     },
     {
+      "@id": "urn:sai:default:SparqlEndpointStore",
+      "@type": "SparqlEndpointStore",
+      "storage": { "@id": "urn:solid-server:default:AccountStorage" }
+    },
+    {
       "@id": "urn:solid-server:default:PrimaryParallelInitializer",
       "@type": "ParallelHandler",
       "handlers": [
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         { "@id": "urn:sai:default:ReciprocalWebhookStore" },
-        { "@id": "urn:sai:default:ActivityWebhookStore" }
+        { "@id": "urn:sai:default:ActivityWebhookStore" },
+        { "@id": "urn:sai:default:SparqlEndpointStore" }
       ]
     },
     {
@@ -41,7 +47,8 @@
       "handlers": [
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         { "@id": "urn:sai:default:ReciprocalWebhookStore" },
-        { "@id": "urn:sai:default:ActivityWebhookStore" }
+        { "@id": "urn:sai:default:ActivityWebhookStore" },
+        { "@id": "urn:sai:default:SparqlEndpointStore" }
       ]
     },
     {

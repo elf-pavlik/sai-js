@@ -1,6 +1,7 @@
 import type { IRI } from '@janeirodigital/sai-api-messages'
 
 import { GrantRevocationHandler } from '../GrantRevocationHandler.js'
+import { registryId } from '../util/uriTemplates.js'
 import type { ResolvedContext } from './Context.js'
 
 /**
@@ -24,8 +25,10 @@ export const revokeGrants = async (
   sparqlEndpoint: string,
   grants: readonly IRI[]
 ): Promise<readonly IRI[]> => {
-  // the owner is the context — the session manager shim answers with it
-  const handler = new GrantRevocationHandler(sparqlEndpoint, {
+  // the owner is the context — the session manager shim answers with it; the
+  // owner's registry pod comes from the context allowlist
+  const endpoint = ctx.endpoints.get(registryId(ctx.webId)) ?? sparqlEndpoint
+  const handler = new GrantRevocationHandler(endpoint, {
     getSession: async () => ctx.session,
   })
   const revoked = await handler.revokeGrants(grants.map(String), ctx.webId)

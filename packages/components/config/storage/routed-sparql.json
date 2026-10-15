@@ -1,0 +1,22 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "Route LDP reads/writes to the resource pod's dataset (stage 3). Replaces CSS's single-endpoint SparqlDataAccessor on the registry + data servers.",
+      "@id": "urn:sai:default:OverrideSparqlDataAccessor",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
+      "overrideParameters": {
+        "@type": "RoutedSparqlDataAccessor",
+        "endpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+        "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
+        "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" },
+        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
+      }
+    }
+  ]
+}

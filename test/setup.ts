@@ -1,7 +1,12 @@
 import { readFile } from 'node:fs/promises'
 
 import { initNodeTracing } from '@elfpavlik/sai-components'
-import { Postgres, seedFusekiDataset } from '@janeirodigital/interop-test-utils'
+import {
+  Postgres,
+  fixturePodDatasets,
+  seedFusekiDataset,
+  splitFixtureByPod,
+} from '@janeirodigital/interop-test-utils'
 import { context, trace } from '@opentelemetry/api'
 import type { Context, Span } from '@opentelemetry/api'
 import { suppressTracing } from '@opentelemetry/core'
@@ -57,13 +62,30 @@ afterEach(() => {
 })
 
 const connectionString = 'postgres://temporal:temporal@postgresql:5432/auth'
+// buildSessionManager()'s lazy per-pod endpoint store reads this env var to
+// resolve the session's registry-pod endpoint
+process.env.CSS_POSTGRES_CONNECTION_STRING ??= connectionString
 const keyValuePath = '../environments/data/kv.json'
 
-const fusekiBaseUrl = 'http://fuseki:3030/shared'
+const fusekiBaseUrl = 'http://fuseki:3030'
 const datasetPath = '../environments/data/registry.trig'
 
 const kvData = JSON.parse(await readFile(keyValuePath, 'utf8'))
 const datasetData = await readFile(datasetPath, 'utf8')
+
+// stage 3: one Fuseki dataset per pod. The fixture's registry origin is the
+// raw `https://registry/` in the dagger environment.
+const accounts = Object.values(kvData).flatMap((value: any) => {
+  if (!value || !value['**pod**']) return []
+  return [
+    {
+      webId: (Object.values(value['**webIdLink**'])[0] as any).webId,
+      podBaseUrls: Object.values(value['**pod**']).map((pod: any) => pod.baseUrl),
+    },
+  ]
+})
+const podDatasets = fixturePodDatasets(accounts, 'https://registry/')
+const datasets = await splitFixtureByPod(datasetData, { podDatasets })
 
 const clientId = 'https://data/test-client/public/id'
 const clientIdPath = '../environments/data/test-client/public/id$.jsonld'
@@ -101,6 +123,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await withoutTracing(async () => {
     await pg.seedKeyValue(kvData)
-    await seedFusekiDataset(fusekiBaseUrl, datasetData)
+    for (const [dataset, trig] of datasets) {
+      await seedFusekiDataset(`${fusekiBaseUrl}/${dataset}`, trig)
+    }
   })
 })

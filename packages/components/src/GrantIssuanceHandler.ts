@@ -35,6 +35,7 @@ import {
   isNeedBasedAccessRequestMessage,
 } from './messages.js'
 import type { SessionManager } from './SessionManager'
+import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
 
@@ -46,7 +47,8 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
     private readonly sessionManager: SessionManager,
-    private readonly sparqlEndpoint: string
+    private readonly sparqlEndpoint: string,
+    private readonly endpointStore: SparqlEndpointStore
   ) {
     super()
   }
@@ -77,11 +79,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
     if (isAccessRevocationMessage(message)) {
-      return new GrantRevocationHandler(this.sparqlEndpoint, this.sessionManager).revoke(
-        message,
-        credentials,
-        operation
-      )
+      return new GrantRevocationHandler(
+        this.sparqlEndpoint,
+        this.sessionManager,
+        this.endpointStore
+      ).revoke(message, credentials, operation)
     }
     if (isNeedBasedAccessRequestMessage(message)) {
       return this.acceptNeedBasedAccessRequest(message, credentials)
@@ -244,7 +246,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('invalid grantedBy')
     }
-    if (!(await findDelegableGrant(localSparqlTransport(this.sparqlEndpoint), grant))) {
+    // the delegable grant lives in the data owner's registry pod, not the
+    // shared dataset — resolve it from the grant IRI
+    const endpoint =
+      (await this.endpointStore.findByIri(grant.id!))?.endpoint ?? this.sparqlEndpoint
+    if (!(await findDelegableGrant(localSparqlTransport(endpoint), grant))) {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('no grant available for delegation')
     }

@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { Args, Command, Options } from '@effect/cli'
 import * as NodeContext from '@effect/platform-node/NodeContext'
 import * as Runtime from '@effect/platform-node/NodeRuntime'
-import { Postgres, seedFusekiDataset } from '@janeirodigital/interop-test-utils'
+import {
+  Postgres,
+  fixturePodDatasets,
+  seedFusekiDataset,
+  splitFixtureByPod,
+} from '@janeirodigital/interop-test-utils'
 import { Console, Effect, Option } from 'effect'
 import { exportJWK, generateKeyPair } from 'jose'
 
@@ -191,14 +196,36 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
     yield* Console.log(`Seeding data for ${env}`)
 
     const connectionString = 'postgres://temporal:temporal@localhost:5432/auth'
-    const fusekiBaseUrl = 'http://localhost:3030/shared'
+    const fusekiBaseUrl = 'http://localhost:3030'
     const pg = new Postgres(connectionString, 'key_value')
 
     const kv = yield* generateRegistry(kvSourcePath, env)
     const dataset = yield* generateRegistry(datasetSourcePath, env)
 
-    yield* Effect.promise(() => pg.seedKeyValue(JSON.parse(kv)))
-    yield* Effect.promise(() => seedFusekiDataset(fusekiBaseUrl, dataset))
+    // stage 3: one Fuseki dataset per pod; the registry origin is the mapped
+    // one for this environment (map.prefixes['https://registry/'])
+    const kvData = JSON.parse(kv)
+    const map = JSON.parse(readFileSync(mapPaths[env as keyof typeof mapPaths], 'utf-8')) as {
+      prefixes: Record<string, string>
+    }
+    const accounts = Object.values(kvData).flatMap((value: any) => {
+      if (!value || !value['**pod**']) return []
+      return [
+        {
+          webId: (Object.values(value['**webIdLink**'])[0] as any).webId,
+          podBaseUrls: Object.values(value['**pod**']).map((pod: any) => pod.baseUrl),
+        },
+      ]
+    })
+    const podDatasets = fixturePodDatasets(accounts, map.prefixes['https://registry/'])
+    const datasets = yield* Effect.promise(() => splitFixtureByPod(dataset, { podDatasets }))
+
+    yield* Effect.promise(() => pg.seedKeyValue(kvData))
+    yield* Effect.promise(async () => {
+      for (const [ds, trig] of datasets) {
+        await seedFusekiDataset(`${fusekiBaseUrl}/${ds}`, trig)
+      }
+    })
     pg.sql.end()
 
     yield* Console.log('Data seeded successfully')

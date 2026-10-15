@@ -43,6 +43,7 @@ import {
 } from './services/ShareResource.js'
 import { acceptInvitation, getSocialAgents } from './services/SocialAgentRegistry.js'
 import type { SessionManager } from './SessionManager'
+import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 import { withEffectTracing } from './tracing/effect-tracer.js'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 
@@ -54,7 +55,8 @@ export class ApiHandler extends OperationHttpHandler {
     private readonly uiPushSubscriptionStore: UiPushSubscriptionStore,
     private readonly sessionManager: SessionManager,
     private readonly accountService: AccountService,
-    private readonly sparqlEndpoint: string
+    private readonly sparqlEndpoint: string,
+    private readonly endpointStore: SparqlEndpointStore
   ) {
     super()
   }
@@ -124,74 +126,74 @@ export class ApiHandler extends OperationHttpHandler {
               Effect.promise(() => this.accountService.bootstrapAccount(accountId, handle)),
             getDataRegistries: (agentId, lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getDataRegistries(ctx, agentId, lang)
               }),
             listDataInstances: (agentId, registrationId, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return listDataInstances(ctx, agentId, registrationId, 'en')
               }),
             getApplications: (context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getApplications(ctx)
               }),
             getUnregisteredApplication: (id) =>
               Effect.promise(() => getUnregisteredApplication(session, id)),
             getSocialAgents: (lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getSocialAgents(ctx, lang)
               }),
             getRoles: (lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getRoles(ctx, lang)
               }),
             createRole: (label, members, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return createRole(ctx, label, members)
               }),
             updateRole: (id, label, members, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return updateRole(ctx, id, label, members)
               }),
             deleteRole: (id, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return deleteRole(ctx, id)
               }),
             getSocialAgentInvitations: (lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getSocialAgentInvitations(ctx, lang)
               }),
             getAuthorizationData: (agentId, lang, accessNeedGroupIri, accessRequestIri, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getDescriptions(ctx, agentId, lang, accessNeedGroupIri, accessRequestIri)
               }),
             authorizeApp: (authorization, accessRequestIri, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return recordAuthorization(ctx, authorization, accessRequestIri)
               }),
             revokeGrants: (grants, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return revokeGrants(ctx, this.sparqlEndpoint, grants)
               }),
             addAdmin: (agentWebId, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return addAdmin(ctx, agentWebId)
               }),
             removeAdmin: (agentWebId, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return removeAdmin(ctx, agentWebId)
               }),
             registerPushSubscription: (subscription: PushSubscription) =>
@@ -200,37 +202,37 @@ export class ApiHandler extends OperationHttpHandler {
               ),
             getResource: (id, lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return getResource(ctx, id, lang)
               }),
             shareResource: (authorization, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return shareResource(ctx, authorization)
               }),
             requestAccessUsingApplicationNeeds: (applicationId, agentId, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return requestAccessUsingApplicationNeeds(ctx, applicationId, agentId)
               }),
             requestAccessUsingAccessNeeds: (dataOwner, hasAccessNeedGroup, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return requestAccessUsingAccessNeeds(ctx, dataOwner, hasAccessNeedGroup)
               }),
             archiveAccessRequest: (request, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return archiveAccessRequest(ctx, request)
               }),
             createInvitation: (label, note, lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return createInvitation(ctx, { label, note }, lang)
               }),
             acceptInvitation: (capabilityUrl, label, note, lang, context) =>
               Effect.promise(async () => {
-                const ctx = await resolveContext(session, context)
+                const ctx = await resolveContext(session, context, this.endpointStore)
                 return acceptInvitation(ctx, { capabilityUrl, label, note }, lang)
               }),
           })

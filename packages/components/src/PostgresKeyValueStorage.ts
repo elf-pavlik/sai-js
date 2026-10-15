@@ -107,14 +107,16 @@ export class PostgresKeyValueStorage<T> extends Initializer implements KeyValueS
     `.cursor(50)
 
     try {
-      for await (const row of cursor as AsyncIterableIterator<any[]>) {
-        const key = row[0] as string
-        const value = JSON.parse(row[1]) as T
-        yield [key, value]
+      // the cursor yields batches of row objects (`{ key, value }`)
+      for await (const rows of cursor as AsyncIterableIterator<any[]>) {
+        for (const row of rows) {
+          yield [row.key as string, JSON.parse(row.value) as T]
+        }
       }
     } finally {
-      // Runtime has .close(), but TS doesn't know → cast to any
-      await cursor.close()
+      // postgres@3.x cursors expose no `close()` (only an async iterator whose
+      // `return()` is the cancel path, invoked by `for await` on early exit)
+      if (typeof cursor.close === 'function') await cursor.close()
     }
   }
 }

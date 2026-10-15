@@ -8,6 +8,17 @@ import postgres from 'postgres'
 
 import { agentId, issuanceUrl } from '../util/uriTemplates.js'
 
+/**
+ * Dataset name for a pod — must match `packages/test-utils/src/fuseki.ts`
+ * (`reg-<handle>` / `data-<pod>`). Kept inline so `components` does not depend
+ * on the test-utils package.
+ */
+function datasetName(podUrl: string, kind: 'registry' | 'data'): string {
+  const url = new URL(podUrl)
+  const segment = url.pathname.split('/').filter(Boolean)[0] ?? url.hostname.split('.')[0]
+  return `${kind === 'registry' ? 'reg' : 'data'}-${segment}`
+}
+
 export class AccountService {
   private sql: any
 
@@ -22,6 +33,34 @@ export class AccountService {
     private regOrigin: string
   ) {
     this.sql = postgres(this.postgresConnectionString)
+  }
+
+  /** POST a TriG payload to a Fuseki Graph Store Protocol endpoint. */
+  private async postTrig(endpoint: string, trig: string): Promise<void> {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/trig' },
+      body: trig,
+    })
+    if (!response.ok) throw new Error(`failed POSTing dataset to ${endpoint}`)
+  }
+
+  /**
+   * Best-effort dataset creation via the Fuseki admin API. Fixture pods are
+   * pre-declared in `fuseki.config.ttl`; new signups need Fuseki Full with a
+   * Shiro service account (`CSS_FUSEKI_ADMIN=user:password`).
+   */
+  private async ensureFusekiDataset(origin: string, name: string): Promise<void> {
+    const admin = process.env.CSS_FUSEKI_ADMIN
+    try {
+      await fetch(`${origin}/$/datasets?dbType=tdb2&dbName=${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: admin ? { Authorization: `Basic ${Buffer.from(admin).toString('base64')}` } : {},
+      })
+    } catch {
+      // dataset already exists (config.ttl) or the admin API is unavailable —
+      // the subsequent POST will surface a real failure
+    }
   }
 
   async checkHandle(handle: string): Promise<boolean> {
@@ -41,19 +80,34 @@ export class AccountService {
     const uas = agentId(webId)
     const dataRegistry = `https://${handle}.${this.dataOrigin}/`
     const registrySet = `https://${this.regOrigin}/${handle}/`
-    const trigDataset = `
-      ${webIdTemplate({ id: webId, document: docId, issuer: this.issuer, uas, issuance: issuanceUrl(webId) })}
-      ${dataRegistryTemplate({ id: dataRegistry })}
-      ${registrySetTemplate({ id: registrySet, webId, uas, dataRegistry })}
-    `
-    const response = await fetch(this.sparqlEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/trig',
-      },
-      body: trigDataset,
-    })
-    if (!response.ok) throw new Error('failed POSTing dataset to the quadstore')
+
+    // stage 3 (docs/plans/fuseki-per-pod-sparql.md): one dataset per pod — the
+    // registry set and the data registry each get their own endpoint; the WebID
+    // profile stays in the shared dataset (the id service reads it there).
+    const fusekiOrigin = new URL(this.sparqlEndpoint).origin
+    const registryDataset = datasetName(registrySet, 'registry')
+    const dataDataset = datasetName(dataRegistry, 'data')
+    await this.ensureFusekiDataset(fusekiOrigin, registryDataset)
+    await this.ensureFusekiDataset(fusekiOrigin, dataDataset)
+
+    await this.postTrig(
+      this.sparqlEndpoint,
+      webIdTemplate({
+        id: webId,
+        document: docId,
+        issuer: this.issuer,
+        uas,
+        issuance: issuanceUrl(webId),
+      })
+    )
+    await this.postTrig(
+      `${fusekiOrigin}/${registryDataset}/data`,
+      registrySetTemplate({ id: registrySet, webId, uas, dataRegistry })
+    )
+    await this.postTrig(
+      `${fusekiOrigin}/${dataDataset}/data`,
+      dataRegistryTemplate({ id: dataRegistry })
+    )
     const key = cssKv.accountData(accountId)
     const rows = await this
       .sql`SELECT value FROM ${this.sql(this.tableName)} WHERE key = ${String(key)}`
@@ -86,6 +140,30 @@ export class AccountService {
         id: ids.webId,
       },
     }
+    // Per-pod SPARQL endpoint registry (isolated-datasets-and-sparql.md 4a,
+    // widened to per-pod), keyed by pod URL. Stage 2 of
+    // docs/plans/fuseki-per-pod-sparql.md: both records point at the shared
+    // dataset until the per-pod split (Stage 3) flips them to per-pod endpoints.
+    const endpointIds = {
+      registry: crypto.randomUUID(),
+      data: crypto.randomUUID(),
+    }
+    accountData['**sparqlEndpoint**'] = {
+      [endpointIds.registry]: {
+        accountId,
+        webId,
+        podUrl: registrySet,
+        endpoint: `${fusekiOrigin}/${registryDataset}/sparql`,
+        id: endpointIds.registry,
+      },
+      [endpointIds.data]: {
+        accountId,
+        webId,
+        podUrl: dataRegistry,
+        endpoint: `${fusekiOrigin}/${dataDataset}/sparql`,
+        id: endpointIds.data,
+      },
+    }
     // TODO: separate update from instert
     const record = {
       [key]: accountData,
@@ -94,6 +172,11 @@ export class AccountService {
       [cssKv.owner(ids.owner)]: [accountId],
       [cssKv.pod(ids.pod)]: [accountId],
       [cssKv.podByBaseUrl(dataRegistry)]: [accountId],
+      [`accounts/index/sparqlEndpoint/${endpointIds.registry}`]: [accountId],
+      [`accounts/index/sparqlEndpoint/${endpointIds.data}`]: [accountId],
+      [`accounts/index/sparqlEndpoint/webId/${encodeURIComponent(webId)}`]: [accountId],
+      [`accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent(registrySet)}`]: [accountId],
+      [`accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent(dataRegistry)}`]: [accountId],
     }
     const entries = Object.entries(record).map(([entryKey, value]) => ({
       key: entryKey,

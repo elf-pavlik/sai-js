@@ -7,13 +7,12 @@ import type {
   Guarded,
   RepresentationConverter,
   ResourceIdentifier,
-  SparqlDataAccessor,
 } from '@solid/community-server'
 import { CONTENT_TYPE, INTERNAL_QUADS, RepresentationMetadata } from '@solid/community-server'
 export class HybridDataAccessor implements DataAccessor {
   public constructor(
     private binaryAccessor: FileDataAccessor,
-    private sparqlAccessor: SparqlDataAccessor,
+    private sparqlAccessor: DataAccessor,
     private converter: RepresentationConverter
   ) {}
 

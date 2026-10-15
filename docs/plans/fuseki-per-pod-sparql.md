@@ -1,7 +1,12 @@
 # Fuseki migration + per-pod SPARQL endpoints
 
-> **Status:** Stage 1 ✅ landed (Oxigraph → Fuseki drop-in, single `shared`
-> dataset). Stages 2–3 design only. Environment-touching (dev compose +
+> **Status:** Stages 1–3 ✅ landed **and integration-hardened** (Fuseki
+> drop-in + per-pod endpoint registry + per-pod datasets / fixture split /
+> routed accessor / permission-engine + mirror activation; plus the
+> session/context allowlist, the Fuseki `INSERT DATA` mirror-write fix, and the
+> `PostgresKeyValueStorage.entries` fix surfaced by `/test`). Remaining 4b
+> follow-ups are listed in Stage 3 / Open items.
+> Environment-touching (dev compose +
 > dagger) and code-touching (components). This is the concrete
 > **infrastructure realization of phases 4a/4b** in
 > [`isolated-datasets-and-sparql.md`](isolated-datasets-and-sparql.md), with one
@@ -191,19 +196,26 @@ backed by the same `AccountLoginStorage`:
 export const SPARQL_ENDPOINT_STORAGE_TYPE = 'sparqlEndpoint'
 export const SPARQL_ENDPOINT_STORAGE_DESCRIPTION = {
   accountId: `id:${ACCOUNT_TYPE}`,
-  webId: 'string',       // owner (org or personal)
-  kind: 'string',        // 'registry' | 'data'
-  baseUrl: 'string',     // pod base URL (registry set IRI or data pod IRI)
+  webId: 'string',       // owner (org or personal) — enumeration/cleanup
+  podUrl: 'string',      // registry-set IRI or data pod base URL
   endpoint: 'string',    // e.g. http://fuseki:3030/reg-<handle>/sparql
 } as const
 ```
 
-- indexes on `accountId`, `webId`, `kind`, `baseUrl`;
-- `findRegistryByWebId(webId)` → the owner's registry-pod endpoint (AA session,
-  permission engine, `/sparql-admin`);
-- `findDataByPodBaseUrl(baseUrl)` → the data pod's endpoint (data accessor);
-- `findByWebId(webId)` → all pods of the owner;
-- `create(accountId, webId, kind, baseUrl, endpoint)` / `delete`.
+Keyed by **pod URL**: a registry pod's URL is its registry-set IRI
+(`https://<regOrigin>/<handle>/`), a data pod's is its storage base URL. The
+registry-set IRI is exactly what `registryId(webId)` derives, so every caller
+can produce the pod URL — no `kind` discriminator is needed:
+
+- indexes on `webId` and `podUrl` (`accountId` is the parent, indexed
+  automatically);
+- `findByPodUrl(podUrl)` → that pod's endpoint (the single resolver: AA session,
+  data accessor, permission engine, `/sparql-admin`);
+- `findByIri(iri)` → the record whose `podUrl` is the longest prefix of `iri`
+  (resolves a registry resource like `…/grant/<id>` to its registry pod — used
+  by the delegation/revocation handlers);
+- `findByWebId(webId)` → all pods of the owner (enumeration/cleanup);
+- `create({ accountId, webId, podUrl, endpoint })` / `delete`.
 
 Wired in `packages/components/config/storage/account.json` alongside the other
 stores, and added to `PrimaryParallelInitializer` /
@@ -222,8 +234,8 @@ one `trigDataset`. Extend it to:
 2. split its `trigDataset`: `webIdTemplate` + `registrySetTemplate` →
    `reg-<handle>`; `dataRegistryTemplate` → `data-<handle>`;
    POST each to `/{ds}/data`;
-3. write two `**sparqlEndpoint**` records + index entries (registry kind with
-   the registry-set base URL, data kind with the data pod base URL).
+3. write two `**sparqlEndpoint**` records + index entries (podUrl = the
+   registry-set IRI and the data pod base URL).
 
 New `AccountService` constructor args (config
 `packages/components/config/services/account.json`): a Fuseki **admin/base** URL
@@ -231,13 +243,16 @@ New `AccountService` constructor args (config
 service credentials; the existing `sparqlEndpoint` var stays as the
 fallback/shared endpoint.
 
-### 3. `SessionManager` resolves the owner's registry pod
+### 3. `SessionManager` resolves the owner's registry pod and builds the allowlist
 
 `packages/components/src/SessionManager.ts` gets the `SparqlEndpointStore`
-injected (constructor arg) and, in `getSession(webid)`, does
-`findRegistryByWebId(webid)` → `AuthorizationAgent.build(…, { sparqlEndpoint })`,
-**falling back to the env-var endpoint** when no record exists (4a). Both
-construction paths must pass the store:
+injected (constructor arg) and, in `getSession(webid, registrySetId?)`, loads
+**all** of the owner's records (`findByWebId(webid)`) into an allowlist
+`sparqlEndpoints: Map<podUrl, endpoint>`. The registry endpoint is
+`sparqlEndpoints.get(registrySetId ?? registryId(webid))`, falling back to the
+env-var endpoint. Both `sparqlEndpoint` and `sparqlEndpoints` are passed to
+`AuthorizationAgent.build(…, { sparqlEndpoint, sparqlEndpoints })` (4a widened
+to the allowlist — see §6). Both construction paths must pass the store:
 
 - config instance `urn:sai:default:SessionManager` in
   `packages/components/config/http/handler/default.json`;
@@ -245,7 +260,7 @@ construction paths must pass the store:
   (used by Temporal activities) — build the store via
   `buildAccountLoginStorage()` (pattern in `temporal/activities/reciprocal.ts`).
 
-### 4. Routed accessors — the LDP write path isolates too
+### 4. Routed accessor — the LDP write path isolates too ✅
 
 The AA read plane is not enough: the CSS **LDP storage** writes pod resources
 through `SparqlDataAccessor`, constructed with **one** endpoint
@@ -256,30 +271,49 @@ through `SparqlDataAccessor`, constructed with **one** endpoint
 identifier and delegates to a cached per-endpoint `SparqlDataAccessor`
 (`Map<endpoint, SparqlDataAccessor>`, same `IdentifierStrategy`):
 
-- **data server**: `podStore.findByBaseUrl(identifier.path)` →
-  `podStore.getOwners(pod.id)[0].webId` (pattern in
-  `AdminPermissionReader.ts:63-66`) → `findDataByPodBaseUrl(baseUrl)`;
-- **registry server**: first path segment `<handle>` →
-  `https://${idOrigin}/${handle}` → `findRegistryByWebId(webId)` (requires
-  setting `CSS_ID_ORIGIN` on the registry/data servers, which today only have
-  `CSS_BASE_URL` + `CSS_SPARQL_ENDPOINT`);
+- **data server**: `podStore.findByBaseUrl(identifier.path)` → the pod base URL
+  → `findByPodUrl(podBase)`;
+- **registry server**: first path segment `<handle>` → registry pod URL
+  `${CSS_BASE_URL}${handle}/` → `findByPodUrl(...)` (no `idOrigin` needed — the
+  registry server's own base URL *is* the registry origin);
 - fall back to the env endpoint when unresolved (stage 2).
 
-Replace `urn:solid-server:default:SparqlDataAccessor` with it in
-`packages/components/config/storage/hybrid.json` (data server) and in the
-registry server's import of `css:config/storage/backend/sparql.json` (override
-or `sai:config/storage/backend/routed-sparql.json`).
+Replace `urn:solid-server:default:SparqlDataAccessor` with it via the Override
+in `packages/components/config/storage/routed-sparql.json` (imported by both
+`registry.json` and `data.json`); `sparql-endpoints.json` adds the
+`SparqlEndpointStore` to those servers' initializers.
 
-### 5. Permission engine resolves the data owner's registry pod
+### 5. Permission engine resolves the data owner's registry pod ✅
 
 `SaiAuthorizationManager.getAuthorizationData` / `SaiPermissionsEngine` collect
 grants with `GRAPH ?g { ?s interop:hasStorage <storage> }`. With per-pod
 datasets the grants are **not** in the data pod's dataset. Before the query,
-resolve the storage owner (as in §4 data server) → `findRegistryByWebId(owner)`
-→ run the grant query against that endpoint. This is the 4a "migrate direct
-consumers" item (`isolated-datasets-and-sparql.md`), now with the registry-pod
-lookup. Same for `GrantIssuanceHandler.validateDelegable` and
-`GrantRevocationHandler`.
+resolve the storage owner (as in §4 data server) → `registryId(owner)` →
+`findByPodUrl(...)` → run the grant query against that endpoint. `SaiPermissionsEngine`
+resolves the **resource's data pod** for the inheritance query. Same lookup for
+`GrantIssuanceHandler.validateDelegable` and `GrantRevocationHandler` (via
+`findByIri(grantIri)`, since the owner is read off the grant IRIs).
+
+### 6. Session/context endpoint allowlist (isolation) ✅
+
+The session may only query the pods recorded for its owner in the internal
+account storage — never another owner's dataset:
+
+- `AuthorizationAgent` holds `sparqlEndpoints: Map<podUrl, endpoint>` and exposes
+  `resolveEndpoint(iri)` (longest pod-URL prefix) and `sparqlTransportFor(iri)`
+  (**throws** when the IRI is not under an allowed pod).
+- `ResolvedContext.endpoints` is the context allowlist: personal =
+  `session.sparqlEndpoints`; org = `findByWebId(ctx.webId)` (the **org's**
+  records) after the `requireOrgAdmin` gate. `resolveContext(userSession,
+  context, endpointStore)` builds it.
+- `sparqlTransportForPod(ctx, podUrl)`: personal → `session.sparqlTransportFor`;
+  org → `adminSparqlTransport(session, orgWebId, podUrl)`.
+- `AdminSparqlHandler` accepts `?pod=<podUrl>` and resolves it **only if
+  `record.webId === orgWebId`** (403 otherwise).
+- The data-plane reads use the allowlist, not `registrySet.hasDataRegistry`:
+  `findUserDataRegistrations` iterates `ctx.endpoints`;
+  `generateSourceDataGrants` iterates the owner's data pods (allowlist minus the
+  registry pod); `dataRegistrationContains` reads the resource's pod.
 
 > **Alternative topology (not chosen):** one Fuseki container per pod plus an
 > nginx router. It yields stronger fault isolation but still needs the same
@@ -294,21 +328,33 @@ For each pre-seeded pod add, inside `accounts/data/<id>`:
 ```jsonc
 "**sparqlEndpoint**": {
   "<uuid>": { "accountId": "<id>", "webId": "https://id/<handle>",
-              "kind": "registry", "baseUrl": "https://registry/<handle>/",
+              "podUrl": "https://registry/<handle>/",
               "endpoint": "http://fuseki:3030/reg-<handle>/sparql" },
   "<uuid2>": { "accountId": "<id>", "webId": "https://id/<handle>",
-               "kind": "data", "baseUrl": "https://data/<pod>/",
+               "podUrl": "https://data/<pod>/",
                "endpoint": "http://fuseki:3030/data-<pod>/sparql" }
 },
 ```
 
-one record per registry pod (6) and per data pod (11), plus matching
-`accounts/index/sparqlEndpoint/<uuid>`,
-`.../webId/<encoded>`, `.../kind/<kind>` and `.../baseUrl/<encoded>` entries.
+one record per registry pod (6) and per data pod (**13** — the account pods
+plus `data/shapetrees` and `data/test-client`, both `dataOwner <https://id/acme>`
+in the fixture's public grants), plus matching
+`accounts/index/sparqlEndpoint/<uuid>`, `.../webId/<encoded>` and
+`.../podUrl/<encoded>` entries.
 The endpoint host is the internal service name (`fuseki`), so the existing
 `generateRegistry` url-substitution for dev/demo does **not** rewrite it (not a
 public origin; `map.json` should not gain these). Verify `packages/repl`
 `generate-registry`/`seed-env` still round-trip the file.
+
+**Reciprocal webhooks (both directions).** The mirror is load-bearing once
+stores split, so every reciprocal pair needs **both** subscription directions
+(the watcher side's `**reciprocalWebhook**` record + its `WebhookChannel2023`
+channel + `notifications/*` records + indexes). The fixture originally seeded
+only one direction (alice's); the plan's environment work completed them to
+**16 webhooks** covering all 8 pairs (`alice↔acme`, `alice↔bob`, `alice↔kim`,
+`bob↔acme`, `bob↔dan`, `bob↔yoyo`, `kim↔yoyo`, `yoyo↔dan`). Without this, a
+grantor's registration update never reaches the grantee's mirror and the
+grantee's SPARQL reads (which resolve against its own pods) come back empty.
 
 ## Public surfaces that keep working (or must change)
 
@@ -316,10 +362,37 @@ public origin; `map.json` should not gain these). Verify `packages/repl`
 |---|---|---|
 | AA session reads | `session.sparqlEndpoint` = one env endpoint | owner's **registry pod** endpoint (fallback retained) |
 | `SaiAuthorizationManager` / `SaiPermissionsEngine` / `GrantIssuanceHandler` / `GrantRevocationHandler` / `ApiHandler` / `AdminSparqlHandler` | config-bound `urn:solid-server:default:variable:sparqlEndpoint` | resolve the storage owner's **registry pod** (stage 3) |
-| `/sparql-admin` | forwards to the global endpoint | forward into the org's **registry pod** (4b item) |
+| `/sparql-admin` | forwards to the global endpoint | forwards into the org's **registry pod**; `?pod=<podUrl>` targets another of the org's pods (ownership-checked) |
 | `services/id` (`CONSTRUCT <https://id/<handle>>`) | single endpoint | unchanged — WebID profiles live in `shared` |
 | `SparqlDataAccessor` (registry + data) | single endpoint | `RoutedSparqlDataAccessor` |
-| Temporal mirror activities (`syncReciprocalMirror` etc.) | `process.env.CSS_SPARQL_ENDPOINT` (`reciprocal.ts:149`) | resolve the owner's registry pod via the session endpoint (already `session.sparqlEndpoint`) |
+| Temporal mirror activities (`syncReciprocalMirror` etc.) | `process.env.CSS_SPARQL_ENDPOINT` (`reciprocal.ts:149`) | `session.sparqlEndpoint` (owner's registry pod) |
+
+## Integration hardening (surfaced by `/test`)
+
+Fixes required to make the split green end-to-end (each landed):
+
+- **AA data-plane reads** (`components/src/services/Authorization.ts`):
+  `findUserDataRegistrations` / `generateSourceDataGrants` read data
+  registrations from the context's pods (allowlist), not `registrySet`.
+- **`PostgresKeyValueStorage.entries`** (first caller = `findByIri`):
+  `postgres@3.x` cursors expose no `.close()` and yield **batches of row
+  objects** (`{ key, value }`), not `[key, value]` tuples.
+- **Fuseki `INSERT DATA`**: `updateReciprocalMirror` must emit
+  `GRAPH <g> { <triples> }` blocks — 4-term N-Quads lines are invalid in
+  Fuseki (Oxigraph accepted them).
+- **Mirror write target**: `syncReciprocalMirror` / `deleteReciprocalMirror`
+  write to `session.sparqlEndpoint` (the owner's registry pod), not the env
+  endpoint.
+- **Data-server origins**: CSS maps `CSS_*` env vars to CLI args, so the data
+  server needs the `idOrigin`/`docOrigin`/`dataOrigin`/`regOrigin` options
+  declared (`sai:config/variables/origins.json`, imported by `data.json`) for
+  `registryId()` to work there.
+- **Test-process store**: `buildSessionManager()`'s lazy endpoint store reads
+  `CSS_POSTGRES_CONNECTION_STRING`; set it in `test/setup.ts` and the dagger
+  `testBase`.
+- **shapetrees / test-client as pods**: modelled as acme-owned data pods (the
+  fixture's public grants name `dataOwner <https://id/acme>`), so the engine
+  resolves their owner via `podStore` instead of fanning out.
 
 ## Sequencing
 
@@ -361,28 +434,70 @@ clients).
 **Exit:** the whole `/test` suite green on Fuseki (user-run). No component
 change yet.
 
-### Stage 2 — Per-pod endpoint registry (4a widened) with a single dataset
+### Stage 2 — Per-pod endpoint registry (4a widened) with a single dataset ✅
 
-- `SparqlEndpointStore` + config; `Account.ts` creates both datasets + records;
-  `SessionManager` registry-pod lookup + env fallback; `RoutedSparqlDataAccessor`
-  present but every record points at `shared` → routing is a no-op.
-- Seeds (`kv.json`) carry registry + data records pointing at `shared`.
-- **Exit:** suite green; package vitest for store CRUD + bootstrap + routing
-  resolution.
+Landed (records still point at the shared dataset — no behavior change):
 
-### Stage 3 — Per-pod datasets + fixture split (4b environment work)
+- `packages/components/src/SparqlEndpointStore.ts` — AccountLoginStorage type
+  `sparqlEndpoint` (`accountId`/`webId`/`podUrl`/`endpoint`, indexes on
+  `webId`/`podUrl`), `create`/`findByPodUrl`/`findByWebId`/`delete`; wired into
+  `config/storage/account.json`
+  (both parallel initializers) and exported for the generator.
+- `Account.ts` bootstrap writes one **registry** record (`podUrl` = registry
+  set) and one **data** record (`podUrl` = data registry) with the current
+  `sparqlEndpoint`, plus the `accounts/index/sparqlEndpoint/*` entries.
+- `SessionManager` resolves the owner's registry-pod record, falling back to
+  the env endpoint; the store is injected via config on the auth server and
+  built lazily (`buildAccountLoginStorage`) in the worker/test builder so no
+  `buildSessionManager()` call sites change.
+- `environments/data/kv.json` carries 6 registry + 11 data records (all
+  `http://fuseki:3030/shared/sparql`) + 40 index entries, generated
+  programmatically (not hand-edited).
+- Package vitest: store CRUD/resolution + `AccountService` bootstrap wiring.
 
-- Preconditions: **mirrors active and backfilled** (`federation.md` 1a,
-  `isolated-datasets-and-sparql.md` 4b checkboxes), 4b `/sparql-admin` →
-  org's registry pod, external discovery. Without mirrors, cross-pod reads in
-  the suite go dark.
-- Generate the per-pod `config.ttl`; split the fixture; update `kv.json`
-  endpoints to the per-pod URLs; `RoutedSparqlDataAccessor` and the permission
-  engine now resolve distinct datasets.
-- **Exit (joint `/test` checkpoint):** cross-pod isolation (Dan querying
-  Alice's endpoint → 403 by gate; Dan's own queries never see Alice graphs),
-  org-context end-to-end against per-pod stores, mirror freshness e2e. Aligns
-  with `isolated-datasets-and-sparql.md` 4b and `docs/plans/index.md` Security.
+**Deferred to Stage 3:** `RoutedSparqlDataAccessor` and the permission-engine
+endpoint lookup. With every record pointing at `shared`, routing is a no-op, so
+landing the accessor now would add config/`PodStore`-injection risk for zero
+behavior change; it moves to Stage 3 where the records diverge.
+
+**Exit:** auth/registry/data start in compose with the new config; package
+vitest green (73 files). Full `/test` suite is the user-run confirmation.
+
+### Stage 3 — Per-pod datasets + fixture split (4b environment work) ✅
+
+Landed:
+
+- `environments/css/fuseki.config.ttl` — generated, **20 datasets** (`shared` +
+  6 `reg-<handle>` + 13 `data-<pod>`) via `packages/test-utils/src/fuseki.ts`
+  (`fusekiConfig`).
+- **Fixture split + mirror backfill** (`splitFixtureByPod`): routes each graph
+  to its pod dataset and copies each reciprocal target (+ its grants) into the
+  linking owner's dataset — the offline equivalent of `updateReciprocalMirror`.
+- `test/setup.ts` + `packages/repl` `seed-env` seed every per-pod dataset.
+- `environments/data/kv.json` endpoint records flipped to per-pod URLs
+  (`http://fuseki:3030/reg-<handle>/sparql`, `.../data-<pod>/sparql`).
+- `Account.ts` creates the two datasets (admin API, `CSS_FUSEKI_ADMIN`) and
+  POSTs the bootstrap TriG per dataset (WebID profile stays in `shared`).
+- **`RoutedSparqlDataAccessor`** (new) — `StorageLocationStrategy` → pod URL →
+  `findByPodUrl`; replaces CSS's single-endpoint accessor on registry + data.
+- **Permission engine** — `SaiAuthorizationManager` resolves the storage
+  owner's registry-pod endpoint for grants; `SaiPermissionsEngine` resolves the
+  resource's data-pod endpoint for the inheritance query.
+- **`/sparql-admin`** forwards into the org's registry pod (and `?pod=<podUrl>`
+  into another of the org's pods, ownership-checked).
+- **Mirrors activated** — initial mirror in `establishReciprocal`; webhook
+  `delegatedGrantsUpdated` fan-out starts `syncReciprocalMirror` with a
+  deterministic `mirror:<webId>:<peerId>` workflowId (start-or-absorb).
+- **Session/context allowlist** (§6) + the integration hardening below.
+
+Verified: 73 package test files / 310 tests; compose auth+registry+data start
+with the routed accessor, the store initializer, the origins config, and the
+engine changes.
+
+**Remaining 4b follow-ups (separate plans/flows):** live-registration backfill
+workflow (the fixture is backfilled at seed time), unregister mirror deletion
+(no unregister flow exists yet), external admin-endpoint discovery
+(`hasSparqlEndpoint` link), and the production Nix image/config swap.
 
 ## Files
 
@@ -392,27 +507,27 @@ change yet.
 | Dev env | `docker-compose.yaml` (`oxigraph`, `sparql`, `x-sparql-env`, `depends_on`, `id`/`registry`/`data`/`worker`) |
 | Test env | `.dagger/src/index.ts` (`oxigraphService`, `sparqlService`, `CSS_SPARQL_ENDPOINT`, bindings) |
 | Seeds | `packages/test-utils/src/env.ts` (+ new `fuseki.ts`), `test/setup.ts`, `packages/repl/cmd.ts`, `environments/data/kv.json`, `environments/data/registry.trig` (unchanged source) |
-| CSS store | `packages/components/src/SparqlEndpointStore.ts` (new), `packages/components/src/index.ts`, `packages/components/config/storage/account.json`, `packages/components/config/services/account.json`, `packages/components/config/variables/*.json` |
-| CSS routing | `packages/components/src/RoutedSparqlDataAccessor.ts` (new), `packages/components/config/storage/hybrid.json`, registry backend override |
-| Permission | `packages/components/src/SaiAuthorizationManager.ts`, `SaiPermissionsEngine.ts`, `GrantIssuanceHandler.ts`, `GrantRevocationHandler.ts`, `AdminSparqlHandler.ts` |
-| Session | `packages/components/src/SessionManager.ts`, `packages/components/src/builders/sessionManager.ts`, `packages/components/config/http/handler/default.json` |
+| CSS store | `packages/components/src/SparqlEndpointStore.ts` (new), `packages/components/src/index.ts`, `packages/components/config/storage/account.json`, `packages/components/config/services/account.json`, `packages/components/config/variables/origins.json` (data server) |
+| CSS routing | `packages/components/src/RoutedSparqlDataAccessor.ts` (new), `packages/components/config/storage/hybrid.json`, `packages/components/config/storage/routed-sparql.json`, `packages/components/config/storage/sparql-endpoints.json` |
+| Permission / grants | `packages/components/src/SaiAuthorizationManager.ts`, `SaiPermissionsEngine.ts`, `GrantIssuanceHandler.ts`, `GrantRevocationHandler.ts`, `AdminSparqlHandler.ts`, `services/Revocation.ts` |
+| Session / allowlist | `packages/components/src/SessionManager.ts`, `packages/authorization-agent/src/authorization-agent.ts`, `packages/components/src/services/Context.ts`, `packages/components/src/services/queries/org.ts`, `packages/components/src/services/Authorization.ts` |
+| Mirror | `packages/components/src/services/ReciprocalMirror.ts` (Fuseki `GRAPH` blocks), `packages/components/src/temporal/activities/reciprocal.ts` (owner endpoint), `packages/components/src/temporal/workflows/reciprocal.ts`, `packages/components/src/ActivityWebhookHandler.ts` |
+| Infra fixes | `packages/components/src/PostgresKeyValueStorage.ts` (`entries`), `packages/components/src/temporal/activities/grants.ts` (delegation error reporting) |
 | Bootstrap | `packages/components/src/services/Account.ts` |
 | Docs | this file; `docs/plans/index.md`; `docs/plans/federation.md`; `docs/plans/isolated-datasets-and-sparql.md` |
 
 ## Tests
 
 - **Package vitest** (`packages/components`): `SparqlEndpointStore` defineType /
-  create / `findRegistryByWebId` / `findDataByPodBaseUrl` / delete;
-  `AccountService` bootstrap creates two datasets and two records;
-  `RoutedSparqlDataAccessor` owner resolution (data pod base → owner → registry
-  endpoint; registry handle → registry endpoint; env fallback).
-- **Package vitest** (`packages/test-utils` or `repl`): fixture splitter — every
-  fixture graph assigned to exactly one pod dataset; registry vs data vs
-  `shared` classification matches the pod records.
-- **`/test`** (user run):
-  - stage 1: existing suite green on Fuseki (drop-in);
-  - stage 3: the cross-pod isolation + mirror-freshness cases from
-    `isolated-datasets-and-sparql.md` 4b.
+  create / `findByPodUrl` / `findByWebId` / delete; `AccountService` bootstrap
+  writes the registry + data records with per-pod endpoints + indexes.
+- **Package vitest** (`packages/test-utils`): fixture splitter — every fixture
+  graph assigned to exactly one pod dataset; registry vs data vs `shared`
+  classification; the reciprocal-mirror backfill; `fusekiConfig` rendering.
+- **`/test`** (user run): the integration suite drives the remaining fixes
+  (`RoutedSparqlDataAccessor`, `findByIri`, the allowlist, the mirror write); the
+  cross-pod isolation + mirror-freshness cases from
+  `isolated-datasets-and-sparql.md` 4b are the cutover acceptance.
 
 ## Open items
 
@@ -424,11 +539,15 @@ change yet.
   only if a query actually needs it).
 - **`id/<handle>` placement**: `shared` (recommended, no `id`-service change) vs
   the owner's registry pod (needs per-handle resolution in `services/id`).
-- **`/sparql-admin` and the components bound to the global endpoint** migrate to
-  the registry-pod lookup at 4b (owned by `isolated-datasets-and-sparql.md`).
+- **`findByIri` full scan**: iterates the whole endpoint registry
+  (`storage.entries`); fine for the fixture, cache/index it before large
+  deployments.
 - **Production Nix/podman/OCI** swap (follow-up; `production-consumer-cleanup.md`).
 - **Separate S3 bucket per data pod** — separate plan.
 - **Fuseki auth on the internal network**: dev/test leave SPARQL endpoints open
   (`/**=anon`, isolated docker network), matching Oxigraph today; production
   needs Shiro/network policy. The endpoint record makes the endpoint a
   capability, so a leaked URL is a real risk — decide before exposing.
+- **`sparql-update.ts` N-Quads latent issue**: `insertPatch`/`deletePatch`
+  produce N-Quads for a named-graph document, which Fuseki also rejects in
+  `INSERT DATA`/`DELETE DATA` (no caller hits it today).

@@ -462,7 +462,9 @@ export async function requestDelegation(payload: { grantData: GrantData }): Prom
     body: JSON.stringify(message),
   })
   if (!response.ok) {
-    throw new Error(await response.json())
+    throw new Error(
+      `delegation request failed: ${response.status} ${await response.text().catch(() => '')}`
+    )
   }
   if (response.status !== 200) {
     throw new Error(`expected 200 but received ${response.status}`)

@@ -100,7 +100,8 @@
         "@type": "AdminSparqlHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
+        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
       }
     },
     {
@@ -157,7 +158,8 @@
         "@type": "GrantIssuanceHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
+        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
       }
     },
     {
@@ -224,7 +226,8 @@
         "uiPushSubscriptionStore": { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
         "accountService": { "@id": "urn:sai:default:AccountService" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" }
+        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
       }
     },
     {
@@ -235,6 +238,7 @@
       "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
       "regOrigin": { "@id": "urn:sai:default:variable:regOrigin" },
       "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+      "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" },
       "expiration": 60
     }
   ]

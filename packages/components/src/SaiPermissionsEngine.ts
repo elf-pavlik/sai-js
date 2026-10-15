@@ -6,6 +6,7 @@ import { discoverAuthorizationAgent, loader } from '@janeirodigital/interop-util
 import { ACL, INTEROP } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'
+import type { StorageLocationStrategy } from '@solid/community-server'
 import type {
   Credentials,
   PermissionMap,
@@ -18,6 +19,7 @@ import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 
 import type { SaiAuthorizationManager } from './SaiAuthorizationManager.js'
+import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 
 enum TargetType {
   Registry = 'Registry',
@@ -31,8 +33,21 @@ export class SaiPermissionsEngine implements PolicyEngine {
 
   constructor(
     protected readonly manager: SaiAuthorizationManager,
-    private readonly sparqlEndpoint: string
+    private readonly sparqlEndpoint: string,
+    private readonly storageStrategy: StorageLocationStrategy,
+    private readonly endpointStore: SparqlEndpointStore
   ) {}
+
+  /** The dataset that holds the resource's own graph (data pod). */
+  private async resolvePodEndpoint(resourceId: string): Promise<string> {
+    try {
+      const storage = await this.storageStrategy.getStorageIdentifier({ path: resourceId })
+      const record = await this.endpointStore.findByPodUrl(storage.path)
+      return record?.endpoint ?? this.sparqlEndpoint
+    } catch {
+      return this.sparqlEndpoint
+    }
+  }
   /**
    * Returns the granted and denied permissions for the given input.
    *
@@ -309,7 +324,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const predicate = shapeTreeReference.viaPredicate.value
     const fetcher = new SparqlEndpointFetcher()
     const bindingsStream = await fetcher.fetchBindings(
-      this.sparqlEndpoint,
+      await this.resolvePodEndpoint(resourceId),
       `
           SELECT * WHERE {
             GRAPH ?g {?s <${predicate}> <${resourceId}> }

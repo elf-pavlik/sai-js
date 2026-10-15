@@ -254,8 +254,12 @@ from DataGrants, with no owner self-bypass.)
 - Bucket/key deletion on account deletion (no account-deletion flow exists).
 - Production Nix/podman wiring for the Garage admin token
   (`production-consumer-cleanup.md`).
-- The committed `garage/meta` still contains the leftover `sai-dev` bucket and
-  its old shared key; harmless (nothing references them) but can be dropped.
+- Committed Garage state — **trimmed**: only `garage/meta/cluster_layout`,
+  `meta/node_key`, `meta/node_key.pub` (plus the `.gitkeep`s and `garage.toml`)
+  are tracked; `db.sqlite*`, `data_layout`, the data-dir marker, runtime state and
+  the object store are git-ignored and regenerated. The leftover `sai-dev`
+  bucket/key/objects are gone, so the seed starts from an empty cluster (see
+  `garage/README.md` and `.gitignore`).
 
 ## Sequencing
 

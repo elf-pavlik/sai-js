@@ -16,7 +16,7 @@ import { agentId, registryId } from './util/uriTemplates.js'
  */
 let sharedEndpointStorePromise: Promise<PodEndpointStore> | undefined
 
-function getSharedEndpointStore(): Promise<PodEndpointStore> {
+export function getSharedEndpointStore(): Promise<PodEndpointStore> {
   if (!sharedEndpointStorePromise) {
     sharedEndpointStorePromise = (async () => {
       const storage = (await buildAccountLoginStorage()) as any

@@ -16,17 +16,16 @@
     {
       "@id": "urn:sai:default:HybridDataAccessor",
       "@type": "HybridDataAccessor",
-      "binaryAccessor": { "@id": "urn:sai:default:S3DataAccessor" },
+      "binaryAccessor": { "@id": "urn:sai:default:RoutedS3DataAccessor" },
       "sparqlAccessor": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
       "converter": { "@id": "urn:solid-server:default:RepresentationConverter" }
     },
     {
-      "@id": "urn:sai:default:S3DataAccessor",
-      "@type": "S3DataAccessor",
-      "endpoint": { "@id": "urn:sai:default:variable:s3Endpoint" },
-      "bucket": { "@id": "urn:sai:default:variable:s3Bucket" },
-      "accessKeyId": { "@id": "urn:sai:default:variable:s3AccessKeyId" },
-      "secretAccessKey": { "@id": "urn:sai:default:variable:s3SecretAccessKey" },
+      "comment": "Per-data-pod object (S3) endpoint from the pod's objectEndpoint record — no shared/default bucket.",
+      "@id": "urn:sai:default:RoutedS3DataAccessor",
+      "@type": "RoutedS3DataAccessor",
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" },
+      "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" },
       "region": { "@id": "urn:sai:default:variable:s3Region" }
     }
   ]

@@ -1,166 +1,200 @@
-import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-const state = vi.hoisted(() => ({
-  selectRows: [] as any[],
-  inserted: {} as Record<string, string>,
+// ──────────────────────────
+// Mocks
+// ──────────────────────────
+
+/** The Postgres pool is never really opened here. */
+vi.mock('postgres', () => ({ default: () => ({}) }))
+
+const temporalMock = vi.hoisted(() => ({
+  init: vi.fn(async () => undefined),
+  start: vi.fn(async () => ({ workflowId: 'wf' })),
+}))
+vi.mock('../src/temporal/client.js', () => ({
+  Temporal: class {
+    client = { workflow: { start: temporalMock.start } }
+    init = temporalMock.init
+  },
+}))
+vi.mock('../src/temporal/workflows/account.js', () => ({ bootstrapAccount: 'bootstrapAccount' }))
+
+const storeMock = vi.hoisted(() => ({
+  findSparqlByPodUrl: vi.fn(),
+  findObjectByPodUrl: vi.fn(),
+  createSparql: vi.fn(),
+  createObject: vi.fn(),
+}))
+vi.mock('../src/SessionManager.js', () => ({ getSharedEndpointStore: async () => storeMock }))
+
+const garageMock = vi.hoisted(() => ({
+  findBucketByAlias: vi.fn(),
+  createBucket: vi.fn(),
+  findKeyByName: vi.fn(),
+  createKey: vi.fn(),
+  allowBucketKey: vi.fn(),
+  deleteKey: vi.fn(),
+  deleteBucket: vi.fn(),
+}))
+vi.mock('../src/GarageAdminClient.js', () => ({
+  GarageAdminClient: class {
+    findBucketByAlias = garageMock.findBucketByAlias
+    createBucket = garageMock.createBucket
+    findKeyByName = garageMock.findKeyByName
+    createKey = garageMock.createKey
+    allowBucketKey = garageMock.allowBucketKey
+    deleteKey = garageMock.deleteKey
+    deleteBucket = garageMock.deleteBucket
+  },
 }))
 
-vi.mock('postgres', () => {
-  const sql: any = (strings: any, ...values: any[]) => {
-    // tagged template (`sql\`...\``)
-    if (Array.isArray(strings) && strings.raw) {
-      const text = strings.join('?')
-      if (text.includes('SELECT')) {
-        return Promise.resolve(state.selectRows)
-      }
-      if (text.includes('INSERT')) {
-        const entries = values[1] as { key: string; value: string }[]
-        for (const entry of entries) state.inserted[entry.key] = entry.value
-        return Promise.resolve([])
-      }
-      return Promise.resolve([])
-    }
-    // identifier helper (`sql(name)`)
-    return strings
-  }
-  return { default: () => sql }
-})
-
 import { AccountService } from '../src/services/Account.js'
+import { createObjectBucket, writeEndpointRecords } from '../src/temporal/activities/account.js'
+import type {
+  BootstrapAccountInput,
+  ObjectCredentials,
+} from '../src/temporal/activities/account.js'
+import { agentId, issuanceUrl } from '../src/util/uriTemplates.js'
 
-// the object endpoint values are copied from the environment for now
-const originalS3Env = {
-  endpoint: process.env.CSS_S3_ENDPOINT,
-  bucket: process.env.CSS_S3_BUCKET,
-  accessKeyId: process.env.CSS_S3_ACCESS_KEY_ID,
-  secretAccessKey: process.env.CSS_S3_SECRET_ACCESS_KEY,
-}
+process.env.CSS_BASE_URL = 'https://auth/'
+process.env.CSS_FUSEKI_BASE_URL = 'http://fuseki:3030'
 process.env.CSS_S3_ENDPOINT = 'http://garage:3900'
-process.env.CSS_S3_BUCKET = 'sai-dev'
-process.env.CSS_S3_ACCESS_KEY_ID = 'access-key'
-process.env.CSS_S3_SECRET_ACCESS_KEY = 'secret-key'
-afterAll(() => {
-  process.env.CSS_S3_ENDPOINT = originalS3Env.endpoint
-  process.env.CSS_S3_BUCKET = originalS3Env.bucket
-  process.env.CSS_S3_ACCESS_KEY_ID = originalS3Env.accessKeyId
-  process.env.CSS_S3_SECRET_ACCESS_KEY = originalS3Env.secretAccessKey
-})
+process.env.CSS_GARAGE_ADMIN_ENDPOINT = 'http://garage:3903'
+process.env.CSS_GARAGE_ADMIN_TOKEN = 'admin-token'
 
-const fusekiBase = 'http://fuseki:3030'
-const sharedSparql = 'http://fuseki:3030/shared/sparql'
+const input: BootstrapAccountInput = {
+  accountId: 'acc-1',
+  handle: 'alice',
+  webId: 'https://alice.id',
+  docId: 'https://id/alice',
+  uas: agentId('https://alice.id'),
+  issuance: issuanceUrl('https://alice.id'),
+  issuer: 'https://auth/',
+  registrySet: 'https://registry/alice/',
+  dataRegistry: 'https://alice.data/',
+}
 
-const service = new AccountService(
-  fusekiBase,
-  'postgres://temporal:temporal@postgresql:5432/auth',
-  'key_value',
-  'https://auth/',
-  'id',
-  'id',
-  'data',
-  'registry'
-)
+const credentials: ObjectCredentials = {
+  endpoint: 'http://garage:3900',
+  bucket: 'data-alice',
+  accessKeyId: 'GK1',
+  secretAccessKey: 'sk1',
+}
 
 afterEach(() => {
-  state.selectRows = []
-  state.inserted = {}
-  vi.unstubAllGlobals()
+  vi.clearAllMocks()
 })
 
-describe('AccountService.bootstrapAccount — typed endpoint registry', () => {
-  test('writes SPARQL + object endpoint records (pod-keyed) and their indexes', async () => {
-    state.selectRows = [{ value: JSON.stringify({ linkedLoginsCount: 1, id: 'acc-1' }) }]
-    const fetchMock = vi.fn(async () => ({ ok: true }))
-    vi.stubGlobal('fetch', fetchMock)
+// ──────────────────────────
+// AccountService.startBootstrapAccount
+// ──────────────────────────
 
-    const webId = await service.bootstrapAccount('acc-1', 'alice')
+describe('AccountService.startBootstrapAccount', () => {
+  const service = new AccountService(
+    'postgres://temporal:temporal@postgresql:5432/auth',
+    'key_value',
+    'https://auth/',
+    'id',
+    'id',
+    'data',
+    'registry'
+  )
+
+  test('derives the IRIs and starts the bootstrap workflow, returning the WebID', async () => {
+    const webId = await service.startBootstrapAccount('acc-1', 'alice')
+
     expect(webId).toBe('https://alice.id')
+    expect(temporalMock.start).toHaveBeenCalledWith('bootstrapAccount', {
+      taskQueue: 'create-grants',
+      workflowId: 'account-bootstrap:acc-1',
+      args: [input],
+    })
+  })
+})
 
-    // the WebID profile goes to the id service's own dataset (Graph Store
-    // endpoint), NOT the shared / query-update endpoint
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://fuseki:3030/id/data',
-      expect.objectContaining({ method: 'POST' })
-    )
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      sharedSparql,
-      expect.objectContaining({ method: 'POST' })
-    )
+// ──────────────────────────
+// writeEndpointRecords
+// ──────────────────────────
 
-    const accountData = JSON.parse(state.inserted['accounts/data/acc-1'])
-    const records = Object.values(accountData['**sparqlEndpoint**']) as any[]
-    expect(records).toHaveLength(2)
+describe('writeEndpointRecords', () => {
+  beforeEach(() => {
+    storeMock.findSparqlByPodUrl.mockResolvedValue(undefined)
+    storeMock.findObjectByPodUrl.mockResolvedValue(undefined)
+  })
 
-    const registryRecord = records.find((record) => record.podUrl === 'https://registry/alice/')
-    const dataRecord = records.find((record) => record.podUrl === 'https://alice.data/')
-    expect(registryRecord).toMatchObject({
+  test('writes a SPARQL endpoint per pod and the data pod object endpoint', async () => {
+    await writeEndpointRecords(input, credentials)
+
+    expect(storeMock.createSparql).toHaveBeenCalledWith({
       accountId: 'acc-1',
       podUrl: 'https://registry/alice/',
       endpoint: 'http://fuseki:3030/reg-alice/sparql',
     })
-    expect(dataRecord).toMatchObject({
+    expect(storeMock.createSparql).toHaveBeenCalledWith({
       accountId: 'acc-1',
       podUrl: 'https://alice.data/',
       endpoint: 'http://fuseki:3030/data-alice/sparql',
     })
-    // endpoints are associated with the pod, not the user
-    expect(registryRecord.webId).toBeUndefined()
-    expect(dataRecord.webId).toBeUndefined()
-
-    // the data pod also gets a typed object (S3) endpoint, copied from env
-    const objectRecords = Object.values(accountData['**objectEndpoint**']) as any[]
-    expect(objectRecords).toHaveLength(1)
-    const objectRecord = objectRecords[0]
-    expect(objectRecord).toMatchObject({
+    expect(storeMock.createObject).toHaveBeenCalledWith({
       accountId: 'acc-1',
       podUrl: 'https://alice.data/',
-      endpoint: 'http://garage:3900',
-      bucket: 'sai-dev',
-      accessKeyId: 'access-key',
-      secretAccessKey: 'secret-key',
+      ...credentials,
     })
+  })
 
-    // the bootstrap TriG is POSTed per dataset: WebID profile to the id
-    // dataset, registry set + data registry to their own datasets
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://fuseki:3030/id/data',
-      expect.objectContaining({ method: 'POST' })
-    )
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://fuseki:3030/reg-alice/data',
-      expect.objectContaining({ method: 'POST' })
-    )
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://fuseki:3030/data-alice/data',
-      expect.objectContaining({ method: 'POST' })
-    )
+  test('is find-first per pod — an existing record is not recreated', async () => {
+    storeMock.findSparqlByPodUrl.mockResolvedValue({ id: 'existing' })
+    storeMock.findObjectByPodUrl.mockResolvedValue({ id: 'existing' })
 
-    // indexes: by id (one per record), accountId, podUrl
-    const indexKeys = Object.keys(state.inserted).filter((key) =>
-      key.startsWith('accounts/index/sparqlEndpoint/')
-    )
-    expect(indexKeys).toContain(`accounts/index/sparqlEndpoint/${registryRecord.id}`)
-    expect(indexKeys).toContain(`accounts/index/sparqlEndpoint/${dataRecord.id}`)
-    expect(indexKeys).toContain(`accounts/index/sparqlEndpoint/accountId/acc-1`)
-    expect(indexKeys).toContain(
-      `accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent('https://registry/alice/')}`
-    )
-    expect(indexKeys).toContain(
-      `accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent('https://alice.data/')}`
-    )
-    for (const key of indexKeys) {
-      expect(JSON.parse(state.inserted[key])).toEqual(['acc-1'])
-    }
+    await writeEndpointRecords(input, credentials)
 
-    const objectIndexKeys = Object.keys(state.inserted).filter((key) =>
-      key.startsWith('accounts/index/objectEndpoint/')
-    )
-    expect(objectIndexKeys).toContain(`accounts/index/objectEndpoint/${objectRecord.id}`)
-    expect(objectIndexKeys).toContain(`accounts/index/objectEndpoint/accountId/acc-1`)
-    expect(objectIndexKeys).toContain(
-      `accounts/index/objectEndpoint/podUrl/${encodeURIComponent('https://alice.data/')}`
-    )
-    for (const key of objectIndexKeys) {
-      expect(JSON.parse(state.inserted[key])).toEqual(['acc-1'])
-    }
+    expect(storeMock.createSparql).not.toHaveBeenCalled()
+    expect(storeMock.createObject).not.toHaveBeenCalled()
+  })
+})
+
+// ──────────────────────────
+// createObjectBucket
+// ──────────────────────────
+
+describe('createObjectBucket', () => {
+  beforeEach(() => {
+    storeMock.findObjectByPodUrl.mockResolvedValue(undefined)
+    garageMock.findBucketByAlias.mockResolvedValue(undefined)
+    garageMock.createBucket.mockResolvedValue({ id: 'b1', globalAliases: ['data-alice'] })
+    garageMock.findKeyByName.mockResolvedValue(undefined)
+    garageMock.createKey.mockResolvedValue({ accessKeyId: 'GK1', secretAccessKey: 'sk1' })
+    garageMock.allowBucketKey.mockResolvedValue({})
+  })
+
+  test('provisions a bucket + scoped key and returns the credentials', async () => {
+    const result = await createObjectBucket(input)
+
+    expect(result).toEqual(credentials)
+    expect(garageMock.createKey).toHaveBeenCalledWith('data-alice')
+    expect(garageMock.allowBucketKey).toHaveBeenCalledWith('b1', 'GK1', {
+      read: true,
+      write: true,
+      owner: true,
+    })
+  })
+
+  test('replaces an existing key with the pod name (a secret is only readable at creation)', async () => {
+    garageMock.findKeyByName.mockResolvedValue({ accessKeyId: 'OLD' })
+
+    await createObjectBucket(input)
+
+    expect(garageMock.deleteKey).toHaveBeenCalledWith('OLD')
+    expect(garageMock.createKey).toHaveBeenCalled()
+  })
+
+  test('reuses the endpoint record when it already exists (no Garage calls)', async () => {
+    storeMock.findObjectByPodUrl.mockResolvedValue(credentials)
+
+    const result = await createObjectBucket(input)
+
+    expect(result).toEqual(credentials)
+    expect(garageMock.createBucket).not.toHaveBeenCalled()
+    expect(garageMock.findBucketByAlias).not.toHaveBeenCalled()
   })
 })

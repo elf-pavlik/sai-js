@@ -27,10 +27,9 @@ const NODE_TLS_REJECT_UNAUTHORIZED = '0'
 const CSS_FUSEKI_BASE_URL = 'http://fuseki:3030'
 const CSS_ID_SPARQL_ENDPOINT = 'http://fuseki:3030/id/sparql'
 const CSS_S3_ENDPOINT = 'http://garage:3900'
-const CSS_S3_BUCKET = 'sai-dev'
-const CSS_S3_ACCESS_KEY_ID = 'GKd0656430cbd2bba62e2cc12b'
-const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c'
 const CSS_S3_REGION = 'garage'
+const CSS_GARAGE_ADMIN_ENDPOINT = 'http://garage:3903'
+const CSS_GARAGE_ADMIN_TOKEN = '5jEN9DfkbpeU0WCh68pl2GiQk11CfApGiLKpQZc1L5o='
 const CSS_PORT = '443'
 
 const POSTGRESQL_VERSION = '16'
@@ -132,28 +131,35 @@ export class SaiJs {
 
   @func()
   fusekiService(): Service {
-    return dag
-      .container()
-      .from('secoresearch/fuseki:5.6.0')
-      .withMountedFile(
-        '/tmp/fuseki.config.ttl',
-        this.source.file('environments/css/fuseki.config.ttl')
-      )
-      .withExposedPort(3030)
-      .asService({
-        // the image entrypoint initializes $FUSEKI_BASE/shiro.ini; keep it and
-        // pass the FusekiServerCmd invocation as its args
-        useEntrypoint: true,
-        args: [
-          'java',
-          '-cp',
-          '*:/javalibs/*',
-          'org.apache.jena.fuseki.main.cmds.FusekiServerCmd',
-          '--conf',
+    return (
+      dag
+        .container()
+        .from('secoresearch/fuseki:5.6.0')
+        .withMountedFile(
           '/tmp/fuseki.config.ttl',
-        ],
-      })
-      .withHostname('fuseki')
+          this.source.file('environments/css/fuseki.config.ttl')
+        )
+        // deterministic admin password for the Fuseki admin API: the image's
+        // entrypoint writes `admin=$ADMIN_PASSWORD` into shiro.ini, and auth
+        // passes the same value as CSS_FUSEKI_ADMIN so new signups can create
+        // their per-pod datasets dynamically
+        .withEnvVariable('ADMIN_PASSWORD', 'sai')
+        .withExposedPort(3030)
+        .asService({
+          // the image entrypoint initializes $FUSEKI_BASE/shiro.ini; keep it and
+          // pass the FusekiServerCmd invocation as its args
+          useEntrypoint: true,
+          args: [
+            'java',
+            '-cp',
+            '*:/javalibs/*',
+            'org.apache.jena.fuseki.main.cmds.FusekiServerCmd',
+            '--conf',
+            '/tmp/fuseki.config.ttl',
+          ],
+        })
+        .withHostname('fuseki')
+    )
   }
 
   @func()
@@ -273,12 +279,20 @@ export class SaiJs {
         )
         .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
         .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+        // account-bootstrap activities: Fuseki dataset creation + GSP, Garage
+        // bucket/key provisioning, the S3 endpoint the record carries
+        .withEnvVariable('CSS_FUSEKI_BASE_URL', CSS_FUSEKI_BASE_URL)
+        .withEnvVariable('CSS_FUSEKI_ADMIN', 'admin:sai')
+        .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
+        .withEnvVariable('CSS_GARAGE_ADMIN_ENDPOINT', CSS_GARAGE_ADMIN_ENDPOINT)
+        .withEnvVariable('CSS_GARAGE_ADMIN_TOKEN', CSS_GARAGE_ADMIN_TOKEN)
         // temporal activities query/update the registry store directly (e.g.
         // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
         // kept so re-enabling needs no dagger change
         .withServiceBinding('postgresql', this.postgresService())
         .withServiceBinding('temporal', temporal)
         .withServiceBinding('fuseki', this.fusekiService())
+        .withServiceBinding('garage', this.garageService())
         .withExposedPort(9235)
         .asService({
           args: ['node', '--inspect=0.0.0.0:9235', '/sai/packages/components/dist/workers/main.js'],
@@ -334,12 +348,8 @@ export class SaiJs {
       .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
       .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
-      .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
-      .withEnvVariable('CSS_S3_BUCKET', CSS_S3_BUCKET)
-      .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
-      .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
-      .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
       .withEnvVariable('CSS_FUSEKI_BASE_URL', CSS_FUSEKI_BASE_URL)
+      .withEnvVariable('CSS_FUSEKI_ADMIN', 'admin:sai')
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', temporal)
       .withServiceBinding('id', this.idService())
@@ -411,10 +421,6 @@ export class SaiJs {
         'postgres://temporal:temporal@postgresql:5432/auth'
       )
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
-      .withEnvVariable('CSS_S3_BUCKET', CSS_S3_BUCKET)
-      .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
-      .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
       .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
       .withExposedPort(443)
       .withServiceBinding('postgresql', this.postgresService())
@@ -436,27 +442,34 @@ export class SaiJs {
     const auth = await this.authService()
     const worker = await this.workerService()
     const temporal = await this.temporalService()
-    return this.withTracing(dag.container().from(NODE_IMAGE), 'sai-test')
-      .withMountedDirectory('/sai', this.source)
-      .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
-      .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
-      .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
-      .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
-      .withEnvVariable(
-        'CSS_POSTGRES_CONNECTION_STRING',
-        'postgres://temporal:temporal@postgresql:5432/auth'
-      )
-      .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
-      .withServiceBinding('auth', auth)
-      .withServiceBinding('registry', this.registryService())
-      .withServiceBinding('data', this.dataService())
-      .withServiceBinding('worker', worker)
-      .withServiceBinding('temporal', temporal)
-      .withServiceBinding('fuseki', this.fusekiService())
-      .withServiceBinding('id', this.idService())
-      .withServiceBinding('garage', this.garageService())
-      .withWorkdir('/sai/test')
+    return (
+      this.withTracing(dag.container().from(NODE_IMAGE), 'sai-test')
+        .withMountedDirectory('/sai', this.source)
+        .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
+        .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
+        .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
+        .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
+        .withEnvVariable('CSS_ENCODED_PRIVATE_JWK', CSS_ENCODED_PRIVATE_JWK)
+        .withEnvVariable(
+          'CSS_POSTGRES_CONNECTION_STRING',
+          'postgres://temporal:temporal@postgresql:5432/auth'
+        )
+        .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
+        // the harness provisions the per-pod Garage buckets/keys itself
+        .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
+        .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
+        .withEnvVariable('CSS_GARAGE_ADMIN_ENDPOINT', CSS_GARAGE_ADMIN_ENDPOINT)
+        .withEnvVariable('CSS_GARAGE_ADMIN_TOKEN', CSS_GARAGE_ADMIN_TOKEN)
+        .withServiceBinding('auth', auth)
+        .withServiceBinding('registry', this.registryService())
+        .withServiceBinding('data', this.dataService())
+        .withServiceBinding('worker', worker)
+        .withServiceBinding('temporal', temporal)
+        .withServiceBinding('fuseki', this.fusekiService())
+        .withServiceBinding('id', this.idService())
+        .withServiceBinding('garage', this.garageService())
+        .withWorkdir('/sai/test')
+    )
   }
 
   /**

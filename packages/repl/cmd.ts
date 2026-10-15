@@ -8,6 +8,7 @@ import {
   Postgres,
   fixturePodDatasets,
   seedFusekiDataset,
+  seedObjectEndpoints,
   splitFixtureByPod,
 } from '@janeirodigital/interop-test-utils'
 import { Console, Effect, Option } from 'effect'
@@ -19,6 +20,19 @@ const datasetSourcePath = fileURLToPath(
   new URL('../../environments/data/registry.trig', import.meta.url)
 )
 const kvSourcePath = fileURLToPath(new URL('../../environments/data/kv.json', import.meta.url))
+const garageTomlPath = fileURLToPath(new URL('../../garage/garage.toml', import.meta.url))
+
+/**
+ * The Garage admin token — the `[admin] admin_token` from `garage.toml`, so the
+ * seed reaches the host-published admin API on `http://localhost:3903` without
+ * hard-coding it (`CSS_GARAGE_ADMIN_TOKEN` overrides).
+ */
+function garageAdminToken(): string {
+  if (process.env.CSS_GARAGE_ADMIN_TOKEN) return process.env.CSS_GARAGE_ADMIN_TOKEN
+  const match = readFileSync(garageTomlPath, 'utf-8').match(/^admin_token\s*=\s*"([^"]+)"/m)
+  if (!match) throw new Error('admin_token not found in garage/garage.toml')
+  return match[1]
+}
 const mapPaths = {
   dev: fileURLToPath(new URL('../../environments/dev/map.json', import.meta.url)),
   demo: fileURLToPath(new URL('../../environments/demo/map.json', import.meta.url)),
@@ -220,6 +234,15 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
     const podDatasets = fixturePodDatasets(accounts, map.prefixes['https://registry/'])
     const datasets = yield* Effect.promise(() =>
       splitFixtureByPod(dataset, { podDatasets, idOrigin: map.prefixes['https://id/'] })
+    )
+
+    // per-pod buckets/keys through the Garage admin API (published on the host)
+    yield* Effect.promise(() =>
+      seedObjectEndpoints(kvData, {
+        adminBaseUrl: 'http://localhost:3903',
+        adminToken: garageAdminToken(),
+        s3Endpoint: 'http://garage:3900',
+      })
     )
 
     yield* Effect.promise(() => pg.seedKeyValue(kvData))

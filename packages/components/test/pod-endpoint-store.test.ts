@@ -62,7 +62,7 @@ const dataObject = {
   accountId: 'acc',
   podUrl: 'https://data/alice-home/',
   endpoint: 'http://garage:3900',
-  bucket: 'sai-dev',
+  bucket: 'data-alice-home',
   accessKeyId: 'access-key',
   secretAccessKey: 'secret-key',
 }
@@ -125,7 +125,7 @@ describe('PodEndpointStore', () => {
 
     const record = await store.findObjectByPodUrl('https://data/alice-home/')
     expect(record).toMatchObject({
-      bucket: 'sai-dev',
+      bucket: 'data-alice-home',
       endpoint: 'http://garage:3900',
       accessKeyId: 'access-key',
       secretAccessKey: 'secret-key',

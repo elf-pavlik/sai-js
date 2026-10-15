@@ -109,26 +109,6 @@
         "endpoint": "http://fuseki:3030/data-alice-home/sparql",
         "id": "f3b785f4-7a76-4ae0-a392-b16ac22e4134"
       }
-    },
-    "**objectEndpoint**": {
-      "8df97847-b007-4eb5-bca3-6bffa741695e": {
-        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
-        "podUrl": "https://data/alice-work/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "8df97847-b007-4eb5-bca3-6bffa741695e"
-      },
-      "ae815d5a-fb30-4e8e-91f9-36115493c32d": {
-        "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
-        "podUrl": "https://data/alice-home/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "ae815d5a-fb30-4e8e-91f9-36115493c32d"
-      }
     }
   },
   "accounts/index/password/d7c9cb32-9e18-4c9d-8998-491a22edd3f7": [
@@ -262,17 +242,6 @@
         "endpoint": "http://fuseki:3030/data-bob/sparql",
         "id": "aeae375d-4577-4309-8298-08f603d7e121"
       }
-    },
-    "**objectEndpoint**": {
-      "87c60b52-2346-4b0c-be3f-995c21e749ec": {
-        "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
-        "podUrl": "https://data/bob/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "87c60b52-2346-4b0c-be3f-995c21e749ec"
-      }
     }
   },
   "accounts/index/password/958d5f04-57df-4cff-a848-06efab13a2b0": [
@@ -387,26 +356,6 @@
         "podUrl": "https://data/kim-blue/",
         "endpoint": "http://fuseki:3030/data-kim-blue/sparql",
         "id": "99991465-57f9-4f3c-8a0b-c945dca160c6"
-      }
-    },
-    "**objectEndpoint**": {
-      "6c5140db-d261-4e77-aae5-37e469b0df7a": {
-        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
-        "podUrl": "https://data/kim-red/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "6c5140db-d261-4e77-aae5-37e469b0df7a"
-      },
-      "6d4fa8a2-136e-4d51-8776-da86c5d04973": {
-        "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
-        "podUrl": "https://data/kim-blue/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "6d4fa8a2-136e-4d51-8776-da86c5d04973"
       }
     }
   },
@@ -564,44 +513,6 @@
         "endpoint": "http://fuseki:3030/data-test-client/sparql",
         "id": "a03371d0-ad4f-4740-a3fc-3872180a011d"
       }
-    },
-    "**objectEndpoint**": {
-      "98d62289-9ed4-4c56-a94d-d146525d52ec": {
-        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        "podUrl": "https://data/acme-rnd/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "98d62289-9ed4-4c56-a94d-d146525d52ec"
-      },
-      "687575c7-3ce0-4c7b-a6f2-a5aaaee3ef90": {
-        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        "podUrl": "https://data/acme-hr/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "687575c7-3ce0-4c7b-a6f2-a5aaaee3ef90"
-      },
-      "15be3507-06dd-4afd-88fd-12c48c7a45e0": {
-        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        "podUrl": "https://data/shapetrees/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "15be3507-06dd-4afd-88fd-12c48c7a45e0"
-      },
-      "e7bc6507-bd3d-49a0-9f3d-33c917773df7": {
-        "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        "podUrl": "https://data/test-client/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "e7bc6507-bd3d-49a0-9f3d-33c917773df7"
-      }
     }
   },
   "accounts/index/webIdLink/e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b": [
@@ -729,26 +640,6 @@
         "podUrl": "https://data/yoyo-na/",
         "endpoint": "http://fuseki:3030/data-yoyo-na/sparql",
         "id": "a5b30322-85ec-4027-808d-15d13a3b16bb"
-      }
-    },
-    "**objectEndpoint**": {
-      "772ff5fb-3264-49ca-a63d-0bb84c88ca69": {
-        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
-        "podUrl": "https://data/yoyo-eu/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "772ff5fb-3264-49ca-a63d-0bb84c88ca69"
-      },
-      "541c32a2-e076-4f47-b52e-9f7d068f8549": {
-        "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
-        "podUrl": "https://data/yoyo-na/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "541c32a2-e076-4f47-b52e-9f7d068f8549"
       }
     }
   },
@@ -891,26 +782,6 @@
         "podUrl": "https://data/dan-west/",
         "endpoint": "http://fuseki:3030/data-dan-west/sparql",
         "id": "6ae7c72c-a467-4900-aa70-163f9ce1d79b"
-      }
-    },
-    "**objectEndpoint**": {
-      "56b747da-b792-4e53-b9c1-0502d927e86d": {
-        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
-        "podUrl": "https://data/dan-east/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "56b747da-b792-4e53-b9c1-0502d927e86d"
-      },
-      "09bac0dc-015d-4571-9115-15194dd5217d": {
-        "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
-        "podUrl": "https://data/dan-west/",
-        "endpoint": "http://garage:3900",
-        "bucket": "sai-dev",
-        "accessKeyId": "GKd0656430cbd2bba62e2cc12b",
-        "secretAccessKey": "aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c",
-        "id": "09bac0dc-015d-4571-9115-15194dd5217d"
       }
     }
   },
@@ -1467,102 +1338,6 @@
     "9f137c45-2889-430b-8fb0-e1f41312dc09"
   ],
   "accounts/index/reciprocalWebhook/sendTo/https%3A%2F%2Fauth%2F.sai%2Freciprocal-webhook%2F0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b": [
-    "9f137c45-2889-430b-8fb0-e1f41312dc09"
-  ],
-  "accounts/index/objectEndpoint/8df97847-b007-4eb5-bca3-6bffa741695e": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Falice-work%2F": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/objectEndpoint/ae815d5a-fb30-4e8e-91f9-36115493c32d": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Falice-home%2F": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/objectEndpoint/accountId/e4fcefdc-5251-4e7c-9374-93ae71f188e3": [
-    "e4fcefdc-5251-4e7c-9374-93ae71f188e3"
-  ],
-  "accounts/index/objectEndpoint/87c60b52-2346-4b0c-be3f-995c21e749ec": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fbob%2F": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/objectEndpoint/accountId/281efdff-8a0a-4f57-b058-250717899fae": [
-    "281efdff-8a0a-4f57-b058-250717899fae"
-  ],
-  "accounts/index/objectEndpoint/6c5140db-d261-4e77-aae5-37e469b0df7a": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fkim-red%2F": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
-  ],
-  "accounts/index/objectEndpoint/6d4fa8a2-136e-4d51-8776-da86c5d04973": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fkim-blue%2F": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
-  ],
-  "accounts/index/objectEndpoint/accountId/9f942f30-2631-4403-9a1a-300f8faae267": [
-    "9f942f30-2631-4403-9a1a-300f8faae267"
-  ],
-  "accounts/index/objectEndpoint/98d62289-9ed4-4c56-a94d-d146525d52ec": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Facme-rnd%2F": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/687575c7-3ce0-4c7b-a6f2-a5aaaee3ef90": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Facme-hr%2F": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/15be3507-06dd-4afd-88fd-12c48c7a45e0": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fshapetrees%2F": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/e7bc6507-bd3d-49a0-9f3d-33c917773df7": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Ftest-client%2F": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/accountId/f47ac10b-58cc-4372-a567-0e02b2c3d479": [
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  ],
-  "accounts/index/objectEndpoint/772ff5fb-3264-49ca-a63d-0bb84c88ca69": [
-    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fyoyo-eu%2F": [
-    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
-  ],
-  "accounts/index/objectEndpoint/541c32a2-e076-4f47-b52e-9f7d068f8549": [
-    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fyoyo-na%2F": [
-    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
-  ],
-  "accounts/index/objectEndpoint/accountId/d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a": [
-    "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a"
-  ],
-  "accounts/index/objectEndpoint/56b747da-b792-4e53-b9c1-0502d927e86d": [
-    "9f137c45-2889-430b-8fb0-e1f41312dc09"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fdan-east%2F": [
-    "9f137c45-2889-430b-8fb0-e1f41312dc09"
-  ],
-  "accounts/index/objectEndpoint/09bac0dc-015d-4571-9115-15194dd5217d": [
-    "9f137c45-2889-430b-8fb0-e1f41312dc09"
-  ],
-  "accounts/index/objectEndpoint/podUrl/https:%2F%2Fdata%2Fdan-west%2F": [
-    "9f137c45-2889-430b-8fb0-e1f41312dc09"
-  ],
-  "accounts/index/objectEndpoint/accountId/9f137c45-2889-430b-8fb0-e1f41312dc09": [
     "9f137c45-2889-430b-8fb0-e1f41312dc09"
   ]
 }

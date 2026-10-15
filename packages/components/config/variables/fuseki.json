@@ -11,6 +11,11 @@
       "@type": "Variable"
     },
     {
+      "comment": "Fuseki Shiro service account (`user:password`) for the admin API. Optional: without it only pre-declared datasets can be used, so new-handle signups fail. Read directly from `process.env.CSS_FUSEKI_ADMIN` by AccountService, declared here so the CSS CLI extractor accepts the CSS_-prefixed env var.",
+      "@id": "urn:sai:default:variable:fusekiAdmin",
+      "@type": "Variable"
+    },
+    {
       "@id": "urn:solid-server-app-setup:default:CliExtractor",
       "@type": "YargsCliExtractor",
       "parameters": [
@@ -22,6 +27,16 @@
             "requiresArg": true,
             "type": "string",
             "describe": "Fuseki base URL (admin/server API), e.g. http://fuseki:3030"
+          }
+        },
+        {
+          "@type": "YargsParameter",
+          "name": "fusekiAdmin",
+          "options": {
+            "demandOption": false,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "Fuseki admin service account `user:password` (for new-handle dataset creation)"
           }
         }
       ]
@@ -35,6 +50,13 @@
           "CombinedShorthandResolver:_resolvers_value": {
             "@type": "KeyExtractor",
             "key": "fusekiBaseUrl"
+          }
+        },
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:fusekiAdmin",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "fusekiAdmin"
           }
         }
       ]

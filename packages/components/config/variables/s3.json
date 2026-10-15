@@ -6,27 +6,7 @@
   "import": [],
   "@graph": [
     {
-      "comment": "S3 endpoint.",
-      "@id": "urn:sai:default:variable:s3Endpoint",
-      "@type": "Variable"
-    },
-    {
-      "comment": "S3 bucket.",
-      "@id": "urn:sai:default:variable:s3Bucket",
-      "@type": "Variable"
-    },
-    {
-      "comment": "S3 access key ID.",
-      "@id": "urn:sai:default:variable:s3AccessKeyId",
-      "@type": "Variable"
-    },
-    {
-      "comment": "S3 secret access key.",
-      "@id": "urn:sai:default:variable:s3SecretAccessKey",
-      "@type": "Variable"
-    },
-    {
-      "comment": "S3 region.",
+      "comment": "S3 region. Every pod's object endpoint (service URL, bucket, credentials) comes from its own `objectEndpoint` record — only the region stays global.",
       "@id": "urn:sai:default:variable:s3Region",
       "@type": "Variable"
     },
@@ -34,46 +14,6 @@
       "@id": "urn:solid-server-app-setup:default:CliExtractor",
       "@type": "YargsCliExtractor",
       "parameters": [
-        {
-          "@type": "YargsParameter",
-          "name": "s3Endpoint",
-          "options": {
-            "demandOption": true,
-            "requiresArg": true,
-            "type": "string",
-            "describe": "S3 endpoint URL"
-          }
-        },
-        {
-          "@type": "YargsParameter",
-          "name": "s3Bucket",
-          "options": {
-            "demandOption": true,
-            "requiresArg": true,
-            "type": "string",
-            "describe": "S3 bucket name"
-          }
-        },
-        {
-          "@type": "YargsParameter",
-          "name": "s3AccessKeyId",
-          "options": {
-            "demandOption": true,
-            "requiresArg": true,
-            "type": "string",
-            "describe": "S3 access key ID"
-          }
-        },
-        {
-          "@type": "YargsParameter",
-          "name": "s3SecretAccessKey",
-          "options": {
-            "demandOption": true,
-            "requiresArg": true,
-            "type": "string",
-            "describe": "S3 secret access key"
-          }
-        },
         {
           "@type": "YargsParameter",
           "name": "s3Region",
@@ -90,34 +30,6 @@
       "@id": "urn:solid-server-app-setup:default:ShorthandResolver",
       "@type": "CombinedShorthandResolver",
       "resolvers": [
-        {
-          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3Endpoint",
-          "CombinedShorthandResolver:_resolvers_value": {
-            "@type": "KeyExtractor",
-            "key": "s3Endpoint"
-          }
-        },
-        {
-          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3Bucket",
-          "CombinedShorthandResolver:_resolvers_value": {
-            "@type": "KeyExtractor",
-            "key": "s3Bucket"
-          }
-        },
-        {
-          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3AccessKeyId",
-          "CombinedShorthandResolver:_resolvers_value": {
-            "@type": "KeyExtractor",
-            "key": "s3AccessKeyId"
-          }
-        },
-        {
-          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3SecretAccessKey",
-          "CombinedShorthandResolver:_resolvers_value": {
-            "@type": "KeyExtractor",
-            "key": "s3SecretAccessKey"
-          }
-        },
         {
           "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3Region",
           "CombinedShorthandResolver:_resolvers_value": {

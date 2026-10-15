@@ -5,6 +5,7 @@ import {
   Postgres,
   fixturePodDatasets,
   seedFusekiDataset,
+  seedObjectEndpoints,
   splitFixtureByPod,
 } from '@janeirodigital/interop-test-utils'
 import { context, trace } from '@opentelemetry/api'
@@ -90,18 +91,27 @@ const datasets = await splitFixtureByPod(datasetData, { podDatasets, idOrigin: '
 const clientId = 'https://data/test-client/public/id'
 const clientIdPath = '../environments/data/test-client/public/id$.jsonld'
 
+// per-pod buckets/keys: provision them through the Garage admin API and merge
+// the generated objectEndpoint records into the fixture before it is seeded
+// (there is no shared bucket anymore)
+const s3Endpoint = (process.env.CSS_S3_ENDPOINT ?? 'http://garage:3900').replace(/\/$/, '')
+const objectEndpoints = await seedObjectEndpoints(kvData, {
+  adminBaseUrl: process.env.CSS_GARAGE_ADMIN_ENDPOINT ?? 'http://garage:3903',
+  adminToken: process.env.CSS_GARAGE_ADMIN_TOKEN ?? '',
+  s3Endpoint,
+})
+const testClientCredentials = objectEndpoints.get('https://data/test-client/')
+if (!testClientCredentials)
+  throw new Error('seed did not provision the test-client object endpoint')
+
 const pg = new Postgres(connectionString, 'key_value')
 
 const clientIdData = await readFile(clientIdPath)
 const garage = new S3mini({
   // s3mini derives the bucket from the endpoint URL path
-  endpoint: `${(process.env.CSS_S3_ENDPOINT ?? 'http://garage:3900').replace(/\/$/, '')}/${
-    process.env.CSS_S3_BUCKET ?? 'sai-dev'
-  }`,
-  accessKeyId: process.env.CSS_S3_ACCESS_KEY_ID ?? 'GKd0656430cbd2bba62e2cc12b',
-  secretAccessKey:
-    process.env.CSS_S3_SECRET_ACCESS_KEY ??
-    'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c',
+  endpoint: `${s3Endpoint}/${testClientCredentials.bucket}`,
+  accessKeyId: testClientCredentials.accessKeyId,
+  secretAccessKey: testClientCredentials.secretAccessKey,
   region: process.env.CSS_S3_REGION ?? 'garage',
 })
 

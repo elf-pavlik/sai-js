@@ -122,7 +122,7 @@ export class ApiHandler extends OperationHttpHandler {
             checkHandle: (handle: string) =>
               Effect.promise(() => this.accountService.checkHandle(handle)),
             bootstrapAccount: (handle: string) =>
-              Effect.promise(() => this.accountService.bootstrapAccount(accountId, handle)),
+              Effect.promise(() => this.accountService.startBootstrapAccount(accountId, handle)),
             getDataRegistries: (agentId, lang, context) =>
               Effect.promise(async () => {
                 const ctx = await resolveContext(session, context, this.endpointStore)

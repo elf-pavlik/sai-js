@@ -8,7 +8,6 @@
     {
       "@id": "urn:sai:default:AccountService",
       "@type": "AccountService",
-      "fusekiBaseUrl": { "@id": "urn:sai:default:variable:fusekiBaseUrl" },
       "postgresConnectionString": { "@id": "urn:sai:default:variable:postgresConnectionString" },
       "tableName": "key_value",
       "issuer": { "@id": "urn:solid-server:default:variable:baseUrl" },

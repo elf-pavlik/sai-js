@@ -5,6 +5,7 @@ import { OpenTelemetryPlugin } from '@temporalio/interceptors-opentelemetry-v2'
 import { NativeConnection, Worker } from '@temporalio/worker'
 
 import * as accessRequestActivities from '../temporal/activities/access-request.js'
+import * as accountActivities from '../temporal/activities/account.js'
 import * as adminActivities from '../temporal/activities/admin.js'
 import * as forwardActivities from '../temporal/activities/forward-to-push.js'
 import * as grantsActivities from '../temporal/activities/grants.js'
@@ -67,6 +68,7 @@ async function run() {
         ...adminActivities,
         ...invitationActivities,
         ...accessRequestActivities,
+        ...accountActivities,
       },
       plugins,
     })

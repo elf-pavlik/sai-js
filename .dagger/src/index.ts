@@ -24,8 +24,10 @@ const CSS_ENCODED_PRIVATE_JWK =
 const CSS_HTTPS_KEY = '/sai/environments/css/certs/key.pem'
 const CSS_HTTPS_CERT = '/sai/environments/css/certs/cert.pem'
 const NODE_TLS_REJECT_UNAUTHORIZED = '0'
-const CSS_SPARQL_ENDPOINT = 'http://fuseki:3030/shared/sparql'
-const CSS_S3_ENDPOINT = 'http://garage:3900/sai-dev'
+const CSS_FUSEKI_BASE_URL = 'http://fuseki:3030'
+const CSS_ID_SPARQL_ENDPOINT = 'http://fuseki:3030/id/sparql'
+const CSS_S3_ENDPOINT = 'http://garage:3900'
+const CSS_S3_BUCKET = 'sai-dev'
 const CSS_S3_ACCESS_KEY_ID = 'GKd0656430cbd2bba62e2cc12b'
 const CSS_S3_SECRET_ACCESS_KEY = 'aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c'
 const CSS_S3_REGION = 'garage'
@@ -274,7 +276,6 @@ export class SaiJs {
         // temporal activities query/update the registry store directly (e.g.
         // syncReciprocalMirror, org-context-sparql.md) — currently dormant, env
         // kept so re-enabling needs no dagger change
-        .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
         .withServiceBinding('postgresql', this.postgresService())
         .withServiceBinding('temporal', temporal)
         .withServiceBinding('fuseki', this.fusekiService())
@@ -292,7 +293,7 @@ export class SaiJs {
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('ID_ORIGIN', 'id')
       .withEnvVariable('DOC_ORIGIN', 'id')
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
+      .withEnvVariable('CSS_ID_SPARQL_ENDPOINT', CSS_ID_SPARQL_ENDPOINT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
       .withExposedPort(443)
@@ -329,17 +330,23 @@ export class SaiJs {
       )
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
       .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
       .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
       .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
+      .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
+      .withEnvVariable('CSS_S3_BUCKET', CSS_S3_BUCKET)
+      .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
+      .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
+      .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
+      .withEnvVariable('CSS_FUSEKI_BASE_URL', CSS_FUSEKI_BASE_URL)
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', temporal)
       .withServiceBinding('id', this.idService())
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())
       .withServiceBinding('fuseki', this.fusekiService())
+      .withServiceBinding('garage', this.garageService())
       .withExposedPort(443)
       .withExposedPort(9229)
       .asService({
@@ -363,7 +370,6 @@ export class SaiJs {
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
       .withEnvVariable('CSS_PORT', CSS_PORT)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
       .withEnvVariable(
@@ -396,7 +402,6 @@ export class SaiJs {
       .withEnvVariable('CSS_PORT', CSS_PORT)
       .withEnvVariable('CSS_HTTPS_KEY', CSS_HTTPS_KEY)
       .withEnvVariable('CSS_HTTPS_CERT', CSS_HTTPS_CERT)
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
       .withEnvVariable('CSS_DOC_ORIGIN', CSS_DOC_ORIGIN)
       .withEnvVariable('CSS_DATA_ORIGIN', CSS_DATA_ORIGIN)
@@ -407,6 +412,7 @@ export class SaiJs {
       )
       .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
       .withEnvVariable('CSS_S3_ENDPOINT', CSS_S3_ENDPOINT)
+      .withEnvVariable('CSS_S3_BUCKET', CSS_S3_BUCKET)
       .withEnvVariable('CSS_S3_ACCESS_KEY_ID', CSS_S3_ACCESS_KEY_ID)
       .withEnvVariable('CSS_S3_SECRET_ACCESS_KEY', CSS_S3_SECRET_ACCESS_KEY)
       .withEnvVariable('CSS_S3_REGION', CSS_S3_REGION)
@@ -442,7 +448,6 @@ export class SaiJs {
         'postgres://temporal:temporal@postgresql:5432/auth'
       )
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
-      .withEnvVariable('CSS_SPARQL_ENDPOINT', CSS_SPARQL_ENDPOINT)
       .withServiceBinding('auth', auth)
       .withServiceBinding('registry', this.registryService())
       .withServiceBinding('data', this.dataService())

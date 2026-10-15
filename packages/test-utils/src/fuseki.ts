@@ -1,12 +1,14 @@
 import { Parser, Writer } from 'n3'
 import type { Quad } from 'n3'
 
-/** The dataset that holds the cross-pod / public graphs. */
-export const SHARED_DATASET = 'shared'
+/** The dataset that holds the id service's WebID profiles. */
+export const ID_DATASET = 'id'
 
 export interface FusekiFixtureOptions {
   /** pod base URL → dataset name (registry pods and data pods) */
   podDatasets: Map<string, string>
+  /** origin of the id service's WebID profiles (default `https://id/`) */
+  idOrigin?: string
 }
 
 /** Pod name used in the dataset name: first path segment, else first host label. */
@@ -34,13 +36,17 @@ function matchPod(iri: string, podDatasets: Map<string, string>): string | undef
 /**
  * Map one fixture graph IRI to the dataset that should hold it. A leading
  * `meta:` (CSS metadata graphs) is ignored, so `meta:<iri>` follows `<iri>`.
- * Anything that matches no pod (registry root, id profiles, shapetrees,
- * test-client, …) goes to the shared dataset.
+ * The id origin routes to `id`; anything else must match a pod — an unmatched
+ * graph throws, so a fixture can never silently land in a catch-all dataset.
  */
 export function datasetForGraph(graphIri: string, opts: FusekiFixtureOptions): string {
   const iri = graphIri.startsWith('meta:') ? graphIri.slice('meta:'.length) : graphIri
+  if (iri.startsWith(opts.idOrigin ?? 'https://id/')) return ID_DATASET
   const podUrl = matchPod(iri, opts.podDatasets)
-  return podUrl ? opts.podDatasets.get(podUrl)! : SHARED_DATASET
+  if (!podUrl) {
+    throw new Error(`no dataset for graph <${graphIri}> — not under a pod or the id origin`)
+  }
+  return opts.podDatasets.get(podUrl)!
 }
 
 /**
@@ -145,7 +151,8 @@ export async function splitFixtureByPod(
 
   const byDataset = new Map<string, Quad[]>()
   for (const [graph, graphQuads] of byGraph) {
-    const dataset = graph ? datasetForGraph(graph, opts) : SHARED_DATASET
+    if (!graph) throw new Error('default-graph quads are not supported')
+    const dataset = datasetForGraph(graph, opts)
     const bucket = byDataset.get(dataset)
     if (bucket) bucket.push(...graphQuads)
     else byDataset.set(dataset, [...graphQuads])

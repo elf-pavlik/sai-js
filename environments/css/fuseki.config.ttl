@@ -1,20 +1,20 @@
 # Per-pod Fuseki datasets (docs/plans/fuseki-per-pod-sparql.md stage 3).
 # Generated from environments/data/registry.trig + kv.json — do not hand-edit.
-# Datasets: shared, data-acme-hr, data-acme-rnd, data-alice-home, data-alice-work, data-bob, data-dan-east, data-dan-west, data-kim-blue, data-kim-red, data-shapetrees, data-test-client, data-yoyo-eu, data-yoyo-na, reg-acme, reg-alice, reg-bob, reg-dan, reg-kim, reg-yoyo
+# Datasets: id, data-acme-hr, data-acme-rnd, data-alice-home, data-alice-work, data-bob, data-dan-east, data-dan-west, data-kim-blue, data-kim-red, data-shapetrees, data-test-client, data-yoyo-eu, data-yoyo-na, reg-acme, reg-alice, reg-bob, reg-dan, reg-kim, reg-yoyo
 
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix fuseki: <http://jena.apache.org/fuseki#> .
 @prefix tdb2:   <http://jena.apache.org/2016/tdb#> .
 
-<#shared> rdf:type fuseki:Service ;
-    fuseki:name "shared" ;
+<#id> rdf:type fuseki:Service ;
+    fuseki:name "id" ;
     fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
     fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "sparql" ] ;
     fuseki:endpoint [ fuseki:operation fuseki:gsp_rw ; fuseki:name "data" ] ;
-    fuseki:dataset <#shared-dataset> .
+    fuseki:dataset <#id-dataset> .
 
-<#shared-dataset> rdf:type tdb2:DatasetTDB2 ;
-    tdb2:location "/fuseki-base/databases/shared" .
+<#id-dataset> rdf:type tdb2:DatasetTDB2 ;
+    tdb2:location "/fuseki-base/databases/id" .
 
 <#data-acme-hr> rdf:type fuseki:Service ;
     fuseki:name "data-acme-hr" ;

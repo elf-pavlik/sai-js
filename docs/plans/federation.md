@@ -18,6 +18,13 @@ server**. That exposes assumptions that hold only while all three CSS servers
 
 ### 1. One shared SPARQL endpoint / triple store
 
+> **Status: resolved in the single-deployment SAI.** The shared store is gone:
+> each pod (and a dedicated `id` dataset) has its own endpoint, resolved from
+> the endpoint store with no default fallback
+> ([`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md)). This section is kept
+> as the rationale for the *federated* cases below (cross-server grant lookup,
+> mirror freshness).
+
 `urn:solid-server:default:variable:sparqlEndpoint` is per-server configuration,
 but today the registry and data servers point at **the same triple store**
 (PostgreSQL). Several components depend on that:

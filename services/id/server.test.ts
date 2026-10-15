@@ -6,11 +6,12 @@ const mockFetchTriples = vi.fn()
 
 vi.mock('fetch-sparql-endpoint', () => {
   return {
-    SparqlEndpointFetcher: vi.fn().mockImplementation(() => ({
-      fetchTriples: mockFetchTriples.mockResolvedValue({
+    // a class, not an arrow fn — `new SparqlEndpointFetcher()` requires a constructor
+    SparqlEndpointFetcher: class {
+      public fetchTriples = mockFetchTriples.mockResolvedValue({
         toArray: vi.fn().mockResolvedValue([]),
-      }),
-    })),
+      })
+    },
   }
 })
 
@@ -23,7 +24,7 @@ let app: Hono
 beforeAll(async () => {
   vi.stubEnv('ID_ORIGIN', idOrigin)
   vi.stubEnv('DOC_ORIGIN', docOrigin)
-  vi.stubEnv('CSS_SPARQL_ENDPOINT', sparqlEndpoint)
+  vi.stubEnv('CSS_ID_SPARQL_ENDPOINT', sparqlEndpoint)
   app = (await import('./server')).default
 })
 

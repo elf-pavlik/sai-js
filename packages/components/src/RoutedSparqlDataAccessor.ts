@@ -1,6 +1,11 @@
 import type { Readable } from 'node:stream'
 
-import { SparqlDataAccessor } from '@solid/community-server'
+import {
+  INTERNAL_QUADS,
+  NotFoundHttpError,
+  SparqlDataAccessor,
+  UnsupportedMediaTypeHttpError,
+} from '@solid/community-server'
 import type {
   DataAccessor,
   Guarded,
@@ -11,7 +16,7 @@ import type {
   StorageLocationStrategy,
 } from '@solid/community-server'
 
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 
 /**
  * Routes LDP reads/writes to the SPARQL dataset of the resource's pod
@@ -20,8 +25,10 @@ import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
  * `StorageLocationStrategy.getStorageIdentifier` yields the pod base URL for
  * both server shapes: a subdomain pod on the data server, the first container
  * on the path-based registry server. The pod URL is the endpoint registry's
- * key, so a single `findByPodUrl` resolves the dataset; unmatched identifiers
- * (the shared root, WebID profiles, …) fall back to the env endpoint.
+ * key, so a single `findSparqlByPodUrl` resolves the dataset. There is **no
+ * shared/default endpoint**: an identifier with no storage (e.g. the root
+ * container) or no endpoint record fails closed, so a storage outage or a
+ * missing record can never silently widen the scope.
  *
  * Delegates to a cached {@link SparqlDataAccessor} per endpoint.
  */
@@ -29,10 +36,9 @@ export class RoutedSparqlDataAccessor implements DataAccessor {
   private readonly accessors = new Map<string, SparqlDataAccessor>()
 
   public constructor(
-    private readonly endpoint: string,
     private readonly identifierStrategy: IdentifierStrategy,
     private readonly storageStrategy: StorageLocationStrategy,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore
   ) {}
 
   private accessorFor(endpoint: string): SparqlDataAccessor {
@@ -45,18 +51,31 @@ export class RoutedSparqlDataAccessor implements DataAccessor {
   }
 
   private async endpointFor(identifier: ResourceIdentifier): Promise<string> {
+    let podUrl: string
     try {
-      const storage = await this.storageStrategy.getStorageIdentifier(identifier)
-      const record = await this.endpointStore.findByPodUrl(storage.path)
-      return record?.endpoint ?? this.endpoint
+      podUrl = (await this.storageStrategy.getStorageIdentifier(identifier)).path
     } catch {
-      // no storage (e.g. the root container) — the shared/fallback endpoint
-      return this.endpoint
+      // Not under any pod (e.g. the server root, or an ancestor ACL/ACR read
+      // that walks up to it). This is not a storage misconfiguration, there
+      // simply is no such resource: surface it as 404 so authorization treats
+      // the root as having no ACL/ACR.
+      throw new NotFoundHttpError()
     }
+    const record = await this.endpointStore.findSparqlByPodUrl(podUrl)
+    if (!record) {
+      throw new Error(`no SPARQL endpoint for pod ${podUrl}`)
+    }
+    return record.endpoint
   }
 
+  /**
+   * Content-type gate, independent of the endpoint. Mirrors
+   * `SparqlDataAccessor.canHandle` without needing a resolved pod.
+   */
   public async canHandle(representation: Representation): Promise<void> {
-    return this.accessorFor(this.endpoint).canHandle(representation)
+    if (representation.binary || representation.metadata.contentType !== INTERNAL_QUADS) {
+      throw new UnsupportedMediaTypeHttpError('Only Quad data is supported.')
+    }
   }
 
   public async getData(identifier: ResourceIdentifier): Promise<Guarded<Readable>> {

@@ -7,8 +7,9 @@
 > maintainer (dagger harness changes are user-side).
 >
 > **Environment realization:** the concrete Oxigraph → Fuseki swap, the
-> per-pod fixture split, the CSS `SparqlEndpointStore` +
-> `RoutedSparqlDataAccessor`, and the `kv.json` seeds are designed in
+> per-pod fixture split, the CSS `PodEndpointStore` (typed SPARQL + object/S3
+> records) +
+> `RoutedSparqlDataAccessor`, and the `kv.json` seeds are realized in
 > [`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md). That plan stages
 > this one's 4a/4b across three green stages; read it alongside 4b. It also
 > **widens the isolation unit from the owner to the pod** (registry pod +
@@ -55,20 +56,23 @@ Per-pod endpoint addresses in `AccountLoginStorage` — the
 `ReciprocalWebhookStore` pattern (`RECIPROCAL_WEBHOOK_STORAGE_TYPE`):
 
 ```
-type 'sparqlEndpoint' = { accountId, webId: string, kind: 'registry' | 'data',
-                          baseUrl: string, endpoint: string }
+type 'sparqlEndpoint' = { accountId, podUrl: string, endpoint: string }
+type 'objectEndpoint'  = { accountId, podUrl: string, endpoint: string,
+                          bucket: string, accessKeyId: string, secretAccessKey: string }
 ```
 
-(`fuseki-per-pod-sparql.md` refines the record this way: one record per pod —
-the owner's registry pod and every data pod — each with its **own** endpoint,
-so the data-plane accessor and the permission engine can look the right dataset
-up from a pod base URL.)
+(`fuseki-per-pod-sparql.md` realizes this as the typed `PodEndpointStore`: one
+record per pod — the owner's registry pod and every data pod, each with its
+**own** endpoint, plus an **object (S3)** record for data pods — so the
+data-plane accessor and the permission engine can look the right dataset up
+from a pod base URL. Endpoints are keyed by `podUrl`; the owner is reached
+indirectly through the account (`accountId`), so no `webId` is stored.)
 
 - provisioned at account bootstrap (`services/Account.ts`): mint one registry
   pod dataset + one data pod dataset, each with an endpoint record;
 - `SessionManager.getSession(webId)` resolves the owner's **registry-pod**
   record, hands each AA its own internal endpoint (the phase-2 `sparqlEndpoint`
-  AA field); **env-var fallback retained** so nothing else must change yet;
+  AA field); a missing record **fails closed** (no env-var fallback);
 - migrate direct consumers (`SaiPermissionsEngine`,
   `SaiAuthorizationManager`, `GrantRevocationHandler`) to looked-up endpoints —
   the data server resolves the storage owner's **registry pod** for grant reads;
@@ -107,10 +111,10 @@ Prerequisite checklist before flipping environments:
       already exists in `temporal/activities/reciprocal.ts`).
 
 Environment work (user-side): per-pod Fuseki datasets + config in
-`environments/css`, seed loading per pod, `setup.ts`/`kv.json` updates.
-Then drop the global env var. The concrete shape of this work (one Fuseki
-dataset per registry pod and per data pod + `shared`, fixture splitting,
-routed accessor) is [`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md)
+`environments/css`, seed loading per pod, `setup.ts`/`kv.json` updates. The
+global env var has been dropped. The concrete shape of this work (one Fuseki
+dataset per registry pod and per data pod + a dedicated `id` dataset, fixture
+splitting, routed accessor) is [`fuseki-per-pod-sparql.md`](fuseki-per-pod-sparql.md)
 stage 3.
 
 ### Tests

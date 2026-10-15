@@ -3,6 +3,7 @@ import {
   BadRequestHttpError,
   BasicRepresentation,
   ForbiddenHttpError,
+  InternalServerError,
   MethodNotAllowedHttpError,
   OkResponseDescription,
   OperationHttpHandler,
@@ -18,9 +19,10 @@ import type {
 import { type IBindings, type IUpdateTypes, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 
+import type { CustomWebIdStore } from './CustomWebIdStore.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import { orgWebIdFromPath, requireOrgAdmin } from './services/adminGate.js'
 import type { SessionManager } from './SessionManager'
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 import { registryId } from './util/uriTemplates.js'
 
 const SPARQL_QUERY_MEDIA_TYPE = 'application/sparql-query'
@@ -74,9 +76,9 @@ function termToJson(term: IBindings[string]): Record<string, unknown> {
  * The org itself never uses this endpoint; server-side reads go to the
  * internal endpoint directly.
  *
- * Queries are forwarded to the internal endpoint variable
- * (`urn:solid-server:default:variable:sparqlEndpoint`); SELECT/ASK results
- * come back as `application/sparql-results+json`, CONSTRUCT/DESCRIBE as
+ * Queries are forwarded to the org's registry-pod endpoint resolved from the
+ * endpoint store; SELECT/ASK results come back as
+ * `application/sparql-results+json`, CONSTRUCT/DESCRIBE as
  * `application/ld+json`.
  */
 export class AdminSparqlHandler extends OperationHttpHandler {
@@ -87,8 +89,8 @@ export class AdminSparqlHandler extends OperationHttpHandler {
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
     private readonly sessionManager: SessionManager,
-    private readonly sparqlEndpoint: string,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore,
+    private readonly webIdStore: CustomWebIdStore
   ) {
     super()
   }
@@ -99,20 +101,21 @@ export class AdminSparqlHandler extends OperationHttpHandler {
    * to the org (isolation; an admin cannot read another owner's dataset).
    */
   private async resolveEndpoint(orgWebId: string, podUrl?: string): Promise<string> {
-    try {
-      if (podUrl) {
-        const record = await this.endpointStore.findByPodUrl(podUrl)
-        if (!record || record.webId !== orgWebId) {
-          throw new ForbiddenHttpError(`pod ${podUrl} is not owned by ${orgWebId}`)
-        }
-        return record.endpoint
+    if (podUrl) {
+      const record = await this.endpointStore.findSparqlByPodUrl(podUrl)
+      const orgAccountId = await this.webIdStore.findAccount(orgWebId)
+      if (!record || !orgAccountId || record.accountId !== orgAccountId) {
+        throw new ForbiddenHttpError(`pod ${podUrl} is not owned by ${orgWebId}`)
       }
-      const record = await this.endpointStore.findByPodUrl(registryId(orgWebId))
-      return record?.endpoint ?? this.sparqlEndpoint
-    } catch (err) {
-      if (ForbiddenHttpError.isInstance(err)) throw err
-      return this.sparqlEndpoint
+      return record.endpoint
     }
+    // a store outage must surface (fail-closed); an org without a
+    // registry-pod record is a misconfiguration
+    const record = await this.endpointStore.findSparqlByPodUrl(registryId(orgWebId))
+    if (!record) {
+      throw new InternalServerError(`no registry-pod SPARQL endpoint for ${orgWebId}`)
+    }
+    return record.endpoint
   }
 
   public async handle({

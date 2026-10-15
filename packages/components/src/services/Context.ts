@@ -5,7 +5,7 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import { type RegistrySetData, getAdminGrantIris } from '@janeirodigital/interop-data-model'
 
-import type { SparqlEndpointStore } from '../SparqlEndpointStore.js'
+import type { PodEndpointStore } from '../PodEndpointStore.js'
 
 /** The requested context is not allowed for the signed-in user. */
 export class ContextError extends Error {}
@@ -67,7 +67,7 @@ async function isAdminOf(userSession: AuthorizationAgent, orgWebId: string): Pro
 export async function resolveContext(
   userSession: AuthorizationAgent,
   context: string,
-  endpointStore: SparqlEndpointStore
+  endpointStore: PodEndpointStore
 ): Promise<ResolvedContext> {
   if (context === userSession.webId) {
     return {
@@ -84,7 +84,7 @@ export async function resolveContext(
   const registrySet = await userSession.getRegistrySet(context)
   // the org's own records from the internal account storage — the org context's
   // allowlist (the admin never gets a wider set than the context's pods)
-  const records = await endpointStore.findByWebId(context)
+  const records = await endpointStore.findSparqlByWebId(context)
   const endpoints = new Map(records.map((record) => [record.podUrl, record.endpoint]))
   return {
     session: userSession,

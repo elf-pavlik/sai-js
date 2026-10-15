@@ -22,6 +22,7 @@ import { Effect, Layer } from 'effect'
 import { getLoggerFor } from 'global-logger-factory'
 import type { PushSubscription } from 'web-push'
 
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { AccountService } from './services/Account.js'
 import { addAdmin, removeAdmin } from './services/Admin.js'
 import { getApplications, getUnregisteredApplication } from './services/ApplicationRegistry.js'
@@ -43,7 +44,6 @@ import {
 } from './services/ShareResource.js'
 import { acceptInvitation, getSocialAgents } from './services/SocialAgentRegistry.js'
 import type { SessionManager } from './SessionManager'
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 import { withEffectTracing } from './tracing/effect-tracer.js'
 import type { UiPushSubscriptionStore } from './UiPushSubscriptionStore.js'
 
@@ -55,8 +55,7 @@ export class ApiHandler extends OperationHttpHandler {
     private readonly uiPushSubscriptionStore: UiPushSubscriptionStore,
     private readonly sessionManager: SessionManager,
     private readonly accountService: AccountService,
-    private readonly sparqlEndpoint: string,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore
   ) {
     super()
   }
@@ -184,7 +183,7 @@ export class ApiHandler extends OperationHttpHandler {
             revokeGrants: (grants, context) =>
               Effect.promise(async () => {
                 const ctx = await resolveContext(session, context, this.endpointStore)
-                return revokeGrants(ctx, this.sparqlEndpoint, grants)
+                return revokeGrants(ctx, this.endpointStore, grants)
               }),
             addAdmin: (agentWebId, context) =>
               Effect.promise(async () => {

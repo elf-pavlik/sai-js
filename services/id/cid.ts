@@ -83,8 +83,13 @@ export async function toCidDocument(triples: Iterable<Quad>): Promise<CidDocumen
     '@explicit': true,
     service: { '@embed': '@always' },
   }
-  const doc = (await jsonld.frame(await jsonld.fromRDF(dataset), frame, {
+  const framed = (await jsonld.frame(await jsonld.fromRDF(dataset), frame, {
     documentLoader,
-  })) as Partial<CidDocument>
-  return doc as CidDocument
+  })) as { service?: CidService | CidService[] }
+  // the cid context declares no `@container: '@set'` on `service`, so a single
+  // service compacts to a scalar — normalize to the array shape
+  if (framed.service && !Array.isArray(framed.service)) {
+    framed.service = [framed.service]
+  }
+  return framed as CidDocument
 }

@@ -11,6 +11,11 @@
       "@type": "Variable"
     },
     {
+      "comment": "S3 bucket.",
+      "@id": "urn:sai:default:variable:s3Bucket",
+      "@type": "Variable"
+    },
+    {
       "comment": "S3 access key ID.",
       "@id": "urn:sai:default:variable:s3AccessKeyId",
       "@type": "Variable"
@@ -37,6 +42,16 @@
             "requiresArg": true,
             "type": "string",
             "describe": "S3 endpoint URL"
+          }
+        },
+        {
+          "@type": "YargsParameter",
+          "name": "s3Bucket",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "S3 bucket name"
           }
         },
         {
@@ -80,6 +95,13 @@
           "CombinedShorthandResolver:_resolvers_value": {
             "@type": "KeyExtractor",
             "key": "s3Endpoint"
+          }
+        },
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:s3Bucket",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "s3Bucket"
           }
         },
         {

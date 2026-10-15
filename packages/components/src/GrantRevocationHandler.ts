@@ -28,7 +28,7 @@ export interface SessionAcquirer {
 }
 import { INTEROP } from '@janeirodigital/interop-utils'
 
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import { Temporal } from './temporal/client.js'
 import { revokeGrants } from './temporal/workflows/grants.js'
 
@@ -52,9 +52,8 @@ type Credentials = Awaited<ReturnType<CredentialsExtractor['handleSafe']>>
  */
 export class GrantRevocationHandler {
   public constructor(
-    private readonly sparqlEndpoint: string,
-    private readonly sessionManager: SessionAcquirer,
-    private readonly endpointStore?: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore,
+    private readonly sessionManager: SessionAcquirer
   ) {}
 
   public async revoke(
@@ -86,13 +85,11 @@ export class GrantRevocationHandler {
       throw new BadRequestHttpError('AccessRevocation requires at least one grant')
     }
 
-    // the grants live in the data owner's registry pod, not the shared
-    // dataset — resolve it from the grant IRI
-    const endpoint =
-      (this.endpointStore
-        ? (await this.endpointStore.findByIri(grants[0]))?.endpoint
-        : undefined) ?? this.sparqlEndpoint
-    const transport = localSparqlTransport(endpoint)
+    // the grants live in the data owner's registry pod — resolve it from the
+    // grant IRI (fail closed when there is no record)
+    const record = await this.endpointStore.findSparqlByIri(grants[0])
+    if (!record) throw new Error(`no SPARQL endpoint for grant ${grants[0]}`)
+    const transport = localSparqlTransport(record.endpoint)
     const loaded = await getGrantsAuthority(transport, grants)
 
     // all-or-nothing: all existing grants must share one data owner (the

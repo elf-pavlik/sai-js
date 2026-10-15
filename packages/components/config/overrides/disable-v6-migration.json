@@ -1,0 +1,20 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "SAI is a fresh deployment: there is no CSS v6 internal data to migrate. The legacy V6 migration storages read `/.internal/…` through the LDP backend, which now fails closed for non-pod paths, so disable the v6 migration by emptying the MigrationInitializer's handler list.",
+      "@id": "urn:sai:default:DisableV6Migration",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:MigrationInitializer" },
+      "overrideParameters": {
+        "@type": "SequenceHandler",
+        "handlers": []
+      }
+    }
+  ]
+}

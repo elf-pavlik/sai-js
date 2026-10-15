@@ -19,11 +19,20 @@ function datasetName(podUrl: string, kind: 'registry' | 'data'): string {
   return `${kind === 'registry' ? 'reg' : 'data'}-${segment}`
 }
 
+/** The id service's WebID-profile dataset (a single global dataset). */
+const ID_DATASET = 'id'
+
+/**
+ * Default object-storage bucket copied into every data pod's object endpoint
+ * until pods get their own buckets.
+ */
+const DEFAULT_OBJECT_BUCKET = 'sai-dev'
+
 export class AccountService {
   private sql: any
 
   constructor(
-    private sparqlEndpoint: string,
+    private fusekiBaseUrl: string,
     private postgresConnectionString: string,
     private tableName: string,
     private issuer: string,
@@ -84,14 +93,16 @@ export class AccountService {
     // stage 3 (docs/plans/fuseki-per-pod-sparql.md): one dataset per pod — the
     // registry set and the data registry each get their own endpoint; the WebID
     // profile stays in the shared dataset (the id service reads it there).
-    const fusekiOrigin = new URL(this.sparqlEndpoint).origin
+    const fusekiOrigin = this.fusekiBaseUrl.replace(/\/$/, '')
     const registryDataset = datasetName(registrySet, 'registry')
     const dataDataset = datasetName(dataRegistry, 'data')
     await this.ensureFusekiDataset(fusekiOrigin, registryDataset)
     await this.ensureFusekiDataset(fusekiOrigin, dataDataset)
+    // the id service's WebID profiles live in their own dataset
+    await this.ensureFusekiDataset(fusekiOrigin, ID_DATASET)
 
     await this.postTrig(
-      this.sparqlEndpoint,
+      `${fusekiOrigin}/${ID_DATASET}/data`,
       webIdTemplate({
         id: webId,
         document: docId,
@@ -140,28 +151,39 @@ export class AccountService {
         id: ids.webId,
       },
     }
-    // Per-pod SPARQL endpoint registry (isolated-datasets-and-sparql.md 4a,
-    // widened to per-pod), keyed by pod URL. Stage 2 of
-    // docs/plans/fuseki-per-pod-sparql.md: both records point at the shared
-    // dataset until the per-pod split (Stage 3) flips them to per-pod endpoints.
+    // Typed internal endpoint registry, keyed by pod URL (associate the
+    // endpoint with the pod directly; the owner is reached through the
+    // account). The registry pod has a SPARQL endpoint; the data pod also has
+    // an object (S3) endpoint, copied from the environment for now (the
+    // region stays global).
     const endpointIds = {
       registry: crypto.randomUUID(),
       data: crypto.randomUUID(),
+      object: crypto.randomUUID(),
     }
     accountData['**sparqlEndpoint**'] = {
       [endpointIds.registry]: {
         accountId,
-        webId,
         podUrl: registrySet,
         endpoint: `${fusekiOrigin}/${registryDataset}/sparql`,
         id: endpointIds.registry,
       },
       [endpointIds.data]: {
         accountId,
-        webId,
         podUrl: dataRegistry,
         endpoint: `${fusekiOrigin}/${dataDataset}/sparql`,
         id: endpointIds.data,
+      },
+    }
+    accountData['**objectEndpoint**'] = {
+      [endpointIds.object]: {
+        accountId,
+        podUrl: dataRegistry,
+        endpoint: process.env.CSS_S3_ENDPOINT ?? '',
+        bucket: process.env.CSS_S3_BUCKET ?? DEFAULT_OBJECT_BUCKET,
+        accessKeyId: process.env.CSS_S3_ACCESS_KEY_ID ?? '',
+        secretAccessKey: process.env.CSS_S3_SECRET_ACCESS_KEY ?? '',
+        id: endpointIds.object,
       },
     }
     // TODO: separate update from instert
@@ -174,9 +196,12 @@ export class AccountService {
       [cssKv.podByBaseUrl(dataRegistry)]: [accountId],
       [`accounts/index/sparqlEndpoint/${endpointIds.registry}`]: [accountId],
       [`accounts/index/sparqlEndpoint/${endpointIds.data}`]: [accountId],
-      [`accounts/index/sparqlEndpoint/webId/${encodeURIComponent(webId)}`]: [accountId],
+      [`accounts/index/sparqlEndpoint/accountId/${accountId}`]: [accountId],
       [`accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent(registrySet)}`]: [accountId],
       [`accounts/index/sparqlEndpoint/podUrl/${encodeURIComponent(dataRegistry)}`]: [accountId],
+      [`accounts/index/objectEndpoint/${endpointIds.object}`]: [accountId],
+      [`accounts/index/objectEndpoint/accountId/${accountId}`]: [accountId],
+      [`accounts/index/objectEndpoint/podUrl/${encodeURIComponent(dataRegistry)}`]: [accountId],
     }
     const entries = Object.entries(record).map(([entryKey, value]) => ({
       key: entryKey,

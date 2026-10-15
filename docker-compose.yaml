@@ -2,7 +2,8 @@ x-postgres-env: &postgres-env
   CSS_POSTGRES_CONNECTION_STRING: postgres://temporal:temporal@postgresql:5432/auth
 
 x-garage-env: &garage-env
-  CSS_S3_ENDPOINT: http://garage:3900/sai-dev
+  CSS_S3_ENDPOINT: http://garage:3900
+  CSS_S3_BUCKET: sai-dev
   CSS_S3_ACCESS_KEY_ID: GKd0656430cbd2bba62e2cc12b
   CSS_S3_SECRET_ACCESS_KEY: aa3594ca915bf7b310c7672d436f2a937f20d2ad022eec90345dfc364e1bdd4c
   CSS_S3_REGION: garage
@@ -15,8 +16,10 @@ x-vapid-env: &vapid-env
 x-idp-env: &idp-env
   CSS_ENCODED_PRIVATE_JWK: eyJrdHkiOiJFQyIsIngiOiJDMjlsZmlGbm5OV3RITHplSkxDVXpiQnN3QVJCOVZoSl9fRlBWZFlTY3FRIiwieSI6InIxVFpMQS1zbWxyOUkzSWdfc1dRcTM5R0ZjbUYwOVF6TTU3SUs4d1BxUlkiLCJjcnYiOiJQLTI1NiIsImQiOiJYcHdmRDlkN1gtc1FySWlrRW5rWE9KalVKb1JjZS1zS2ZvLXkxdkxIamVjIiwiYWxnIjoiRVMyNTYifQ
 
-x-sparql-env: &sparql-env
-  CSS_SPARQL_ENDPOINT: http://fuseki:3030/shared/sparql
+x-fuseki-env: &fuseki-env
+  # account creation needs the Fuseki API; every other service resolves SPARQL
+  # endpoints from the endpoint store
+  CSS_FUSEKI_BASE_URL: http://fuseki:3030
 
 x-certs-env: &certs-env
   NODE_EXTRA_CA_CERTS: /mkcert/rootCA.pem
@@ -55,7 +58,7 @@ services:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
-      <<: [*postgres-env, *vapid-env, *idp-env, *sparql-env, *certs-env, *temporal-env, *origin-env]
+      <<: [*postgres-env, *vapid-env, *idp-env, *fuseki-env, *certs-env, *temporal-env, *origin-env, *garage-env]
       CSS_CONFIG: /sai/environments/css/auth.json
       CSS_LOGGING_LEVEL: debug
       CSS_BASE_URL: https://auth.docker/
@@ -95,7 +98,7 @@ services:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
-      <<: [*postgres-env, *sparql-env, *certs-env]
+      <<: [*postgres-env, *certs-env]
       CSS_CONFIG: /sai/environments/css/registry.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://reg.docker/
@@ -133,7 +136,7 @@ services:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
-      <<: [*postgres-env, *garage-env, *sparql-env, *certs-env, *origin-env]
+      <<: [*postgres-env, *garage-env, *certs-env, *origin-env]
       CSS_CONFIG: /sai/environments/css/data.json
       CSS_LOGGING_LEVEL: info
       CSS_BASE_URL: https://data.docker/
@@ -167,7 +170,7 @@ services:
       - ./:/sai
       - ${CAROOT}:/mkcert
     environment:
-      <<: [*postgres-env, *vapid-env, *idp-env, *sparql-env, *certs-env, *temporal-env, *origin-env]
+      <<: [*postgres-env, *vapid-env, *idp-env, *certs-env, *temporal-env, *origin-env]
       CSS_BASE_URL: https://auth.docker/
       # OpenTelemetry dev loop — live to the compose tempo service (worker)
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
@@ -404,7 +407,7 @@ services:
       - --require=/sai/packages/components/src/tracing/preload.cjs
       - /sai/services/id/http.ts
     environment:
-      <<: *sparql-env
+      CSS_ID_SPARQL_ENDPOINT: http://fuseki:3030/id/sparql
       ID_ORIGIN: id.docker
       DOC_ORIGIN: id.docker
       # OpenTelemetry dev loop — live to the compose tempo service

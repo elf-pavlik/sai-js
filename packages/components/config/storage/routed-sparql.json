@@ -12,10 +12,9 @@
       "overrideInstance": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
       "overrideParameters": {
         "@type": "RoutedSparqlDataAccessor",
-        "endpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
         "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
         "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" },
-        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
       }
     }
   ]

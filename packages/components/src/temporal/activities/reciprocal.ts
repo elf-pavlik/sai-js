@@ -146,18 +146,12 @@ export interface SyncReciprocalMirrorInput {
   peerId: SocialAgentId
 }
 
-function sparqlEndpoint(): string {
-  const endpoint = process.env.CSS_SPARQL_ENDPOINT
-  if (!endpoint) throw new Error('CSS_SPARQL_ENDPOINT env missing!')
-  return endpoint
-}
-
 /**
  * The owner's registry-pod endpoint — the mirror graphs are written there
- * (per-pod datasets), not to the shared dataset.
+ * (per-pod datasets).
  */
 function ownerEndpoint(session: { sparqlEndpoint: string }): string {
-  return session.sparqlEndpoint || sparqlEndpoint()
+  return session.sparqlEndpoint
 }
 
 /**

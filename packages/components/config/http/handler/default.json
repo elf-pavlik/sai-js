@@ -100,8 +100,8 @@
         "@type": "AdminSparqlHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
-        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" },
+        "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
       }
     },
     {
@@ -158,8 +158,7 @@
         "@type": "GrantIssuanceHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
-        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
       }
     },
     {
@@ -226,8 +225,7 @@
         "uiPushSubscriptionStore": { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" },
         "accountService": { "@id": "urn:sai:default:AccountService" },
-        "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
-        "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" }
+        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
       }
     },
     {
@@ -237,8 +235,7 @@
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
       "jwkGenerator": { "@id": "urn:solid-server:default:JwkGenerator" },
       "regOrigin": { "@id": "urn:sai:default:variable:regOrigin" },
-      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
-      "endpointStore": { "@id": "urn:sai:default:SparqlEndpointStore" },
+      "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" },
       "expiration": 60
     }
   ]

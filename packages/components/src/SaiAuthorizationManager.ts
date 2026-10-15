@@ -6,7 +6,7 @@ import type { AuthorizationManager } from '@solidlab/policy-engine'
 import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import { registryId } from './util/uriTemplates.js'
 
 export class SaiAuthorizationManager implements AuthorizationManager {
@@ -15,10 +15,9 @@ export class SaiAuthorizationManager implements AuthorizationManager {
 
   public constructor(
     protected readonly identifierStrategy: IdentifierStrategy,
-    private readonly sparqlEndpoint: string,
     protected readonly storageStrategy: StorageLocationStrategy,
     private readonly podStore: PodStore,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore
   ) {
     this.fetcher = new SparqlEndpointFetcher()
   }
@@ -38,24 +37,28 @@ export class SaiAuthorizationManager implements AuthorizationManager {
   /**
    * With per-pod datasets the grants live in the storage owner's **registry
    * pod** dataset, not the data pod's. Resolve it from the pod's owner WebID;
-   * fall back to the env endpoint (shared) when unknown.
+   * returns `undefined` (no grants, deny) when the owner is unknown, and
+   * propagates a store outage (fail-closed).
    */
-  private async resolveRegistryEndpoint(storageUrl: string): Promise<string> {
-    try {
-      const pod = await this.podStore.findByBaseUrl(storageUrl)
-      if (!pod) return this.sparqlEndpoint
-      const owner = (await this.podStore.getOwners(pod.id))?.[0]?.webId
-      if (!owner) return this.sparqlEndpoint
-      const record = await this.endpointStore.findByPodUrl(registryId(owner))
-      return record?.endpoint ?? this.sparqlEndpoint
-    } catch {
-      return this.sparqlEndpoint
-    }
+  private async resolveRegistryEndpoint(storageUrl: string): Promise<string | undefined> {
+    const pod = await this.podStore.findByBaseUrl(storageUrl)
+    if (!pod) return undefined
+    const owner = (await this.podStore.getOwners(pod.id))?.[0]?.webId
+    if (!owner) return undefined
+    const record = await this.endpointStore.findSparqlByPodUrl(registryId(owner))
+    return record?.endpoint
   }
 
   public async getAuthorizationData(id: string): Promise<DatasetCore | Quad[] | undefined> {
-    const storage = await this.storageStrategy.getStorageIdentifier({ path: id })
+    let storage: { path: string }
+    try {
+      storage = await this.storageStrategy.getStorageIdentifier({ path: id })
+    } catch {
+      // not under any pod — no grants, deny
+      return undefined
+    }
     const endpoint = await this.resolveRegistryEndpoint(storage.path)
+    if (!endpoint) return undefined
 
     try {
       const bindingsStream = await this.fetcher.fetchBindings(

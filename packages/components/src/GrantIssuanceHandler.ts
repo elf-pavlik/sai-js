@@ -34,8 +34,8 @@ import {
   isAccessRevocationMessage,
   isNeedBasedAccessRequestMessage,
 } from './messages.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { SessionManager } from './SessionManager'
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 import { Temporal } from './temporal/client.js'
 import { storeGrant } from './temporal/workflows/grants.js'
 
@@ -47,8 +47,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
     private readonly sessionManager: SessionManager,
-    private readonly sparqlEndpoint: string,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore
   ) {
     super()
   }
@@ -79,11 +78,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
     if (isAccessRevocationMessage(message)) {
-      return new GrantRevocationHandler(
-        this.sparqlEndpoint,
-        this.sessionManager,
-        this.endpointStore
-      ).revoke(message, credentials, operation)
+      return new GrantRevocationHandler(this.endpointStore, this.sessionManager).revoke(
+        message,
+        credentials,
+        operation
+      )
     }
     if (isNeedBasedAccessRequestMessage(message)) {
       return this.acceptNeedBasedAccessRequest(message, credentials)
@@ -246,11 +245,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('invalid grantedBy')
     }
-    // the delegable grant lives in the data owner's registry pod, not the
-    // shared dataset — resolve it from the grant IRI
-    const endpoint =
-      (await this.endpointStore.findByIri(grant.id!))?.endpoint ?? this.sparqlEndpoint
-    if (!(await findDelegableGrant(localSparqlTransport(endpoint), grant))) {
+    // the delegable grant lives in the data owner's registry pod — resolve it
+    // from the grant IRI (fail closed when there is no record)
+    const record = await this.endpointStore.findSparqlByIri(grant.id!)
+    if (!record) throw new Error(`no SPARQL endpoint for grant ${grant.id}`)
+    if (!(await findDelegableGrant(localSparqlTransport(record.endpoint), grant))) {
       // TODO: change to UnprocessableEntityHttpError
       throw new BadRequestHttpError('no grant available for delegation')
     }

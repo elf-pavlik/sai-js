@@ -11,21 +11,11 @@ PREFIX oidc: <http://www.w3.org/ns/solid/oidc#>
 PREFIX space: <http://www.w3.org/ns/pim/space#>
 PREFIX shapetrees: <https://data/shapetrees/trees/>
 PREFIX pm: <https://vocab.example/project-management/>
-PREFIX uuid: <urn:uuid>
+PREFIX uuid: <urn:uuid:>
 PREFIX st: <http://www.w3.org/ns/shapetrees#>
 PREFIX solidshapes: <https://data/shapetrees/shapes/>
 PREFIX ma: <http://www.w3.org/ns/ma-ont#>
 
-
-GRAPH <https://registry/> {
-  <https://registry/>
-    ldp:contains
-      <https://registry/acme/>,
-      <https://registry/alice/>,
-      <https://registry/bob/>,
-      <https://registry/kim/> ,
-      <https://registry/dan/>.
-}
 
 GRAPH <meta:https://registry/acme/> {
   <https://registry/acme/>

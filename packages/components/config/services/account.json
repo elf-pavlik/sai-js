@@ -8,7 +8,7 @@
     {
       "@id": "urn:sai:default:AccountService",
       "@type": "AccountService",
-      "sparqlEndpoint": { "@id": "urn:solid-server:default:variable:sparqlEndpoint" },
+      "fusekiBaseUrl": { "@id": "urn:sai:default:variable:fusekiBaseUrl" },
       "postgresConnectionString": { "@id": "urn:sai:default:variable:postgresConnectionString" },
       "tableName": "key_value",
       "issuer": { "@id": "urn:solid-server:default:variable:baseUrl" },

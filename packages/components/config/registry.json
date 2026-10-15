@@ -26,7 +26,7 @@
     "css:config/ldp/metadata-writer/default.json",
     "css:config/ldp/modes/default.json",
     "css:config/storage/backend/sparql.json",
-    "sai:config/storage/sparql-endpoints.json",
+    "sai:config/storage/pod-endpoints.json",
     "sai:config/storage/routed-sparql.json",
     "sai:config/storage/key-value/memory.json",
     "sai:config/storage/key-value/postgres.json",
@@ -39,6 +39,7 @@
     "css:config/util/representation-conversion/default.json",
     "css:config/util/resource-locker/memory.json",
     "css:config/util/variables/default.json",
+    "sai:config/overrides/disable-v6-migration.json",
     "sai:config/overrides/disable-ui.json"
   ]
 }

@@ -18,8 +18,8 @@ import { type IBindings, SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
 import { getLoggerFor } from 'global-logger-factory'
 import { Store } from 'n3'
 
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { SaiAuthorizationManager } from './SaiAuthorizationManager.js'
-import type { SparqlEndpointStore } from './SparqlEndpointStore.js'
 
 enum TargetType {
   Registry = 'Registry',
@@ -33,20 +33,21 @@ export class SaiPermissionsEngine implements PolicyEngine {
 
   constructor(
     protected readonly manager: SaiAuthorizationManager,
-    private readonly sparqlEndpoint: string,
     private readonly storageStrategy: StorageLocationStrategy,
-    private readonly endpointStore: SparqlEndpointStore
+    private readonly endpointStore: PodEndpointStore
   ) {}
 
   /** The dataset that holds the resource's own graph (data pod). */
-  private async resolvePodEndpoint(resourceId: string): Promise<string> {
+  private async resolvePodEndpoint(resourceId: string): Promise<string | undefined> {
+    let podUrl: string
     try {
-      const storage = await this.storageStrategy.getStorageIdentifier({ path: resourceId })
-      const record = await this.endpointStore.findByPodUrl(storage.path)
-      return record?.endpoint ?? this.sparqlEndpoint
+      podUrl = (await this.storageStrategy.getStorageIdentifier({ path: resourceId })).path
     } catch {
-      return this.sparqlEndpoint
+      // not under any pod — no data pod to query
+      return undefined
     }
+    const record = await this.endpointStore.findSparqlByPodUrl(podUrl)
+    return record?.endpoint
   }
   /**
    * Returns the granted and denied permissions for the given input.
@@ -322,9 +323,11 @@ export class SaiPermissionsEngine implements PolicyEngine {
       (stRef) => stRef.shapeTree === childShapeTreeId
     )
     const predicate = shapeTreeReference.viaPredicate.value
+    const endpoint = await this.resolvePodEndpoint(resourceId)
+    if (!endpoint) return
     const fetcher = new SparqlEndpointFetcher()
     const bindingsStream = await fetcher.fetchBindings(
-      await this.resolvePodEndpoint(resourceId),
+      endpoint,
       `
           SELECT * WHERE {
             GRAPH ?g {?s <${predicate}> <${resourceId}> }

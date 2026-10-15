@@ -27,9 +27,10 @@
       "storage": { "@id": "urn:solid-server:default:AccountStorage" }
     },
     {
-      "@id": "urn:sai:default:SparqlEndpointStore",
-      "@type": "SparqlEndpointStore",
-      "storage": { "@id": "urn:solid-server:default:AccountStorage" }
+      "@id": "urn:sai:default:PodEndpointStore",
+      "@type": "PodEndpointStore",
+      "storage": { "@id": "urn:solid-server:default:AccountStorage" },
+      "webIdStore": { "@id": "urn:solid-server:default:WebIdStore" }
     },
     {
       "@id": "urn:solid-server:default:PrimaryParallelInitializer",
@@ -38,7 +39,7 @@
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         { "@id": "urn:sai:default:ReciprocalWebhookStore" },
         { "@id": "urn:sai:default:ActivityWebhookStore" },
-        { "@id": "urn:sai:default:SparqlEndpointStore" }
+        { "@id": "urn:sai:default:PodEndpointStore" }
       ]
     },
     {
@@ -48,7 +49,7 @@
         { "@id": "urn:sai:default:UiPushSubscriptionStore" },
         { "@id": "urn:sai:default:ReciprocalWebhookStore" },
         { "@id": "urn:sai:default:ActivityWebhookStore" },
-        { "@id": "urn:sai:default:SparqlEndpointStore" }
+        { "@id": "urn:sai:default:PodEndpointStore" }
       ]
     },
     {

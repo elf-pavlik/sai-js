@@ -1,0 +1,43 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "Base URL of the Fuseki admin/server API. Only account creation needs it (to mint the per-pod datasets and write the WebID profile); everything else resolves SPARQL endpoints from the endpoint store.",
+      "@id": "urn:sai:default:variable:fusekiBaseUrl",
+      "@type": "Variable"
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:CliExtractor",
+      "@type": "YargsCliExtractor",
+      "parameters": [
+        {
+          "@type": "YargsParameter",
+          "name": "fusekiBaseUrl",
+          "options": {
+            "demandOption": true,
+            "requiresArg": true,
+            "type": "string",
+            "describe": "Fuseki base URL (admin/server API), e.g. http://fuseki:3030"
+          }
+        }
+      ]
+    },
+    {
+      "@id": "urn:solid-server-app-setup:default:ShorthandResolver",
+      "@type": "CombinedShorthandResolver",
+      "resolvers": [
+        {
+          "CombinedShorthandResolver:_resolvers_key": "urn:sai:default:variable:fusekiBaseUrl",
+          "CombinedShorthandResolver:_resolvers_value": {
+            "@type": "KeyExtractor",
+            "key": "fusekiBaseUrl"
+          }
+        }
+      ]
+    }
+  ]
+}

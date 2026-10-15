@@ -18,6 +18,7 @@ import { S3mini } from 's3mini'
 
 export interface S3DataAccessorArgs {
   endpoint: string
+  bucket: string
   accessKeyId: string
   secretAccessKey: string
   region: string
@@ -26,7 +27,8 @@ export class S3DataAccessor implements DataAccessor {
   private readonly s3: S3mini
   public constructor(args: S3DataAccessorArgs) {
     this.s3 = new S3mini({
-      endpoint: args.endpoint,
+      // s3mini derives the bucket from the endpoint URL path
+      endpoint: `${args.endpoint.replace(/\/$/, '')}/${args.bucket}`,
       accessKeyId: args.accessKeyId,
       secretAccessKey: args.secretAccessKey,
       region: args.region,

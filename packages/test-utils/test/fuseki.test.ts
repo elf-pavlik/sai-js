@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import {
-  SHARED_DATASET,
+  ID_DATASET,
   datasetForGraph,
   datasetForPod,
   fixturePodDatasets,
@@ -44,18 +44,31 @@ describe('datasetForGraph', () => {
     expect(datasetForGraph('meta:https://data/acme-rnd/', opts)).toBe('data-acme-rnd')
   })
 
-  test('routes public / cross-pod graphs to shared', () => {
-    expect(datasetForGraph('https://registry/', opts)).toBe(SHARED_DATASET)
-    expect(datasetForGraph('https://data/shapetrees/trees/Project', opts)).toBe(SHARED_DATASET)
-    expect(datasetForGraph('https://data/test-client/public/id', opts)).toBe(SHARED_DATASET)
-    expect(datasetForGraph('https://id/alice', opts)).toBe(SHARED_DATASET)
+  test('routes id profiles to the id dataset', () => {
+    expect(datasetForGraph('https://id/alice', opts)).toBe(ID_DATASET)
+    expect(datasetForGraph('meta:https://id/alice', opts)).toBe(ID_DATASET)
+  })
+
+  test('throws for a graph that is not under a pod or the id origin', () => {
+    expect(() => datasetForGraph('https://registry/', opts)).toThrow('no dataset for graph')
+    expect(() => datasetForGraph('https://data/shapetrees/trees/Project', opts)).toThrow(
+      'no dataset for graph'
+    )
+    expect(() => datasetForGraph('https://data/test-client/public/id', opts)).toThrow(
+      'no dataset for graph'
+    )
   })
 })
 
 describe('splitFixtureByPod', () => {
   const opts = {
     podDatasets: fixturePodDatasets(
-      [{ webId: 'https://id/acme', podBaseUrls: ['https://data/acme-rnd/'] }],
+      [
+        {
+          webId: 'https://id/acme',
+          podBaseUrls: ['https://data/acme-rnd/', 'https://data/shapetrees/'],
+        },
+      ],
       'https://registry/'
     ),
   }
@@ -69,7 +82,12 @@ GRAPH <https://id/alice> { ex:me ex:p ex:o . }
 
   test('groups every graph into exactly one dataset', async () => {
     const split = await splitFixtureByPod(fixture, opts)
-    expect([...split.keys()].toSorted()).toEqual(['data-acme-rnd', 'reg-acme', 'shared'])
+    expect([...split.keys()].toSorted()).toEqual([
+      'data-acme-rnd',
+      'data-shapetrees',
+      'id',
+      'reg-acme',
+    ])
 
     const reg = split.get('reg-acme')!
     expect(reg).toContain('https://registry/acme/authorization/a1')
@@ -80,9 +98,12 @@ GRAPH <https://id/alice> { ex:me ex:p ex:o . }
     expect(data).toContain('https://data/acme-rnd/r1')
     expect(data).not.toContain('shapetrees')
 
-    const shared = split.get('shared')!
-    expect(shared).toContain('https://data/shapetrees/trees/Project')
-    expect(shared).toContain('https://id/alice')
+    const shapetrees = split.get('data-shapetrees')!
+    expect(shapetrees).toContain('https://data/shapetrees/trees/Project')
+    expect(shapetrees).not.toContain('https://id/alice')
+
+    const id = split.get('id')!
+    expect(id).toContain('https://id/alice')
   })
 })
 
@@ -120,8 +141,8 @@ GRAPH <https://registry/alice/grant/g1> { <https://registry/alice/grant/g1> a in
 
 describe('fusekiConfig', () => {
   test('renders one service + dataset per name', () => {
-    const ttl = fusekiConfig(['shared', 'reg-alice', 'data-alice-home'])
-    for (const name of ['shared', 'reg-alice', 'data-alice-home']) {
+    const ttl = fusekiConfig(['id', 'reg-alice', 'data-alice-home'])
+    for (const name of ['id', 'reg-alice', 'data-alice-home']) {
       expect(ttl).toContain(`fuseki:name "${name}"`)
       expect(ttl).toContain(`/fuseki-base/databases/${name}`)
     }

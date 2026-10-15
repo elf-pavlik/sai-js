@@ -218,7 +218,9 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
       ]
     })
     const podDatasets = fixturePodDatasets(accounts, map.prefixes['https://registry/'])
-    const datasets = yield* Effect.promise(() => splitFixtureByPod(dataset, { podDatasets }))
+    const datasets = yield* Effect.promise(() =>
+      splitFixtureByPod(dataset, { podDatasets, idOrigin: map.prefixes['https://id/'] })
+    )
 
     yield* Effect.promise(() => pg.seedKeyValue(kvData))
     yield* Effect.promise(async () => {

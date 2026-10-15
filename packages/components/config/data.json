@@ -5,10 +5,10 @@
     "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
   ],
   "import": [
-    "css:config/app/init/initialize-root.json",
+    "css:config/app/init/static-root.json",
     "css:config/app/main/default.json",
     "css:config/app/variables/default.json",
-    "sai:config/variables/data.json",
+    "sai:config/variables/s3.json",
     "sai:config/variables/origins.json",
     "css:config/http/handler/default.json",
     "css:config/http/middleware/default.json",
@@ -30,7 +30,7 @@
     "sai:config/storage/key-value/memory.json",
     "sai:config/storage/key-value/postgres.json",
     "sai:config/storage/hybrid.json",
-    "sai:config/storage/sparql-endpoints.json",
+    "sai:config/storage/pod-endpoints.json",
     "sai:config/storage/routed-sparql.json",
     "css:config/storage/location/pod.json",
     "css:config/storage/middleware/default.json",
@@ -43,6 +43,7 @@
     "css:config/storage/backend/data-accessors/file.json",
     "css:config/storage/backend/data-accessors/sparql-endpoint.json",
     "sai:config/policy/engine.json",
+    "sai:config/overrides/disable-v6-migration.json",
     "sai:config/overrides/disable-ui.json"
   ]
 }

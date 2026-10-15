@@ -13,7 +13,7 @@ const jsonld = (jsonldNs as any).default ?? jsonldNs
 
 const idOrigin = process.env.ID_ORIGIN
 const docOrigin = process.env.DOC_ORIGIN
-const sparqlEndpoint = process.env.CSS_SPARQL_ENDPOINT
+const sparqlEndpoint = process.env.CSS_ID_SPARQL_ENDPOINT
 
 if (!idOrigin || !docOrigin || !sparqlEndpoint) throw new Error('env missing!')
 

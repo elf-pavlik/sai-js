@@ -156,4 +156,28 @@ describe('seedObjectEndpoints', () => {
       secretAccessKey: 'secret-existing',
     })
   })
+
+  test("names the bucket after the pod's sparqlEndpoint dataset when the URLs differ", async () => {
+    const state = freshState()
+    vi.stubGlobal('fetch', garageFetch(state))
+
+    const kv = {
+      'accounts/data/acc-1': {
+        id: 'acc-1',
+        '**pod**': { p1: { baseUrl: 'https://vuejectron.data.docker/', accountId: 'acc-1' } },
+        '**sparqlEndpoint**': {
+          e1: {
+            accountId: 'acc-1',
+            podUrl: 'https://vuejectron.data.docker/',
+            endpoint: 'http://fuseki:3030/data-test-client/sparql',
+            id: 'e1',
+          },
+        },
+      },
+    }
+
+    const byPodUrl = await seedObjectEndpoints(kv, options)
+
+    expect(byPodUrl.get('https://vuejectron.data.docker/')?.bucket).toBe('data-test-client')
+  })
 })

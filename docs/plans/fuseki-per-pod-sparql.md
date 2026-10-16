@@ -43,6 +43,18 @@
 > reads treat the root as "no ACR"). The fixture's shapetrees `uuid:` prefix is
 > fixed (`<urn:uuid>` → `<urn:uuid:>`).
 >
+> **Follow-up (subdomain `static-root` collision).** `static-root` + the
+> **subdomain** identifier strategy (dev compose and the production
+> `services/css/data.json`) collide at the path level: a pod root is `/` on a
+> subdomain (`alice-home.data.docker/`), and CSS's `StaticAssetHandler` matches
+> on the path only, so it shadowed every pod root container with the landing
+> page (never visible on the path-based test server, where pod roots are
+> `/pod/`). Fixed with `RootStaticAssetGuard`
+> (`packages/components/src/RootStaticAssetGuard.ts`), which wraps
+> `StaticAssetHandler` and refuses only the exact root path on a base-host
+> subdomain so the request falls through to the LDP handler; wired via
+> `config/overrides/base-http-handler.json` in `sai:config/data.json`.
+>
 > **Prerequisites** (both already landed or tracked elsewhere):
 > - `isolated-datasets-and-sparql.md` **4a** — endpoint records in
 >   `AccountLoginStorage`, `SessionManager` lookup, endpoint-store resolution
@@ -422,6 +434,19 @@ Fixes required to make the split green end-to-end (each landed):
 - **AA data-plane reads** (`components/src/services/Authorization.ts`):
   `findUserDataRegistrations` / `generateSourceDataGrants` read data
   registrations from the context's pods (allowlist), not `registrySet`.
+- **Own data-registry listing** (`components/src/services/DataRegistry.ts`):
+  `buildDataRegistry` resolves each `hasDataRegistry` IRI through
+  `sparqlTransportForPod` — the registry's `ldp:contains` listing and the
+  registration graphs live in the data pod's dataset, so the registry-plane
+  transport (`sparqlTransportFor`) listed nothing (data registries showed, but
+  with zero registrations).
+- **Empty data registrations** (`packages/data-model/src/data-registration.ts`):
+  `fromJsonLd` defaults `contains` to `[]`. A registration with no instances has
+  no `ldp:contains` triples (CSS stores containment in the resource graph and
+  metadata in `meta:`), so framing omitted the key and `listDataInstances` /
+  grant generation crashed iterating it. Also added the missing
+  resource-graph `ldp:contains` for the fixture's `alice-work/btze4a` (Task)
+  registration, whose three instances existed only as `pm:hasTask` references.
 - **`PostgresKeyValueStorage.entries`** (first caller = `findSparqlByIri`):
   `postgres@3.x` cursors expose no `.close()` and yield **batches of row
   objects** (`{ key, value }`), not `[key, value]` tuples.

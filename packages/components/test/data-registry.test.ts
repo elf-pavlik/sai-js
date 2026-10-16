@@ -1,5 +1,6 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
-import { describe, expect, test } from 'vitest'
+import { toStore } from '@janeirodigital/interop-utils'
+import { describe, expect, test, vi } from 'vitest'
 
 import type { ResolvedContext } from '../src/services/Context.js'
 import { getDataRegistries } from '../src/services/DataRegistry.js'
@@ -51,6 +52,7 @@ function mockResponse(body: unknown, status = 200, contentType = 'application/ld
 }
 
 const sparqlAdminUrl = `${new URL(ORG_AA).origin}/.sai/sparql-admin/${Buffer.from(ORG_WEBID).toString('base64url')}`
+const sparqlAdminPodUrl = `${sparqlAdminUrl}?pod=${encodeURIComponent(DATA_REGISTRY)}`
 
 /** Storage-description discovery header served on HEAD of the data registry. */
 const storageLink = `<${STORAGE}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
@@ -75,7 +77,7 @@ describe('getDataRegistries — org context lists own data registries via /sparq
     const sessionFetch = async (url: string, init?: RequestInit) => {
       requests.push({ url, init })
       if (url === ORG_WEBID) return mockResponse(orgProfileDoc)
-      if (url === sparqlAdminUrl) {
+      if (url === sparqlAdminPodUrl) {
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
           // the SPARQL listing must read the server-managed ldp:contains
@@ -132,7 +134,53 @@ describe('getDataRegistries — org context lists own data registries via /sparq
         count: 0,
       }),
     ])
-    const sparqlRequests = requests.filter((request) => request.url === sparqlAdminUrl)
+    const sparqlRequests = requests.filter((request) => request.url === sparqlAdminPodUrl)
     expect(sparqlRequests).toHaveLength(2)
+  })
+})
+
+describe('getDataRegistries — personal context reads each data registry from its own pod', () => {
+  test('resolves the data pod endpoint, not the registry endpoint', async () => {
+    const registrationStore = toStore(registrationDoc)
+    const transport = {
+      fetchBindings: async () => [{ child: { termType: 'NamedNode', value: DATA_REG } }],
+      fetchTriples: async () => registrationStore,
+    }
+    const podTransport = vi.fn(() => transport)
+    const sessionFetch = async (url: string) => {
+      if (url === DATA_REGISTRY) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: (name: string) => (name.toLowerCase() === 'link' ? storageLink : null),
+          },
+          json: async () => ({}),
+          text: async () => '',
+        } as unknown as Response
+      }
+      if (url === STORAGE) return mockResponse(storageDescriptionDoc)
+      if (url === SHAPE_TREE) {
+        return mockResponse({ '@id': SHAPE_TREE, 'http://www.w3.org/ns/shapetrees#references': [] })
+      }
+      throw new Error(`unexpected request: ${url}`)
+    }
+    const session = {
+      fetch: sessionFetch,
+      sparqlTransportFor: podTransport,
+    } as unknown as AuthorizationAgent
+    const ctx = {
+      session,
+      webId: USER_WEBID,
+      userWebId: USER_WEBID,
+      registrySet: { hasDataRegistry: [{ id: DATA_REGISTRY }] },
+    } as unknown as ResolvedContext
+
+    const registries = await getDataRegistries(ctx, USER_WEBID, '')
+
+    expect(podTransport).toHaveBeenCalledWith(DATA_REGISTRY)
+    expect(registries[0].registrations).toEqual([
+      expect.objectContaining({ id: DATA_REG, shapeTree: SHAPE_TREE, dataRegistry: DATA_REGISTRY }),
+    ])
   })
 })

@@ -2630,6 +2630,14 @@ GRAPH <meta:https://data/alice-work/btze4a/> {
     interop:registeredShapeTree shapetrees:Task .
 }
 
+GRAPH <https://data/alice-work/btze4a/> {
+  <https://data/alice-work/btze4a/>
+    ldp:contains
+      <https://data/alice-work/btze4a/y48odn>,
+      <https://data/alice-work/btze4a/jvdl8x>,
+      <https://data/alice-work/btze4a/m2k7wp> .
+}
+
 GRAPH <meta:https://data/alice-work/btze4a/y48odn> {
   <https://data/alice-work/btze4a/y48odn>
     a ldp:Resource .

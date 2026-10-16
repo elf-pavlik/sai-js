@@ -6,7 +6,6 @@ import * as NodeContext from '@effect/platform-node/NodeContext'
 import * as Runtime from '@effect/platform-node/NodeRuntime'
 import {
   Postgres,
-  fixturePodDatasets,
   seedFusekiDataset,
   seedObjectEndpoints,
   splitFixtureByPod,
@@ -39,7 +38,7 @@ const mapPaths = {
 }
 
 const encode = (str: string): string => Buffer.from(str).toString('base64url')
-const graphRegExp = /GRAPH <(https?:\/\/[^>]+)> \{/
+const graphRegExp = /GRAPH <((?:meta:)?https?:\/\/[^>]+)> \{/
 
 const algorithmArg = Args.text({ name: 'algorithm' }).pipe(
   Args.withDescription(
@@ -142,11 +141,20 @@ const generateRegistry = (path: string, env: string): Effect.Effect<string, Erro
       }
 
       const lines = content.split(/\r?\n/)
+      // for graph IRIs the `meta:`-prefixed mappings must win: a graph
+      // `<meta:X>` is the data-server metadata of X, and X may also map
+      // separately (e.g. the test-client document maps to the app origin while
+      // its `meta:` graph maps to the data pod). Non-meta mappings would
+      // otherwise rewrite the inner X first and leave the graph outside any pod.
+      const graphPrefixes = [
+        ...Object.entries(map.prefixes).filter(([key]) => key.startsWith('meta:')),
+        ...Object.entries(map.prefixes).filter(([key]) => !key.startsWith('meta:')),
+      ]
       const result = lines
         .map((line) => {
           let updated = line
           if (line.match(graphRegExp)) {
-            for (const [oldUrl, newUrl] of Object.entries(map.prefixes)) {
+            for (const [oldUrl, newUrl] of graphPrefixes) {
               updated = updated.split(oldUrl).join(newUrl)
             }
           } else {
@@ -222,16 +230,13 @@ const seedEnvCommand = Command.make('seed-env', { env: envOption }, ({ env }) =>
     const map = JSON.parse(readFileSync(mapPaths[env as keyof typeof mapPaths], 'utf-8')) as {
       prefixes: Record<string, string>
     }
-    const accounts = Object.values(kvData).flatMap((value: any) => {
-      if (!value || !value['**pod**']) return []
-      return [
-        {
-          webId: (Object.values(value['**webIdLink**'])[0] as any).webId,
-          podBaseUrls: Object.values(value['**pod**']).map((pod: any) => pod.baseUrl),
-        },
-      ]
-    })
-    const podDatasets = fixturePodDatasets(accounts, map.prefixes['https://registry/'])
+    const podDatasets = new Map<string, string>()
+    for (const value of Object.values(kvData) as any[]) {
+      for (const record of Object.values<any>(value?.['**sparqlEndpoint**'] ?? {})) {
+        const [datasetName] = new URL(record.endpoint).pathname.split('/').filter(Boolean)
+        podDatasets.set(record.podUrl, datasetName)
+      }
+    }
     const datasets = yield* Effect.promise(() =>
       splitFixtureByPod(dataset, { podDatasets, idOrigin: map.prefixes['https://id/'] })
     )

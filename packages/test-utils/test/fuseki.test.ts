@@ -29,6 +29,15 @@ describe('fixturePodDatasets', () => {
     expect(podDatasets.get('https://registry/acme/')).toBe('reg-acme')
     expect(podDatasets.get('https://data/acme-rnd/')).toBe('data-acme-rnd')
   })
+
+  test('derives the registry pod from a subdomain WebID (dev/demo form)', () => {
+    const datasets = fixturePodDatasets(
+      [{ webId: 'https://acme.id.docker', podBaseUrls: ['https://acme-rnd.data.docker/'] }],
+      'https://reg.docker/'
+    )
+    expect(datasets.get('https://reg.docker/acme/')).toBe('reg-acme')
+    expect(datasets.get('https://acme-rnd.data.docker/')).toBe('data-acme-rnd')
+  })
 })
 
 describe('datasetForGraph', () => {

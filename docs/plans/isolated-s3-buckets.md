@@ -187,6 +187,21 @@ key names equal the pod's Fuseki dataset name (`data-<pod>`).
   `http://localhost:3903` (token read from `garage/garage.toml`), then seeds the
   mapped fixture.
 
+Two pre-existing dev/demo-seed bugs surfaced while wiring this (the fixture is
+split per pod now):
+
+- **Dataset names must come from the fixture's own `sparqlEndpoint` records**,
+  not from the mapped pod URL — the dev/demo map renames the test-client pod
+  (`test-client` → `vuejectron.data.docker`) while its dataset stays
+  `data-test-client` (as its endpoint record and the Fuseki config say).
+  `seed-env` and `seedObjectEndpoints` both read the dataset name from the
+  endpoint record.
+- **`meta:` graphs must be mapped with `meta:` prefixes first.** `graphRegExp`
+  only matched non-`meta` graph IRIs, so `<meta:…>` lines took the generic
+  path and a non-`meta` mapping rewrote the inner IRI first
+  (`meta:https://data/test-client/public/id` → `meta:https://vuejectron.docker/id`,
+  outside any pod).
+
 ## Env / worker
 
 - **Worker** needs `CSS_GARAGE_ADMIN_TOKEN` (from `garage/garage.toml`) and a

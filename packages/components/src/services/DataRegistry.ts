@@ -27,6 +27,7 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   listContained,
   sparqlTransportFor,
+  sparqlTransportForPod,
 } from './queries/org.js'
 import {
   findSocialAgentRegistrationInContext,
@@ -38,7 +39,11 @@ const buildDataRegistry = async (
   descriptionsLang: string,
   ctx: ResolvedContext
 ) => {
-  const transport = sparqlTransportFor(ctx)
+  // the data registry's container + registration graphs live in the data pod's
+  // own dataset, not the registry pod's — the registry transport would list
+  // nothing (the per-pod split). Resolve the pod-specific endpoint through the
+  // context allowlist (personal: session, org: `/sparql-admin?pod=`).
+  const transport = sparqlTransportForPod(ctx, registry.id)
   const iris = await listContained(transport, registry.id)
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
   for (const iri of iris) {

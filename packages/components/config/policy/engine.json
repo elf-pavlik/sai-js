@@ -14,18 +14,6 @@
       "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" },
       "podStore": { "@id": "urn:solid-server:default:PodStore" },
       "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
-    },
-    {
-      "@id": "urn:sai:default:OverrideBaseHttpHandler",
-      "@type": "Override",
-      "overrideInstance": { "@id": "urn:solid-server:default:BaseHttpHandler" },
-      "overrideSteps": [
-        {
-          "@type": "OverrideListRemove",
-          "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
-          "overrideTarget": { "@id": "urn:solid-server:default:AuthResourceHttpHandler" }
-        }
-      ]
     }
   ]
 }

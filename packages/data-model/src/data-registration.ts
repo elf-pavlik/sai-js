@@ -16,8 +16,16 @@ export type DataRegistrationData = DataRegistrationId & {
 const DATA_REGISTRATION_TERMS = ['registeredShapeTree', 'contains']
 
 export async function fromJsonLd(doc: unknown, id: string): Promise<DataRegistrationData> {
+  // `@container: '@set'` guarantees an array for values that are present, but
+  // framing omits a property with no values (`buildFrame` sets
+  // `@omitDefault: true` on every term). A registration with no instances has
+  // no `ldp:contains` triples, so the frame supplies `@default: []` for
+  // `contains` — the framed node is always an array, matching the type
+  // (JSON-LD 1.1 Framing: `@default` + `@omitDefault`).
   return selectNode(
-    await frameNode(doc, dataModelContext, id),
+    await frameNode(doc, dataModelContext, id, {
+      contains: { '@embed': '@never', '@default': [] },
+    }),
     DATA_REGISTRATION_TERMS
   ) as unknown as DataRegistrationData
 }

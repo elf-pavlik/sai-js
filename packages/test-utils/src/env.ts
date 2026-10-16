@@ -19,7 +19,9 @@ export async function seedFusekiDataset(datasetBaseUrl: string, data: string): P
     },
     body: data,
   })
-  if (!response.ok) throw new Error('seeding fuseki dataset failed')
+  if (!response.ok) {
+    throw new Error(`seeding fuseki dataset ${datasetBaseUrl} failed (${response.status})`)
+  }
 }
 
 /**
@@ -35,5 +37,7 @@ export async function dropFusekiDataset(datasetBaseUrl: string): Promise<void> {
     },
     body: 'DROP ALL',
   })
-  if (!response.ok) throw new Error('dropping fuseki dataset failed')
+  if (!response.ok) {
+    throw new Error(`dropping fuseki dataset ${datasetBaseUrl} failed (${response.status})`)
+  }
 }

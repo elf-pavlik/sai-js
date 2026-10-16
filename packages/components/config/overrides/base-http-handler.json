@@ -1,0 +1,41 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/asynchronous-handlers/^1.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "Guards CSS's static handler against the subdomain pod-root collision: with the subdomain identifier strategy a pod root is `/` on a subdomain, so the path-only StaticAssetHandler would otherwise shadow every pod root container with the landing page. Only the exact root path on a pod subdomain is refused; all other static assets (and the base host root) fall through to StaticAssetHandler.",
+      "@id": "urn:sai:default:RootStaticAssetGuard",
+      "@type": "RootStaticAssetGuard",
+      "handler": { "@id": "urn:solid-server:default:StaticAssetHandler" },
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" }
+    },
+    {
+      "comment": "Data-server BaseHttpHandler tweaks: CSS's AuthResourceHttpHandler is dropped (accounts are served by the auth server), and StaticAssetHandler is swapped for RootStaticAssetGuard so a subdomain pod root reaches the LDP handler instead of the static landing page.",
+      "@id": "urn:sai:default:OverrideBaseHttpHandler",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:BaseHttpHandler" },
+      "overrideSteps": [
+        {
+          "@type": "OverrideListRemove",
+          "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
+          "overrideTarget": { "@id": "urn:solid-server:default:AuthResourceHttpHandler" }
+        },
+        {
+          "@type": "OverrideListRemove",
+          "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
+          "overrideTarget": { "@id": "urn:solid-server:default:StaticAssetHandler" }
+        },
+        {
+          "@type": "OverrideListInsertAt",
+          "overrideParameter": { "@id": "StatusWaterfallHandler:_handlers" },
+          "overrideTarget": { "@value": "0" },
+          "overrideValue": { "@id": "urn:sai:default:RootStaticAssetGuard" }
+        }
+      ]
+    }
+  ]
+}

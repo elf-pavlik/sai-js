@@ -60,7 +60,10 @@ export function fixturePodDatasets(
 ): Map<string, string> {
   const map = new Map<string, string>()
   for (const account of accounts) {
-    const handle = account.webId.split('/').filter(Boolean).pop()!
+    // the WebID can be path-based (`https://id/alice`) or subdomain
+    // (`https://alice.id.docker`, the mapped dev/demo form) — `podName`
+    // handles both
+    const handle = podName(account.webId)
     const registryPod = `${registryOrigin}${handle}/`
     map.set(registryPod, datasetForPod(registryPod, 'registry'))
     for (const baseUrl of account.podBaseUrls) {

@@ -83,14 +83,24 @@ async function admin<T>(
  * `kv` (in place). Returns `podUrl → credentials` so callers can seed pod
  * objects (e.g. the test client document).
  *
- * The bucket/key name is the pod's Fuseki dataset name (`data-<pod>`), so the
- * object plane and the SPARQL plane share one naming scheme.
+ * The bucket/key name is the pod's Fuseki dataset name — taken from the
+ * fixture's own `sparqlEndpoint` record when present (the runtime resolves pods
+ * through those, and the dev/demo map can rename a pod while its dataset stays
+ * canonical), falling back to `datasetForPod`.
  */
 export async function seedObjectEndpoints(
   kv: Record<string, any>,
   options: SeedObjectEndpointsOptions
 ): Promise<Map<string, ObjectEndpointSeed>> {
   const byPodUrl = new Map<string, ObjectEndpointSeed>()
+
+  const datasetByPodUrl = new Map<string, string>()
+  for (const accountData of Object.values(kv)) {
+    for (const record of Object.values<any>((accountData as any)?.['**sparqlEndpoint**'] ?? {})) {
+      const [dataset] = new URL(record.endpoint).pathname.split('/').filter(Boolean)
+      datasetByPodUrl.set(record.podUrl, dataset)
+    }
+  }
 
   // list once; created resources are added to these maps
   const buckets = await admin<BucketInfo[]>(options, 'GET', '/v2/ListBuckets')
@@ -143,7 +153,7 @@ export async function seedObjectEndpoints(
     const records: Record<string, StoredObjectEndpoint> = {}
     for (const pod of Object.values<any>(pods)) {
       const podUrl: string = pod.baseUrl
-      const bucket = datasetForPod(podUrl, 'data')
+      const bucket = datasetByPodUrl.get(podUrl) ?? datasetForPod(podUrl, 'data')
       const bucketInfo = await ensureBucket(bucket)
       const keyInfo = await ensureKey(bucket)
       await admin(options, 'POST', '/v2/AllowBucketKey', {

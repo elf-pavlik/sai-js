@@ -15,13 +15,12 @@ import {
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
-  LDP,
   type LanguageMap,
   type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
   iriForContained,
-  linkedIrisJsonLd,
+  containedIrisJsonLd,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -33,7 +32,7 @@ export async function getActivityIris(
   data: ActivityRegistryData,
   fetch: WhatwgFetch
 ): Promise<string[]> {
-  return linkedIrisJsonLd(data.id, fetch, LDP.contains)
+  return containedIrisJsonLd(data.id, fetch)
 }
 
 /**

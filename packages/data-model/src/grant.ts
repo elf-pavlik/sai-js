@@ -53,6 +53,7 @@ export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
 }
 
 export function dataRegistryIri(grant: GrantData): string {
-  const parts = grant.hasDataRegistration.split('/')
-  return `${parts.slice(0, -2).join('/')}/`
+  // `hasStorage` is the data registry (pod) IRI and does not depend on the
+  // registration's URI path — flat identifiers are directly under the pod.
+  return grant.hasStorage
 }

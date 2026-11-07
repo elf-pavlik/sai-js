@@ -90,9 +90,9 @@ describe('getApplications — org context lists applications via /sparql-admin',
         if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must read the server-managed ldp:contains
+          // the flat registry listing must read lws:contains
           // of the dedicated application registry container
-          expect(query).toContain('ldp#contains')
+          expect(query).toContain('lws#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },
@@ -121,7 +121,7 @@ describe('getApplications — org context lists applications via /sparql-admin',
       },
     ])
     // profile dereferences the client-id document over HTTP — one webid
-    // profile + one listing + one body read
+    // profile + one ldp:contains listing + one body read
     expect(requests.filter((request) => request.url === sparqlAdminUrl)).toHaveLength(2)
   })
 })
@@ -157,8 +157,8 @@ describe('getSocialAgentInvitations — org context lists invitations via /sparq
         if (url !== sparqlAdminUrl) throw new Error(`unexpected request: ${url}`)
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must read the invitation registry's ldp:contains
-          expect(query).toContain('ldp#contains')
+          // the flat invitation registry listing must read lws:contains
+          expect(query).toContain('lws#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },

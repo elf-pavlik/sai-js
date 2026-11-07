@@ -37,8 +37,13 @@ import {
 import type * as S from 'effect/Schema'
 
 import type { ResolvedContext } from './Context.js'
-import { fetchPeerDocument, peerInstanceNode } from './peerProxy.js'
-import { getDataAuthorization, listContained, sparqlTransportFor } from './queries/org.js'
+import { fetchPeerDocument, peerInstanceNode, peerRegistrationOfInstance } from './peerProxy.js'
+import {
+  getDataAuthorization,
+  containingContainer,
+  listContained,
+  sparqlTransportFor,
+} from './queries/org.js'
 import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
 /**
@@ -102,7 +107,14 @@ async function orgContextDataInstance(
   iri: string,
   lang: string
 ): Promise<DataInstanceData> {
-  const registrationIri = `${iri.split('/').slice(0, -1).join('/')}/`
+  // peer data: the instance lives on the peer's server, outside the context's
+  // endpoint allowlist — resolve its registration from the grants the context
+  // holds, asking the peer which registration contains the instance
+  const registrationIri =
+    (await containingContainer(ctx, iri)) ?? (await peerRegistrationOfInstance(ctx, iri))
+  if (!registrationIri) {
+    throw new Error(`cannot resolve the data registration of ${iri}`)
+  }
   const registration = await DataRegistration.fromJsonLd(
     await fetchPeerDocument(ctx.session, ctx.webId, registrationIri),
     registrationIri
@@ -121,7 +133,7 @@ async function orgContextDataInstance(
 
 export const getResource = async (ctx: ResolvedContext, id: string, lang: string) => {
   const resource = await (ctx.webId === ctx.userWebId
-    ? loadDataInstance(id, ctx.session.fetch, undefined, lang)
+    ? loadDataInstance(id, ctx.session.fetch, undefined, lang, await containingContainer(ctx, id))
     : orgContextDataInstance(ctx, id, lang))
   if (!resource) throw new Error(`Resource not found: ${id}`)
   const shapeTree = await loadShapeTree(resource.shapeTreeIri!, ctx.session.fetch)

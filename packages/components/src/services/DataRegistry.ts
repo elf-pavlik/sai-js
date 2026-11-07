@@ -187,7 +187,8 @@ export const listDataInstances = async (
         dataInstanceIri,
         ctx.session.fetch,
         undefined,
-        descriptionsLang
+        descriptionsLang,
+        dataRegistration.id
       )
       dataInstances.push(
         DataInstance.make({

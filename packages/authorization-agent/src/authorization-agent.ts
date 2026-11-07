@@ -32,14 +32,13 @@ const loadWebIdProfile = loader(WebIdProfile.fromJsonLd)
 const loadAdminAuthorization = loader(AdminAuthorization.fromJsonLd)
 import {
   INTEROP,
-  LDP,
   type WhatwgFetch,
   addStatement,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   getRegistrySetIri,
   iriForContained,
-  linkedIrisJsonLd,
+  containedIrisJsonLd,
   loader,
   putJsonLd,
   replaceStatement,
@@ -73,6 +72,7 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
   listContained,
+  getContainingContainer,
   localSparqlTransport,
 } from './sparql.ts'
 import type { SparqlTransport } from './sparql.ts'
@@ -344,7 +344,7 @@ export class AuthorizationAgent {
   /**
    * The context's data registration for `shapeTree` in `dataRegistryIri` —
    * via the registry plane (docs/sparql.md step 4): `listContained` (the
-   * server-managed `ldp:contains` listing) + one `getDataRegistration`
+   * data registry's `lws:contains` listing) + one `getDataRegistration`
    * graph read per registration. The container IRI targets the graph
    * directly.
    */
@@ -352,7 +352,12 @@ export class AuthorizationAgent {
     dataRegistryIri: string,
     shapeTree: string
   ): Promise<DataRegistrationData | undefined> {
-    const transport = localSparqlTransport(this.sparqlEndpoint)
+    // A data registry is a data pod: its registrations live in that pod's
+    // dataset, not in the session's registry-pod dataset. Fall back to the
+    // session endpoint for setups with a single shared store.
+    const transport = localSparqlTransport(
+      this.resolveEndpoint(dataRegistryIri) ?? this.sparqlEndpoint
+    )
     let dataRegistration: DataRegistrationData | undefined
     for (const iri of await listContained(transport, dataRegistryIri)) {
       const registration = await getDataRegistrationFromSparql(transport, iri)
@@ -362,6 +367,20 @@ export class AuthorizationAgent {
       }
     }
     return dataRegistration
+  }
+
+  /**
+   * Loads a data instance, resolving its containing registration from the
+   * pod's `lws:partOf` metadata when the instance URI does not reveal it
+   * (flat LWS storage). Falls back to the path-based parent when the instance
+   * is not under any of the session's pods.
+   */
+  private async loadDataInstance(id: string, descriptionLang?: string): Promise<DataInstanceData> {
+    const endpoint = this.resolveEndpoint(id)
+    const registrationIri = endpoint
+      ? await getContainingContainer(localSparqlTransport(endpoint), id)
+      : undefined
+    return loadDataInstance(id, this.fetch, undefined, descriptionLang, registrationIri)
   }
 
   private async bootstrap(): Promise<void> {
@@ -657,7 +676,7 @@ export class AuthorizationAgent {
   public async adminAuthorizations(
     registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
   ): Promise<AdminAuthorizationData[]> {
-    const iris = await linkedIrisJsonLd(registry.id, this.fetch, LDP.contains)
+    const iris = await containedIrisJsonLd(registry.id, this.fetch)
     const result: AdminAuthorizationData[] = []
     for (const iri of iris) {
       const adminAuthorization = await loadAdminAuthorization(iri, this.fetch)
@@ -763,7 +782,7 @@ export class AuthorizationAgent {
     ownerWebId = this.webId,
     registrySet = this.registrySet
   ): Promise<AgentWithAccess[]> {
-    const dataInstance = await loadDataInstance(dataInstanceIri, this.fetch)
+    const dataInstance = await this.loadDataInstance(dataInstanceIri)
     const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
     const agentsWithAccess: AgentWithAccess[] = []
     // the shared SPARQL listing over the authorization registry (same query
@@ -800,7 +819,8 @@ export class AuthorizationAgent {
       children: await Promise.all(
         details.children.map(async (child) => {
           const dataRegistration = await this.findDataRegistration(
-            registryOfRegistration(dataInstance.dataRegistration!.id),
+            dataInstance.dataRegistration!.partOf ??
+              registryOfRegistration(dataInstance.dataRegistration!.id),
             child.shapeTree
           )
           if (!dataRegistration) {
@@ -849,7 +869,7 @@ export class AuthorizationAgent {
 
     // TODO: ensure all agents have social agent registrations, throw error
 
-    const dataInstance = await loadDataInstance(details.resource, this.fetch)
+    const dataInstance = await this.loadDataInstance(details.resource)
     const authorizations = await Promise.all(
       agents.map(async (agent) => {
         const authorization = await this.formatAuthorization(agent, dataInstance, details)
@@ -885,7 +905,7 @@ export class AuthorizationAgent {
     ).map((obj) => obj.agent)
     const agents = requestedAgents.filter((agent) => !agentsWithAccess.includes(agent))
 
-    const dataInstance = await loadDataInstance(details.resource, this.fetch)
+    const dataInstance = await this.loadDataInstance(details.resource)
     const builds = await Promise.all(
       agents.map(async (agent) => {
         const authorization = await this.formatAuthorization(agent, dataInstance, details)

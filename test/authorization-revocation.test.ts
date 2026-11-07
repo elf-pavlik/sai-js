@@ -1,9 +1,8 @@
-import { buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
+import { buildSessionManager } from '@elfpavlik/sai-components'
 import { getDataGrantIris } from '@janeirodigital/interop-data-model'
-import { LDP, toStore } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
-import { rpcCall, rpcPayload, waitForActivityCompletion } from './util'
+import { containedCount, rpcCall, rpcPayload, waitForActivityCompletion } from './util'
 
 // C2 acceptance (user-run under dagger): the UI-shaped authorization
 // revocation. Seeded in environments/data/registry.trig: acme's authorizations
@@ -30,13 +29,8 @@ function revokePayload(authorizations: string[]) {
 }
 
 async function countContained(container: string): Promise<number> {
-  const session = await buildOidcSession(acmeId)
-  const response = await session.authFetch(container, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  expect(response.status).toBe(200)
-  const dataset = await toStore((await response.json()) as Record<string, unknown>)
-  return Array.from(dataset).filter((quad) => quad.predicate.value === LDP.contains).length
+  const session = await buildSessionManager().getSession(acmeId)
+  return containedCount(session, container)
 }
 
 describe('authorization revocation (C2)', () => {

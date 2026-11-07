@@ -1,0 +1,28 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "Flat LWS registry storage: resources are allocated with UUIDs and containment is stored as lws:contains / lws:partOf metadata, over the routed SPARQL accessor.",
+      "@id": "urn:solid-server:default:ResourceStore_Backend",
+      "@type": "HonorUuidSlugDataAccessorBasedStore",
+      "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
+      "auxiliaryStrategy": { "@id": "urn:solid-server:default:AuxiliaryStrategy" },
+      "accessor": { "@id": "urn:solid-server:default:SparqlDataAccessor" },
+      "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" },
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" }
+    },
+    {
+      "comment": "This makes it so all incoming data is converted to quad objects (the flat store writes to the SPARQL accessor, which only accepts quads).",
+      "@id": "urn:solid-server:default:ResourceStore_Converting",
+      "@type": "RepresentationConvertingStore",
+      "options_inPreferences_type": {
+        "RepresentationConvertingStore:_options_inPreferences_type_key": "internal/quads",
+        "RepresentationConvertingStore:_options_inPreferences_type_value": 1
+      }
+    }
+  ]
+}

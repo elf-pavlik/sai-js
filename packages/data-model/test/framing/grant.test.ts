@@ -21,7 +21,7 @@ describe('Grant framing', () => {
       grantedBy: 'https://id/acme',
       dataOwner: 'https://id/acme',
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
-      hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+      hasDataRegistration: 'https://data/acme-rnd/reb39k',
       hasStorage: 'https://data/acme-rnd/',
       scopeOfGrant: INTEROP.AllFromRegistry,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],

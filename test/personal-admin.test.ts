@@ -5,16 +5,14 @@ const loadGrant = loader(Grant.fromJsonLd)
 
 import {
   INTEROP,
-  LDP,
+  discoverAccessResource,
   fetchJsonLd,
-  getAcl,
-  linkedIrisJsonLd,
   loader,
   toStore,
 } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
-import { awaitEvent, openEventsStream } from './util'
+import { awaitEvent, containedIris, openEventsStream } from './util'
 
 /**
  * Phase 5 of org-admin-feature.md — personal-context add/remove: a REGULAR
@@ -90,12 +88,16 @@ const acp = {
   agent: 'http://www.w3.org/ns/solid/acp#agent',
 }
 
-/** HEAD the registry set for its ACR and fetch it as the webid — 4xx fails the test. */
+/**
+ * The registry set's ACR + its document, read as the webid — 4xx fails the
+ * test. Discovery uses `discoverAccessResource` (an explicit `Accept`): the
+ * registry set is a storage root, and a wildcard HEAD gets the LWS storage
+ * description, which has no `acl` link.
+ */
 async function fetchRegistrySetAcr(webId: string): Promise<{ acrId: string; doc: unknown }> {
   const manager = buildSessionManager()
   const session = await manager.getSession(webId)
-  const headResponse = await session.fetch(session.registrySet.id, { method: 'HEAD' })
-  const acrId = getAcl(headResponse.headers.get('link') ?? '')
+  const acrId = await discoverAccessResource(session.registrySet.id, session.fetch)
   if (!acrId) throw new Error(`no acl link on registry set: ${session.registrySet.id}`)
   return { acrId, doc: await fetchJsonLd(acrId, session.fetch) }
 }
@@ -140,7 +142,7 @@ async function adminGrantIris(webId: string, grantee: string): Promise<string[]>
   const manager = buildSessionManager()
   const session = await manager.getSession(webId)
   const registry = session.registrySet.hasGrantRegistry
-  const iris = await linkedIrisJsonLd(registry.id, session.fetch, LDP.contains)
+  const iris = await containedIris(session, registry.id)
   const adminGrants: string[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)

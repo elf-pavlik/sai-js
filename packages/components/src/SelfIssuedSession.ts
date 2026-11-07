@@ -88,6 +88,10 @@ export class SelfIssuedSession extends SessionCore {
     return new SignJWT({
       webid: this.webid,
       client_id: this.clientId,
+      // `azp` is what the LWS token exchange reads as the client: it becomes
+      // the `client_id` of the storage access token, so the SAI policy engine
+      // recognizes the request as coming from the owner's Authorization Agent.
+      azp: this.clientId,
       cnf: { jkt: thumbprint },
     })
       .setProtectedHeader({

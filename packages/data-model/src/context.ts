@@ -5,6 +5,7 @@ import {
   INTEROP,
   type JsonLdContext,
   LDP,
+  LWS,
   OIDC,
   SHAPETREES,
   SKOS,
@@ -147,8 +148,10 @@ export const dataModelContext: JsonLdContext = {
     '@container': '@set',
   },
 
-  // ldp
+  // ldp / lws containment
   contains: iriTermDef(LDP, 'contains', { set: true }),
+  lwsContains: iriTermDef(LWS, 'contains', { set: true }),
+  lwsPartOf: iriTermDef(LWS, 'partOf'),
 
   // shapetrees — node references
   shape: iriTermDef(SHAPETREES, 'shape'),

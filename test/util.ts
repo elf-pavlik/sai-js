@@ -14,6 +14,7 @@ import type {
 import {
   AS,
   RDF,
+  containedIrisJsonLd,
   getNotificationChannel,
   getOneMatchingQuad,
   toStore,
@@ -107,6 +108,29 @@ export async function localMirror(
     localSparqlTransport(session.sparqlEndpoint),
     registration.reciprocalRegistration
   )
+}
+
+/**
+ * IRIs a container lists, read through the session's storage fetch: the
+ * `ldp:contains` ∪ `lws:contains` union (`containedIrisJsonLd`). Flat LWS
+ * stores list with `lws:contains` only, so a raw `LDP.contains` read of a flat
+ * registry/data container comes back empty — use this instead (production
+ * reads the same union). Auxiliary resources (`.acr`/`.acl`/`.meta`) are not
+ * members and are filtered out by the production helper.
+ */
+export async function containedIris(
+  session: AuthorizationAgent,
+  container: string
+): Promise<string[]> {
+  return containedIrisJsonLd(container, session.fetch)
+}
+
+/** Member count of a container (see `containedIris`). */
+export async function containedCount(
+  session: AuthorizationAgent,
+  container: string
+): Promise<number> {
+  return (await containedIris(session, container)).length
 }
 
 /**

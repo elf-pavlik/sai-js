@@ -1,6 +1,6 @@
 import LinkHeader from 'http-link-header'
 
-import { INTEROP, SOLID } from './namespaces.ts'
+import { INTEROP, LWS, SOLID } from './namespaces.ts'
 
 export function getAgentRegistrationIri(linkHeaderText: string): string | undefined {
   const links = LinkHeader.parse(linkHeaderText).refs
@@ -29,6 +29,16 @@ export function getAcl(linkHeaderText: string): string | undefined {
 export function getStorageDescription(linkHeaderText: string): string | undefined {
   const links = LinkHeader.parse(linkHeaderText).refs
   return links.find((link) => link.rel === SOLID.storageDescription)?.uri
+}
+
+/**
+ * LWS, §Discovery and Binding: every response has a `Link` with relation
+ * `https://www.w3.org/ns/lws#storage` pointing to the storage the resource
+ * belongs to.
+ */
+export function getLwsStorage(linkHeaderText: string): string | undefined {
+  const links = LinkHeader.parse(linkHeaderText).refs
+  return links.find((link) => link.rel === LWS.storage)?.uri
 }
 
 export function getNotificationChannel(linkHeaderText: string): string | undefined {

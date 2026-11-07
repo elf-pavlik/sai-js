@@ -134,7 +134,28 @@ export const RDF = createVocabulary('http://www.w3.org/1999/02/22-rdf-syntax-ns#
 
 export const RDFS = createVocabulary('http://www.w3.org/2000/01/rdf-schema#', 'label')
 
-export const LDP = createVocabulary('http://www.w3.org/ns/ldp#', 'contains', 'Resource')
+export const LDP = createVocabulary(
+  'http://www.w3.org/ns/ldp#',
+  'contains',
+  'Container',
+  'BasicContainer',
+  'Resource'
+)
+
+/**
+ * Linked Web Storage vocabulary. Flat storage keeps containment in metadata:
+ * `lws:contains` on the container and `lws:partOf` on the child, independent
+ * of the URI path (https://www.w3.org/ns/lws#).
+ */
+export const LWS = createVocabulary(
+  'https://www.w3.org/ns/lws#',
+  'contains',
+  'partOf',
+  'storage',
+  'Container',
+  'DataResource',
+  'StorageResource'
+)
 
 export const ACL = createVocabulary(
   'http://www.w3.org/ns/auth/acl#',

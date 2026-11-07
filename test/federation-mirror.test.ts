@@ -23,7 +23,7 @@ describe('reciprocal mirror replication', () => {
   const bobId = 'https://id/bob'
   const kimId = 'https://id/kim'
   const applicationId = 'https://data/test-client/public/id'
-  const resource = 'https://data/alice-home/x1n3cm/n8k3wp'
+  const resource = 'https://data/alice-home/n8k3wp'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
   const readMode = 'http://www.w3.org/ns/auth/acl#Read'
 

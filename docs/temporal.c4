@@ -6387,7 +6387,7 @@ views "Authorization" {
             > Auth: Solid OIDC access token as `alice`
 
             ```http
-            GET https://data/alice-home/x1n3cm/n8k3wp
+            GET https://data/alice-home/n8k3wp
             Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
             ```
             ---
@@ -6448,7 +6448,7 @@ views "Authorization" {
                   "_tag": "ShareResource",
                   "authorization": {
                     "applicationId": "https://data/test-client/public/id",
-                    "resource": "https://data/alice-home/x1n3cm/n8k3wp",
+                    "resource": "https://data/alice-home/n8k3wp",
                     "agents": ["https://id/kim", "https://id/bob"],
                     "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
                     "children": []
@@ -6498,7 +6498,7 @@ views "Authorization" {
                   "dataOwner": "https://id/alice",
                   "hasDataRegistration": "https://data/alice-home/",
                   "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
-                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                  "hasDataInstance": ["https://data/alice-home/n8k3wp"]
                 },
                 {
                   "id": "https://registry/alice/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
@@ -6510,7 +6510,7 @@ views "Authorization" {
                   "dataOwner": "https://id/alice",
                   "hasDataRegistration": "https://data/alice-home/",
                   "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
-                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                  "hasDataInstance": ["https://data/alice-home/n8k3wp"]
                 }
               ],
               "interop:createdAt": "2024-01-01T10:00:00.000Z"
@@ -6597,7 +6597,7 @@ views "Authorization" {
                   "dataOwner": "https://id/alice",
                   "hasDataRegistration": "https://data/alice-home/",
                   "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
-                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                  "hasDataInstance": ["https://data/alice-home/n8k3wp"]
                 },
                 {
                   "id": "https://registry/alice/authorization/9b6d4e5f-2a3b-4c8d-9e0f-1a2b3c4d5e6f",
@@ -6609,7 +6609,7 @@ views "Authorization" {
                   "dataOwner": "https://id/alice",
                   "hasDataRegistration": "https://data/alice-home/",
                   "accessMode": ["http://www.w3.org/ns/auth/acl#Read"],
-                  "hasDataInstance": ["https://data/alice-home/x1n3cm/n8k3wp"]
+                  "hasDataInstance": ["https://data/alice-home/n8k3wp"]
                 }
               ],
               {
@@ -7573,7 +7573,7 @@ views "Authorization" {
               "head": { "vars": ["reg"] },
               "results": {
                 "bindings": [
-                  { "reg": { "type": "uri", "value": "https://data/alice-work/sx86hi/" } }
+                  { "reg": { "type": "uri", "value": "https://data/alice-work/sx86hi" } }
                 ]
               }
             }
@@ -7584,21 +7584,21 @@ views "Authorization" {
             PREFIX ldp: <http://www.w3.org/ns/ldp#>
 
             CONSTRUCT { ?s ?p ?o } WHERE {
-              { GRAPH <https://data/alice-work/sx86hi/> { ?s ?p ?o } }
+              { GRAPH <https://data/alice-work/sx86hi> { ?s ?p ?o } }
               UNION
-              { GRAPH <meta:https://data/alice-work/sx86hi/> { ?s ?p ?o } }
+              { GRAPH <meta:https://data/alice-work/sx86hi> { ?s ?p ?o } }
             }
             ```
 
             ```json
             {
-              "id": "https://data/alice-work/sx86hi/",
+              "id": "https://data/alice-work/sx86hi",
               "type": [
                 "http://www.w3.org/ns/ldp#Resource",
                 "http://www.w3.org/ns/solid/interop#DataRegistration"
               ],
               "contains": [
-                "https://data/alice-work/sx86hi/k3pqsb"
+                "https://data/alice-work/k3pqsb"
               ],
               "registeredShapeTree": "https://data/shapetrees/trees/Project"
             }
@@ -7647,9 +7647,9 @@ views "Authorization" {
               ],
               "registeredShapeTree": "https://data/shapetrees/trees/Project",
               "scopeOfGrant": "http://www.w3.org/ns/solid/interop#SelectedFromRegistry",
-              "hasDataRegistration": "https://data/acme-rnd/reb39k/",
+              "hasDataRegistration": "https://data/acme-rnd/reb39k",
               "hasDataInstance": [
-                "https://data/acme-rnd/reb39k/pbh2yw"
+                "https://data/acme-rnd/pbh2yw"
               ],
               "dataOwner": "https://id/acme",
               "grantee": "https://id/alice"
@@ -7875,14 +7875,14 @@ views "Authorization" {
                 "label": "https://id/alice",
                 "dataRegistrations": [
                   {
-                    "id": "https://data/alice-work/sx86hi/",
+                    "id": "https://data/alice-work/sx86hi",
                     "shapeTree": "https://data/shapetrees/trees/Project",
                     "dataRegistry": "https://data/alice-work/",
                     "count": 1,
                     "label": "https://data/alice-work/"
                   },
                   {
-                    "id": "https://data/alice-home/x1n3cm/",
+                    "id": "https://data/alice-home/x1n3cm",
                     "shapeTree": "https://data/shapetrees/trees/Project",
                     "dataRegistry": "https://data/alice-home/",
                     "count": 3,
@@ -7895,7 +7895,7 @@ views "Authorization" {
                 "label": "ACME",
                 "dataRegistrations": [
                   {
-                    "id": "https://data/acme-rnd/reb39k/",
+                    "id": "https://data/acme-rnd/reb39k",
                     "shapeTree": "https://data/shapetrees/trees/Project",
                     "count": 1,
                     "label": "https://data/acme-rnd/"

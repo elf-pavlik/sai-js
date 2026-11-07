@@ -1,0 +1,27 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": "The data service has no root storage (pods are subdomains), so the LWS subscription store uses the Postgres key-value storage instead of the root ResourceStore.",
+      "@id": "urn:sai:default:OverrideLwsSubscriptionStorage",
+      "@type": "Override",
+      "overrideInstance": {
+        "@id": "urn:solid-server:default:LwsSubscriptionStorage"
+      },
+      "overrideParameters": {
+        "@type": "LwsSubscriptionStorage",
+        "storage": {
+          "@type": "ContainerPathStorage",
+          "relativePath": "/lws/subscriptions/",
+          "source": {
+            "@id": "urn:solid-server:default:KeyValueStorage"
+          }
+        }
+      }
+    }
+  ]
+}

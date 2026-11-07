@@ -245,9 +245,9 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
  * YoYo's registration of Bob (`z3k7wm`).
  */
 describe('org context — peers’ granted data via the proxy (org-context-proxy.md)', () => {
-  const bobDataRegistration = 'https://data/bob/avn9hv/'
-  const bobNeon = 'https://data/bob/avn9hv/n3onkx'
-  const bobGlitch = 'https://data/bob/avn9hv/gl1tch'
+  const bobDataRegistration = 'https://data/bob/avn9hv'
+  const bobNeon = 'https://data/bob/n3onkx'
+  const bobGlitch = 'https://data/bob/gl1tch'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
   const taskShapeTree = 'https://data/shapetrees/trees/Task'
 

@@ -86,15 +86,29 @@ function imageBaseName(image: string): string {
 export class SaiJs {
   source: Directory
   tempoEndpoint?: string
+  css?: Directory
 
   constructor(
     @argument({ defaultPath: '.' })
     source: Directory,
     @argument()
-    tempoEndpoint?: string
+    tempoEndpoint?: string,
+    /**
+     * Optional **local** CommunitySolidServer checkout (e.g.
+     * `--css=../CommunitySolidServer`). `devbox run local-css` builds the fork
+     * and `npm link`s it, which leaves
+     * `node_modules/@solid/community-server` as a symlink to a path *outside*
+     * this repository: Dagger only ships `source`, so that link dangles in the
+     * containers and the stack would run without the fork's build. Mounting
+     * the checkout over the link target makes the local build resolvable, so
+     * CSS changes can be exercised without pushing the fork branch (CI keeps
+     * installing the pinned git ref from `package-lock.json`).
+     */
+    css?: Directory
   ) {
     this.source = source
     this.tempoEndpoint = tempoEndpoint
+    this.css = css
   }
 
   /**
@@ -103,6 +117,18 @@ export class SaiJs {
    * is unset this pins OTEL_SDK_DISABLED=true so the tracing gate cannot fall
    * back to the OTLP endpoint the Dagger engine injects for its own telemetry.
    */
+  /**
+   * A Node service/test container: the repo mounted at `/sai`, with the local
+   * CSS checkout (when `--css` is set) mounted **over** the `npm link`ed
+   * package inside it. Mounts are assembled by destination, so the more
+   * specific path wins regardless of the call order.
+   */
+  private nodeContainer(serviceName: string): Container {
+    const container = this.withTracing(dag.container().from(NODE_IMAGE), serviceName)
+    if (!this.css) return container
+    return container.withMountedDirectory('/sai/node_modules/@solid/community-server', this.css)
+  }
+
   private withTracing(container: Container, serviceName: string): Container {
     if (!this.tempoEndpoint) {
       return container.withEnvVariable('OTEL_SDK_DISABLED', 'true')
@@ -182,7 +208,7 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data-6846846848468468468486')
+    const pgData = dag.cacheVolume('temporal-pg-data-486446846846846846')
 
     const pg = dag
       .container()
@@ -264,7 +290,7 @@ export class SaiJs {
   async workerService(): Promise<Service> {
     const temporal = await this.temporalService()
     return (
-      this.withTracing(dag.container().from(NODE_IMAGE), 'sai-worker')
+      this.nodeContainer('sai-worker')
         .withMountedDirectory('/sai', this.source)
         .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
         .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
@@ -303,7 +329,7 @@ export class SaiJs {
 
   @func()
   idService(): Service {
-    return this.withTracing(dag.container().from(NODE_IMAGE), 'sai-id')
+    return this.nodeContainer('sai-id')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('ID_ORIGIN', 'id')
       .withEnvVariable('DOC_ORIGIN', 'id')
@@ -325,7 +351,7 @@ export class SaiJs {
   @func()
   async authService(): Promise<Service> {
     const temporal = await this.temporalService()
-    return this.withTracing(dag.container().from(NODE_IMAGE), 'sai-uas')
+    return this.nodeContainer('sai-uas')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/auth.json')
       .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
@@ -375,7 +401,7 @@ export class SaiJs {
   @func()
   async registryService(): Promise<Service> {
     const temporal = await this.temporalService()
-    return this.withTracing(dag.container().from(NODE_IMAGE), 'sai-registry')
+    return this.nodeContainer('sai-registry')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/registry.json')
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
@@ -408,7 +434,7 @@ export class SaiJs {
   @func()
   async dataService(): Promise<Service> {
     const temporal = await this.temporalService()
-    return this.withTracing(dag.container().from(NODE_IMAGE), 'sai-data')
+    return this.nodeContainer('sai-data')
       .withMountedDirectory('/sai', this.source)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/data.json')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
@@ -449,7 +475,7 @@ export class SaiJs {
     const worker = await this.workerService()
     const temporal = await this.temporalService()
     return (
-      this.withTracing(dag.container().from(NODE_IMAGE), 'sai-test')
+      this.nodeContainer('sai-test')
         .withMountedDirectory('/sai', this.source)
         .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
         .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)

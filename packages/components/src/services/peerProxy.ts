@@ -14,6 +14,8 @@ const loadDataRegistration = loader(DataRegistration.fromJsonLd)
 import { INTEROP, discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
 
 import type { ResolvedContext } from './Context.js'
+import { getReciprocalGrants, sparqlTransportFor } from './queries/org.js'
+import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
 /**
  * Raised by `fetchPeerDocument` when the org's AA cannot be discovered,
@@ -85,6 +87,40 @@ export async function fetchPeerDocument(
     )
   }
   return response.json()
+}
+
+/**
+ * The peer data registration an instance belongs to, for the org context.
+ *
+ * The flat store keeps containment in the peer pod's `meta:` graph
+ * (`lws:partOf`) and the instance *document* does not carry it, so a grantee
+ * can not read it: storage isolation keeps the peer pod out of the context's
+ * endpoint allowlist, and the peer's policy engine treats an auxiliary
+ * (`.meta`) read as an unknown resource (deny). Instead, ask the registrations
+ * the context's grants name — the peer's own containment is authoritative,
+ * fetched through `/proxy-admin` with the org's credentials.
+ *
+ * Returns `undefined` when no granted registration contains the instance.
+ */
+export async function peerRegistrationOfInstance(
+  ctx: ResolvedContext,
+  instanceIri: string
+): Promise<string | undefined> {
+  const transport = sparqlTransportFor(ctx)
+  const seen = new Set<string>()
+  for (const registration of await listSocialAgentRegistrations(ctx)) {
+    if (!registration.reciprocalRegistration) continue
+    const grants = await getReciprocalGrants(transport, registration.reciprocalRegistration)
+    for (const grant of grants) {
+      const candidate = grant.hasDataRegistration
+      if (!candidate || seen.has(candidate)) continue
+      seen.add(candidate)
+      if ((await dataRegistrationContains(ctx, candidate)).includes(instanceIri)) {
+        return candidate
+      }
+    }
+  }
+  return undefined
 }
 
 /**

@@ -38,8 +38,14 @@ describe('reciprocal webhook', () => {
     )
     if (!applicationRegistrationId)
       throw new Error(`could not discover application registration for ${clientId} - ${aliceId}`)
+    // the notification stream is a registry-server service path: it takes the
+    // storage's LWS token (the session fetch), not `.sai` DPoP credentials —
+    // `servicePaths` in the registry config lets the extractor accept it and
+    // the handler authorizes the decoded topic
+    const manager = buildSessionManager()
+    const aliceSession = await manager.getSession(aliceId)
     const check = await receivesNotification(
-      session.authFetch.bind(session),
+      aliceSession.fetch,
       applicationRegistrationId,
       AS.Update
     )
@@ -48,8 +54,6 @@ describe('reciprocal webhook', () => {
     // the Update was routed through the outbox: a delegatedGrantsUpdated
     // activity exists in alice's Activity Registry and is completed
     // (a completion activity references it) after the workflow ran
-    const manager = buildSessionManager()
-    const aliceSession = await manager.getSession(aliceId)
     const registry = aliceSession.registrySet.hasActivityRegistry!
     await waitFor(
       async () => {

@@ -281,7 +281,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
         dataOwner: 'https://id/alice',
         hasDataRegistration: 'https://data/alice-home/',
         accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
-        hasDataInstance: 'https://data/alice-home/x1n3cm/n8k3wp',
+        hasDataInstance: 'https://data/alice-home/n8k3wp',
       },
       createdAt: '2024-01-01T00:00:00.000Z',
     }
@@ -298,7 +298,7 @@ describe('ActivityRegistry.loadActivity — unordered type set', () => {
     expect(activity.object[0].scopeOfAuthorization).toBe(
       'http://www.w3.org/ns/solid/interop#SelectedFromRegistry'
     )
-    expect(activity.object[0].hasDataInstance).toEqual(['https://data/alice-home/x1n3cm/n8k3wp'])
+    expect(activity.object[0].hasDataInstance).toEqual(['https://data/alice-home/n8k3wp'])
   })
 
   test('embeds the InvitationCreated object — the invitation-to-be POJO with type normalized', async () => {

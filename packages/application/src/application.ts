@@ -15,6 +15,7 @@ import {
   discoverDescriptionResource,
   iriForContained,
   loader,
+  postForIri,
 } from '@janeirodigital/interop-utils'
 
 import { getDataGrants, getDataInstanceIterator, getGranted } from './grant.ts'
@@ -227,7 +228,15 @@ export class Application {
   public async iriForNew(resourceServer: string, scope: string): Promise<string> {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
-    return iriForContained({ id: grant.hasDataRegistration }, this.randomUUID)
+    const registration = grant.hasDataRegistration
+    if (registration.endsWith('/')) {
+      // Hierarchical storage: the resource IRI is minted under the registration.
+      return iriForContained({ id: registration }, this.randomUUID)
+    }
+    // Flat LWS storage: POST a UUID Slug to the registration container and use
+    // the server-assigned Location (the resource is created empty and the
+    // caller writes its representation with a follow-up PUT/PATCH).
+    return postForIri(registration, this.fetch, this.randomUUID())
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

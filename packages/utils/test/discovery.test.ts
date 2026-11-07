@@ -1,10 +1,13 @@
 import { describe, expect, test, vi } from 'vitest'
 
 import {
+  AUXILIARY_DISCOVERY_ACCEPT,
   type WhatwgFetch,
+  discoverAccessResource,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDelegationIssuanceEndpoint,
+  discoverDescriptionResource,
   discoverWebPushService,
   storageIri,
 } from '../src'
@@ -126,5 +129,82 @@ describe('storageIri', () => {
       mock as unknown as WhatwgFetch
     )
     expect(iri).toBe(storageDescriptionIri)
+  })
+
+  test('prefers the LWS storage link and the StorageRoot service', async () => {
+    const storage = 'https://home.alice.example/'
+    const mock = vi.fn(async (_input: RequestInfo, init?: RequestInit) => {
+      if (init?.method === 'HEAD') {
+        return {
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name === 'Link' ? `<${storage}>; rel="https://www.w3.org/ns/lws#storage"` : undefined,
+          },
+        } as unknown as Response
+      }
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name === 'Content-Type' ? 'application/lws+cid' : undefined),
+        },
+        json: async () => ({
+          id: storage,
+          type: 'Storage',
+          service: [{ type: 'StorageRoot', serviceEndpoint: storage }],
+        }),
+      } as unknown as Response
+    })
+
+    const iri = await storageIri(
+      { id: 'https://home.alice.example/registry/' },
+      mock as unknown as WhatwgFetch
+    )
+    expect(iri).toBe(storage)
+  })
+})
+
+describe('discoverAccessResource', () => {
+  const root = 'https://registry.example/alice/'
+
+  function headFetch(link: string) {
+    return vi.fn(
+      async () => ({ ok: true, headers: new Headers({ link }) }) as unknown as Response
+    ) as unknown as WhatwgFetch
+  }
+
+  test('sends an explicit RDF Accept so a storage root is not described', async () => {
+    const fetch = headFetch(`<${root}.acr>; rel="acl"`)
+    const acr = await discoverAccessResource(root, fetch)
+    expect(acr).toBe(`${root}.acr`)
+    // a wildcard (or absent) Accept makes a storage root answer with the LWS
+    // storage description, which carries no auxiliary links
+    expect(fetch).toHaveBeenCalledWith(root, {
+      method: 'HEAD',
+      headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+    })
+  })
+
+  test('returns undefined when the response has no acl link', async () => {
+    const fetch = headFetch(`<${root}>; rel="https://www.w3.org/ns/lws#storage"`)
+    expect(await discoverAccessResource(root, fetch)).toBeUndefined()
+  })
+})
+
+describe('discoverDescriptionResource', () => {
+  test('sends the same explicit Accept', async () => {
+    const iri = 'https://registry.example/alice/social-agent/x/'
+    const fetch = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          headers: new Headers({ link: `<${iri}.meta>; rel="describedby"` }),
+        }) as unknown as Response
+    ) as unknown as WhatwgFetch
+    expect(await discoverDescriptionResource(iri, fetch)).toBe(`${iri}.meta`)
+    expect(fetch).toHaveBeenCalledWith(iri, {
+      method: 'HEAD',
+      headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+    })
   })
 })

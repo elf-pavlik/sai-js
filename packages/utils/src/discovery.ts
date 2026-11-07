@@ -3,6 +3,7 @@ import {
   getAcl,
   getAgentRegistrationIri,
   getDescriptionResource,
+  getLwsStorage,
   getStorageDescription,
 } from './link-header.ts'
 import { INTEROP, NOTIFY, SPACE } from './namespaces.ts'
@@ -70,11 +71,26 @@ export async function discoverAgentRegistration(
   return getAgentRegistrationIri(linkHeader)
 }
 
+/**
+ * `Accept` for auxiliary-resource discovery HEADs (`rel="acl"`,
+ * `rel="describedby"`). A concrete type is required: a **storage root**
+ * answers a wildcard-only (or absent) `Accept` with the public LWS storage
+ * description (`application/lws+cid`, `wildcardDescribes`), and that response
+ * carries no auxiliary links — only the root container representation does
+ * (see `LwsStorageDescriptionHandler`). Registry sets and pods are storage
+ * roots under flat LWS, so this affects every registry-set ACL lookup. The
+ * low-quality wildcard keeps non-RDF resources discoverable.
+ */
+export const AUXILIARY_DISCOVERY_ACCEPT = 'text/turtle, application/ld+json;q=0.9, */*;q=0.1'
+
 export async function discoverDescriptionResource(
   resourceIri: string,
   fetch: WhatwgFetch
 ): Promise<string | undefined> {
-  const response = await fetch(resourceIri, { method: 'HEAD' })
+  const response = await fetch(resourceIri, {
+    method: 'HEAD',
+    headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+  })
   if (!response.ok) throw new DescriptionResourceDiscoveryError(response)
   const linkHeader = response.headers.get('Link')
   if (!linkHeader) return undefined
@@ -85,7 +101,10 @@ export async function discoverAccessResource(
   resourceIri: string,
   fetch: WhatwgFetch
 ): Promise<string | undefined> {
-  const response = await fetch(resourceIri, { method: 'HEAD' })
+  const response = await fetch(resourceIri, {
+    method: 'HEAD',
+    headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+  })
   if (!response.ok) throw new AccessResourceDiscoveryError(response)
   const linkHeader = response.headers.get('Link')
   if (!linkHeader) return undefined
@@ -103,12 +122,77 @@ export async function discoverStorageDescription(
   return getStorageDescription(linkHeader)
 }
 
+/** Media type of the LWS storage description resource (LWS, §Discovery and Binding). */
+export const LWS_STORAGE_DESCRIPTION_ACCEPT = 'application/lws+cid'
+
+/** The service type of the storage root in the LWS storage description. */
+const LWS_STORAGE_ROOT_TYPES = ['StorageRoot', 'https://www.w3.org/ns/lws#StorageRoot']
+
 /**
- * Resolve the storage IRI behind a container or registry: discover its
- * storage description resource (Link header) and find the `space:Storage`-
- * typed node in it. `data` carries the container IRI in its `id` field.
+ * Discovers the storage a resource belongs to through the LWS `storage` link
+ * relation (LWS, §Discovery and Binding).
+ */
+export async function discoverLwsStorage(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  const response = await fetch(resourceIri, { method: 'HEAD' })
+  if (!response.ok) return undefined
+  const linkHeader = response.headers.get('Link')
+  if (!linkHeader) return undefined
+  return getLwsStorage(linkHeader)
+}
+
+/** Fetches the LWS storage description (`application/lws+cid`). */
+export async function fetchLwsStorageDescription(
+  storage: string,
+  fetch: WhatwgFetch
+): Promise<Record<string, unknown> | undefined> {
+  const response = await fetch(storage, {
+    headers: { Accept: LWS_STORAGE_DESCRIPTION_ACCEPT },
+  })
+  if (!response.ok) return undefined
+  const contentType = response.headers.get('Content-Type') ?? ''
+  if (!contentType.includes(LWS_STORAGE_DESCRIPTION_ACCEPT)) return undefined
+  return (await response.json()) as Record<string, unknown>
+}
+
+/**
+ * Resolves the storage root of a resource through LWS discovery:
+ * `rel="https://www.w3.org/ns/lws#storage"` → storage description → the
+ * `StorageRoot` service entry.
+ */
+export async function lwsStorageRoot(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  const storage = await discoverLwsStorage(resourceIri, fetch)
+  if (!storage) return undefined
+  const description = await fetchLwsStorageDescription(storage, fetch)
+  if (!description) return undefined
+  const rawServices = description.service
+  const services = Array.isArray(rawServices) ? rawServices : rawServices ? [rawServices] : []
+  for (const service of services) {
+    if (!service || typeof service !== 'object') continue
+    const record = service as Record<string, unknown>
+    const types = Array.isArray(record.type) ? record.type : [record.type]
+    if (!types.some((type) => LWS_STORAGE_ROOT_TYPES.includes(type as string))) continue
+    if (typeof record.serviceEndpoint === 'string') {
+      return new URL(record.serviceEndpoint, storage).href
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolve the storage IRI behind a container or registry. Prefers LWS
+ * discovery (`rel="storage"` → `StorageRoot` service) and falls back to the
+ * Solid storage description + `space:Storage` node for servers that only
+ * speak Solid. `data` carries the container IRI in its `id` field.
  */
 export async function storageIri(data: { id: string }, fetch: WhatwgFetch): Promise<string> {
+  const lws = await lwsStorageRoot(data.id, fetch).catch(() => undefined)
+  if (lws) return lws
   const storageDescriptionIri = await discoverStorageDescription(data.id, fetch)
   if (!storageDescriptionIri) {
     throw new Error(`cannot discover storage description for ${data.id}`)

@@ -45,17 +45,23 @@ export async function computeChildren(
  * read formerly `ApplicationFactory.dataInstance`: resolves the instance's
  * data registration, its shape tree, and (with `descriptionLang`) the
  * instance's label and children.
+ *
+ * `registrationIri` is the instance's containing data registration. Flat LWS
+ * storage does not encode it in the instance URI, so callers that know it
+ * (or can read `lws:partOf` from the pod) should pass it; otherwise the
+ * hierarchical parent container is used as a fallback.
  */
 export async function loadDataInstance(
   id: string,
   fetch: WhatwgFetch,
   shapeTreeIri?: string,
-  descriptionLang?: string
+  descriptionLang?: string,
+  registrationIri?: string
 ): Promise<DataInstanceData> {
   let dataRegistration: DataRegistrationData | undefined
   let resolvedShapeTreeIri = shapeTreeIri
   if (!resolvedShapeTreeIri) {
-    const dataRegistrationIri = `${id.split('/').slice(0, -1).join('/')}/`
+    const dataRegistrationIri = registrationIri ?? `${id.split('/').slice(0, -1).join('/')}/`
     dataRegistration = await loadDataRegistration(dataRegistrationIri, fetch)
     resolvedShapeTreeIri = dataRegistration.registeredShapeTree
   }

@@ -6,10 +6,11 @@ import {
 import { AccessRequest, type NeedBasedAccessRequestSent } from '@janeirodigital/interop-data-model'
 const loadNeedBasedAccessRequest = loader(AccessRequest.fromJsonLd)
 
-import { LDP, linkedIrisJsonLd, loader } from '@janeirodigital/interop-utils'
+import { loader } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import {
+  containedIris,
   rpcPayload,
   waitForNeedBasedAccessRequestReceivedCompletion,
   waitForNeedBasedAccessRequestSentCompletion,
@@ -53,11 +54,12 @@ const accessNeedGroup = {
 }
 
 /** The stored AccessRequests of the session's (owner's) AccessRequestRegistry
- *  — container `ldp:contains` + the data-model loader (embeds the group). */
+ *  — container containment (`ldp:contains` ∪ `lws:contains`) + the data-model
+ *  loader (embeds the group). */
 async function storedAccessRequests(session: AuthorizationAgent): Promise<any[]> {
   const registry = session.registrySet.hasAccessRequestRegistry
   expect(registry).toBeDefined()
-  const iris = await linkedIrisJsonLd(registry!.id, session.fetch, LDP.contains)
+  const iris = await containedIris(session, registry!.id)
   return Promise.all(iris.map((iri) => loadNeedBasedAccessRequest(iri, session.fetch)))
 }
 

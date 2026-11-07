@@ -1,0 +1,28 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": [
+        "Accept LWS storage tokens on the Solid notification service paths (`/.notifications/…`), not only on the LWS",
+        "notification service (`/.notifications/lws/…`). The streaming/webhook handlers authorize the decoded topic,",
+        "so the client sends the topic's storage token; the extractor accepts any storage token on the server for these paths."
+      ],
+      "@id": "urn:sai:default:OverrideLwsAccessTokenExtractor",
+      "@type": "Override",
+      "overrideInstance": { "@id": "urn:solid-server:default:LwsAccessTokenExtractor" },
+      "overrideSteps": [
+        {
+          "@type": "OverrideParameters",
+          "overrideValue": {
+            "@type": "LwsAccessTokenExtractor",
+            "servicePaths": [".notifications/"]
+          }
+        }
+      ]
+    }
+  ]
+}

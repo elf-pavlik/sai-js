@@ -1,7 +1,14 @@
 import { getDefaultSession } from '@inrupt/solid-client-authn-browser'
 import { Application, NotificationManager } from '@janeirodigital/interop-application'
 import { WebIdProfile } from '@janeirodigital/interop-data-model'
-import { AS, RequestError, loader, pickLanguage } from '@janeirodigital/interop-utils'
+import {
+  AS,
+  RequestError,
+  type WhatwgFetch,
+  createLwsFetch,
+  loader,
+  pickLanguage,
+} from '@janeirodigital/interop-utils'
 import { commitData, changeData as ldoChangeData } from '@ldo/connected'
 //@ts-ignore
 import { type SolidLdoDataset, createSolidLdoDataset } from '@ldo/connected-solid'
@@ -50,12 +57,44 @@ export const useAppStore = defineStore('app', () => {
 
   const authnFetch = getDefaultSession().fetch
 
+  /**
+   * The data and registry storages accept only LWS access tokens, while the
+   * `.sai` API keeps the Solid-OIDC DPoP session. The UAS mints a storage
+   * token for this session over `/.sai/lws-token`; `createLwsFetch` caches it
+   * per storage and retries a `401` after a fresh exchange.
+   */
+  let sessionFetchCache: WhatwgFetch | undefined
+  function sessionFetch(): WhatwgFetch {
+    if (sessionFetchCache) return sessionFetchCache
+    const authServer = new URL(getRuntimeConfig().defaultOidcIssuer).origin
+    const lwsFetch = createLwsFetch({
+      // plain fetch: the LWS access token is the credential for data/registry
+      // requests, the inrupt session's DPoP token is only for the `.sai` API
+      // (inrupt's authenticated fetch would overwrite the Bearer header).
+      tokenSource: async (storage) => {
+        const response = await authnFetch(
+          `${authServer}/.sai/lws-token?resource=${encodeURIComponent(storage)}`
+        )
+        if (!response.ok) {
+          throw new Error(`failed to obtain an LWS token for ${storage}: ${response.status}`)
+        }
+        const token = (await response.json()) as { access_token: string; expires_in?: number }
+        return { accessToken: token.access_token, expiresIn: token.expires_in ?? 300 }
+      },
+    })
+    sessionFetchCache = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      return url.startsWith(`${authServer}/`) ? authnFetch(input, init) : lwsFetch(input, init)
+    }
+    return sessionFetchCache
+  }
+
   async function ensureSaiSession(): Promise<Application> {
     if (!coreStore.userId) {
       throw new Error('no user id')
     }
     if (session) return session
-    const deps = { fetch: authnFetch, randomUUID: crypto.randomUUID.bind(crypto) }
+    const deps = { fetch: sessionFetch(), randomUUID: crypto.randomUUID.bind(crypto) }
     try {
       session = await Application.build(coreStore.userId, getRuntimeConfig().clientId, deps)
     } catch (err) {
@@ -66,11 +105,11 @@ export const useAppStore = defineStore('app', () => {
       throw err
     }
     notificationsManager = await NotificationManager.build(
-      authnFetch,
+      sessionFetch(),
       session.authorizationAgentIri
     )
     solidLdoDataset = createSolidLdoDataset()
-    solidLdoDataset.setContext('solid', { fetch: authnFetch })
+    solidLdoDataset.setContext('solid', { fetch: sessionFetch() })
     if (session.registrationIri) {
       await notificationsManager.subscribeToResource(session.registrationIri)
     }
@@ -384,8 +423,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function dataUrl(url: string): Promise<string> {
-    const { fetch } = getDefaultSession()
-    return fetch(url)
+    return sessionFetch()(url)
       .then((response) => response.blob())
       .then((blb) => URL.createObjectURL(blb))
   }

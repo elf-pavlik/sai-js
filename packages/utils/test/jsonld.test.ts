@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   type WhatwgFetch,
   HttpStatusError,
+  containedIrisJsonLd,
   documentValues,
   fetchJsonLd,
   findNodeIdByType,
@@ -14,12 +15,26 @@ function mockFetch(response: Partial<Response> & { ok: boolean }): WhatwgFetch {
 }
 
 describe('fetchJsonLd', () => {
-  test('requests application/ld+json and returns the parsed document', async () => {
+  test('requests the LWS JSON-LD profile and returns the parsed document', async () => {
     const doc = { '@id': 'https://example.example/resource' }
     const fetch = vi.fn(async () => ({ ok: true, json: async () => doc })) as unknown as WhatwgFetch
     const result = await fetchJsonLd('https://example.example/resource', fetch)
     expect(result).toEqual(doc)
     expect(fetch).toHaveBeenCalledWith('https://example.example/resource', {
+      headers: { Accept: 'application/ld+json; profile="https://www.w3.org/ns/lws/v1"' },
+    })
+  })
+
+  test('falls back to plain application/ld+json when the profile is not supported', async () => {
+    const doc = { '@id': 'https://example.example/resource' }
+    const fetch = vi.fn(async (_iri: string, init?: RequestInit) =>
+      init?.headers && (init.headers as Record<string, string>).Accept.includes('profile')
+        ? { ok: false, status: 406 }
+        : { ok: true, json: async () => doc }
+    ) as unknown as WhatwgFetch
+    const result = await fetchJsonLd('https://example.example/resource', fetch)
+    expect(result).toEqual(doc)
+    expect(fetch).toHaveBeenLastCalledWith('https://example.example/resource', {
       headers: { Accept: 'application/ld+json' },
     })
   })
@@ -114,5 +129,26 @@ describe('linkedIrisJsonLd', () => {
     const fetch = mockFetch({ ok: true, json: async () => doc })
     const iris = await linkedIrisJsonLd(container, fetch, 'https://example.example/vocab#missing')
     expect(iris).toEqual([])
+  })
+})
+
+describe('containedIrisJsonLd', () => {
+  const container = 'https://example.example/registry/grant/'
+  const doc = [
+    {
+      '@id': container,
+      'http://www.w3.org/ns/ldp#contains': [{ '@id': `${container}hierarchical` }],
+      'https://www.w3.org/ns/lws#contains': [
+        { '@id': `${container}flat` },
+        { '@id': `${container}flat.acr` },
+        { '@id': `${container}flat.meta` },
+      ],
+    },
+  ]
+
+  test('unions ldp:contains with lws:contains and drops auxiliary members', async () => {
+    const fetch = mockFetch({ ok: true, json: async () => doc })
+    const iris = await containedIrisJsonLd(container, fetch)
+    expect(iris).toEqual([`${container}hierarchical`, `${container}flat`])
   })
 })

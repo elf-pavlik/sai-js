@@ -16,11 +16,10 @@ const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
 import type { AgentAndClient } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
-  LDP,
   type WhatwgFetch,
   discoverAuthorizationAgent,
   iriForContained,
-  linkedIrisJsonLd,
+  containedIrisJsonLd,
   loader,
 } from '@janeirodigital/interop-utils'
 import type { LanguageMap } from '@janeirodigital/interop-utils'
@@ -44,7 +43,7 @@ import type { DataModelDependencies } from './types.ts'
  * membership for the three dedicated registries.
  */
 async function containedIris(registry: { id: string }, fetch: WhatwgFetch): Promise<string[]> {
-  return linkedIrisJsonLd(registry.id, fetch, LDP.contains)
+  return containedIrisJsonLd(registry.id, fetch)
 }
 
 export async function* applicationRegistrations(

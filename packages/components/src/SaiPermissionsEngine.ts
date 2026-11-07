@@ -3,7 +3,7 @@ import { ShapeTree } from '@janeirodigital/interop-data-model'
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 
 import { discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'
 import type { StorageLocationStrategy } from '@solid/community-server'
@@ -78,14 +78,28 @@ export class SaiPermissionsEngine implements PolicyEngine {
         // org's data registries; structural registries stay on ACP
         modes = await this.findAdminModes(authorizationData, credentials)
         break
-      case TargetType.Registration:
+      case TargetType.Registration: {
+        // An Inherited grant covers its registration too: creating a new
+        // member (POST to the registration container) happens *before* the
+        // parent instance links it, so the parent-instance gate of
+        // `findInheritedModes` can not apply here — the grant's access modes
+        // on the registration are what authorizes the append.
+        const inheritedGrant = await this.findGrant(
+          authorizationData,
+          target,
+          credentials,
+          INTEROP.Inherited,
+          uas
+        )
         modes = [
           ...new Set([
             ...(await this.findRegistrationModes(authorizationData, target, credentials, uas)),
+            ...(inheritedGrant ? await this.getAccessModes(authorizationData, inheritedGrant) : []),
             ...(await this.findAdminModes(authorizationData, credentials)),
           ]),
         ]
         break
+      }
       case TargetType.Resource:
         // could happen read on all and write on selected
         {
@@ -97,7 +111,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
           )
           const registryModes = await this.findRegistrationModes(
             authorizationData,
-            this.manager.getParent(target),
+            (await this.getRegistrationId(target)) ?? target,
             credentials,
             uas
           )
@@ -197,7 +211,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     let registrationId = id
     const selected = scope === INTEROP.SelectedFromRegistry
     if (selected) {
-      registrationId = this.manager.getParent(id)
+      registrationId = (await this.getRegistrationId(id)) ?? id
     }
     let { agent, client } = credentials
     if (!agent || !client) {
@@ -273,7 +287,7 @@ export class SaiPermissionsEngine implements PolicyEngine {
     credentials: Credentials,
     uas: boolean
   ): Promise<string[]> {
-    const registrationId = this.manager.getParent(resourceId)
+    const registrationId = (await this.getRegistrationId(resourceId)) ?? resourceId
     const grantId = await this.findGrant(data, registrationId, credentials, INTEROP.Inherited, uas)
     if (!grantId) return []
     const parentGrantId = await this.findObject(data, grantId, INTEROP.inheritsFromGrant)
@@ -345,9 +359,46 @@ export class SaiPermissionsEngine implements PolicyEngine {
       INTEROP.hasDataRegistration
     )
     // TODO: not needed if query only in proper registration
-    if (this.manager.getParent(parentId) !== parentRegistrationId)
+    const actualParent =
+      (await this.getRegistrationId(parentId)) ?? this.manager.getParent(parentId)
+    if (actualParent !== parentRegistrationId)
       throw new Error(`something fishy - ${parentId} not in ${parentRegistrationId}`)
     return parentId
+  }
+
+  /**
+   * The registration that contains a data instance. Flat storage stores the
+   * parent as `lws:partOf` metadata, so the URI path can not be used.
+   * Falls back to the path-based parent for hierarchical registry pods.
+   */
+  private async getRegistrationId(id: string): Promise<string | undefined> {
+    return (await this.getParentFromStore(id)) ?? this.manager.getParent(id)
+  }
+
+  /** Reads `lws:partOf` from the target's metadata graph in its data pod. */
+  private async getParentFromStore(id: string): Promise<string | undefined> {
+    const endpoint = await this.resolvePodEndpoint(id)
+    if (!endpoint) return undefined
+    const fetcher = new SparqlEndpointFetcher()
+    const bindingsStream = await fetcher.fetchBindings(
+      endpoint,
+      `SELECT ?parent WHERE { GRAPH ?g { <${id}> <${LWS.partOf}> ?parent } }`
+    )
+    const bindings = await arrayifyStream<IBindings>(bindingsStream)
+    return bindings[0]?.parent.value
+  }
+
+  /** The RDF types of a resource, read from its data pod. */
+  private async getResourceTypes(id: string): Promise<string[]> {
+    const endpoint = await this.resolvePodEndpoint(id)
+    if (!endpoint) return []
+    const fetcher = new SparqlEndpointFetcher()
+    const bindingsStream = await fetcher.fetchBindings(
+      endpoint,
+      `SELECT DISTINCT ?type WHERE { GRAPH ?g { <${id}> a ?type } }`
+    )
+    const bindings = await arrayifyStream<IBindings>(bindingsStream)
+    return bindings.map((binding) => binding.type.value)
   }
 
   async determineTargetType(id: string): Promise<TargetType | undefined> {
@@ -355,13 +406,24 @@ export class SaiPermissionsEngine implements PolicyEngine {
     if (id === storage) {
       return TargetType.Registry
     }
-    const parent = this.manager.getParent(id)
+    const types = await this.getResourceTypes(id)
+    if (types.includes(INTEROP.DataRegistration)) {
+      return TargetType.Registration
+    }
+    // Flat storage: the registration is the `lws:partOf` parent, not the
+    // path parent. Fall back to the path for hierarchical registry pods.
+    const parent = (await this.getParentFromStore(id)) ?? this.manager.getParent(id)
     if (parent === storage) {
       return TargetType.Registration
     }
-    const grandParent = this.manager.getParent(parent)
-    if (grandParent === storage) {
-      return TargetType.Resource
+    if (parent) {
+      const grandParent = (await this.getParentFromStore(parent)) ?? this.manager.getParent(parent)
+      if (grandParent === storage) {
+        return TargetType.Resource
+      }
     }
+    // Unknown or auxiliary resource (e.g. `.lws/...`): return Resource so the
+    // permission check denies instead of throwing.
+    return TargetType.Resource
   }
 }

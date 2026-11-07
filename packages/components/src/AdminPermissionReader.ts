@@ -14,6 +14,8 @@ const allPermissions = {
   [PERMISSIONS.Read]: true,
   [PERMISSIONS.Modify]: true,
   [PERMISSIONS.Delete]: true,
+  // LDP POST on a container asks for Append, which is separate from Create
+  [PERMISSIONS.Append]: true,
 }
 export class AdminPermissionReader extends PermissionReader {
   protected readonly logger = getLoggerFor(this)

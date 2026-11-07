@@ -5,11 +5,10 @@ import {
 } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
-  LDP,
   type LanguageMap,
   type WhatwgFetch,
   iriForContained,
-  linkedIrisJsonLd,
+  containedIrisJsonLd,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -35,7 +34,7 @@ export async function containedIncludes(
   fetch: WhatwgFetch,
   id: string
 ): Promise<boolean> {
-  const iris = await linkedIrisJsonLd(data.id, fetch, LDP.contains)
+  const iris = await containedIrisJsonLd(data.id, fetch)
   return iris.includes(id)
 }
 

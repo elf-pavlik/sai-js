@@ -80,8 +80,8 @@ describe('getDataRegistries — org context lists own data registries via /sparq
       if (url === sparqlAdminPodUrl) {
         const query = String(init?.body ?? '')
         if (query.includes('SELECT')) {
-          // the SPARQL listing must read the server-managed ldp:contains
-          expect(query).toContain('ldp#contains')
+          // the flat data registry listing must read lws:contains
+          expect(query).toContain('lws#contains')
           return mockResponse(
             {
               head: { vars: ['child'] },
@@ -135,6 +135,7 @@ describe('getDataRegistries — org context lists own data registries via /sparq
       }),
     ])
     const sparqlRequests = requests.filter((request) => request.url === sparqlAdminPodUrl)
+    // lws:contains listing + registration body
     expect(sparqlRequests).toHaveLength(2)
   })
 })

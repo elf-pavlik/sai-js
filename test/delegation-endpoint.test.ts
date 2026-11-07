@@ -1,9 +1,9 @@
-import { buildOidcSession, issuanceUrl } from '@elfpavlik/sai-components'
+import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
-import { ACL, INTEROP, LDP, toStore } from '@janeirodigital/interop-utils'
+import { ACL, INTEROP } from '@janeirodigital/interop-utils'
 import { afterEach, describe, expect, test } from 'vitest'
 
-import { waitForQuiescence } from './util'
+import { containedCount, waitForQuiescence } from './util'
 import { SOLIDTREES } from './vocabularies'
 
 const bobId = 'https://id/bob'
@@ -27,14 +27,14 @@ const commonGrantData = {
 const tasksGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Task,
-  hasDataRegistration: 'https://data/acme-rnd/x0md9s/',
+  hasDataRegistration: 'https://data/acme-rnd/x0md9s',
   accessMode: [ACL.Read, ACL.Update],
   scopeOfGrant: INTEROP.Inherited,
 }
 const projectsGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
-  hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+  hasDataRegistration: 'https://data/acme-rnd/reb39k',
   accessMode: [ACL.Read, ACL.Update],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [tasksGrantData],
@@ -47,14 +47,14 @@ const hrCommonGrantData = {
 const hrTasksGrantData: IncomingGrantData = {
   ...hrCommonGrantData,
   registeredShapeTree: SOLIDTREES.Task,
-  hasDataRegistration: 'https://data/acme-hr/v4n2qx/',
+  hasDataRegistration: 'https://data/acme-hr/v4n2qx',
   accessMode: [ACL.Read, ACL.Update],
   scopeOfGrant: INTEROP.Inherited,
 }
 const hrProjectsGrantData: IncomingGrantData = {
   ...hrCommonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
-  hasDataRegistration: 'https://data/acme-hr/p7t9km/',
+  hasDataRegistration: 'https://data/acme-hr/p7t9km',
   accessMode: [ACL.Read, ACL.Update],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [hrTasksGrantData],
@@ -64,13 +64,10 @@ const issuancePayload = (grants: IncomingGrantData[]): string =>
   JSON.stringify({ type: [INTEROP.AccessRequest], grants })
 
 async function countGrants(): Promise<number> {
-  const session = await buildOidcSession(acmeId)
-  const response = await session.authFetch(grantRegistry, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  expect(response.status).toBe(200)
-  const dataset = await toStore((await response.json()) as Record<string, unknown>)
-  return Array.from(dataset).filter((quad) => quad.predicate.value === LDP.contains).length
+  // flat registry: members are listed with `lws:contains`, and the registry
+  // storage accepts only LWS tokens — read it through the session fetch
+  const session = await buildSessionManager().getSession(acmeId)
+  return containedCount(session, grantRegistry)
 }
 
 const revocationPayload = (grants: string[]): string =>
@@ -103,8 +100,10 @@ describe('DelegationRevocationEndpoint', () => {
     const [parentId, childId] = ids
 
     // a grantor cannot DELETE grant resources directly (DD14 — read-only ACR)
-    const bobSession = await buildOidcSession(bobId)
-    const directDelete = await bobSession.authFetch(childId, { method: 'DELETE' })
+    // the direct DELETE must carry the storage's LWS token so the read-only
+    // ACR denies it (403); a DPoP-only request would 401 before the ACR check
+    const bobSession = await buildSessionManager().getSession(bobId)
+    const directDelete = await bobSession.fetch(childId, { method: 'DELETE' })
     expect(directDelete.status).toBe(403)
 
     const session = await buildOidcSession(bobId)
@@ -217,7 +216,7 @@ describe('DelegationRevocationEndpoint', () => {
             grantedBy,
             grantee,
             registeredShapeTree: SOLIDTREES.Project,
-            hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+            hasDataRegistration: 'https://data/acme-rnd/reb39k',
             accessMode: [ACL.Read, ACL.Update],
             scopeOfGrant: INTEROP.AllFromRegistry,
           },

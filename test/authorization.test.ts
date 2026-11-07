@@ -1,11 +1,11 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import { LDP, linkedIrisJsonLd } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
 
 import {
   awaitGrantCompletion,
+  containedIris,
   dataGrants,
   waitForActivityCompletion,
   waitForNeedBasedAccessRequestReceivedCompletion,
@@ -252,7 +252,7 @@ describe('approve a need-based access request', () => {
 
     const registry = aliceSession.registrySet.hasAccessRequestRegistry
     expect(registry).toBeDefined()
-    const [requestIri] = await linkedIrisJsonLd(registry!.id, aliceSession.fetch, LDP.contains)
+    const [requestIri] = await containedIris(aliceSession, registry!.id)
     expect(requestIri).toBeDefined()
     expect(requestIri).toMatch('https://registry/alice/access-request/')
 
@@ -320,13 +320,13 @@ describe('approve a need-based access request', () => {
           id: aliceId,
           dataRegistrations: [
             expect.objectContaining({
-              id: 'https://data/alice-work/sx86hi/',
+              id: 'https://data/alice-work/sx86hi',
               dataRegistry: 'https://data/alice-work/',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 1,
             }),
             expect.objectContaining({
-              id: 'https://data/alice-home/x1n3cm/',
+              id: 'https://data/alice-home/x1n3cm',
               dataRegistry: 'https://data/alice-home/',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 3,
@@ -337,7 +337,7 @@ describe('approve a need-based access request', () => {
           id: 'https://id/acme',
           dataRegistrations: [
             expect.objectContaining({
-              id: 'https://data/acme-rnd/reb39k/',
+              id: 'https://data/acme-rnd/reb39k',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 1,
             }),
@@ -418,7 +418,7 @@ describe('approve a need-based access request', () => {
     }
 
     // the request stays unchanged — granting only references it (immutable)
-    const [requestIriAfter] = await linkedIrisJsonLd(registry!.id, aliceSession.fetch, LDP.contains)
+    const [requestIriAfter] = await containedIris(aliceSession, registry!.id)
     expect(requestIriAfter).toBe(requestIri)
   })
 })

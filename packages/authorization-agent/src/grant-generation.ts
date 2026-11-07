@@ -401,7 +401,7 @@ async function generateSourceDataGrants(
   for (const [podUrl, endpoint] of pods) {
     const podTransport = endpoint ? localSparqlTransport(endpoint) : transport
 
-    // the `ldp:contains` listing + bodies via the registry plane
+    // the `lws:contains` listing + bodies via the registry plane
     // (replaces the HTTP `DataRegistry.registrations` iterator)
     const registrationIris = await listContained(podTransport, podUrl)
     const dataRegistrations = await Promise.all(

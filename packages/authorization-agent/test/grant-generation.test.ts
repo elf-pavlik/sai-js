@@ -80,6 +80,14 @@ function mirrorTransport(graphs: Map<string, Quad[]>): SparqlTransport & { queri
           .filter((q) => q.predicate.value === INTEROP.inheritsFromAuthorization)
           .map((q) => ({ child: { value: q.subject.value } })) as never
       }
+      if (query.includes('lws#contains')) {
+        // flat storage listing — the fixtures store the same membership as
+        // ldp:contains in the container graph
+        const container = /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
+        return (graphs.get(container) ?? [])
+          .filter((q) => q.predicate.value === LDP.contains)
+          .map((q) => ({ child: { value: q.object.value } })) as never
+      }
       if (query.includes(LDP.contains)) {
         // listContained — the container IRI is the first `GRAPH <…>`
         const container = /GRAPH <([^>]+)>/.exec(query)![1]
@@ -296,7 +304,7 @@ describe('delegated-grant generation — mirror only', () => {
       })
     }
     // …and the peer side was read ONCE, not once per authorization
-    expect(transport.queries.filter((query) => query.includes(LDP.contains))).toHaveLength(1)
+    expect(transport.queries.filter((query) => query.includes('lws#contains'))).toHaveLength(1)
     // two presence probes (reciprocal, then its grants) — cached afterwards
     expect(transport.queries.filter((query) => query.includes('VALUES ?g'))).toHaveLength(2)
     // four graph reads: our registration, the reciprocal, and the two grants it

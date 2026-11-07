@@ -1,6 +1,9 @@
 import { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { createLwsFetch, requestLwsAccessToken } from '@janeirodigital/interop-utils'
+import type { WhatwgFetch } from '@janeirodigital/interop-utils'
 import type { JwkGenerator } from '@solid/community-server'
 import { generateKeyPair } from 'jose'
+import type { GenerateKeyPairResult } from 'jose'
 
 import { buildAccountLoginStorage } from './builders/accountLoginStorage.js'
 import { CustomWebIdStore } from './CustomWebIdStore.js'
@@ -60,21 +63,7 @@ export class SessionManager {
   }
 
   public async getSession(webid: string, registrySetId?: string): Promise<AuthorizationAgent> {
-    const privateKey = await this.jwkGenerator.getPrivateKey()
-    const publicKey = await this.jwkGenerator.getPublicKey()
-
-    const dpopKeyPair = await generateKeyPair('ES256')
-
-    const oidc = new SelfIssuedSession({
-      webid,
-      clientId: agentId(webid),
-      issuer: this.baseUrl,
-      expiresIn: this.expiration * 60 * 1000,
-      privateKey,
-      publicKey,
-      dpopKeyPair,
-    })
-    await oidc.login()
+    const { oidc, dpopKeyPair } = await this.buildSelfIssuedSession(webid)
 
     // per-pod endpoint registry (openwiki/architecture/storage-isolation.md): the
     // owner's records from the internal account storage are the session's
@@ -91,11 +80,64 @@ export class SessionManager {
       throw new Error(`no registry-pod SPARQL endpoint for ${webid} (${registryPodUrl})`)
     }
 
+    // The `.sai` API of this server keeps the Solid-OIDC DPoP session; data and
+    // registry storages accept only LWS access tokens, so their requests are
+    // routed through a fetch that exchanges the session's ID token for one
+    // access token per storage (LWS, §Token Exchange).
+    const dpopFetch = oidc.authFetch.bind(oidc) as WhatwgFetch
+    const lwsFetch = createLwsFetch({
+      subjectToken: () => oidc.generateSelfIssuedAccessToken(),
+      dpopKeyPair,
+      storages: [...sparqlEndpoints.keys(), registryPodUrl],
+    })
+    const sessionFetch: WhatwgFetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const authBase = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`
+      return url.startsWith(authBase) ? dpopFetch(input, init) : lwsFetch(input, init)
+    }
+
     return AuthorizationAgent.build(webid, agentId(webid), registryPodUrl, {
-      fetch: oidc.authFetch.bind(oidc),
+      fetch: sessionFetch,
       randomUUID: crypto.randomUUID.bind(crypto),
       sparqlEndpoint: endpoint,
       sparqlEndpoints,
     })
+  }
+
+  /**
+   * Mints an LWS access token for a storage on behalf of `webid`, through the
+   * same self-issued ID token the session uses. The UI calls this over
+   * `/.sai/lws-token`: it holds a Solid-OIDC DPoP session but no ID token of
+   * its own, and the data/registry storages accept only LWS tokens.
+   */
+  public async getLwsAccessToken(
+    webid: string,
+    resource: string
+  ): Promise<{ accessToken: string; expiresIn: number }> {
+    const { oidc, dpopKeyPair } = await this.buildSelfIssuedSession(webid)
+    return requestLwsAccessToken({
+      resource,
+      subjectToken: () => oidc.generateSelfIssuedAccessToken(),
+      dpopKeyPair,
+    })
+  }
+
+  private async buildSelfIssuedSession(
+    webid: string
+  ): Promise<{ oidc: SelfIssuedSession; dpopKeyPair: GenerateKeyPairResult }> {
+    const privateKey = await this.jwkGenerator.getPrivateKey()
+    const publicKey = await this.jwkGenerator.getPublicKey()
+    const dpopKeyPair = await generateKeyPair('ES256')
+    const oidc = new SelfIssuedSession({
+      webid,
+      clientId: agentId(webid),
+      issuer: this.baseUrl,
+      expiresIn: this.expiration * 60 * 1000,
+      privateKey,
+      publicKey,
+      dpopKeyPair,
+    })
+    await oidc.login()
+    return { oidc, dpopKeyPair }
   }
 }

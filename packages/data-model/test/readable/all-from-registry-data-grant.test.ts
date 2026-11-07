@@ -26,5 +26,5 @@ test('should set hasDataRegistration', async () => {
 // depends on slash semantics
 test('should provide dataRegistryIri', async () => {
   const dataGrant = await loadGrant(snippetIri, deps.fetch)
-  expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
+  expect(Grant.dataRegistryIri(dataGrant)).toBe('https://home.alice.example/')
 })

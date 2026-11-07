@@ -14,7 +14,16 @@ import {
   type SocialAgentRegistrationData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { AS, INTEROP, LDP, type LanguageMap, frameDoc, jsonld } from '@janeirodigital/interop-utils'
+import {
+  AS,
+  INTEROP,
+  LDP,
+  LWS,
+  type LanguageMap,
+  frameDoc,
+  isAuxiliaryResource,
+  jsonld,
+} from '@janeirodigital/interop-utils'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 /**
  * Registry-plane SPARQL transport + queries, shared by the AuthorizationAgent
@@ -160,13 +169,12 @@ export async function graphDoc(transport: SparqlTransport, iri: string): Promise
 }
 
 /**
- * Children of a registry container — the registration listing. Reads the
- * server-managed `ldp:contains` quads from the container's REGULAR graph
- * (the single membership home — `meta:` graphs hold type declarations only;
- * see the OpenWiki `data-model/json-ld-layer.md` graph scoping). One query
- * for every dedicated registry: grants, roles, authorizations, and the three
- * agent registries (social-agent, application, invitation — the former
- * `has*Registration` interop predicates are gone).
+ * Children of a container. Both data and registry pods use flat LWS
+ * containment: `lws:contains` in the container's metadata graph
+ * (`meta:<container>`), independent of the URI path. There is no
+ * `ldp:contains` fallback. Auxiliary resources (`.acr`/`.acl`/`.meta`) are not
+ * members: the flat store in CSS ≤ `01ad3376` still records `lws:contains` for
+ * them at creation, so they are filtered out here.
  */
 export async function listContained(
   transport: SparqlTransport,
@@ -174,19 +182,36 @@ export async function listContained(
 ): Promise<string[]> {
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?child WHERE {
-  { GRAPH <${containerIri}> { <${containerIri}> <${LDP.contains}> ?child } }
+  GRAPH <meta:${containerIri}> { <${containerIri}> <${LWS.contains}> ?child }
 }`
   )
-  return bindings.map((binding) => binding.child.value)
+  return bindings.map((binding) => binding.child.value).filter((iri) => !isAuxiliaryResource(iri))
+}
+
+/**
+ * The container a resource belongs to, from the resource's metadata graph
+ * (`lws:partOf`). Flat LWS storage does not encode the parent in the URI
+ * path, so this is the only reliable way to find e.g. the data registration
+ * of a data instance.
+ */
+export async function getContainingContainer(
+  transport: SparqlTransport,
+  iri: string
+): Promise<string | undefined> {
+  const bindings = await transport.fetchBindings(
+    `SELECT ?parent WHERE {
+  GRAPH ?g { <${iri}> <${LWS.partOf}> ?parent }
+}`
+  )
+  return bindings[0]?.parent.value
 }
 
 /**
  * Data registrations in a data registry whose `registeredShapeTree` is among
  * `shapeTrees` — the filtered counterpart of `listContained` for data
- * registries: membership comes from the container's REGULAR graph
- * (`ldp:contains`), while the shape tree lives in the registration's
- * `meta:<iri>` graph (type + `registeredShapeTree` — the registration's own
- * graph holds only `ldp:contains` instance members). Used by
+ * registries. Membership is `lws:contains` in the data registry's metadata
+ * graph (flat storage, no `ldp:contains` fallback); the shape tree lives in
+ * the registration's `meta:<iri>` graph. Used by
  * `findUserDataRegistrations` to load only the registrations that can match
  * an access need group, instead of listing + probing every registration.
  */
@@ -199,7 +224,7 @@ export async function listRegistrationsByShapeTrees(
   const trees = shapeTrees.map((tree) => `<${tree}>`).join(', ')
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?reg WHERE {
-  GRAPH <${registryIri}> { <${registryIri}> <${LDP.contains}> ?reg }
+  GRAPH <meta:${registryIri}> { <${registryIri}> <${LWS.contains}> ?reg }
   GRAPH ?meta {
     ?reg a <${INTEROP.DataRegistration}> ;
          <${INTEROP.registeredShapeTree}> ?tree
@@ -537,9 +562,8 @@ async function getDataAuthorizationIfPresent(
 /**
  * Role IRIs in the given role registry whose membership includes `member`
  * (`interop:hasMember`). One SELECT (docs/sparql.md step 2): the container
- * membership — `ldp:contains` in the container's REGULAR graph (the single
- * membership home — no `meta:` read; see the OpenWiki
- * `data-model/json-ld-layer.md`) — is
+ * membership — `ldp:contains` in the regular graph (hierarchical storage) or
+ * `lws:contains` in the metadata graph (flat LWS storage) — is
  * joined with the `hasMember` triple living in each role's own graph, so the
  * result is scoped to this registry set's roles (the store is shared across
  * owners). The roles listing would be N graph reads, so this is deliberately
@@ -559,7 +583,9 @@ export async function findRolesWithMember(
   const bindings = await transport.fetchBindings(
     `SELECT DISTINCT ?role WHERE {
   { GRAPH <${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LDP.contains}> ?role } }
-  { GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> } }
+  UNION
+  { GRAPH <meta:${roleRegistryContainerIri}> { <${roleRegistryContainerIri}> <${LWS.contains}> ?role } }
+  GRAPH ?g { ?role <${INTEROP.hasMember}> <${member}> }
   FILTER(?g = ?role)
 }`
   )
@@ -768,9 +794,10 @@ SELECT DISTINCT ?sent ?request ?grantee ?grantedBy ?dataOwner ?shapeTree WHERE {
 
 /**
  * OPEN need-based access requests in the owner's AccessRequestRegistry
- * (incoming — see the OpenWiki `services/activity-lifecycle.md`): the container's
- * `ldp:contains` members (regular graph only) that have NO
- * `AuthorizationGranted`/`AuthorizationDenied` with the flat
+ * (incoming — see the OpenWiki `services/activity-lifecycle.md`): the
+ * container's members — `ldp:contains` in the regular graph (hierarchical
+ * storage) or `lws:contains` in the metadata graph (flat LWS storage) — that
+ * have NO `AuthorizationGranted`/`AuthorizationDenied` with the flat
  * `satisfiesAccessRequest` back-link. Replaces the removed store-wide
  * `getAccessRequestsOnRegistry` (which listed everything — the "never
  * clears" cause).
@@ -781,8 +808,14 @@ export async function getOpenAccessRequestsOnRegistry(
 ): Promise<{ id: string; grantee: string }[]> {
   const query = `
 SELECT DISTINCT ?request ?grantee WHERE {
-  GRAPH <${accessRequestRegistryContainerIri}> {
-    <${accessRequestRegistryContainerIri}> <${LDP.contains}> ?request .
+  { GRAPH <${accessRequestRegistryContainerIri}> {
+      <${accessRequestRegistryContainerIri}> <${LDP.contains}> ?request .
+    }
+  }
+  UNION
+  { GRAPH <meta:${accessRequestRegistryContainerIri}> {
+      <${accessRequestRegistryContainerIri}> <${LWS.contains}> ?request .
+    }
   }
   GRAPH ?request {
     ?request a <${INTEROP.NeedBasedAccessRequest}> ;

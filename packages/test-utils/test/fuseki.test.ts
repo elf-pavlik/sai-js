@@ -49,7 +49,7 @@ describe('datasetForGraph', () => {
   })
 
   test('routes data pod graphs to data-<pod>', () => {
-    expect(datasetForGraph('https://data/acme-rnd/reb39k/', opts)).toBe('data-acme-rnd')
+    expect(datasetForGraph('https://data/acme-rnd/reb39k', opts)).toBe('data-acme-rnd')
     expect(datasetForGraph('meta:https://data/acme-rnd/', opts)).toBe('data-acme-rnd')
   })
 

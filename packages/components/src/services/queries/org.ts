@@ -9,6 +9,7 @@ import {
   getDataGrant,
   getDataGrantsForGrantee,
   getDataRegistration,
+  getContainingContainer,
   getOpenAccessRequestsOnRegistry,
   getOpenSentAccessRequests,
   getLinkedGrantOwners,
@@ -41,6 +42,7 @@ export {
   getDataAuthorization,
   getDataGrant,
   getDataRegistration,
+  getContainingContainer,
   getLinkedGrantOwners,
   getReciprocalGrants,
   getRegistrationLinks,
@@ -196,4 +198,27 @@ export function sparqlTransportForPod(ctx: ResolvedContext, podUrl: string): Spa
   return ctx.webId === ctx.userWebId
     ? ctx.session.sparqlTransportFor(podUrl)
     : adminSparqlTransport(ctx.session, ctx.webId, podUrl)
+}
+
+/**
+ * The container a resource belongs to, read from the pod's `lws:partOf`
+ * metadata. Flat LWS storage does not encode the parent in the URI path, so
+ * this resolves e.g. the data registration of a data instance. Only pods in
+ * the context's endpoint allowlist are queried.
+ */
+export async function containingContainer(
+  ctx: ResolvedContext,
+  resourceIri: string
+): Promise<string | undefined> {
+  let podUrl: string | undefined
+  for (const url of ctx.endpoints.keys()) {
+    if (
+      (resourceIri === url || resourceIri.startsWith(url)) &&
+      (!podUrl || url.length > podUrl.length)
+    ) {
+      podUrl = url
+    }
+  }
+  if (!podUrl) return undefined
+  return getContainingContainer(sparqlTransportForPod(ctx, podUrl), resourceIri)
 }

@@ -1,4 +1,4 @@
-import { buildOidcSession } from '@elfpavlik/sai-components'
+import { buildLwsFetch } from '@elfpavlik/sai-components'
 import { beforeAll, describe, expect, test } from 'vitest'
 
 /*
@@ -47,13 +47,13 @@ describe('public resources', () => {
   describe('authenticated request (some agent/client)', () => {
     const bobId = 'https://id/bob'
     const clientId = 'https://data/test-client/public/id'
-    let session
+    let storageFetch: typeof fetch
     beforeAll(async () => {
-      session = await buildOidcSession(bobId, clientId)
+      storageFetch = await buildLwsFetch(bobId, clientId)
     })
 
     test('can not Create', async () => {
-      const response = await session.authFetch(getRegistration(id), {
+      const response = await storageFetch(getRegistration(id), {
         method: 'POST',
         headers: { 'Content-type': 'text/turtle' },
         body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -61,12 +61,12 @@ describe('public resources', () => {
       expect(response.status).toBe(403)
     })
     test('can Read', async () => {
-      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
     })
     test('can not Update', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'PUT',
         headers: { 'Content-type': 'text/turtle' },
         body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -74,7 +74,7 @@ describe('public resources', () => {
       expect(response.status).toBe(403)
     })
     test('can not Delete', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'DELETE',
       })
       expect(response.status).toBe(403)
@@ -83,13 +83,13 @@ describe('public resources', () => {
 
   describe('authenticated request (some agent using UAS)', () => {
     const bobId = 'https://id/bob'
-    let session
+    let storageFetch: typeof fetch
     beforeAll(async () => {
-      session = await buildOidcSession(bobId)
+      storageFetch = await buildLwsFetch(bobId)
     })
 
     test('can not Create', async () => {
-      const response = await session.authFetch(getRegistration(id), {
+      const response = await storageFetch(getRegistration(id), {
         method: 'POST',
         headers: { 'Content-type': 'text/turtle' },
         body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -97,12 +97,12 @@ describe('public resources', () => {
       expect(response.status).toBe(403)
     })
     test('can Read', async () => {
-      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
     })
     test('can not Update', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'PUT',
         headers: { 'Content-type': 'text/turtle' },
         body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -110,7 +110,7 @@ describe('public resources', () => {
       expect(response.status).toBe(403)
     })
     test('can not Delete', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'DELETE',
       })
       expect(response.status).toBe(403)
@@ -119,7 +119,7 @@ describe('public resources', () => {
 })
 
 describe('protected resources (scope all, modes all)', () => {
-  const id = 'https://data/alice-work/sx86hi/k3pqsb'
+  const id = 'https://data/alice-work/k3pqsb'
   describe('protected resource', () => {
     describe('unauthenticated request', () => {
       test('can not Create', async () => {
@@ -154,13 +154,13 @@ describe('protected resources (scope all, modes all)', () => {
     describe('authenticated request (some agent/client)', () => {
       const bobId = 'https://id/bob'
       const clientId = 'https://data/test-client/public/id'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(bobId, clientId)
+        storageFetch = await buildLwsFetch(bobId, clientId)
       })
       test('can not Create', async () => {
         const containerId = getRegistration(id)
-        const response = await session.authFetch(containerId, {
+        const response = await storageFetch(containerId, {
           method: 'POST',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -168,11 +168,11 @@ describe('protected resources (scope all, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -180,7 +180,7 @@ describe('protected resources (scope all, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -189,13 +189,13 @@ describe('protected resources (scope all, modes all)', () => {
 
     describe('authenticated request (some agent using UAS)', () => {
       const bobId = 'https://id/bob'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(bobId)
+        storageFetch = await buildLwsFetch(bobId)
       })
       test('can not Create', async () => {
         const containerId = getRegistration(id)
-        const response = await session.authFetch(containerId, {
+        const response = await storageFetch(containerId, {
           method: 'POST',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -203,11 +203,11 @@ describe('protected resources (scope all, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -215,7 +215,7 @@ describe('protected resources (scope all, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -225,16 +225,16 @@ describe('protected resources (scope all, modes all)', () => {
     describe('authenticated request (authorized agent / unauthorized client)', () => {
       const aliceId = 'https://id/alice'
       const clientId = 'https://id/mallory'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(aliceId, clientId)
+        storageFetch = await buildLwsFetch(aliceId, clientId)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -242,7 +242,7 @@ describe('protected resources (scope all, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -252,35 +252,35 @@ describe('protected resources (scope all, modes all)', () => {
     describe('authenticated request (authorized agent / authorized client)', () => {
       const aliceId = 'https://id/alice'
       const clientId = 'https://data/test-client/public/id'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(aliceId, clientId)
+        storageFetch = await buildLwsFetch(aliceId, clientId)
       })
       test('can Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(200)
         expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
       })
       test('can Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
         })
-        expect(response.status).toBe(205)
+        expect(response.status).toBe(204)
       })
       test('can Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
-        expect(response.status).toBe(205)
+        expect(response.status).toBe(204)
       })
     })
   })
 })
 
 describe('protected resources (scope inherited, modes all)', () => {
-  const id = 'https://data/alice-work/btze4a/y48odn'
+  const id = 'https://data/alice-work/y48odn'
   describe('protected resource', () => {
     describe('unauthenticated request', () => {
       test('can not Create', async () => {
@@ -315,13 +315,13 @@ describe('protected resources (scope inherited, modes all)', () => {
     describe('authenticated request (some agent/client)', () => {
       const bobId = 'https://id/bob'
       const clientId = 'https://data/test-client/public/id'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(bobId, clientId)
+        storageFetch = await buildLwsFetch(bobId, clientId)
       })
       test('can not Create', async () => {
         const containerId = getRegistration(id)
-        const response = await session.authFetch(containerId, {
+        const response = await storageFetch(containerId, {
           method: 'POST',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -329,11 +329,11 @@ describe('protected resources (scope inherited, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -341,7 +341,7 @@ describe('protected resources (scope inherited, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -350,13 +350,13 @@ describe('protected resources (scope inherited, modes all)', () => {
 
     describe('authenticated request (some agent using UAS)', () => {
       const bobId = 'https://id/bob'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(bobId)
+        storageFetch = await buildLwsFetch(bobId)
       })
       test('can not Create', async () => {
         const containerId = getRegistration(id)
-        const response = await session.authFetch(containerId, {
+        const response = await storageFetch(containerId, {
           method: 'POST',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -364,11 +364,11 @@ describe('protected resources (scope inherited, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -376,7 +376,7 @@ describe('protected resources (scope inherited, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -386,16 +386,16 @@ describe('protected resources (scope inherited, modes all)', () => {
     describe('authenticated request (authorized agent / unauthorized client)', () => {
       const aliceId = 'https://id/alice'
       const clientId = 'https://id/mallory'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(aliceId, clientId)
+        storageFetch = await buildLwsFetch(aliceId, clientId)
       })
       test('can not Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(403)
       })
       test('can not Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
@@ -403,7 +403,7 @@ describe('protected resources (scope inherited, modes all)', () => {
         expect(response.status).toBe(403)
       })
       test('can not Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
         expect(response.status).toBe(403)
@@ -413,59 +413,88 @@ describe('protected resources (scope inherited, modes all)', () => {
     describe('authenticated request (authorized agent / authorized client)', () => {
       const aliceId = 'https://id/alice'
       const clientId = 'https://data/test-client/public/id'
-      let session
+      let storageFetch: typeof fetch
       beforeAll(async () => {
-        session = await buildOidcSession(aliceId, clientId)
+        storageFetch = await buildLwsFetch(aliceId, clientId)
       })
       test('can Create', async () => {
-        const containerId = getRegistration(id)
-        const newId = `${containerId}h5wpnt`
         const body = `
           PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-          <${newId}>
+          <urn:task:new>
             skos:prefLabel "New task" .
         `
-        const prematurePutResponse = await session.authFetch(newId, {
+        // flat LWS: a resource outside every registration has no type and no
+        // containment, so the engine has nothing to authorize — deny
+        const uncontainedId = 'https://data/alice-work/h5wpnt'
+        const prematurePutResponse = await storageFetch(uncontainedId, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
-          body,
+          body: body.replace('urn:task:new', uncontainedId),
         })
         expect(prematurePutResponse.status).toBe(403)
-        const parentId = 'https://data/alice-work/sx86hi/k3pqsb'
-        const patchResponse = await session.authFetch(parentId, {
+
+        // creation goes through the registration container (the Task
+        // registration of the inherited-scope chain, `btze4a`): the flat
+        // POST-then-PUT the Application uses (`postForIri`), which allocates
+        // the member IRI inside the registration
+        const registrationId = 'https://data/alice-work/btze4a'
+        const createResponse = await storageFetch(registrationId, {
+          method: 'POST',
+          // flat store: the Slug has to be a UUID (`HonorUuidSlugDataAccessorBasedStore`)
+          headers: { 'Content-type': 'application/ld+json', slug: crypto.randomUUID() },
+          body: '{}',
+        })
+        expect(createResponse.status).toBe(201)
+        const createdId = createResponse.headers.get('location')!
+        expect(createdId).toMatch('https://data/alice-work/')
+
+        // Inherited scope: the new member is writable only once the parent
+        // instance references it (`findParentResource` walks
+        // `<parent> pm:hasTask <child>`)
+        const writeBody = body.replace('urn:task:new', createdId)
+        const unlinkedPut = await storageFetch(createdId, {
+          method: 'PUT',
+          headers: { 'Content-type': 'text/turtle' },
+          body: writeBody,
+        })
+        expect(unlinkedPut.status).toBe(403)
+
+        const parentId = 'https://data/alice-work/k3pqsb'
+        const patchResponse = await storageFetch(parentId, {
           method: 'PATCH',
           headers: { 'Content-type': 'application/sparql-update' },
           body: `
           PREFIX pm: <https://vocab.example/project-management/>
-          INSERT DATA { <${parentId}> pm:hasTask <${newId}> . }
+          INSERT DATA { <${parentId}> pm:hasTask <${createdId}> . }
           `,
         })
-        expect(patchResponse.status).toBe(205)
-        const putResponse = await session.authFetch(newId, {
+        expect(patchResponse.status).toBe(204)
+
+        const putResponse = await storageFetch(createdId, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
-          body,
+          body: writeBody,
         })
-        expect(putResponse.status).toBe(201)
+        expect(putResponse.status).toBe(204)
       })
       test('can Read', async () => {
-        const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+        const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
         expect(response.status).toBe(200)
         expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
       })
       test('can Update', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'PUT',
           headers: { 'Content-type': 'text/turtle' },
           body: '<urn:foo:bar> <urn:foo:baz> "Beep Boop".',
         })
-        expect(response.status).toBe(205)
+        expect(response.status).toBe(204)
       })
       test('can Delete', async () => {
-        const response = await session.authFetch(id, {
+        const response = await storageFetch(id, {
           method: 'DELETE',
         })
-        expect(response.status).toBe(205)
+        expect(response.status).toBe(204)
       })
     })
   })
@@ -478,8 +507,8 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
   // an admin can read the org's data registries/registrations/instances with
   // their own credentials, but never write.
   const registry = 'https://data/yoyo-eu/'
-  const registrationId = 'https://data/yoyo-eu/w4n9kx/'
-  const id = 'https://data/yoyo-eu/w4n9kx/x8v2lm'
+  const registrationId = 'https://data/yoyo-eu/w4n9kx'
+  const id = 'https://data/yoyo-eu/x8v2lm'
   const danId = 'https://id/dan'
   const bobId = 'https://id/bob'
   const turtleBody = '<urn:foo:bar> <urn:foo:baz> "Beep Boop".'
@@ -513,28 +542,28 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
 
   describe('authenticated request (admin, some agent/client)', () => {
     const clientId = 'https://data/test-client/public/id'
-    let session
+    let storageFetch: typeof fetch
     beforeAll(async () => {
-      session = await buildOidcSession(danId, clientId)
+      storageFetch = await buildLwsFetch(danId, clientId)
     })
 
     test('can Read registry', async () => {
-      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(registry, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toEqual(expect.stringContaining('text/turtle'))
     })
     test('can Read registration', async () => {
-      const response = await session.authFetch(registrationId, {
+      const response = await storageFetch(registrationId, {
         headers: { Accept: 'text/turtle' },
       })
       expect(response.status).toBe(200)
     })
     test('can Read instance', async () => {
-      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
     })
     test('can not Create', async () => {
-      const response = await session.authFetch(getRegistration(id), {
+      const response = await storageFetch(getRegistration(id), {
         method: 'POST',
         headers: { 'Content-type': 'text/turtle' },
         body: turtleBody,
@@ -542,7 +571,7 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
       expect(response.status).toBe(403)
     })
     test('can not Update', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'PUT',
         headers: { 'Content-type': 'text/turtle' },
         body: turtleBody,
@@ -550,33 +579,33 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
       expect(response.status).toBe(403)
     })
     test('can not Delete', async () => {
-      const response = await session.authFetch(id, { method: 'DELETE' })
+      const response = await storageFetch(id, { method: 'DELETE' })
       expect(response.status).toBe(403)
     })
   })
 
   describe('authenticated request (admin using UAS)', () => {
-    let session
+    let storageFetch: typeof fetch
     beforeAll(async () => {
-      session = await buildOidcSession(danId)
+      storageFetch = await buildLwsFetch(danId)
     })
 
     test('can Read registry', async () => {
-      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(registry, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
     })
     test('can Read registration', async () => {
-      const response = await session.authFetch(registrationId, {
+      const response = await storageFetch(registrationId, {
         headers: { Accept: 'text/turtle' },
       })
       expect(response.status).toBe(200)
     })
     test('can Read instance', async () => {
-      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
     })
     test('can not Create', async () => {
-      const response = await session.authFetch(getRegistration(id), {
+      const response = await storageFetch(getRegistration(id), {
         method: 'POST',
         headers: { 'Content-type': 'text/turtle' },
         body: turtleBody,
@@ -584,7 +613,7 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
       expect(response.status).toBe(403)
     })
     test('can not Update', async () => {
-      const response = await session.authFetch(id, {
+      const response = await storageFetch(id, {
         method: 'PUT',
         headers: { 'Content-type': 'text/turtle' },
         body: turtleBody,
@@ -592,23 +621,23 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
       expect(response.status).toBe(403)
     })
     test('can not Delete', async () => {
-      const response = await session.authFetch(id, { method: 'DELETE' })
+      const response = await storageFetch(id, { method: 'DELETE' })
       expect(response.status).toBe(403)
     })
   })
 
   describe('authenticated request (non-admin using UAS)', () => {
-    let session
+    let storageFetch: typeof fetch
     beforeAll(async () => {
-      session = await buildOidcSession(bobId)
+      storageFetch = await buildLwsFetch(bobId)
     })
 
     test('can not Read registry (listing is admin/owner-only)', async () => {
-      const response = await session.authFetch(registry, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(registry, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(403)
     })
     test('can Read instance (bob already holds DataGrants from YoYo)', async () => {
-      const response = await session.authFetch(id, { headers: { Accept: 'text/turtle' } })
+      const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
     })
   })

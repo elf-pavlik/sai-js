@@ -28,5 +28,5 @@ test('should set inheritsFromGrant', async () => {
 // depends on slash semantics
 test('should provide dataRegistryIri', async () => {
   const dataGrant = await loadGrant(inheritsFromSelectedFromRegistryIri, deps.fetch)
-  expect(Grant.dataRegistryIri(dataGrant)).toBe('https://')
+  expect(Grant.dataRegistryIri(dataGrant)).toBe('https://pro.alice.example/')
 })

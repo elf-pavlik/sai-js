@@ -17,13 +17,13 @@ const loadGrant = loader(Grant.fromJsonLd)
 import {
   ACL,
   INTEROP,
-  LDP,
+  discoverAccessResource,
   discoverAuthorizationAgent,
   expandedJsonLd,
   fetchJsonLd,
   getAcl,
   iriForContained,
-  linkedIrisJsonLd,
+  containedIrisJsonLd,
   loader,
   putJsonLd,
   withContext,
@@ -223,7 +223,7 @@ export async function findAdminGrants(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasGrantRegistry
-  const iris = await linkedIrisJsonLd(registry.id, session.fetch, LDP.contains)
+  const iris = await containedIrisJsonLd(registry.id, session.fetch)
   const adminGrants: { id: string; type: string[] }[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)
@@ -285,8 +285,7 @@ export async function syncAdminAcr(payload: { webId: SocialAgentId }): Promise<v
     matchers.push({ agent: admin.grantee, client: uasId })
   }
 
-  const headResponse = await session.fetch(session.registrySet.id, { method: 'HEAD' })
-  const acrId = getAcl(headResponse.headers.get('link'))
+  const acrId = await discoverAccessResource(session.registrySet.id, session.fetch)
   if (!acrId) throw new Error(`no acl link on registry set: ${session.registrySet.id}`)
 
   // idempotent remove-then-add of the #fullAdminAccess control (and its #root

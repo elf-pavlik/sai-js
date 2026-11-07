@@ -23,11 +23,11 @@ describe('DataAuthorization framing', () => {
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       scopeOfAuthorization: INTEROP.SelectedFromRegistry,
       dataOwner: 'https://id/acme',
-      hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+      hasDataRegistration: 'https://data/acme-rnd/reb39k',
       satisfiesAccessNeed: undefined,
       inheritsFromAuthorization: undefined,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
-      hasDataInstance: ['https://data/acme-rnd/reb39k/pbh2yw'],
+      hasDataInstance: ['https://data/acme-rnd/pbh2yw'],
       hasInheritingAuthorization: ['https://registry/acme/authorization/r5j8tw'],
     })
   })

@@ -1,9 +1,11 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import type { DatasetCore, Quad } from '@rdfjs/types'
-import { Store } from 'n3'
+import { Parser, Store } from 'n3'
 
+import { isAuxiliaryResource } from './container.ts'
 import { jsonld } from './jsonld-lib.ts'
 import { localDocumentLoader } from './jsonld-parser.ts'
+import { LDP, LWS } from './namespaces.ts'
 import type { WhatwgFetch } from './whatwg-fetch.ts'
 export { localDocumentLoader }
 
@@ -25,6 +27,23 @@ export async function linkedIrisJsonLd(
   }
   const node = (await frameDoc(await fetchJsonLd(id, fetch), context, id)) as any
   return node[propertyIri] ?? []
+}
+
+/**
+ * Children of a container, from its `ldp:contains` (hierarchical/Solid storage)
+ * and `lws:contains` (flat LWS storage) listings — the union, so the same
+ * helper works for both. The container document is fetched once. Auxiliary
+ * resources (`.acr`/`.acl`/`.meta`) are not members and are filtered out.
+ */
+export async function containedIrisJsonLd(id: string, fetch: WhatwgFetch): Promise<string[]> {
+  const context: JsonLdContext = {
+    contains: { '@id': LDP.contains, '@type': '@id', '@container': '@set' },
+    lwsContains: { '@id': LWS.contains, '@type': '@id', '@container': '@set' },
+  }
+  const node = (await frameDoc(await fetchJsonLd(id, fetch), context, id)) as any
+  return [...new Set([...(node.contains ?? []), ...(node.lwsContains ?? [])])].filter(
+    (iri) => !isAuxiliaryResource(iri)
+  )
 }
 
 /**
@@ -381,8 +400,58 @@ export class HttpStatusError extends Error {
 }
 
 /**
+ * The LWS profile parameter for JSON-LD requests (LWS, §Containers and
+ * resources). Servers that support it return the LWS RDF view (with
+ * `lws:contains` / `lws:partOf`); servers that only speak Solid ignore the
+ * parameter or reject it, in which case `fetchJsonLd` retries without it.
+ */
+const LWS_PROFILE = 'https://www.w3.org/ns/lws/v1'
+const LWS_JSON_LD_ACCEPT = `application/ld+json; profile="${LWS_PROFILE}"`
+const JSON_LD_ACCEPT = 'application/ld+json'
+
+/**
+ * The LWS JSON container representation (`application/lws+json`, and the
+ * `application/ld+json`/`application/json` equivalents). It is a page listing
+ * (`id`, `type`, `totalItems`, `items`), not the RDF document of the
+ * container, so the data model can not frame it.
+ */
+function isLwsContainerDocument(doc: unknown): boolean {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return false
+  const record = doc as Record<string, unknown>
+  const context = record['@context']
+  const contexts = Array.isArray(context) ? context : [context]
+  return (
+    contexts.includes(LWS_PROFILE) && Array.isArray(record.items) && typeof record.id === 'string'
+  )
+}
+
+/**
+ * Fetches the RDF document of a container as expanded JSON-LD.
+ *
+ * An LWS-only server answers `application/ld+json` for containers with the
+ * LWS JSON page listing, which loses the container's own RDF (e.g. the
+ * `interop:hasDataRegistry` links of a registry set). Plain `text/turtle` is
+ * not one of the LWS JSON output types, so the generic converter serializes
+ * the stored RDF — the representation the data model expects.
+ */
+async function fetchContainerRdf(iri: string, fetch: WhatwgFetch): Promise<unknown> {
+  const response = await fetch(iri, { headers: { Accept: 'text/turtle' } })
+  if (!response.ok) {
+    throw new HttpStatusError(iri, response.status)
+  }
+  const store = new Store()
+  store.addQuads(new Parser({ baseIRI: iri }).parse(await response.text()))
+  return jsonld.fromRDF(store)
+}
+
+/**
  * Raw JSON-LD GET — returns the parsed document (expanded, compacted, or
  * flattened form). Throws `HttpStatusError` when the response is not ok.
+ *
+ * The request prefers the LWS profile; if the server does not support it
+ * (406/415) the request is retried with plain `application/ld+json`. A
+ * container that comes back as the LWS JSON page listing is re-fetched as RDF
+ * (see `fetchContainerRdf`).
  *
  * Tracing: emits a `fetchJsonLd` span carrying the RAW wire document
  * (`sai.jsonld.raw` — no envelope). The auto HTTP client span (undici/http
@@ -392,13 +461,19 @@ export async function fetchJsonLd(iri: string, fetch: WhatwgFetch): Promise<unkn
   return trace.getTracer('sai-jsonld').startActiveSpan('fetchJsonLd', async (span) => {
     try {
       span.setAttribute('sai.jsonld.uri', iri)
-      const response = await fetch(iri, {
-        headers: { Accept: 'application/ld+json' },
+      let response = await fetch(iri, {
+        headers: { Accept: LWS_JSON_LD_ACCEPT },
       })
+      if (response.status === 406 || response.status === 415) {
+        response = await fetch(iri, { headers: { Accept: JSON_LD_ACCEPT } })
+      }
       if (!response.ok) {
         throw new HttpStatusError(iri, response.status)
       }
-      const doc: unknown = await response.json()
+      let doc: unknown = await response.json()
+      if (isLwsContainerDocument(doc)) {
+        doc = await fetchContainerRdf(iri, fetch)
+      }
       if (span.isRecording()) span.setAttribute('sai.jsonld.raw', JSON.stringify(doc))
       span.end()
       return doc

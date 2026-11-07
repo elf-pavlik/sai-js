@@ -1,4 +1,4 @@
-import { INTEROP, LDP, type SparqlTransport } from '@janeirodigital/interop-utils'
+import { INTEROP, LDP, LWS, type SparqlTransport } from '@janeirodigital/interop-utils'
 import { DataFactory, Store, type Quad } from 'n3'
 import { describe, expect, test } from 'vitest'
 
@@ -60,8 +60,8 @@ function racingTransport(): SparqlTransport {
   return {
     async fetchBindings(query: string) {
       if (query.includes('FILTER(?g = ?role)')) return []
-      if (query.includes(LDP.contains)) {
-        const container = /GRAPH <([^>]+)>/.exec(query)![1]
+      if (query.includes(LWS.contains)) {
+        const container = /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
         return (graphs.get(container) ?? [])
           .filter((entry) => entry.predicate.value === LDP.contains)
           .map((entry) => ({ child: { value: entry.object.value } })) as never

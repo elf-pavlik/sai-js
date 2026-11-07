@@ -10,11 +10,21 @@ export const registrySetTemplate = ({ id, webId, uas, dataRegistry }: RegistrySe
   PREFIX acp: <http://www.w3.org/ns/solid/acp#>
   PREFIX interop: <http://www.w3.org/ns/solid/interop#>
   PREFIX ldp: <http://www.w3.org/ns/ldp#>
+  PREFIX lws: <https://www.w3.org/ns/lws#>
   PREFIX space: <http://www.w3.org/ns/pim/space#>
 
   GRAPH <meta:${id}> {
     <${id}>
       a interop:RegistrySet, ldp:Resource, space:Storage;
+      lws:contains
+        <${id}social-agent/>,
+        <${id}application/>,
+        <${id}invitation/>,
+        <${id}role/>,
+        <${id}authorization/>,
+        <${id}grant/>,
+        <${id}activity/>,
+        <${id}access-request/>;
       interop:hasSocialAgentRegistry <${id}social-agent/>;
       interop:hasApplicationRegistry <${id}application/>;
       interop:hasInvitationRegistry <${id}invitation/>;
@@ -29,37 +39,44 @@ export const registrySetTemplate = ({ id, webId, uas, dataRegistry }: RegistrySe
 
   GRAPH <meta:${id}authorization/> {
     <${id}authorization/>
-      a interop:AuthorizationRegistry, ldp:Resource.
+      a interop:AuthorizationRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}grant/> {
     <${id}grant/>
-      a interop:GrantRegistry, ldp:Resource.
+      a interop:GrantRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}social-agent/> {
     <${id}social-agent/>
-      a interop:SocialAgentRegistry, ldp:Resource.
+      a interop:SocialAgentRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}application/> {
     <${id}application/>
-      a interop:ApplicationRegistry, ldp:Resource.
+      a interop:ApplicationRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}invitation/> {
     <${id}invitation/>
-      a interop:InvitationRegistry, ldp:Resource.
+      a interop:InvitationRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}role/> {
     <${id}role/>
-      a interop:RoleRegistry, ldp:Resource.
+      a interop:RoleRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}activity/> {
     <${id}activity/>
-      a interop:ActivityRegistry, ldp:Resource.
+      a interop:ActivityRegistry, ldp:Resource;
+      lws:partOf <${id}>.
   }
 
   GRAPH <meta:${id}access-request/> {

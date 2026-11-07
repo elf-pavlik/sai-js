@@ -8,11 +8,7 @@ import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import type { ResolvedContext } from '../src/services/Context.js'
-import {
-  PeerFetchError,
-  fetchPeerResource,
-  isJsonLdContentType,
-} from '../src/services/peerFetch.js'
+import { PeerFetchError, fetchPeerResource } from '../src/services/peerFetch.js'
 import {
   PeerProxyError,
   dataRegistrationContains,
@@ -99,15 +95,27 @@ function happySession(overrides?: {
 // ──────────────────────────
 
 describe('fetchPeerResource', () => {
-  test('fetches the target with the org session and pins Accept: application/ld+json', async () => {
+  test('fetches the target with the org session and returns the JSON-LD document', async () => {
     let seenInit: RequestInit | undefined
     const session = fakeSession(async (_url, init) => {
       seenInit = init
       return jsonResponse(peerRegistrationDoc)
     })
-    const response = await fetchPeerResource(session, PEER_REGISTRATION)
-    expect(seenInit?.headers).toEqual({ Accept: 'application/ld+json' })
-    expect(response.ok).toBe(true)
+    const doc = await fetchPeerResource(session, PEER_REGISTRATION)
+    // the LWS profile is the preferred Accept; `fetchJsonLd` falls back for
+    // servers that do not support it, and re-reads an LWS page listing as RDF
+    expect(String((seenInit?.headers as Record<string, string>)?.Accept)).toContain(
+      'application/ld+json'
+    )
+    expect(doc).toEqual(peerRegistrationDoc)
+  })
+
+  test('surfaces the upstream status as HttpStatusError', async () => {
+    const session = fakeSession(async () => jsonResponse({}, 403))
+    await expect(fetchPeerResource(session, PEER_REGISTRATION)).rejects.toMatchObject({
+      name: 'HttpStatusError',
+      status: 403,
+    })
   })
 
   test('rejects non-http(s) and relative targets before any fetch', async () => {
@@ -120,16 +128,6 @@ describe('fetchPeerResource', () => {
       await expect(fetchPeerResource(session, target)).rejects.toBeInstanceOf(PeerFetchError)
     }
     expect(fetched).toBe(false)
-  })
-
-  test('isJsonLdContentType — JSON-LD-only contract', () => {
-    expect(isJsonLdContentType('application/ld+json')).toBe(true)
-    expect(isJsonLdContentType('application/ld+json; profile="http://example.org/profile"')).toBe(
-      true
-    )
-    expect(isJsonLdContentType('text/turtle')).toBe(false)
-    expect(isJsonLdContentType('application/octet-stream')).toBe(false)
-    expect(isJsonLdContentType('')).toBe(false)
   })
 })
 

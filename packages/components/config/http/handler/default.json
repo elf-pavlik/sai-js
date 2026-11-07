@@ -52,6 +52,7 @@
           { "@id": "urn:sai:default:GrantIssuanceRouter" },
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
+          { "@id": "urn:sai:default:LwsTokenRouter" },
           { "@id": "urn:sai:default:AuthorizationAgentDiscoveryHandler" },
           { "@id": "urn:sai:default:AdminSparqlRouter" },
           { "@id": "urn:sai:default:ProxyAdminRouter" },
@@ -64,6 +65,20 @@
       "@type": "AbsolutePathInteractionRoute",
       "path": { "@id": "urn:sai:default:variable:authorizationEndpoint" },
       "ensureSlash": false
+    },
+    {
+      "comment": "Hands the UI an LWS access token for a data or registry storage.",
+      "@id": "urn:sai:default:LwsTokenRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/lws-token$"],
+      "allowedMethods": ["GET"],
+      "handler": {
+        "@id": "urn:sai:default:LwsTokenHandler",
+        "@type": "LwsTokenHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
+      }
     },
     {
       "comment": "Handles reading and writing notification subscriptions and channels.",

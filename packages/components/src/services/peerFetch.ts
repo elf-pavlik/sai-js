@@ -1,20 +1,12 @@
 import type { AuthorizationAgent } from '@janeirodigital/interop-authorization-agent'
+import { fetchJsonLd } from '@janeirodigital/interop-utils'
 
 /**
  * Raised by `fetchPeerResource` when the target IRI is not an absolute
- * http(s) IRI. Listed in `.componentsignore` — not instantiable as a
- * Components.js component.
+ * http(s) IRI, or when the peer does not serve a JSON-LD document. Listed in
+ * `.componentsignore` — not instantiable as a Components.js component.
  */
 export class PeerFetchError extends Error {}
-
-/**
- * JSON-LD-only contract: the proxy serves (and forwards) only
- * `application/ld+json`; binary and any other representation are out of
- * scope. Used by `ProxyAdminHandler` on the upstream content-type.
- */
-export function isJsonLdContentType(contentType: string): boolean {
-  return contentType.includes('application/ld+json')
-}
 
 /**
  * The org-side upstream fetch behind `/.sai/proxy-admin`: fetch a peer
@@ -26,20 +18,21 @@ export function isJsonLdContentType(contentType: string): boolean {
  * reaches this over HTTP as the admin instead (plan:
  * `services/peerProxy.ts`).
  *
- * JSON-LD only: `Accept: application/ld+json` is pinned — binary and any
- * other representation are out of scope for now.
+ * The document is read through `fetchJsonLd`, which prefers the LWS JSON-LD
+ * profile and — when an LWS-only peer answers a **container** with the LWS
+ * JSON page listing (no own RDF, no frameable containment) — re-fetches it as
+ * RDF. The proxy therefore serves a JSON-LD document for both documents and
+ * containers, no matter which LWS/Solid shape the peer speaks. The return
+ * value is that expanded JSON-LD document; non-ok upstream responses throw
+ * `HttpStatusError` (carrying the status, which `ProxyAdminHandler` maps).
  *
  * Only absolute http(s) targets are accepted — the org's credentials must
  * never be pointed at other schemes.
- *
- * Callers own the status handling: `ProxyAdminHandler` maps non-ok
- * upstream responses to CSS HTTP errors. Network/upstream failures reject
- * with the underlying error.
  */
 export async function fetchPeerResource(
   orgSession: AuthorizationAgent,
   targetId: string
-): Promise<Response> {
+): Promise<unknown> {
   let target: URL
   try {
     target = new URL(targetId)
@@ -49,5 +42,14 @@ export async function fetchPeerResource(
   if (target.protocol !== 'http:' && target.protocol !== 'https:') {
     throw new PeerFetchError(`target must be an absolute http(s) IRI: ${targetId}`)
   }
-  return orgSession.fetch(target.href, { headers: { Accept: 'application/ld+json' } })
+  try {
+    return await fetchJsonLd(target.href, orgSession.fetch)
+  } catch (error) {
+    // upstream status/network failures keep their identity so the handler can
+    // surface them; only an unparseable body becomes a client-facing error
+    if (error instanceof Error && error.name === 'HttpStatusError') throw error
+    throw new PeerFetchError(
+      `peer resource is not a JSON-LD document: ${target.href} (${(error as Error).message})`
+    )
+  }
 }

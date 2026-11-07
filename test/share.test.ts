@@ -13,7 +13,7 @@ describe('share resource', () => {
   const kimId = 'https://id/kim'
   const kimCookie = 'css-account=77b0674a-1f3b-4c78-a7d9-0b2e3f4a5b6c'
   const applicationId = 'https://data/test-client/public/id'
-  const resource = 'https://data/alice-home/x1n3cm/n8k3wp'
+  const resource = 'https://data/alice-home/n8k3wp'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
   const readMode = 'http://www.w3.org/ns/auth/acl#Read'
 

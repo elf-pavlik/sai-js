@@ -6,12 +6,14 @@
   "import": [],
   "@graph": [
     {
+      "comment": "Flat LWS storage: every new resource is allocated directly under the pod root with a UUID (a UUID Slug is honored), and containment is stored as lws:contains/lws:partOf metadata instead of being derived from the URI path. The data still goes through the hybrid SPARQL + S3 accessor.",
       "@id": "urn:solid-server:default:ResourceStore_Backend",
-      "@type": "DataAccessorBasedStore",
+      "@type": "HonorUuidSlugDataAccessorBasedStore",
       "identifierStrategy": { "@id": "urn:solid-server:default:IdentifierStrategy" },
       "auxiliaryStrategy": { "@id": "urn:solid-server:default:AuxiliaryStrategy" },
       "accessor": { "@id": "urn:sai:default:HybridDataAccessor" },
-      "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" }
+      "metadataStrategy": { "@id": "urn:solid-server:default:MetadataStrategy" },
+      "storageStrategy": { "@id": "urn:solid-server:default:StorageLocationStrategy" }
     },
     {
       "@id": "urn:sai:default:HybridDataAccessor",

@@ -9,7 +9,7 @@ const grant = {
   grantedBy: 'https://id/acme',
   dataOwner: 'https://id/acme',
   registeredShapeTree: 'https://data/shapetrees/trees/Project',
-  hasDataRegistration: 'https://data/acme-rnd/reb39k/',
+  hasDataRegistration: 'https://data/acme-rnd/reb39k',
   hasStorage: 'https://data/acme-rnd/',
   scopeOfGrant: INTEROP.AllFromRegistry,
   accessMode: [ACL.Read],
@@ -26,7 +26,7 @@ describe('AccessRequest message', () => {
             {
               ...grant,
               scopeOfGrant: INTEROP.Inherited,
-              hasDataRegistration: 'https://data/acme-rnd/x0md9s/',
+              hasDataRegistration: 'https://data/acme-rnd/x0md9s',
             },
           ],
         },

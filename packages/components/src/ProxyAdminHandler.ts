@@ -1,3 +1,4 @@
+import { HttpStatusError } from '@janeirodigital/interop-utils'
 import {
   BadRequestHttpError,
   BasicRepresentation,
@@ -15,7 +16,7 @@ import type {
 import { getLoggerFor } from 'global-logger-factory'
 
 import { orgWebIdFromPath, requireOrgAdmin } from './services/adminGate.js'
-import { PeerFetchError, fetchPeerResource, isJsonLdContentType } from './services/peerFetch.js'
+import { PeerFetchError, fetchPeerResource } from './services/peerFetch.js'
 import type { SessionManager } from './SessionManager'
 
 /**
@@ -30,10 +31,10 @@ import type { SessionManager } from './SessionManager'
  * and returns the upstream representation to the caller. The caller's own
  * UAS never touches the peer's server (it holds no data grants).
  *
- * JSON-LD only: `Accept: application/ld+json` is pinned upstream and the
- * response is served as `application/ld+json`; binary and any other
- * representation are out of scope (no Accept forwarding, no content-type
- * passthrough).
+ * JSON-LD only: the upstream document is read through `fetchJsonLd` (LWS
+ * profile first, RDF fallback for an LWS page-listing container) and served
+ * as `application/ld+json`; binary and any other representation are out of
+ * scope (no Accept forwarding, no content-type passthrough).
  *
  * Gate: same as `/sparql-admin` (`requireOrgAdmin` — the caller must be an
  * admin of the org). Read-only by construction: GET only, and the proxy
@@ -84,36 +85,32 @@ export class ProxyAdminHandler extends OperationHttpHandler {
     if (!rawTarget) {
       throw new BadRequestHttpError('missing iri query parameter')
     }
-    let response: Response
+    let doc: unknown
     try {
-      response = await fetchPeerResource(orgSession, rawTarget)
+      doc = await fetchPeerResource(orgSession, rawTarget)
     } catch (error) {
       if (error instanceof PeerFetchError) {
         throw new BadRequestHttpError(error.message)
       }
-      throw error
-    }
-    if (!response.ok) {
       // Surface the upstream outcome to the caller: 404 for a missing
       // resource, anything else (notably 403 when the org is not actually
       // granted — the grantee-ACR hygiene gap) as forbidden.
-      const detail = await response.text()
-      if (response.status === 404) {
-        throw new NotFoundHttpError(`upstream 404 for ${rawTarget}: ${detail}`)
+      if (error instanceof HttpStatusError) {
+        if (error.status === 404) {
+          throw new NotFoundHttpError(`upstream 404 for ${rawTarget}`)
+        }
+        throw new ForbiddenHttpError(`upstream ${error.status} for ${rawTarget}`)
       }
-      throw new ForbiddenHttpError(`upstream ${response.status} for ${rawTarget}: ${detail}`)
+      throw error
     }
-    // JSON-LD-only contract: the peer must serve the document as
-    // application/ld+json (the pinned Accept); nothing else is proxied.
-    const contentType = response.headers.get('content-type') ?? ''
-    if (!isJsonLdContentType(contentType)) {
-      throw new BadRequestHttpError(
-        `upstream returned ${contentType} for ${rawTarget}; proxy serves application/ld+json only`
-      )
-    }
-    const payload = await response.text()
-
-    const representation = new BasicRepresentation(payload, operation.target, 'application/ld+json')
+    // JSON-LD-only contract: `fetchPeerResource` returns the expanded JSON-LD
+    // document (an LWS JSON page listing is re-read as RDF), so the proxy
+    // always answers application/ld+json and never passes bytes through.
+    const representation = new BasicRepresentation(
+      JSON.stringify(doc),
+      operation.target,
+      'application/ld+json'
+    )
     return new OkResponseDescription(representation.metadata, representation.data)
   }
 }

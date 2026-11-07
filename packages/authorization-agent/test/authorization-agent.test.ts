@@ -772,7 +772,7 @@ describe('findApplicationRegistration', () => {
   const APP_REG = 'https://auth.alice.example/app-reg'
   const APP_WEBID = 'https://projectron.example/#app'
 
-  test('finds the registration of the application webId via the ldp:contains listing', async () => {
+  test('finds the registration of the application webId via the lws:contains listing', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -780,7 +780,7 @@ describe('findApplicationRegistration', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('ldp#contains')
+      expect(query).toContain('lws#contains')
       return [{ child: { termType: 'NamedNode', value: APP_REG } }]
     }
     sparqlMock.handlers.triples = (query) => {
@@ -832,7 +832,7 @@ describe('findDataRegistration', () => {
     ),
   ]
 
-  test('lists the data registry via the ldp:contains listing and matches the shape tree', async () => {
+  test('lists the data registry via the lws:contains listing and matches the shape tree', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -840,7 +840,7 @@ describe('findDataRegistration', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('ldp#contains')
+      expect(query).toContain('lws#contains')
       return [DATA_REG_PROJECT, DATA_REG_TASK].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
@@ -911,7 +911,7 @@ describe('findSocialAgentInvitation', () => {
     ),
   ]
 
-  test('lists invitations via the ldp:contains listing and matches the capability URL', async () => {
+  test('lists invitations via the lws:contains listing and matches the capability URL', async () => {
     const agent = await AuthorizationAgent.build(webId, agentId, registryId, {
       fetch: createStatefulFetch(),
       randomUUID,
@@ -919,7 +919,7 @@ describe('findSocialAgentInvitation', () => {
     })
 
     sparqlMock.handlers.bindings = (query) => {
-      expect(query).toContain('ldp#contains')
+      expect(query).toContain('lws#contains')
       return [INVITE_1, INVITE_2].map((iri) => ({
         child: { termType: 'NamedNode', value: iri },
       }))
@@ -1166,7 +1166,7 @@ describe('revokeGrants core (C1)', () => {
   /** Serve the grant registry listing and every grant graph from `existing`. */
   const installRegistry = (existing: GrantData[] = [root, ab, bc, childSource, child]) => {
     sparqlMock.handlers.bindings = (query) => {
-      if (query.includes('ldp#contains')) {
+      if (query.includes('lws#contains')) {
         return existing.map((grant) => ({
           child: { termType: 'NamedNode', value: grant.id },
         }))

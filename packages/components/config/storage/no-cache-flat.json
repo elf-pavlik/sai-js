@@ -1,0 +1,44 @@
+{
+  "@context": [
+    "https://linkedsoftwaredependencies.org/bundles/npm/@solid/community-server/^8.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@elfpavlik/sai-components/^1.0.0/components/context.jsonld"
+  ],
+  "import": [],
+  "@graph": [
+    {
+      "comment": [
+        "Bypass the LWS representation cache (`ResourceStore_Cached`). The cache stores the representation of a HEAD request,",
+        "whose body the handler destroys, and serves that empty body to later GETs (a GET after a HEAD returns 200 with an empty body)."
+      ],
+      "@id": "urn:sai:default:OverrideResourceStoreConverting",
+      "@type": "Override",
+      "overrideInstance": {
+        "@id": "urn:solid-server:default:ResourceStore_Converting"
+      },
+      "overrideSteps": [
+        {
+          "@type": "OverrideParameters",
+          "overrideValue": {
+            "@type": "RepresentationConvertingStore",
+            "source": {
+              "@id": "urn:solid-server:default:ResourceStore_Backend"
+            },
+            "metadataStrategy": {
+              "@id": "urn:solid-server:default:MetadataStrategy"
+            },
+            "options_inConverter": {
+              "@id": "urn:solid-server:default:RepresentationConverter"
+            },
+            "options_outConverter": {
+              "@id": "urn:solid-server:default:UiEnabledConverter"
+            },
+            "options_inPreferences_type": {
+              "RepresentationConvertingStore:_options_inPreferences_type_key": "internal/quads",
+              "RepresentationConvertingStore:_options_inPreferences_type_value": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

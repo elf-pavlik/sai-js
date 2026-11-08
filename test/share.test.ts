@@ -76,6 +76,18 @@ describe('share resource', () => {
     expect(sharedGrant!.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
     expect(sharedGrant!.accessMode).toEqual([readMode])
 
+    // "who has access" (GetResource) reports the new DIRECT grantee, and keeps
+    // the seeded ROLE-granted authorization (the `Test` role, no members)
+    // separate — a role is never folded into accessGrantedTo
+    const access = await rpcCall<{
+      accessGrantedTo: string[]
+      accessGrantedViaRoles: { role: string; label: string; members: string[] }[]
+    }>(rpcPayload({ _tag: 'GetResource', id: resource, lang: 'en', context: aliceId }), aliceCookie)
+    expect(access.accessGrantedTo).toContain(kimId)
+    expect(access.accessGrantedViaRoles).toEqual([
+      { role: 'https://registry/alice/role/j1g128', label: 'Test', members: [] },
+    ])
+
     // grantee-facing (public RPC): kim sees the shared project registration in
     // her own "data of alice" view. The product serves it from kim's replica,
     // which the delegated-grants consumer refreshes after the grant write — poll

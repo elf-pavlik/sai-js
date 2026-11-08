@@ -290,13 +290,15 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
       label?: string
       shapeTree: { id: string }
       accessGrantedTo: string[]
+      accessGrantedViaRoles: { role: string; label: string; members: string[] }[]
       children: { shapeTree: { id: string }; count: number }[]
     }>(rpcPayload({ _tag: 'GetResource', id: bobNeon, lang: 'en', context: yoyoId }), danCookie)
     expect(resource.id).toBe(bobNeon)
     expect(resource.label).toBe('Neon')
     expect(resource.shapeTree.id).toBe(projectShapeTree)
-    // the org recorded no authorizations over Bob's data → empty access list
+    // the org recorded no authorizations over Bob's data → empty access lists
     expect(resource.accessGrantedTo).toEqual([])
+    expect(resource.accessGrantedViaRoles).toEqual([])
     // Project references several shape trees (Image, Task, …) — find by id
     const taskChild = resource.children.find((child) => child.shapeTree.id === taskShapeTree)
     expect(taskChild?.count).toBe(2)

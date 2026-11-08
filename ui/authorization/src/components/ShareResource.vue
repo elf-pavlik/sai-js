@@ -43,7 +43,34 @@
           :key="agent.id"
           :title="agent.label"
           :value="agent.id"
-        />
+        >
+          <template v-if="rolesOf(agent.id).length" #append>
+            <v-chip
+              v-for="role of rolesOf(agent.id)"
+              :key="role.role"
+              size="small"
+              class="mr-1"
+              :text="$t('via-role', { role: role.label })"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+      <v-list v-if="rolesWithAccess.length">
+        <v-list-subheader>{{ $t('roles-with-access') }}</v-list-subheader>
+        <v-list-group v-for="role of rolesWithAccess" :key="role.role" :value="role.role">
+          <template #activator="{ props: activatorProps }">
+            <v-list-item v-bind="activatorProps" :title="role.label">
+              <template #append>
+                <v-chip size="small" :text="String(role.members.length)" />
+              </template>
+            </v-list-item>
+          </template>
+          <v-list-item v-for="member of role.members" :key="member" :title="agentLabel(member)">
+            <template v-if="directIds.has(member)" #append>
+              <v-chip size="small" :text="$t('direct-access')" />
+            </template>
+          </v-list-item>
+        </v-list-group>
       </v-list>
     </v-card-text>
     <div class="px-2 d-flex justify-space-between">
@@ -110,13 +137,32 @@ function toggleAgent(id: string) {
   }
 }
 
-const existingGrantees = computed(() =>
-  props.socialAgents.filter((agent) => props.resource.accessGrantedTo.includes(agent.id))
+const directIds = computed(() => new Set<string>(props.resource.accessGrantedTo))
+const rolesWithAccess = computed(() => props.resource.accessGrantedViaRoles ?? [])
+const roleMemberIds = computed(
+  () => new Set<string>(rolesWithAccess.value.flatMap(({ members }) => members))
 )
 
-const potentialGrantees = computed(() =>
-  props.socialAgents.filter((agent) => !props.resource.accessGrantedTo.includes(agent.id))
+const existingGrantees = computed(() =>
+  props.socialAgents.filter((agent) => directIds.value.has(agent.id))
 )
+
+// an agent can hold access directly AND through a granted role (both facts are
+// reported by the server); role members are not offered as new grantees — the
+// role grant already covers them (one grant per member on the server side)
+const potentialGrantees = computed(() =>
+  props.socialAgents.filter(
+    (agent) => !directIds.value.has(agent.id) && !roleMemberIds.value.has(agent.id)
+  )
+)
+
+function rolesOf(agentId: string) {
+  return rolesWithAccess.value.filter(({ members }) => members.includes(agentId))
+}
+
+function agentLabel(agentId: string): string {
+  return props.socialAgents.find(({ id }) => id === agentId)?.label ?? agentId
+}
 
 function chooseAccessMode(value: string): string[] {
   switch (value) {

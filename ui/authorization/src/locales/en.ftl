@@ -65,6 +65,9 @@ selected-data = Selected data
 
 select-peers = Select peers
 peers-with-access = Peers with access
+roles-with-access = Roles with access
+via-role = via { $role }
+direct-access = direct
 share = Share
 
 request-access = Request access

@@ -63,6 +63,9 @@ selected-data = Wybrane dane
 
 select-peers = Wybierz znjomych
 peers-with-access = Znajomi z dostępem
+roles-with-access = Role z dostępem
+via-role = przez { $role }
+direct-access = bezpośrednio
 share = Udostępnij
 
 request-access = Zapytaj o dostęp

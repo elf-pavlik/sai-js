@@ -51,7 +51,7 @@ debt (an admin's UAS cannot PATCH seeded closures; the org session can).
 | grant generation | ✅ `authorization-agent/src/grant-generation.ts` |
 | session method `recordAuthorizationFromStructure` | ✅ `authorization-agent/src/authorization-agent.ts` |
 | synchronously materialized by services | ❌ `services/Authorization.ts` `recordAuthorization` and `services/ShareResource.ts` `shareResource` call the AA **in the RPC** and write the activity after (thick) |
-| read-side rule `agentsWithAccessMatching` | ⚠️ in `services/ShareResource.ts` (re-exports AA `matchesScope`) — a rule in the wrong layer |
+| read-side rule `agentsWithAccessMatching` | ✅ `authorization-agent/src/authorization.ts` `accessForResource` (+ `matchesScope`); `services/ShareResource.ts` keeps thin wrappers (`agentsWithAccessMatching`, `whoHasAccessMatching`) over the registry read |
 | activity decode / completions | ⚠️ `temporal/activities/grants.ts` (`markActivitiesDone`) — registry CRUD that could be AA methods |
 | orchestration | ✅ `temporal/workflows/*` dispatching per class |
 
@@ -122,6 +122,9 @@ no change happens on the basis of this list alone.
 3. **Move the read-side rule `agentsWithAccessMatching`** from
    `services/ShareResource.ts:40-60` into `authorization-agent` — it is a rule
    (uses AA `matchesScope`), not transport.
+   **✅ DONE:** the rule is `accessForResource` (+ `matchesScope`, `scopeFacts`)
+   in `authorization-agent/src/authorization.ts`; the service loads the
+   registry snapshot (authorizations + roles) and calls it.
 4. **Domain call sites** — whether a service may *invoke* AA rules to build
    the embedded carrier (e.g. `buildNestedDataAuthorizations`) and which AA
    surface the workflow needs to record pre-built DataAuthorizations at

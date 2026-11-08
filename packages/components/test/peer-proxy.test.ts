@@ -3,6 +3,7 @@ import type {
   DataAuthorizationData,
   DataInstanceData,
   GrantData,
+  RoleData,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
@@ -20,7 +21,7 @@ import {
   listContained,
   sparqlTransportFor,
 } from '../src/services/queries/org.js'
-import { agentsWithAccessMatching } from '../src/services/ShareResource.js'
+import { agentsWithAccessMatching, whoHasAccessMatching } from '../src/services/ShareResource.js'
 
 // ──────────────────────────
 // Fixtures
@@ -481,6 +482,82 @@ describe('agentsWithAccessMatching', () => {
         YOYO_WEBID
       )
     ).toThrow()
+  })
+})
+describe('whoHasAccessMatching (roles)', () => {
+  const WHIZ: RoleData = {
+    id: 'https://yoyo.example/roles/whiz',
+    type: [INTEROP.Role],
+    label: { '@none': 'Whiz' },
+    members: [DAN_WEBID],
+  }
+
+  test('a role-granted authorization is reported as a role, members expanded', () => {
+    const access = whoHasAccessMatching(
+      [
+        authorization(INTEROP.AllFromRegistry, {
+          grantee: WHIZ.id,
+          hasDataRegistration: PEER_REGISTRATION,
+        }),
+      ],
+      resource,
+      YOYO_WEBID,
+      [WHIZ]
+    )
+    expect(access.agents).toEqual([])
+    expect(access.roles).toEqual([
+      {
+        role: WHIZ.id,
+        label: WHIZ.label,
+        members: [DAN_WEBID],
+        dataAuthorization: 'https://yoyo.example/authorizations/1',
+        accessMode: [],
+      },
+    ])
+  })
+
+  test('AllFromRole covers the org data only when the org is a role member', () => {
+    const notMember = whoHasAccessMatching(
+      [
+        authorization(INTEROP.AllFromRole, {
+          grantee: WHIZ.id,
+          dataOwner: 'https://yoyo.example/roles/biz',
+        }),
+      ],
+      resource,
+      YOYO_WEBID,
+      [
+        WHIZ,
+        {
+          id: 'https://yoyo.example/roles/biz',
+          type: [INTEROP.Role],
+          label: { '@none': 'Biz' },
+          members: [DAN_WEBID],
+        },
+      ]
+    )
+    expect(notMember.roles).toEqual([])
+
+    const member = whoHasAccessMatching(
+      [
+        authorization(INTEROP.AllFromRole, {
+          grantee: WHIZ.id,
+          dataOwner: 'https://yoyo.example/roles/biz',
+        }),
+      ],
+      resource,
+      YOYO_WEBID,
+      [
+        WHIZ,
+        {
+          id: 'https://yoyo.example/roles/biz',
+          type: [INTEROP.Role],
+          label: { '@none': 'Biz' },
+          members: [YOYO_WEBID],
+        },
+      ]
+    )
+    expect(member.roles.map(({ role }) => role)).toEqual([WHIZ.id])
   })
 })
 // ──────────────────────────

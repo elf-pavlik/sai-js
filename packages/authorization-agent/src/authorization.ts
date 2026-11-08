@@ -5,6 +5,7 @@ import type {
   DataAuthorizationData,
   DataInstanceData,
   FinalDataAuthorizationData,
+  RoleData,
 } from '@janeirodigital/interop-data-model'
 // (a2) the AuthorizationStructure/DataAuthorizationStructure canonical shapes
 // moved verbatim into data-model — re-exported here for source compatibility
@@ -16,6 +17,7 @@ export type {
 import { DataAuthorization } from '@janeirodigital/interop-data-model'
 import {
   INTEROP,
+  type LanguageMap,
   type WhatwgFetch,
   iriForContained,
   putJsonLd,
@@ -50,15 +52,100 @@ export interface DeniedAuthorization extends BaseAuthorization {
 
 export type AccessAuthorizationStructure = GrantedAuthorization | DeniedAuthorization
 
+// ──────────────────────────
+// Read side: "who has access" to a data instance
+// ──────────────────────────
+
+/** An agent whose authorization covers a resource. */
+export interface AgentWithAccess {
+  agent: string
+  dataAuthorization: string
+  accessMode: string[]
+}
+
+/**
+ * A role whose authorization covers a resource. `members` is the EXPANDED
+ * bearer set (the grantee role's members): role membership is read at read
+ * time, so it changes without the authorization being rewritten — the same
+ * expansion `generateDataGrants` does when it writes one grant per member.
+ */
+export interface RoleWithAccess {
+  role: string
+  label?: LanguageMap
+  members: string[]
+  dataAuthorization: string
+  accessMode: string[]
+}
+
+/**
+ * Who holds access to a resource. Agents granted DIRECTLY and roles granted
+ * through an authorization are reported separately, never folded: an agent
+ * can be both (a direct authorization AND membership in a role that was
+ * granted), and both facts are visible to the caller.
+ */
+export interface WhoHasAccess {
+  agents: AgentWithAccess[]
+  roles: RoleWithAccess[]
+}
+
+/** The role facts the scope rule needs (role IRI → label + members). */
+export interface RoleFacts {
+  label?: LanguageMap
+  members: readonly string[]
+}
+
+/**
+ * Facts the read-side scope rule needs, loaded ONCE per "who has access" read
+ * by the caller (the session over its internal endpoint, components over
+ * `/sparql-admin` in org context): `roles` marks which grantees/data owners
+ * are roles and expands them, `authorizations` resolves `Inherited` scopes.
+ */
+export interface ScopeFacts {
+  roles: ReadonlyMap<string, RoleFacts>
+  authorizations: ReadonlyMap<string, DataAuthorizationData>
+}
+
+export const EMPTY_SCOPE_FACTS: ScopeFacts = {
+  roles: new Map(),
+  authorizations: new Map(),
+}
+
+/** Build the `ScopeFacts` for a whole registry read (one pass, no extra queries). */
+export function scopeFacts(
+  roles: readonly (RoleData | undefined)[],
+  authorizations: readonly DataAuthorizationData[]
+): ScopeFacts {
+  const byRole = new Map<string, RoleFacts>()
+  for (const role of roles) {
+    if (!role?.id) continue
+    byRole.set(role.id, { label: role.label, members: role.members ?? [] })
+  }
+  const byIri = new Map<string, DataAuthorizationData>()
+  for (const authorization of authorizations) {
+    if (authorization.id) byIri.set(authorization.id, authorization)
+  }
+  return { roles: byRole, authorizations: byIri }
+}
+
 /**
  * Whether a data authorization grants access to the given data instance — the
- * shared scope-match rule (formerly duplicated between the session's
- * `findAgentsWithAccess` and components' `agentsWithAccessMatching`).
+ * shared scope-match rule (used by the session's `findWhoHasAccess` and
+ * components' org-context read).
+ *
+ * - `AllFromRole`: the authorization covers the data of every member of the
+ *   `dataOwner` role, so it covers `ownerWebId`'s resource only when
+ *   `ownerWebId` is a member of that role (the same set
+ *   `generateDataGrants` iterates to decide source vs delegated grants).
+ * - `Inherited`: a child authorization covers exactly what its parent
+ *   (`inheritsFromAuthorization`) covers; the parent is resolved from the
+ *   registry snapshot the caller loaded.
  */
 export function matchesScope(
   authorization: DataAuthorizationData,
   resource: DataInstanceData,
-  ownerWebId: string
+  ownerWebId: string,
+  facts: ScopeFacts = EMPTY_SCOPE_FACTS,
+  seen: ReadonlySet<string> = new Set()
 ): boolean {
   switch (authorization.scopeOfAuthorization) {
     case INTEROP.All:
@@ -72,11 +159,72 @@ export function matchesScope(
         authorization.hasDataRegistration === resource.dataRegistration?.id &&
         (authorization.hasDataInstance ?? []).includes(resource.id)
       )
+    case INTEROP.AllFromRole: {
+      const role = authorization.dataOwner ? facts.roles.get(authorization.dataOwner) : undefined
+      // an unlisted role (peer registry, role deleted) can not be confirmed
+      return role ? role.members.includes(ownerWebId) : false
+    }
+    case INTEROP.Inherited: {
+      const parentIri = authorization.inheritsFromAuthorization
+      if (!parentIri || seen.has(parentIri)) return false
+      const parent = facts.authorizations.get(parentIri)
+      if (!parent) return false
+      return matchesScope(parent, resource, ownerWebId, facts, new Set([...seen, parentIri]))
+    }
     default:
       throw new Error(
         `encountered incorrect Data Authorization with scope:${authorization.scopeOfAuthorization}`
       )
   }
+}
+
+/**
+ * The `WhoHasAccess` of a resource over a whole authorization registry read.
+ * Pure — callers load `authorizations`/`roles` (see `scopeFacts`) and decide
+ * whether to filter the reported agents by their own registrations.
+ * Entries are deduped per agent/role with the access modes unioned.
+ */
+export function accessForResource(
+  authorizations: readonly DataAuthorizationData[],
+  resource: DataInstanceData,
+  ownerWebId: string,
+  facts: ScopeFacts = EMPTY_SCOPE_FACTS
+): WhoHasAccess {
+  const agents = new Map<string, AgentWithAccess>()
+  const roles = new Map<string, RoleWithAccess>()
+  for (const authorization of authorizations) {
+    if (authorization.registeredShapeTree !== resource.shapeTreeIri) continue
+    if (!matchesScope(authorization, resource, ownerWebId, facts)) continue
+    const role = facts.roles.get(authorization.grantee)
+    const accessMode = authorization.accessMode ?? []
+    if (role) {
+      const existing = roles.get(authorization.grantee)
+      if (existing) {
+        existing.accessMode = [...new Set([...existing.accessMode, ...accessMode])]
+        existing.members = [...new Set([...existing.members, ...role.members])]
+        continue
+      }
+      roles.set(authorization.grantee, {
+        role: authorization.grantee,
+        label: role.label,
+        members: [...role.members],
+        dataAuthorization: authorization.id!,
+        accessMode: [...accessMode],
+      })
+      continue
+    }
+    const existing = agents.get(authorization.grantee)
+    if (existing) {
+      existing.accessMode = [...new Set([...existing.accessMode, ...accessMode])]
+      continue
+    }
+    agents.set(authorization.grantee, {
+      agent: authorization.grantee,
+      dataAuthorization: authorization.id!,
+      accessMode: [...accessMode],
+    })
+  }
+  return { agents: [...agents.values()], roles: [...roles.values()] }
 }
 
 // ──────────────────────────

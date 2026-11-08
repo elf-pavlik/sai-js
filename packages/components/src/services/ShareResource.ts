@@ -1,6 +1,8 @@
 import {
   type ShareDataInstanceStructure,
-  matchesScope,
+  type WhoHasAccess,
+  accessForResource,
+  scopeFacts,
 } from '@janeirodigital/interop-authorization-agent'
 import {
   ActivityRegistry,
@@ -19,6 +21,7 @@ import {
   type EmbeddedNeedBasedAccessRequest,
   type NeedBasedAccessRequestGroup,
   type NeedBasedAccessRequestSent,
+  type RoleData,
   ShapeTree,
   isBlob,
   labelFromNode,
@@ -41,6 +44,7 @@ import { fetchPeerDocument, peerInstanceNode, peerRegistrationOfInstance } from 
 import {
   getDataAuthorization,
   containingContainer,
+  getRole,
   listContained,
   sparqlTransportFor,
 } from './queries/org.js'
@@ -48,36 +52,45 @@ import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
 /**
  * Grantees whose org-side data authorizations cover the resource — the
- * org-context counterpart of `AA.findAgentsWithAccess`, evaluated over the
- * ORG's authorization registry (via SPARQL) instead of the session's own.
- * Pure — exported for unit tests; the scope rule itself is the AA's
- * `matchesScope`.
+ * org-context counterpart of `AA.findWhoHasAccess`, evaluated over the ORG's
+ * authorization registry (via SPARQL) instead of the session's own. Pure —
+ * exported for unit tests; the scope rule itself is the AA's
+ * `accessForResource` (the rule lives in the AA, not here).
  */
+export function whoHasAccessMatching(
+  authorizations: DataAuthorizationData[],
+  resource: DataInstanceData,
+  ownerWebId: string,
+  roles: RoleData[] = []
+): WhoHasAccess {
+  return accessForResource(authorizations, resource, ownerWebId, scopeFacts(roles, authorizations))
+}
+
+/** `whoHasAccessMatching` projected to its direct agent grantees. */
 export function agentsWithAccessMatching(
   authorizations: DataAuthorizationData[],
   resource: DataInstanceData,
-  ownerWebId: string
+  ownerWebId: string,
+  roles: RoleData[] = []
 ): string[] {
-  const agents = new Set<string>()
-  for (const authorization of authorizations) {
-    if (authorization.registeredShapeTree !== resource.shapeTreeIri) continue
-    if (matchesScope(authorization, resource, ownerWebId)) agents.add(authorization.grantee)
-  }
-  return [...agents]
+  return whoHasAccessMatching(authorizations, resource, ownerWebId, roles).agents.map(
+    ({ agent }) => agent
+  )
 }
 
 /**
  * "Who has access": data authorizations of the *context* authorization
- * registry, matched like `AA.findAgentsWithAccess` (with `ctx.webId` as the
- * owner), filtered to agents registered with the context. Reads via SPARQL
+ * registry, matched like `AA.findWhoHasAccess` (with `ctx.webId` as the
+ * owner) — direct agent grantees filtered to agents registered with the
+ * context, role grantees with their members expanded. Reads via SPARQL
  * (`queries/org.ts`) — personal context via the session's internal endpoint,
  * org context over `/sparql-admin` (`sparqlTransportFor`); the admin session
  * HTTP-derefs no peer document and holds no data grants.
  */
-async function orgAgentsWithAccess(
+async function orgWhoHasAccess(
   ctx: ResolvedContext,
   resource: DataInstanceData
-): Promise<string[]> {
+): Promise<WhoHasAccess> {
   const transport = sparqlTransportFor(ctx)
   const authorizationIris = await listContained(
     transport,
@@ -86,11 +99,22 @@ async function orgAgentsWithAccess(
   const authorizations = await Promise.all(
     authorizationIris.map((iri) => getDataAuthorization(transport, iri))
   )
-  const agents = agentsWithAccessMatching(authorizations, resource, ctx.webId)
+  // roles carry the membership the scope rule needs (`AllFromRole` coverage,
+  // role grantees of any scope)
+  const roleIris = ctx.registrySet.hasRoleRegistry?.id
+    ? await listContained(transport, ctx.registrySet.hasRoleRegistry.id)
+    : []
+  const roles = (await Promise.all(roleIris.map((iri) => getRole(transport, iri)))).filter(
+    (role): role is RoleData => Boolean(role)
+  )
+  const access = whoHasAccessMatching(authorizations, resource, ctx.webId, roles)
   const registered = new Set(
     (await listSocialAgentRegistrations(ctx)).map((registration) => registration.registeredAgent)
   )
-  return agents.filter((agent) => registered.has(agent))
+  return {
+    agents: access.agents.filter(({ agent }) => registered.has(agent)),
+    roles: access.roles,
+  }
 }
 
 /**
@@ -140,8 +164,10 @@ export const getResource = async (ctx: ResolvedContext, id: string, lang: string
   const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, lang, ctx.session.fetch)
   // "who has access" is read via SPARQL in both contexts — personal via
   // the session's internal endpoint, org via `/sparql-admin`
-  // (`sparqlTransportFor`).
-  const accessGrantedTo = await orgAgentsWithAccess(ctx, resource)
+  // (`sparqlTransportFor`). Direct agent grantees and role grantees are
+  // reported separately: an agent can be in both (a direct authorization AND
+  // a granted role it is a member of).
+  const access = await orgWhoHasAccess(ctx, resource)
   return Resource.make({
     id: IRI.make(resource.id),
     label: resource.label,
@@ -149,7 +175,12 @@ export const getResource = async (ctx: ResolvedContext, id: string, lang: string
       id: IRI.make(resource.shapeTreeIri!),
       label: pickLanguage(shapeTreeDescription?.label, lang),
     },
-    accessGrantedTo: accessGrantedTo.map((agent) => IRI.make(agent)),
+    accessGrantedTo: access.agents.map(({ agent }) => IRI.make(agent)),
+    accessGrantedViaRoles: access.roles.map(({ role, label, members }) => ({
+      role: IRI.make(role),
+      label: pickLanguage(label, lang) ?? role,
+      members: members.map((member) => IRI.make(member)),
+    })),
     children: resource.children.map((child) => ({
       shapeTree: {
         id: IRI.make(child.shapeTree.id),

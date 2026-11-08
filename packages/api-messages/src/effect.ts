@@ -123,12 +123,32 @@ export const ChildInfo = S.Struct({
   shapeTree: ShapeTree,
 })
 
+/**
+ * A role that holds access to a resource. Membership is resolved at read time
+ * (a role grant is materialized as one grant per member), so `members` is the
+ * EXPANDED bearer set — the UI renders the role as one row that expands to
+ * these peers.
+ */
+export const RoleWithAccess = S.Struct({
+  role: IRI,
+  /** language-picked label; the role IRI when the role carries none */
+  label: S.String,
+  members: S.Array(IRI),
+})
+
 export const Resource = S.Struct({
   id: IRI,
   label: S.optional(S.String),
   shapeTree: ShapeTree,
   children: S.Array(ChildInfo),
+  /**
+   * Agents granted access DIRECTLY. Membership of `accessGrantedViaRoles` is
+   * deliberately not folded in here: an agent can be granted directly AND be
+   * a member of a granted role, and the two facts must stay distinguishable.
+   */
   accessGrantedTo: S.Array(IRI),
+  /** Roles granted access, each with its members expanded. */
+  accessGrantedViaRoles: S.Array(RoleWithAccess),
 })
 
 export const SocialAgent = S.Struct({

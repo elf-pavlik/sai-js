@@ -49,11 +49,14 @@ import { replaceDataGrants } from './agent-registration.ts'
 import { findRegistration as findRegistrationInAgentRegistry } from './agent-registry.ts'
 import {
   type AccessAuthorizationStructure,
+  type AgentWithAccess,
   type GrantedAuthorization,
   type NestedDataAuthorizationData,
+  type WhoHasAccess,
+  accessForResource,
   generateAuthorization,
   generateDataAuthorizations,
-  matchesScope,
+  scopeFacts,
 } from './authorization.ts'
 import { loadDataInstance } from './data-instance.ts'
 import { invalidGrantsAfterRemoval } from './grant-chain.ts'
@@ -89,11 +92,7 @@ interface AuthorizationAgentDependencies {
   sparqlEndpoints?: Map<string, string>
 }
 
-export interface AgentWithAccess {
-  agent: string
-  dataAuthorization: string
-  accessMode: string[]
-}
+export type { AgentWithAccess, RoleWithAccess, WhoHasAccess } from './authorization.ts'
 
 /** How a role is used across authorizations (findRoleUsage). */
 export interface RoleUsage {
@@ -211,12 +210,20 @@ function registryOfRegistration(dataRegistrationIri: string): string {
   return `${dataRegistrationIri.split('/').slice(0, -2).join('/')}/`
 }
 
-function formatAgentWithAccess(dataAuthorization: DataAuthorizationData): AgentWithAccess {
-  return {
-    agent: dataAuthorization.grantee,
-    dataAuthorization: dataAuthorization.id!,
-    accessMode: dataAuthorization.accessMode,
-  }
+/**
+ * The context registry's roles (label + members), the facts the read-side
+ * scope rule needs for `AllFromRole` and role grantees. Roles are few; an
+ * unlisted role (peer registry) simply can not be confirmed.
+ */
+async function readRoles(
+  transport: SparqlTransport,
+  registrySet: RegistrySetData
+): Promise<RoleData[]> {
+  const roleRegistry = registrySet.hasRoleRegistry?.id
+  if (!roleRegistry) return []
+  const iris = await listContained(transport, roleRegistry)
+  const roles = await Promise.all(iris.map((iri) => getRoleFromSparql(transport, iri)))
+  return roles.filter((role): role is RoleData => Boolean(role))
 }
 
 export class AuthorizationAgent {
@@ -755,50 +762,82 @@ export class AuthorizationAgent {
     ownerWebId = this.webId,
     registrySet = this.registrySet
   ): Promise<AgentWithAccess[]> {
-    const agentsWithAccess = await this.findAgentsWithAccess(
-      dataInstanceIri,
-      ownerWebId,
-      registrySet
-    )
-    const socialAgentsWithAccess: AgentWithAccess[] = []
-    const transport = localSparqlTransport(this.sparqlEndpoint)
-    const iris = await listContained(transport, registrySet.hasSocialAgentRegistry.id)
-    const registrations = await Promise.all(
-      iris.map((iri) => getRegistrationFromSparql(transport, iri))
-    )
-    for (const registration of registrations) {
-      const socialAgentWithAccess = agentsWithAccess.find(
-        ({ agent }) => agent === registration.registeredAgent
-      )
-      if (socialAgentWithAccess) {
-        socialAgentsWithAccess.push(socialAgentWithAccess)
-      }
-    }
-    return socialAgentsWithAccess
+    // direct agent grantees only: role-granted access is reported by
+    // `findWhoHasAccess` and expanded to its members there (a role is not a
+    // social agent registration)
+    const access = await this.findWhoHasAccess(dataInstanceIri, ownerWebId, registrySet)
+    const registered = await this.registeredSocialAgents(registrySet)
+    return access.agents.filter(({ agent }) => registered.has(agent))
   }
 
-  public async findAgentsWithAccess(
+  /**
+   * Who has access to a data instance, split into DIRECT agent grantees and
+   * ROLE grantees with their members expanded — an agent can legitimately be
+   * in both lists (a direct authorization AND membership in a granted role).
+   *
+   * One `lws:contains` listing per registry settles scope coverage, role
+   * membership (`AllFromRole`, and role grantees of any scope) and
+   * `Inherited` chains (`inheritsFromAuthorization` inside the same
+   * snapshot) — the same read the org context makes over `/sparql-admin`
+   * (`services/ShareResource.ts` calls the shared `accessForResource`).
+   */
+  public async findWhoHasAccess(
     dataInstanceIri: string,
     ownerWebId = this.webId,
     registrySet = this.registrySet
-  ): Promise<AgentWithAccess[]> {
+  ): Promise<WhoHasAccess> {
     const dataInstance = await this.loadDataInstance(dataInstanceIri)
-    const shapeTree = dataInstance.dataRegistration!.registeredShapeTree
-    const agentsWithAccess: AgentWithAccess[] = []
-    // the shared SPARQL listing over the authorization registry (same query
-    // the org-context "who has access" uses) instead of the HTTP sweep
     const transport = localSparqlTransport(this.sparqlEndpoint)
     const iris = await listContained(transport, registrySet.hasAuthorizationRegistry.id)
     const authorizations = await Promise.all(
       iris.map((iri) => getDataAuthorizationFromSparql(transport, iri))
     )
-    for (const dataAuthorization of authorizations) {
-      if (dataAuthorization.registeredShapeTree !== shapeTree) continue
-      if (matchesScope(dataAuthorization, dataInstance, ownerWebId)) {
-        agentsWithAccess.push(formatAgentWithAccess(dataAuthorization))
-      }
-    }
-    return agentsWithAccess
+    const roles = await readRoles(transport, registrySet)
+    return accessForResource(
+      authorizations,
+      dataInstance,
+      ownerWebId,
+      scopeFacts(roles, authorizations)
+    )
+  }
+
+  /** `findWhoHasAccess` projected to its agent grantees. */
+  public async findAgentsWithAccess(
+    dataInstanceIri: string,
+    ownerWebId = this.webId,
+    registrySet = this.registrySet
+  ): Promise<AgentWithAccess[]> {
+    return (await this.findWhoHasAccess(dataInstanceIri, ownerWebId, registrySet)).agents
+  }
+
+  /** WebIDs the context holds a social-agent registration for. */
+  private async registeredSocialAgents(registrySet = this.registrySet): Promise<Set<string>> {
+    const transport = localSparqlTransport(this.sparqlEndpoint)
+    const iris = await listContained(transport, registrySet.hasSocialAgentRegistry.id)
+    const registrations = await Promise.all(
+      iris.map((iri) => getRegistrationFromSparql(transport, iri))
+    )
+    return new Set(registrations.map((registration) => registration.registeredAgent))
+  }
+
+  /**
+   * Every bearer of existing access to a resource: direct agent grantees the
+   * context holds a registration for AND the expanded members of granted
+   * roles. Role membership counts because a role grant is materialized as one
+   * grant per member (`generateDataGrants`), so re-sharing with such a member
+   * would duplicate the access.
+   */
+  private async agentsWithAccessTo(
+    dataInstanceIri: string,
+    ownerWebId: string,
+    registrySet: RegistrySetData
+  ): Promise<Set<string>> {
+    const access = await this.findWhoHasAccess(dataInstanceIri, ownerWebId, registrySet)
+    const registered = await this.registeredSocialAgents(registrySet)
+    return new Set([
+      ...access.agents.filter(({ agent }) => registered.has(agent)).map(({ agent }) => agent),
+      ...access.roles.flatMap(({ members }) => members),
+    ])
   }
 
   private async formatAuthorization(
@@ -862,10 +901,12 @@ export class AuthorizationAgent {
     const requestedAgents = details.agents.filter((agent) => agent !== owner)
     // filter out agents who already have access
     // TODO: do we need to adjust once we handle access modes? or require separate operation for such change
-    const agentsWithAccess = (await this.findSocialAgentsWithAccess(details.resource)).map(
-      (obj) => obj.agent
+    const agentsWithAccess = await this.agentsWithAccessTo(
+      details.resource,
+      owner,
+      this.registrySet
     )
-    const agents = requestedAgents.filter((agent) => !agentsWithAccess.includes(agent))
+    const agents = requestedAgents.filter((agent) => !agentsWithAccess.has(agent))
 
     // TODO: ensure all agents have social agent registrations, throw error
 
@@ -900,10 +941,12 @@ export class AuthorizationAgent {
     const requestedAgents = details.agents.filter((agent) => agent !== ownerWebId)
     // filter out agents who already have access — evaluated from the CONTEXT
     // owner's perspective in the CONTEXT registry
-    const agentsWithAccess = (
-      await this.findSocialAgentsWithAccess(details.resource, ownerWebId, registrySet)
-    ).map((obj) => obj.agent)
-    const agents = requestedAgents.filter((agent) => !agentsWithAccess.includes(agent))
+    const agentsWithAccess = await this.agentsWithAccessTo(
+      details.resource,
+      ownerWebId,
+      registrySet
+    )
+    const agents = requestedAgents.filter((agent) => !agentsWithAccess.has(agent))
 
     const dataInstance = await this.loadDataInstance(details.resource)
     const builds = await Promise.all(

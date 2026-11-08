@@ -322,6 +322,62 @@ describe('role-based access', () => {
       await verifyAccessGrant(danId, bobId, yoyoId, projectShapeTree, false)
     })
 
+    // C: "who has access" (GetResource) keeps DIRECT grantees and ROLE grants
+    // apart — a role grant covers bob's data only while he is a member of the
+    // data-owner role, and the role is reported with its members expanded (the
+    // UI renders a Peers section and a Roles section that expands to peers).
+    test('who has access reports direct peers and granted roles separately', async () => {
+      const projectInstance = 'https://data/bob/n3onkx'
+      type Access = {
+        accessGrantedTo: string[]
+        accessGrantedViaRoles: { role: string; label: string; members: string[] }[]
+      }
+      const readAccess = () =>
+        rpcCall<Access>(
+          rpcPayload({ _tag: 'GetResource', id: projectInstance, lang: 'en', context: bobId }),
+          bobCookie
+        )
+      const manager = buildSessionManager()
+      const bobSession = await manager.getSession(bobId)
+      const [biz, whiz] = await Promise.all([
+        bobSession.findRole(bizRoleId),
+        bobSession.findRole(whizRoleId),
+      ])
+      const updateRole = async (id: string, label: string, members: string[]) => {
+        await rpcCall(
+          rpcPayload({ _tag: 'UpdateRole', context: bobId, id, label, members }),
+          bobCookie
+        )
+        await waitForQuiescence([bobId])
+      }
+
+      // seeded: no direct grantee of bob's data, and the role-scoped
+      // authorization's data-owner role (Biz) does not list bob — so it does
+      // not cover his own data (this used to throw instead)
+      const seeded = await readAccess()
+      expect(seeded.accessGrantedTo).toEqual([])
+      expect(seeded.accessGrantedViaRoles).toEqual([])
+
+      // bob joins the data-owner role, yoyo (the seeded grantee) joins the
+      // granted role → the role now covers bob's data and is reported with its
+      // members, never folded into accessGrantedTo
+      await updateRole(bizRoleId, biz!.label['@none'], [bobId])
+      await updateRole(whizRoleId, whiz!.label['@none'], [danId, yoyoId])
+      const granted = await readAccess()
+      expect(granted.accessGrantedTo).toEqual([])
+      expect(granted.accessGrantedViaRoles).toEqual([
+        {
+          role: whizRoleId,
+          label: 'Whiz',
+          members: expect.arrayContaining([danId, yoyoId]),
+        },
+      ])
+
+      // bob leaves the data-owner role → not his data any more
+      await updateRole(bizRoleId, biz!.label['@none'], [])
+      expect((await readAccess()).accessGrantedViaRoles).toEqual([])
+    })
+
     test('create authorization for role with existing members', async () => {
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)

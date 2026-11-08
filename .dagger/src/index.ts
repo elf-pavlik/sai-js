@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import {
   type Container,
   type Directory,
@@ -87,6 +89,7 @@ export class SaiJs {
   source: Directory
   tempoEndpoint?: string
   css?: Directory
+  runId: string
 
   constructor(
     @argument({ defaultPath: '.' })
@@ -94,21 +97,25 @@ export class SaiJs {
     @argument()
     tempoEndpoint?: string,
     /**
-     * Optional **local** CommunitySolidServer checkout (e.g.
-     * `--css=../CommunitySolidServer`). `devbox run local-css` builds the fork
-     * and `npm link`s it, which leaves
-     * `node_modules/@solid/community-server` as a symlink to a path *outside*
-     * this repository: Dagger only ships `source`, so that link dangles in the
-     * containers and the stack would run without the fork's build. Mounting
-     * the checkout over the link target makes the local build resolvable, so
-     * CSS changes can be exercised without pushing the fork branch (CI keeps
-     * installing the pinned git ref from `package-lock.json`).
+     * Optional local CommunitySolidServer checkout, for example
+     * `--css=../CommunitySolidServer`. Build the checkout before passing it.
+     * Dagger mounts it over the installed package, so no host `npm link` (and
+     * no symlink escaping this source directory) is needed. Without this
+     * argument, local and CI runs use the fork pinned in package-lock.json.
      */
-    css?: Directory
+    css?: Directory,
+    /**
+     * Identifies one stack invocation. It intentionally changes Dagger's cache
+     * key for database setup and test execs; by default every invocation gets
+     * a fresh ID. Pass an explicit ID only when reproducing a particular run.
+     */
+    @argument()
+    runId?: string
   ) {
     this.source = source
     this.tempoEndpoint = tempoEndpoint
     this.css = css
+    this.runId = runId ?? randomUUID()
   }
 
   /**
@@ -118,13 +125,15 @@ export class SaiJs {
    * back to the OTLP endpoint the Dagger engine injects for its own telemetry.
    */
   /**
-   * A Node service/test container: the repo mounted at `/sai`, with the local
-   * CSS checkout (when `--css` is set) mounted **over** the `npm link`ed
-   * package inside it. Mounts are assembled by destination, so the more
-   * specific path wins regardless of the call order.
+   * A Node service/test container with the local CSS checkout (when `--css`
+   * is set) mounted over the installed package. The more specific mount wins
+   * over the `/sai` source mount added by each service.
    */
   private nodeContainer(serviceName: string): Container {
-    const container = this.withTracing(dag.container().from(NODE_IMAGE), serviceName)
+    const container = this.withTracing(
+      dag.container().from(NODE_IMAGE),
+      serviceName
+    ).withEnvVariable('SAI_RUN_ID', this.runId)
     if (!this.css) return container
     return container.withMountedDirectory('/sai/node_modules/@solid/community-server', this.css)
   }
@@ -208,27 +217,23 @@ export class SaiJs {
   async temporalService(): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
-    const pgData = dag.cacheVolume('temporal-pg-data-486446846846846846')
 
     const pg = dag
       .container()
       .from(`postgres:${POSTGRESQL_VERSION}`)
       .withEnvVariable('POSTGRES_PASSWORD', 'temporal')
       .withEnvVariable('POSTGRES_USER', 'temporal')
-      .withMountedCache('/var/lib/postgresql/data', pgData)
+      .withEnvVariable('SAI_RUN_ID', this.runId)
+      // Keep database state in the service container's ephemeral layer. A
+      // named cache volume would leak schemas and data between test runs.
       .withExposedPort(5432)
-      .withEntrypoint([
-        '/bin/sh',
-        '-c',
-        'pg_resetwal -f /var/lib/postgresql/data 2>/dev/null; ' +
-          'exec docker-entrypoint.sh postgres',
-      ])
       .asService({ useEntrypoint: true })
 
     await dag
       .container()
       .from(`postgres:${POSTGRESQL_VERSION}`)
       .withServiceBinding('postgresql', pg)
+      .withEnvVariable('SAI_RUN_ID', this.runId)
       .withEntrypoint([])
       .withExec([
         '/bin/sh',
@@ -245,6 +250,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_USER', 'temporal')
       .withEnvVariable('SQL_PASSWORD', 'temporal')
       .withEnvVariable('DB_PORT', '5432')
+      .withEnvVariable('SAI_RUN_ID', this.runId)
       .withDirectory('/scripts', scripts)
       .withExec(['/bin/sh', '/scripts/setup-postgres.sh'])
       .sync()
@@ -259,6 +265,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
       .withEnvVariable('BIND_ON_IP', '0.0.0.0')
+      .withEnvVariable('SAI_RUN_ID', this.runId)
       .withEnvVariable('DYNAMIC_CONFIG_FILE_PATH', 'config/dynamicconfig/development-sql.yaml')
       .withDirectory('/etc/temporal/config/dynamicconfig', dynamicConfig)
       .withExposedPort(7233)
@@ -278,6 +285,7 @@ export class SaiJs {
       .withServiceBinding('temporal', temporal)
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withEnvVariable('DEFAULT_NAMESPACE', 'default')
+      .withEnvVariable('SAI_RUN_ID', this.runId)
       .withDirectory('/scripts', scripts)
       .withExec(['/bin/sh', '/scripts/create-namespace.sh'])
       .sync()
@@ -285,7 +293,6 @@ export class SaiJs {
     return temporal
   }
 
-  @func()
   @func()
   async workerService(): Promise<Service> {
     const temporal = await this.temporalService()

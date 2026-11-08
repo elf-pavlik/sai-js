@@ -1,106 +1,35 @@
-# Flat LWS storage — next session plan
+# Flat LWS storage — status and remaining work
 
-Single source of truth for the remaining work. The data and registry services
-run **LWS-only flat storage**; the SAI access layer uses **`lws:contains`** for
-containment and **`lws:partOf`** for the parent; the fixture and account
-bootstrap template carry `lws:contains` / `lws:partOf`; storage discovery
-(`rel="storage"` → `lws:StorageRoot`) is implemented. The **client auth
-migration (§1) is done and verified live** — SAI sessions, the UI token
-endpoint, and data/registry reads and writes work against the compose stack.
+Single source of truth. The data and registry services run **LWS-only flat
+storage**; the SAI access layer uses **`lws:contains`** for containment and
+**`lws:partOf`** for the parent; the fixture and account bootstrap template
+carry both; storage discovery (`rel="storage"` → `lws:StorageRoot`) is
+implemented. The client auth migration (§1) and the Dagger integration suite
+(§7) are **done and green**.
 
 ## Current state (check before starting)
 
-- Last commit: `a04c032c initial alignment with LWS` (same content as the
-  earlier `c73083db` after the rebase).
-- Working tree (uncommitted, this session):
-  - `packages/utils/src/lws-auth.ts` (new) — LWS AS discovery, token exchange
-    with DPoP proof, `createLwsFetch`, `requestLwsAccessToken`.
-  - `packages/utils/src/jsonld.ts` — container RDF fallback (`text/turtle`)
-    when an LWS-only server answers `application/ld+json` with the LWS JSON
-    page listing.
-  - `packages/utils/src/container.ts` — `postForIri` sends a `Content-Type`
-    (the flat store rejects POST without one).
-  - `packages/components/src/SessionManager.ts` — `.sai` DPoP vs data/registry
-    LWS fetch split; `getLwsAccessToken()`.
-  - `packages/components/src/SelfIssuedSession.ts` — `azp` claim = agent id
-    (becomes the LWS token's `client_id`).
-  - `packages/components/src/LwsTokenHandler.ts` (new) + route in
-    `config/http/handler/default.json` — `/.sai/lws-token?resource=…`.
-  - `packages/components/src/AdminPermissionReader.ts` — owner all-permissions
-    now includes `Append` (LDP POST).
-  - `packages/components/config/storage/flat-sparql.json` — incoming data is
-    converted to `internal/quads` (the flat registry store writes to the
-    SPARQL accessor).
-  - `packages/components/config/storage/no-cache.json` (data) /
-    `no-cache-flat.json` (registry) — **bypass the LWS representation cache**
-    (`ResourceStore_Cached`). It caches a HEAD's representation (body destroyed
-    by the handler) and serves the empty body to later GETs; it also served a
-    stale peer registration to the mirror sync. This fixes the `discovery`
-    failures and the stale peer read in reconciliation's peer-freshness test.
-  - `packages/utils/src/lws-auth.ts` — service-path token selection: a known
-    storage on the same server supplies the token for `/.notifications/…`
-    (the handlers authorize the decoded topic). Restricted to real service
-    paths (`/.notifications/`): other unknown URLs on the same origin are
-    resources in **another storage** (e.g. a peer registration) and must use
-    the challenge storage. Regression fix for the peer-fetch 401s
-    (`reconciliation`); unit tests + live peer-registration check added.
-  - `packages/components/config/overrides/lws-notification-service-paths.json`
-    (new, **not imported yet**): extends the LWS extractor's `servicePaths` to
-    `/.notifications/`; requires the fork HEAD (`servicePaths` arg), so import
-    it only after `fork-css`.
-  - `packages/authorization-agent/src/{sparql,data-instance,authorization-agent,agent-registry,role-registry,activity-registry}.ts`
-    — `getContainingContainer` (`lws:partOf`), flat `loadDataInstance`,
-    `findDataRegistration` uses the data pod's endpoint, registry member
-    listings use `containedIrisJsonLd` (`ldp:contains` ∪ `lws:contains`);
-    `findRolesWithMember` / `getOpenAccessRequestsOnRegistry` read both
-    graphs.
-  - `packages/utils/src/jsonld.ts` — `containedIrisJsonLd` union helper.
-  - `packages/components/src/temporal/activities/admin.ts` — `findAdminGrants`
-    uses the union helper.
-  - `packages/data-model/src/{context,data-registration}.ts` — `lwsPartOf`
-    term, `DataRegistrationData.partOf`.
-  - `packages/components/src/services/{queries/org,ShareResource,DataRegistry}.ts`
-    — flat registration resolution in the personal/org contexts.
-  - `examples/vuejectron/src/store/app.ts` — UI `sessionFetch` with a
-    `tokenSource` calling `/.sai/lws-token`.
-  - `packages/components/test/lws-live.test.ts` (new) — live checks, skipped
-    unless `LWS_LIVE` is set.
-- Latest local CSS: `056080d7a` (`lws-sai`, rebased on the latest upstream).
-  Fork remote `github/lws-sai` is still `01ad3376` — **push it** before
-  `fork-css`/CI can use the latest.
-- The compose stack currently runs the git CSS (`01ad3376`) with the new
-  LWS-only data/registry configs. `01ad3376` predates
-  `f22595778` (`verifyRestriction`, DPoP proof at the token endpoint) and
-  `e09990fd9` (`resource_metadata` on 401s); the client supports both shapes.
-- Verified (this session):
-  - All package tests pass (utils 76, data-model 90, authorization-agent 136,
-    components 208, application 7, test-utils 23), typecheck, lint, components
-    build pass.
-  - Live (`LWS_LIVE=1`, in the `worker` container):
-    - `SessionManager.getSession` reads the LWS registry set (dan) and the
-      registry-pod data (bob) with LWS tokens; `.sai` requests stay on DPoP.
-    - Token exchange with the self-issued ID token works against the running
-      `01ad3376` data/registry servers (D-PoP-bound `cnf` proof is optional
-      there, required on the fork HEAD).
-    - `/.sai/lws-token` mints a storage token for the UI session.
-    - Data instance: POST (empty JSON-LD) + PUT (expanded JSON-LD) + GET +
-      DELETE in a flat registration; the registration is resolved through
-      `lws:partOf`.
-    - Social-agent registration: `createContainer` (PUT + `.meta` PATCH) +
-      `.acr` PUT + listing + read-back + DELETE.
-    - Peer registration fetch across storages on the same server
-      (`https://reg.docker/acme/social-agent/m4k9wp/` as bob) — the
-      peer-fetch regression fix.
-    - Binary `PUT → HEAD → GET` returns the body (the representation-cache
-      bypass; the `discovery` failure).
-  - Dagger: `agents`, `authorizations`, `agent-discovery`, `check-equivalence`,
-    `discovery`, `key-scoping` and `reconciliation` (all 4) pass.
-  - Re-seeded Fuseki: `reg-dan` has `lws:contains` on the registry set and the
-    social-agent registry; data pods have `lws:contains` / `lws:partOf` and no
-    `ldp:contains`.
-  - Storage descriptions: `https://bob.data.docker/` and
-    `https://reg.docker/dan/` return `application/lws+cid` with
-    `rel="https://www.w3.org/ns/lws#storage"` and a `StorageRoot` service.
+- **`dagger call test` is green** — all 22 files, CI mode, on the CSS fork
+  branch `lws-sai` at `9799e86d2` (installed from `package-lock.json` by
+  `devbox run fork-css`). Package tests, typecheck, lint and the components
+  build pass.
+- The data and registry services run **LWS-only flat storage**; the SAI access
+  layer uses `lws:contains` for containment and `lws:partOf` for the parent;
+  the fixture and the account bootstrap template carry both. Storage discovery
+  (`rel="storage"` → `lws:StorageRoot`) is implemented, as is the per-storage
+  LWS token exchange for SAI sessions and the UI (`/.sai/lws-token`).
+- Rebuild before a dagger run when `packages/components/src` changed:
+  `npm run build --workspace @elfpavlik/sai-components` — the suite mounts the
+  working tree plus the built `dist`.
+- Test data: `environments/data/registry.trig` (split per pod by the harness)
+  and `kv.json` (accounts, channels, endpoint records); the harness re-seeds
+  Postgres KV + Fuseki before every test. `environments/dev/map.json` holds the
+  dev URL mapping.
+- Local CSS iteration without pushing: see §8 (`--css` constructor argument, or
+  copy the fork build into `node_modules/@solid/community-server`).
+- Remaining work is the tail of §2/§5/§6/§7 plus §8 images/docs — the flat-LWS
+  migration itself (client auth, containment, representations, storage
+  discovery, authorization, tests) is complete.
 
 ## 1. Client auth migration — done
 
@@ -215,9 +144,13 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       dataset.
 - [ ] `DataInstanceData` still has no `partOf` (the instance document does not
       carry it — it is in the pod's `meta:` graph); callers use SPARQL.
-- [ ] `test-client` keeps hierarchical IRIs with LWS metadata; `shapetrees`
-      has no LWS metadata (container listings empty under the flat store;
-      direct fetches work). Add LWS metadata if listings are needed.
+- [x] `data/shapetrees` LWS metadata added: `meta:` root typed
+      `interop:DataRegistry`/`ldp:Resource`/`space:Storage` with `lws:contains
+      trees/`, `trees/` as an `ldp:Container` registration (`lws:contains` the
+      7 shape trees, `lws:partOf` the root) and `lws:partOf` on each tree. Its
+      listings work and the pod is a valid LWS storage for the token exchange
+      (`policy-engine` needs both). `test-client` still keeps hierarchical IRIs
+      with LWS metadata.
 
 ## 5. Storage discovery
 
@@ -256,12 +189,12 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       signed-in user's session, which does not know the org's data-pod
       endpoints (isolation). Pass the context's `endpoints` (or a transport)
       through the org-context share path.
-- [ ] UI notification stream: `NotificationManager` uses the LWS session
-      fetch; `createLwsFetch` now sends a same-origin storage token for
-      `/.notifications/…` service paths, and the handlers authorize the decoded
-      topic. Still blocked by the installed CSS `01ad3376` lacking
-      `servicePaths` — see §8 (push the fork, import the notification
-      override).
+- [x] UI notification stream: `NotificationManager` uses the LWS session
+      fetch, `createLwsFetch` sends a same-origin storage token for
+      `/.notifications/…` service paths, the fork's `servicePaths` accepts it
+      and the handlers authorize the decoded topic (the reciprocal-webhook
+      streaming test is the live proof). The UI bundle still needs a rebuild
+      (§8) for the compose stack.
 - [ ] Reduce the per-check SPARQL queries (`determineTargetType` + parent +
       grandparent + registration). Combine into one `SELECT ?type ?parent`
       and pass the registration ID through `findRegistrationModes` /
@@ -338,13 +271,12 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       The parent gate still applies to writing the new member's content (the
       `Resource` branch), which `policy-engine.test.ts` now asserts
       (POST → PUT denied → link parent → PUT 204).
-- [ ] Run the dagger integration suite (see the table below). The suite
-      mounts the working tree and the **built** `packages/components/dist`, so
-      rebuild before running:
-      `npm run build --workspace @elfpavlik/sai-components`.
-      Run: `dagger call test` (CI uses this); narrow with
-      `dagger call test --testFile="agents.test.ts share.test.ts"` and
-      `--only="<test name>"`.
+- [x] Run the dagger integration suite — **green**, all 22 files
+      (`dagger call test`, CI mode, fork CSS `9799e86d2`). The suite mounts the
+      working tree and the **built** `packages/components/dist`, so rebuild
+      first when components sources changed:
+      `npm run build --workspace @elfpavlik/sai-components`. Narrow runs with
+      `--testFile="agents.test.ts share.test.ts"` / `--only="<test name>"`.
 
 ### Open: registry storage reads 401 (after fork-css + notification override)
 
@@ -387,105 +319,78 @@ while DPoP-authenticated `.sai/grants` POSTs pass. Next step: read the auth
 container's warning (`DPoPWebIdExtractor` logs the verification error) with
 `dagger call --debug test --testFile="zz-diagnose.test.ts" 2>&1 | grep -i dpop`.
 
-### Dagger suite status (after the §1–§4 fixes)
+### Dagger suite status — all green
 
-Legend: ✅ expected pass · 🔎 run to verify (code path changed this session) ·
-⛔ blocked (blocker in brackets).
-
-Recommended first run (7 files, ~10 min):
+`dagger call test` (CI mode, fork CSS `9799e86d2`) passes **all 22 files**.
+Keep it as the regression baseline; narrow runs are for bisecting only:
 
 ```bash
-dagger call test --testFile="agents.test.ts authorizations.test.ts key-scoping.test.ts"
-dagger call test --testFile="agent-discovery.test.ts discovery.test.ts check-equivalence.test.ts reconciliation.test.ts"
+dagger call test                      # full suite
+dagger call test --testFile="agents.test.ts share.test.ts"
+dagger call test --testFile="authorization.test.ts" --only="<test name>"
 ```
 
-(`discovery` and `reconciliation` are both verified — keep them in the
-regression baseline.)
+Rebuild before a run when `packages/components/src` changed:
+`npm run build --workspace @elfpavlik/sai-components`.
 
-Verified since then (all green): `services`, `authorization-revocation`,
-`delegation-endpoint`, `access-request`, `admin-events`, `personal-admin` —
-the §7 helper batch plus the auxiliary-member / storage-root-ACL fixes they
-exposed.
+What made the flat-LWS suite green (nothing here is outstanding):
 
-Next run — the last two non-§8 files (second attempt). **Rebuild components
-first** (`peerRegistrationOfInstance`, `fetchPeerResource`, `ProxyAdminHandler`
-changed):
+1. **Client auth (§1)** — LWS token exchange per storage (DPoP-bound subject
+   token), token cache, `.sai` stays on DPoP.
+2. **Containment (§4)** — `lws:contains` / `lws:partOf` everywhere; `listContained`
+   and `containedIrisJsonLd` read the flat plane.
+3. **Auxiliary members are not container members** — the CSS ≤ `01ad3376` flat
+   store recorded `lws:contains` for `.acr`/`.acl`/`.meta`, which made
+   `findAdminGrants` load a grant's ACR as a grant. Filtered in
+   `containedIrisJsonLd` + `listContained` (`isAuxiliaryResource`), and fixed
+   at the source in the fork (`DataAccessorBasedStore`).
+4. **Storage-root negotiation** — a registry set (and a pod root) *is* a
+   storage root: a wildcard/absent-`Accept` HEAD returns the LWS storage
+   description, whose links carry **no** `rel="acl"`. `syncAdminAcr` therefore
+   never completed → every admin activity stayed pending. Fixed with
+   `AUXILIARY_DISCOVERY_ACCEPT` in `discoverAccessResource` /
+   `discoverDescriptionResource` (and used by `syncAdminAcr` + the
+   `fetchRegistrySetAcr` helpers).
+5. **Peer data (§3 proxy)** — `fetchPeerResource` reads through
+   `fetchJsonLd` (LWS page listing → RDF fallback); `peerRegistrationOfInstance`
+   resolves a peer instance's registration from the context's grants through
+   `/proxy-admin` (the org can not read the peer's `lws:partOf`).
+6. **Flat creation semantics** — `SaiPermissionsEngine`'s `Registration` branch
+   now honours the registration's **Inherited** grant for appends (a new member
+   is appended before the parent links it); the parent gate still applies to
+   writing its content. `policy-engine` exercises POST → PUT(403) → link →
+   PUT(204).
+7. **Test harness** — `containedIris`/`containedCount` helpers on the session's
+   LWS fetch, `buildLwsFetch(webid, clientId?)` for the agent/client matrix,
+   `204` instead of `205`, storage requests through sessions (never `.sai` DPoP).
+8. **Notification service (§8)** — the fork HEAD's `servicePaths` +
+   `sai:config/overrides/lws-notification-service-paths.json` imported in
+   `data.json`/`registry.json`; notification streams use the session's LWS
+   fetch (the channel's storage token), not `.sai` DPoP.
+9. **Fixture** — `data/shapetrees` now has LWS storage metadata (`meta:` root +
+   `trees/` container with `lws:contains`, `lws:partOf` on the shape trees), so
+   its listings work and the pod is a valid LWS storage for the token exchange.
 
-```bash
-npm run build --workspace @elfpavlik/sai-components
-dagger call test --testFile="policy-engine.test.ts org-context.test.ts"
-```
+Per-file notes worth keeping (regression map):
 
-After that only the §8 notification-service work remains (`invitation`,
-`federation-mirror`, `reciprocal-webhook`, `roles`, `share`, `authorization`):
-with `local-css` those can be exercised through the `--css` constructor
-argument (see §8) — no fork push needed until CI.
+| test file | what it pins down |
+|---|---|
+| `agents` / `agent-discovery` | `.sai/agents` HEAD, registry/redirect links, client-id doc over `lws:contains` listings |
+| `authorizations` | `ListAuthorizations` RPC over the SPARQL plane |
+| `check-equivalence` | grant regeneration keeps IRIs (activity listing + registry writes) |
+| `discovery` | discovery helpers against live servers; needs the representation-cache bypass (`no-cache.json`) |
+| `key-scoping` | per-pod Garage buckets/keys |
+| `reconciliation` | sweep (Temporal); peer-fetch token selection per storage + cache bypass + DELETE 204 |
+| `services` | data pod's public `application/lws+cid` storage description (200) |
+| `access-request` | need-based flow (sent + both receive legs) via `containedIris` |
+| `authorization-revocation` | revocation RPC + `containedCount` on the flat grant registry |
+| `delegation-endpoint` | issuance/revocation; direct grant DELETE carries the LWS token (ACR 403); aux-member filter keeps counts exact |
+| `admin-events` / `personal-admin` | admin marker + ACR rewrite (`syncAdminAcr` storage-root ACL discovery) |
+| `org-context` | registry set, roles, admin gating, peer proxy (`GetResource` via `peerRegistrationOfInstance`) |
+| `policy-engine` | engine matrix over HTTP: `buildLwsFetch` client/agent pairs, flat create flow, 204s |
+| `reciprocal-webhook` | webhook delivery + `delegatedGrantsUpdated` events; stream opened with the LWS fetch |
+| `invitation` / `federation-mirror` / `share` / `roles` / `authorization` | notification-dependent chains (`awaitGrantCompletion` with `session.fetch`) |
 
-Fixture change this session: the `data/shapetrees` pod now has LWS storage
-metadata (`meta:` root typed `DataRegistry`/`Storage`, `trees/` as an
-`ldp:Container` registration listed with `lws:contains`, and `lws:partOf` on
-each shape tree). Its listings are no longer empty (§4).
-
-| test file | covers | status | blocker / note |
-|---|---|---|---|
-| `agents.test.ts` | `.sai/agents` HEAD for the seeded agents | ✅ | — |
-| `agent-discovery.test.ts` | AgentIdHandler registry/redirect links, client-id doc | ✅ (verified) | registry listings now `lws:contains` (`containedIrisJsonLd`) |
-| `authorizations.test.ts` | `ListAuthorizations` RPC (SPARQL) | ✅ | — |
-| `check-equivalence.test.ts` | grant regeneration keeps IRIs | ✅ (verified) | activity listing (`getActivityIris`) + registry writes |
-| `discovery.test.ts` | discovery helpers against live servers | ✅ (verified) | two tests failed on the LWS representation cache (HEAD cached empty body); fixed by `no-cache.json` |
-| `invitation.test.ts` | invitation → reciprocal → activity completion | 🔎 (rerun) | the `invalid_target` webhook blocker is gone (fork HEAD + `servicePaths` override; `CreateInvitation` returns 200 in isolation). An earlier batch run showed transient 500s/401s from a cold stack (Fuseki/Temporal/Garage still starting) |
-| `key-scoping.test.ts` | per-pod Garage buckets/keys | ✅ | — |
-| `reconciliation.test.ts` | reconciliation sweep (Temporal) | ✅ (verified) | all 4 failed on the **peer-fetch 401 regression** (the service-storage heuristic sent bob's registry token to acme's registration); fixed + verified live (peer registration 200). The cache fix (`no-cache.json`) also applies; DELETE 204 accepted |
-| `org-context.test.ts` | org registry set, roles, admin gating, peer proxy | 🔎 (rerun) | first run: everything but `GetResource` passed. `GetResource` needs the peer *registration* of an instance — the org can not read the peer's `lws:partOf` (pod outside its endpoint allowlist, `.meta` denied), so `peerRegistrationOfInstance` now asks the granted registrations through `/proxy-admin` |
-| `services.test.ts` | service health | ✅ (verified) | data pod's wildcard/absent-`Accept` GET is the public **200** `application/lws+cid` storage description |
-| `access-request.test.ts` | need-based access request flow | ✅ (verified, 3/3) | sent + both receive-side tests; `storedAccessRequests` reads the flat registry through `containedIris` on the LWS session fetch |
-| `admin-events.test.ts` | admin event forwarding + ACR rewrite | ✅ (verified, 7/7) | the 4 admin tests had timed out on `syncAdminAcr` (no `acl` link on the registry set — a storage root; wildcard HEAD returns the LWS storage description). Fixed via `discoverAccessResource` + `AUXILIARY_DISCOVERY_ACCEPT`; `adminGrantIris` reads the flat GrantRegistry through `containedIris` |
-| `personal-admin.test.ts` | personal admin promote/demote | ✅ (verified, 3/3) | same `syncAdminAcr` root cause (registry-set ACL discovery on a storage root); `adminGrantIris`/`fetchRegistrySetAcr` migrated |
-| `authorization.test.ts` | authorize/deny/approve access request | ⛔ partial | the two AccessRequestRegistry reads are migrated (`containedIris`); `creates denied authorization` and the approve test still need the §8 notification service (`awaitGrantCompletion`) |
-| `authorization-revocation.test.ts` | revoke authorizations/grants | ✅ (verified) | `countContained` reads the flat registry through `containedCount` on the LWS session |
-| `delegation-endpoint.test.ts` | delegation issuance/revocation | ✅ (verified) | `countGrants` via `containedCount`; the direct DELETE carries the storage's LWS token (read-only ACR → 403). The aux-member filter (`<grant>.acr` was counted as a member) made the counts exact |
-| `federation-mirror.test.ts` | reciprocal mirror replication | ⛔ | §8 notification service (`awaitGrantCompletion`) |
-| `policy-engine.test.ts` | SAI policy engine over HTTP | 🔎 (rerun) | first run 74/82: (a) `https://data/shapetrees/` was not an LWS storage (fixture had no root/container metadata → token exchange `invalid_target`; added `meta:` root + `trees/` container + `lws:partOf` on the shape trees), (b) `can Create` rewritten to the flat flow (POST to the Task registration container → PUT at the `Location`); `buildLwsFetch` + `205` → `204` as before |
-| `reciprocal-webhook.test.ts` | reciprocal webhook + events | 🔎 (rerun) | the events test passes on the fork HEAD with the `servicePaths` override (the worker's webhook POST to `.notifications/` now mints/accepts a storage token). The `id` test opened the stream with **`.sai` DPoP** (`HEAD …/cvmsa4/ → 401`, then `GET …/.notifications/StreamingHTTPChannel2023/b0 → 500` per the Tempo trace) — now uses the session's LWS fetch |
-| `roles.test.ts` | role CRUD + `AllFromRole` grants | 🔎 (rerun) | all three session bootstraps and the `CreateInvitation` RPC verify healthy in isolation (the 401s came from a cold-starting stack); `awaitGrantCompletion` already takes `session.fetch` |
-| `share.test.ts` | share a data instance | ⛔ | §8 notification service (`awaitGrantCompletion`); the `ShareResource` RPC + `ListDataRegistries` poll is otherwise the best live check of the flat fixes; the streaming barrier needs the §8 notification service |
-
-Blockers referenced above:
-
-- **§8 notification service (fork CSS)** — the worker's reciprocal webhook
-  (`POST https://<server>/.notifications/WebhookChannel2023/`) and the test/UI
-  streaming channel (`GET https://<server>/.notifications/StreamingHTTPChannel2023/<encoded topic>`)
-  are Solid notification service paths. The installed CSS `01ad3376` has **no
-  `servicePaths`** argument on `LwsAccessTokenExtractor`, so it validates the
-  token against the channel target (`.notifications/`, not a storage) and the
-  challenge `realm` is `.notifications/` → the token exchange fails with
-  `invalid_target`. The fork HEAD (`056080d7a`) has `servicePaths`; after
-  `push` + `fork-css`:
-  1. import `sai:config/overrides/lws-notification-service-paths.json` in the
-     data/registry configs (it sets `servicePaths: [ ".notifications/" ]`);
-  2. `createLwsFetch` already sends the topic's storage token for service
-     paths (storage on the same origin), and the handlers authorize the
-     decoded topic.
-  Until then the invitation/notification-dependent tests stay blocked; this
-  also blocks the UI notification stream (§6).
-- **§7 test helpers (done)** — containment reads go through
-  `containedIris` / `containedCount` (`test/util.ts`, the
-  `ldp:contains` ∪ `lws:contains` union) on the session's LWS fetch. Flat
-  registry/data members are `lws:contains` only, so a raw
-  `linkedIrisJsonLd(..., LDP.contains)` or an `ldp:contains` quad count comes
-  back empty.
-- **§7 DPoP test clients (done)** — storage requests use
-  `buildSessionManager().getSession(...)` or the new `buildLwsFetch(webid,
-  clientId?)` (LWS storage counterpart of `buildOidcSession(...).authFetch`);
-  `.sai` requests keep DPoP.
-- **§7 status codes (done)** — LWS returns `204` after PUT/PATCH/DELETE.
-- **§3 peer proxy (done)** — `fetchPeerResource` reads the peer document
-  through `fetchJsonLd` (LWS profile → RDF fallback for a page-listing
-  container) and the handler serves that JSON-LD, instead of pinning
-  `Accept: application/ld+json` and forwarding the unframeable bytes.
-- **§7 storage description** — the data pod now serves the public LWS storage
-  description (200) for a wildcard/absent `Accept`; update the `services`
-  expectation and any storage-description assertions.
 - [ ] `docs/website/public/likec4-webcomponent.js` is generated and was skipped
       by the IRI rewrite; regenerate the docs bundle if the site should show
       the flat IRIs.
@@ -495,80 +400,41 @@ Blockers referenced above:
 
 ## 8. Dev / CI / images
 
-- [ ] CSS builds: what a run uses.
-      - **Dagger (`dagger call test`) and the compose stack** resolve
-        `node_modules/@solid/community-server`. After `devbox run fork-css`
-        that is a real directory installed from the git ref in
-        `package-lock.json` (`01ad3376`); after `devbox run local-css` it is an
-        npm **symlink** to `$NPM_CONFIG_PREFIX/lib/node_modules/…` →
-        `../CommunitySolidServer`.
-      - A symlink that leaves the repo **does not survive the Dagger mount**
-        (only `source` is shipped), so with `local-css` the containers can not
-        resolve CSS at all. That is why the suite was pinned to the pushed
-        git ref — not because pushing is inherently required.
-      - Two ways to feed the local fork to Dagger (both verified):
-        `cp -a ../CommunitySolidServer node_modules/@solid/community-server`
-        after `npm run build` in the fork (a real directory inside the mount,
-        no flag), or the `--css=../CommunitySolidServer` constructor argument
-        (mounted **over** `node_modules/@solid/community-server` in every Node
-        container; nested Dagger mounts resolve inner-mount-wins). `--css` is a
-        constructor argument — like `--tempo-endpoint` it goes *before* the
-        function name (`dagger call --css=… test …`), never after it.
-        `devbox run fork-css` restores the locked git install.
-      - **Copy the fork WITH its `node_modules`, then delete one package**
-        (`cp -a ../CommunitySolidServer node_modules/@solid/community-server`
-        + `rm -rf node_modules/@solid/community-server/node_modules/@solid/access-token-verifier`).
-        Two reasons this exact shape is needed:
-        1. the fork's own install carries stock
-           `@solid/access-token-verifier@2.1.1`, which shadows this repo's
-           `overrides` fork (`2.1.2`, the one that whitelists the `QUERY`
-           method). The verifier then logs `Error verifying WebID via
-           DPoP-bound access token: Expected [object Set], got: QUERY`,
-           `UnionCredentialsExtractor` swallows the error (`ignoreErrors`) and
-           falls back to public credentials → `.sai/sparql-admin` answers
-           `403 this endpoint requires credentials`;
-        2. dropping the **whole** nested tree breaks boot:
-           `Cannot find module 'cluster-key-slot'` (the repo's hoisted
-           `ioredis` has its transitive deps only inside the fork's tree).
-        Verify with `node -e "console.log(require.resolve(
-        '@solid/access-token-verifier', { paths:
-        ['node_modules/@solid/community-server'] }))"` (must be the repo root,
-        `REQUEST_METHOD` must contain `QUERY`) and a host boot smoke test
-        (`node node_modules/@solid/community-server/bin/server.js -c
-        @css:config/default.json -p 3999 -b http://localhost:3999/`).
-        The `--css` mount has the same verifier caveat (the mounted checkout's
-        own `node_modules` participates in resolution).
-      - **Preferred**: push the fork branch and run `devbox run fork-css`.
-        npm then applies this repo's `overrides` at install time (a single
-        hoisted `@solid/access-token-verifier@2.1.2` with `QUERY`, a complete
-        dependency tree), which removes both hand-copy caveats above. Same
-        requirement for CI.
-      - Client-side hardening stays in place regardless (`isAuxiliaryResource`
-        filters `.acr`/`.acl`/`.meta` members in `containedIrisJsonLd` and
-        `listContained`, see §7), so the suite is green on `01ad3376` too.
-- [x] Import
-      `sai:config/overrides/lws-notification-service-paths.json` in
-      `data.json`/`registry.json` (done on the fork HEAD; the parameter exists
-      in its generated component `#LwsAccessTokenExtractor_args_servicePaths`
-      and both configs load). Evidence it works: `reciprocal-webhook`'s
-      `emits pending and done events…` test passes — the delegated-grants
-      chain completes, which needs the worker's webhook POST to
-      `.notifications/WebhookChannel2023/` to be authorized. Remaining: the
-      streaming-channel tests must use the **LWS session fetch**, not `.sai`
-      DPoP (`reciprocal-webhook` `id` fixed; other §8 files already pass
-      `session.fetch` into `awaitGrantCompletion`).
-- [ ] `local-css` is host-only: the compose stack/dagger cannot follow the
-      host `node_modules` symlink (`/CommunitySolidServer` is outside `/sai`,
-      and Components.js cannot see `/sai/node_modules` from there). Use
-      `fork-css` for the stack, or mount the fork under
-      `/sai/CommunitySolidServer` and run the server from that path.
+- [x] **CSS build used by tests/CI**: fork branch `lws-sai` (`9799e86d2`,
+  includes the auxiliary-containment guard and `LwsAccessTokenExtractor`
+  `servicePaths`), installed from `package-lock.json` by
+  `devbox run fork-css`. npm applies this repo's `overrides` at install time,
+  so `@solid/access-token-verifier` is the `QUERY`-capable 2.1.2 fork and the
+  tree is consistent. `dagger call test` is green on it.
+- [x] `sai:config/overrides/lws-notification-service-paths.json` imported in
+  `data.json`/`registry.json` (sets `servicePaths: [ ".notifications/" ]`).
+  The worker's webhook `POST /.notifications/WebhookChannel2023/` and the
+  streaming channel now take a storage token; notification streams must be
+  opened with the **session's LWS fetch**, not `.sai` DPoP.
+- [ ] **Local fork iteration** (optional): `devbox run local-css` leaves
+  `node_modules/@solid/community-server` as an npm symlink to
+  `$NPM_CONFIG_PREFIX/lib/node_modules/…` → `../CommunitySolidServer`, i.e.
+  **outside** the repo. Dagger only ships `source`, so that link dangles in the
+  containers. Two workarounds, both verified:
+  - `dagger call --css=../CommunitySolidServer test …` — `--css` is a
+    **constructor argument**, so it goes *before* the function name. The mount
+    lands at the `npm link` target inside the container (the link then follows
+    it) and shadows `/sai/node_modules/@solid/community-server`.
+  - copy the fork into `node_modules/@solid/community-server` (`cp -a`, keep
+    its `node_modules`, then `rm -rf
+    node_modules/@solid/community-server/node_modules/@solid/access-token-verifier`
+    — the nested stock 2.1.1 otherwise shadows the root override and every
+    `.sai/sparql-admin` `QUERY` fails with `403 this endpoint requires
+    credentials`; dropping the whole nested tree instead breaks boot with
+    `Cannot find module 'cluster-key-slot'`).
+  Pushing the fork and running `devbox run fork-css` remains the simplest path.
 - [ ] `services/css` still pins `8.0.0-alpha.2`; not a workspace, not used by
-      the stack. Update separately if used standalone.
+  the stack. Update separately if used standalone.
 - [ ] Nix image builds still need the CSS git dependency's `dist/` (the deps
-      phase runs `npm ci --ignore-scripts`, which skips the fork's `prepare`).
-      Use a prebuilt tarball or a separate CSS derivation.
+  phase runs `npm ci --ignore-scripts`, which skips the fork's `prepare`).
+  Use a prebuilt tarball or a separate CSS derivation.
 - [ ] The UI is served from a prebuilt `examples/vuejectron/dist`; rebuild it
-      for the `sessionFetch` change to take effect in the compose stack.
+  for the `sessionFetch` change to take effect in the compose stack.
 
 ## 9. Vocabulary / data model
 

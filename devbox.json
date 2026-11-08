@@ -35,27 +35,19 @@
       "seed": "node packages/repl/cmd.ts -- seed-env",
       "local-css": [
         "set -euo pipefail",
-        "ROOT=\"$PWD\"",
-        "CSS_DIR=\"${CSS_DIR:-$ROOT/../CommunitySolidServer}\"",
+        "CSS_DIR=\"${CSS_DIR:-$PWD/../CommunitySolidServer}\"",
         "if [ ! -f \"$CSS_DIR/package.json\" ]; then echo \"CSS checkout not found at $CSS_DIR (set CSS_DIR=/path/to/CommunitySolidServer)\" >&2; exit 1; fi",
-        "export NPM_CONFIG_PREFIX=\"${NPM_CONFIG_PREFIX:-$HOME/.npm-global}\"",
-        "mkdir -p \"$NPM_CONFIG_PREFIX\"",
-        "echo \"Building and linking local CSS from $CSS_DIR\"",
-        "cd \"$CSS_DIR\"",
-        "npm run build",
-        "npm link",
-        "cd \"$ROOT\"",
-        "npm link @solid/community-server",
-        "npm link @solid/community-server -w @elfpavlik/sai-components",
-        "node -e \"console.log('CSS ->', require.resolve('@solid/community-server/package.json'))\""
+        "echo \"Building local CSS from $CSS_DIR\"",
+        "npm --prefix \"$CSS_DIR\" run build",
+        "echo \"Running Dagger with local CSS (the host node_modules is not changed)\"",
+        "dagger call --css=\"$CSS_DIR\" test \"$@\""
       ],
       "fork-css": [
         "set -euo pipefail",
-        "ROOT=\"$PWD\"",
-        "rm -rf \"$ROOT/packages/components/node_modules/@solid/community-server\"",
-        "cd \"$ROOT\"",
-        "npm update @solid/community-server",
-        "node -e \"const l=require('./package-lock.json');const p=require('@solid/community-server/package.json');console.log('CSS', p.version, '->', require.resolve('@solid/community-server/package.json'));console.log('lock ->', l.packages['node_modules/@solid/community-server'].resolved)\""
+        "echo \"Restoring dependencies, including the CSS fork pinned in package-lock.json\"",
+        "npm ci",
+        "node -e \"const l=require('./package-lock.json');const p=require('@solid/community-server/package.json');console.log('CSS', p.version, '->', require.resolve('@solid/community-server/package.json'));console.log('lock ->', l.packages['node_modules/@solid/community-server'].resolved)\"",
+        "dagger call test \"$@\""
       ]
     }
   }

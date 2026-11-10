@@ -89,7 +89,6 @@ export class SaiJs {
   source: Directory
   tempoEndpoint?: string
   css?: Directory
-  runId: string
 
   constructor(
     @argument({ defaultPath: '.' })
@@ -103,19 +102,11 @@ export class SaiJs {
      * no symlink escaping this source directory) is needed. Without this
      * argument, local and CI runs use the fork pinned in package-lock.json.
      */
-    css?: Directory,
-    /**
-     * Identifies one stack invocation. It intentionally changes Dagger's cache
-     * key for database setup and test execs; by default every invocation gets
-     * a fresh ID. Pass an explicit ID only when reproducing a particular run.
-     */
-    @argument()
-    runId?: string
+    css?: Directory
   ) {
     this.source = source
     this.tempoEndpoint = tempoEndpoint
     this.css = css
-    this.runId = runId ?? randomUUID()
   }
 
   /**
@@ -125,15 +116,16 @@ export class SaiJs {
    * back to the OTLP endpoint the Dagger engine injects for its own telemetry.
    */
   /**
-   * A Node service/test container with the local CSS checkout (when `--css`
-   * is set) mounted over the installed package. The more specific mount wins
-   * over the `/sai` source mount added by each service.
+   * A Node service/test container with the repo mounted at `/sai` and, when
+   * `--css` is set, the local CommunitySolidServer checkout mounted over the
+   * installed package. The source mount is applied first: Dagger resolves
+   * overlapping mounts in favor of the last one, so the CSS mount must come
+   * after `/sai` for `css-local` to actually use the local build.
    */
-  private nodeContainer(serviceName: string): Container {
-    const container = this.withTracing(
-      dag.container().from(NODE_IMAGE),
-      serviceName
-    ).withEnvVariable('SAI_RUN_ID', this.runId)
+  private nodeContainer(serviceName: string, runId: string): Container {
+    const container = this.withTracing(dag.container().from(NODE_IMAGE), serviceName)
+      .withEnvVariable('SAI_RUN_ID', runId)
+      .withMountedDirectory('/sai', this.source)
     if (!this.css) return container
     return container.withMountedDirectory('/sai/node_modules/@solid/community-server', this.css)
   }
@@ -213,8 +205,17 @@ export class SaiJs {
       .withHostname('garage')
   }
 
-  @func()
+  @func({ cache: 'session' })
   async temporalService(): Promise<Service> {
+    return this.temporalServiceFor(randomUUID())
+  }
+
+  // The run ID must be generated once per entrypoint, not in the cacheable
+  // constructor: Dagger keeps module results across CLI invocations, and a
+  // frozen ID would make setup-postgres.sh a cache hit against a fresh,
+  // empty Postgres service. Private builders receive the ID so every service
+  // in one stack shares the same ephemeral database and cache-busting key.
+  private async temporalServiceFor(runId: string): Promise<Service> {
     const scripts = this.source.directory('temporal/scripts')
     const dynamicConfig = this.source.directory('temporal/dynamicconfig')
 
@@ -223,7 +224,7 @@ export class SaiJs {
       .from(`postgres:${POSTGRESQL_VERSION}`)
       .withEnvVariable('POSTGRES_PASSWORD', 'temporal')
       .withEnvVariable('POSTGRES_USER', 'temporal')
-      .withEnvVariable('SAI_RUN_ID', this.runId)
+      .withEnvVariable('SAI_RUN_ID', runId)
       // Keep database state in the service container's ephemeral layer. A
       // named cache volume would leak schemas and data between test runs.
       .withExposedPort(5432)
@@ -233,7 +234,7 @@ export class SaiJs {
       .container()
       .from(`postgres:${POSTGRESQL_VERSION}`)
       .withServiceBinding('postgresql', pg)
-      .withEnvVariable('SAI_RUN_ID', this.runId)
+      .withEnvVariable('SAI_RUN_ID', runId)
       .withEntrypoint([])
       .withExec([
         '/bin/sh',
@@ -250,7 +251,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_USER', 'temporal')
       .withEnvVariable('SQL_PASSWORD', 'temporal')
       .withEnvVariable('DB_PORT', '5432')
-      .withEnvVariable('SAI_RUN_ID', this.runId)
+      .withEnvVariable('SAI_RUN_ID', runId)
       .withDirectory('/scripts', scripts)
       .withExec(['/bin/sh', '/scripts/setup-postgres.sh'])
       .sync()
@@ -265,7 +266,7 @@ export class SaiJs {
       .withEnvVariable('POSTGRES_PWD', 'temporal')
       .withEnvVariable('POSTGRES_SEEDS', 'postgresql')
       .withEnvVariable('BIND_ON_IP', '0.0.0.0')
-      .withEnvVariable('SAI_RUN_ID', this.runId)
+      .withEnvVariable('SAI_RUN_ID', runId)
       .withEnvVariable('DYNAMIC_CONFIG_FILE_PATH', 'config/dynamicconfig/development-sql.yaml')
       .withDirectory('/etc/temporal/config/dynamicconfig', dynamicConfig)
       .withExposedPort(7233)
@@ -285,7 +286,7 @@ export class SaiJs {
       .withServiceBinding('temporal', temporal)
       .withEnvVariable('TEMPORAL_ADDRESS', 'temporal:7233')
       .withEnvVariable('DEFAULT_NAMESPACE', 'default')
-      .withEnvVariable('SAI_RUN_ID', this.runId)
+      .withEnvVariable('SAI_RUN_ID', runId)
       .withDirectory('/scripts', scripts)
       .withExec(['/bin/sh', '/scripts/create-namespace.sh'])
       .sync()
@@ -293,12 +294,16 @@ export class SaiJs {
     return temporal
   }
 
-  @func()
+  @func({ cache: 'session' })
   async workerService(): Promise<Service> {
-    const temporal = await this.temporalService()
+    const runId = randomUUID()
+    const temporal = await this.temporalServiceFor(runId)
+    return this.workerServiceFor(runId, temporal)
+  }
+
+  private async workerServiceFor(runId: string, temporal: Service): Promise<Service> {
     return (
-      this.nodeContainer('sai-worker')
-        .withMountedDirectory('/sai', this.source)
+      this.nodeContainer('sai-worker', runId)
         .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
         .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
         .withEnvVariable('CSS_REG_ORIGIN', CSS_REG_ORIGIN)
@@ -334,10 +339,10 @@ export class SaiJs {
     )
   }
 
-  @func()
+  @func({ cache: 'session' })
   idService(): Service {
-    return this.nodeContainer('sai-id')
-      .withMountedDirectory('/sai', this.source)
+    const runId = randomUUID()
+    return this.nodeContainer('sai-id', runId)
       .withEnvVariable('ID_ORIGIN', 'id')
       .withEnvVariable('DOC_ORIGIN', 'id')
       .withEnvVariable('CSS_ID_SPARQL_ENDPOINT', CSS_ID_SPARQL_ENDPOINT)
@@ -355,11 +360,15 @@ export class SaiJs {
       .withHostname('id')
   }
 
-  @func()
+  @func({ cache: 'session' })
   async authService(): Promise<Service> {
-    const temporal = await this.temporalService()
-    return this.nodeContainer('sai-uas')
-      .withMountedDirectory('/sai', this.source)
+    const runId = randomUUID()
+    const temporal = await this.temporalServiceFor(runId)
+    return this.authServiceFor(runId, temporal)
+  }
+
+  private async authServiceFor(runId: string, temporal: Service): Promise<Service> {
+    return this.nodeContainer('sai-uas', runId)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/auth.json')
       .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
       .withEnvVariable('CSS_AUTHORIZATION_ENDPOINT', 'https://ui.auth/authorize')
@@ -386,8 +395,8 @@ export class SaiJs {
       .withServiceBinding('postgresql', this.postgresService())
       .withServiceBinding('temporal', temporal)
       .withServiceBinding('id', this.idService())
-      .withServiceBinding('registry', await this.registryService())
-      .withServiceBinding('data', await this.dataService())
+      .withServiceBinding('registry', await this.registryServiceFor(runId, temporal))
+      .withServiceBinding('data', await this.dataServiceFor(runId, temporal))
       .withServiceBinding('fuseki', this.fusekiService())
       .withServiceBinding('garage', this.garageService())
       .withExposedPort(443)
@@ -405,11 +414,15 @@ export class SaiJs {
       .withHostname('auth')
   }
 
-  @func()
+  @func({ cache: 'session' })
   async registryService(): Promise<Service> {
-    const temporal = await this.temporalService()
-    return this.nodeContainer('sai-registry')
-      .withMountedDirectory('/sai', this.source)
+    const runId = randomUUID()
+    const temporal = await this.temporalServiceFor(runId)
+    return this.registryServiceFor(runId, temporal)
+  }
+
+  private async registryServiceFor(runId: string, temporal: Service): Promise<Service> {
+    return this.nodeContainer('sai-registry', runId)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/registry.json')
       .withEnvVariable('CSS_BASE_URL', 'https://registry/')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
@@ -438,11 +451,15 @@ export class SaiJs {
       .withHostname('registry')
   }
 
-  @func()
+  @func({ cache: 'session' })
   async dataService(): Promise<Service> {
-    const temporal = await this.temporalService()
-    return this.nodeContainer('sai-data')
-      .withMountedDirectory('/sai', this.source)
+    const runId = randomUUID()
+    const temporal = await this.temporalServiceFor(runId)
+    return this.dataServiceFor(runId, temporal)
+  }
+
+  private async dataServiceFor(runId: string, temporal: Service): Promise<Service> {
+    return this.nodeContainer('sai-data', runId)
       .withEnvVariable('CSS_CONFIG', '/sai/environments/css/https/data.json')
       .withEnvVariable('CSS_BASE_URL', 'https://data/')
       .withEnvVariable('CSS_LOGGING_LEVEL', CSS_LOG_LEVEL)
@@ -477,13 +494,12 @@ export class SaiJs {
       .withHostname('data')
   }
 
-  async testBase(): Promise<Container> {
-    const auth = await this.authService()
-    const worker = await this.workerService()
-    const temporal = await this.temporalService()
+  async testBase(runId: string): Promise<Container> {
+    const temporal = await this.temporalServiceFor(runId)
+    const auth = await this.authServiceFor(runId, temporal)
+    const worker = await this.workerServiceFor(runId, temporal)
     return (
-      this.nodeContainer('sai-test')
-        .withMountedDirectory('/sai', this.source)
+      this.nodeContainer('sai-test', runId)
         .withEnvVariable('NODE_TLS_REJECT_UNAUTHORIZED', NODE_TLS_REJECT_UNAUTHORIZED)
         .withEnvVariable('CSS_BASE_URL', CSS_BASE_URL)
         .withEnvVariable('CSS_ID_ORIGIN', CSS_ID_ORIGIN)
@@ -500,8 +516,8 @@ export class SaiJs {
         .withEnvVariable('CSS_GARAGE_ADMIN_ENDPOINT', CSS_GARAGE_ADMIN_ENDPOINT)
         .withEnvVariable('CSS_GARAGE_ADMIN_TOKEN', CSS_GARAGE_ADMIN_TOKEN)
         .withServiceBinding('auth', auth)
-        .withServiceBinding('registry', await this.registryService())
-        .withServiceBinding('data', await this.dataService())
+        .withServiceBinding('registry', await this.registryServiceFor(runId, temporal))
+        .withServiceBinding('data', await this.dataServiceFor(runId, temporal))
         .withServiceBinding('worker', worker)
         .withServiceBinding('temporal', temporal)
         .withServiceBinding('fuseki', this.fusekiService())
@@ -521,13 +537,14 @@ export class SaiJs {
    *   dagger call test --testFile="authorization.test.ts" \
    *     --only="alice approves bobs request — authorization data from the request, grants follow"
    */
-  @func()
+  @func({ cache: 'never' })
   async test(
     @argument()
     testFile?: string,
     @argument()
     only?: string
   ): Promise<string> {
+    const runId = randomUUID()
     const args = ['npm', 'run', 'dagger:test']
     const filter: string[] = []
     if (testFile) {
@@ -557,7 +574,7 @@ export class SaiJs {
       console.error('Temporal is not reachable')
       process.exit(1)
     `
-    return (await this.testBase())
+    return (await this.testBase(runId))
       .withExec(['node', '--input-type=module', '-e', temporalReady])
       .withExec(args)
       .stdout()
@@ -565,7 +582,8 @@ export class SaiJs {
 
   async debugService(
     @argument()
-    testFile?: string
+    testFile?: string,
+    runId = randomUUID()
   ): Promise<Service> {
     const args = ['npm', 'run', 'dagger:debug']
     const filter: string[] = []
@@ -574,24 +592,26 @@ export class SaiJs {
       filter.push(...testFile.split(/\s+/))
     }
     if (filter.length) args.push('--', ...filter)
-    return (await this.testBase()).withExposedPort(9240).asService({ args })
+    return (await this.testBase(runId)).withExposedPort(9240).asService({ args })
   }
 
-  @func()
+  @func({ cache: 'session' })
   async proxyService(
     @argument()
     testFile?: string
   ): Promise<Service> {
-    const debug = await this.debugService(testFile)
-    const auth = await this.authService()
-    const worker = await this.workerService()
+    const runId = randomUUID()
+    const debug = await this.debugService(testFile, runId)
+    const temporal = await this.temporalServiceFor(runId)
+    const auth = await this.authServiceFor(runId, temporal)
+    const worker = await this.workerServiceFor(runId, temporal)
     return dag
       .container()
       .from(NODE_IMAGE)
       .withServiceBinding('debug', debug)
       .withServiceBinding('auth', auth)
-      .withServiceBinding('registry', await this.registryService())
-      .withServiceBinding('data', await this.dataService())
+      .withServiceBinding('registry', await this.registryServiceFor(runId, temporal))
+      .withServiceBinding('data', await this.dataServiceFor(runId, temporal))
       .withServiceBinding('worker', worker)
       .withMountedFile('/proxy.js', this.source.file('test/proxy.js'))
       .withExposedPort(9240)
@@ -608,7 +628,7 @@ export class SaiJs {
     return dag.container().from('alpine').withServiceBinding('id', this.idService()).terminal()
   }
 
-  @func()
+  @func({ cache: 'session' })
   async cli(): Promise<Container> {
     const temporal = await this.temporalService()
     return dag

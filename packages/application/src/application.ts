@@ -13,9 +13,10 @@ import {
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
+  flatMemberIri,
   iriForContained,
   loader,
-  postForIri,
+  postMember,
 } from '@janeirodigital/interop-utils'
 
 import { getDataGrants, getDataInstanceIterator, getGranted } from './grant.ts'
@@ -233,10 +234,12 @@ export class Application {
       // Hierarchical storage: the resource IRI is minted under the registration.
       return iriForContained({ id: registration }, this.randomUUID)
     }
-    // Flat LWS storage: POST a UUID Slug to the registration container and use
-    // the server-assigned Location (the resource is created empty and the
-    // caller writes its representation with a follow-up PUT/PATCH).
-    return postForIri(registration, this.fetch, this.randomUUID())
+    // Flat LWS storage: mint at the storage root and POST that UUID as the Slug
+    // to the registration container. The POST creates the (empty) resource and
+    // the containment; the caller writes its representation afterwards.
+    const id = flatMemberIri(grant.hasStorage, this.randomUUID())
+    await postMember(registration, this.fetch, { id })
+    return id
   }
 
   public async iriForChild(parentId: string, scope: string): Promise<string> {

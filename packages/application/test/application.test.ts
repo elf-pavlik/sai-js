@@ -90,3 +90,57 @@ describe('discovery helpers', () => {
     )
   })
 })
+
+describe('iriForNew', () => {
+  const uuid = '6f1e6c1e-0000-4000-8000-000000000000'
+  const scope = 'https://trees.example/Project'
+  const storage = 'https://data.alice.example/'
+  const registration = 'https://data.alice.example/reg'
+
+  const stubGrant = (app: Application, dataRegistration: string): void => {
+    vi.spyOn(app, 'getDataOwnersAsync').mockResolvedValue([
+      {
+        id: webId,
+        issuedGrants: [
+          {
+            hasStorage: storage,
+            hasDataRegistration: dataRegistration,
+            registeredShapeTree: scope,
+          },
+        ],
+      },
+    ] as never)
+  }
+
+  test('mints a flat IRI at the storage root and POSTs its UUID as the Slug', async () => {
+    const flatIri = `${storage}${uuid}`
+    const mocked = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          headers: { get: (name: string) => (name === 'Location' ? flatIri : null) },
+        }) as unknown as Response
+    )
+    const app = new Application(webId, applicationId, { fetch: mocked, randomUUID: () => uuid })
+    stubGrant(app, registration)
+
+    await expect(app.iriForNew(storage, scope)).resolves.toBe(flatIri)
+    expect(mocked).toHaveBeenCalledWith(
+      registration,
+      expect.objectContaining({
+        method: 'POST',
+        body: '[]',
+        headers: expect.objectContaining({ slug: uuid }),
+      })
+    )
+  })
+
+  test('mints a hierarchical IRI without POSTing', async () => {
+    const mocked = vi.fn()
+    const app = new Application(webId, applicationId, { fetch: mocked, randomUUID: () => uuid })
+    stubGrant(app, `${registration}/`)
+
+    await expect(app.iriForNew(storage, scope)).resolves.toBe(`${registration}/${uuid}`)
+    expect(mocked).not.toHaveBeenCalled()
+  })
+})

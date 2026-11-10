@@ -87,21 +87,20 @@ different pod layout fails loudly instead of writing to an unexpected URI.
       semantics this relies on: slug → `{storageRoot}{uuid}` (never nested,
       no trailing slash, also for containers), body stored for documents,
       409 on a duplicate slug, 400 for a non-UUID slug.
-- [ ] `createDataRegistration`
-      (`packages/authorization-agent/src/data-registration.ts`) is still
-      PUT/description-PATCH based and has no callers. It is now a one-liner
-      over `postMember(… { container: true })` — either rewrite it that way or
-      delete it (the data registrations the app creates go through
-      `Application.iriForNew`, which already POSTs a UUID slug).
+- [x] `createDataRegistration` now POSTs a flat container member through
+      `postMember(… { container: true })` when `partOf` is present (pre-minted
+      id, UUID Slug, description PATCH); `createContainer` remains only for
+      hierarchical/bootstrap data registrations.
 - [x] `createContainer` for social-agent/application registrations verified
       against the flat store: PUT the empty container, discover the `.meta`
       description (registry config has the ACR/`.meta` auxiliary), PATCH the
       description; `.acr` writes now convert to quads (see §3). Live test:
       `AgentRegistry.addSocialAgentRegistration`.
-- [ ] Data instances created by `postForIri` are **empty** resources (it POSTs
-      an empty JSON-LD body by design, unlike `postMember` which sends the
-      representation); callers must PUT the data afterwards. This is what
-      `Application.iriForNew` + the LDO write do; document it in `postForIri`.
+- [x] Data-instance allocation no longer uses `postForIri`.
+      `Application.iriForNew` mints `flatMemberIri(grant.hasStorage, uuid)` and
+      POSTs that UUID as the Slug through `postMember`; the POST creates the
+      empty resource plus containment, and the caller writes the representation
+      afterwards (documented on `postMember`).
 
 ## 3. LWS-only representations and writes
 

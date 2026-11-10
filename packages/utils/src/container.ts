@@ -96,9 +96,10 @@ export interface PostMemberOptions {
  * honors the slug, so the allocated `Location` MUST be the pre-minted IRI —
  * a mismatch is thrown, never silently written to an unexpected URI.
  *
- * Containers ignore the body (the store keeps container metadata only); the
- * caller populates their description with `createContainer`'s PATCH half via
- * `populateContainerDescription`.
+ * Without a body this creates an empty JSON-LD resource; data-instance callers
+ * write the representation afterwards (PUT/PATCH). Containers ignore the body
+ * (the store keeps container metadata only); `postMember` patches their
+ * description resource with the same `INSERT DATA` form `createContainer` uses.
  */
 export async function postMember(
   containerIri: string,
@@ -113,10 +114,12 @@ export async function postMember(
   const hasContentType = Object.keys(headers).some((name) => name.toLowerCase() === 'content-type')
   if (!hasContentType) headers['content-type'] = 'application/ld+json'
 
-  // same wire form as `putJsonLd`: expanded JSON-LD, no embedded context
+  // same wire form as `putJsonLd`: expanded JSON-LD, no embedded context. An
+  // absent body still creates the resource (empty JSON-LD); callers that have
+  // a representation pass it here, otherwise they write it after allocation.
   const body =
     member.body === undefined
-      ? undefined
+      ? '[]'
       : JSON.stringify(await expandedJsonLd(member.body as Record<string, unknown>))
   const response = await fetch(containerIri, {
     method: 'POST',
@@ -141,43 +144,6 @@ export async function postMember(
     await applyPatch(created, fetch, await insertPatch(member.body as Record<string, unknown>))
   }
   return created
-}
-
-/**
- * Create a resource with POST and a Slug, returning the server-assigned IRI.
- *
- * Flat LWS storage allocates every new resource directly under the storage
- * root (the target container only selects the storage), so the resource IRI
- * must come from the `Location` header instead of being minted from the
- * container path. Pass `link` to create a container (`<lws:Container>;
- * rel="type"`).
- */
-export async function postForIri(
-  containerIri: string,
-  fetch: WhatwgFetch,
-  slug: string,
-  init: { headers?: Record<string, string>; body?: BodyInit } = {}
-): Promise<string> {
-  const headers: Record<string, string> = { slug, ...init.headers }
-  const hasContentType = Object.keys(headers).some((name) => name.toLowerCase() === 'content-type')
-  if (!hasContentType) {
-    // CSS rejects a POST without a Content-Type; an empty JSON-LD document
-    // creates the resource without triples (callers PUT the body afterwards).
-    headers['content-type'] = 'application/ld+json'
-  }
-  const response = await fetch(containerIri, {
-    method: 'POST',
-    headers,
-    body: init.body ?? '[]',
-  })
-  if (!response.ok) {
-    throw new Error(`failed to POST ${containerIri}: ${response.status}`)
-  }
-  const location = response.headers.get('Location')
-  if (!location) {
-    throw new Error(`POST ${containerIri} did not return a Location`)
-  }
-  return new URL(location, containerIri).toString()
 }
 
 /**

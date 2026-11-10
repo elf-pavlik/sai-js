@@ -1,4 +1,8 @@
-import { putRole, putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
+import {
+  createDataRegistration,
+  putRole,
+  putSocialAgentInvitation,
+} from '@janeirodigital/interop-authorization-agent'
 import { Role, SocialAgentInvitation, dataModelContext } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
 import {
@@ -6,7 +10,9 @@ import {
   LDP,
   RDF,
   SKOS,
+  type WhatwgFetch,
   fetchJsonLd,
+  jsonld,
   toStore,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -125,6 +131,43 @@ describe('data-registration write path', () => {
         DataFactory.namedNode('https://trees/Project')
       )
     )
+  })
+
+  test('createDataRegistration posts a flat container member with its UUID Slug', async () => {
+    const iri = 'https://data/alice/6f1e6c1e-0000-4000-8000-000000000000'
+    const data = {
+      id: iri,
+      type: [INTEROP.DataRegistration, LDP.Resource],
+      registeredShapeTree: 'https://trees/Project',
+      contains: [],
+      partOf: 'https://data/alice/',
+    }
+
+    let posted = ''
+    let patchBody = ''
+    const recordingFetch = (async (url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') posted = url
+      if (options?.method === 'PATCH') patchBody = options.body as string
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => {
+            if (name === 'Location') return iri
+            if (name === 'Link') return '<https://data/alice/reg.meta>; rel="describedby"'
+            return null
+          },
+        },
+      } as unknown as Response
+    }) as WhatwgFetch
+
+    await createDataRegistration(data, recordingFetch)
+    expect(posted).toBe('https://data/alice/')
+    expect(patchBody.startsWith('INSERT DATA { ')).toBe(true)
+
+    const inner = patchBody.replace(/^INSERT DATA \{ /, '').replace(/ \}$/, '')
+    const nodes = await jsonld.fromRDF(inner, { format: 'application/n-quads' })
+    const node = nodes.find((entry) => entry['@id'] === iri)
+    expect(node?.['@type']).toContain(INTEROP.DataRegistration)
   })
 })
 

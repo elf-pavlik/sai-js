@@ -85,7 +85,7 @@ describe('share resource', () => {
     }>(rpcPayload({ _tag: 'GetResource', id: resource, lang: 'en', context: aliceId }), aliceCookie)
     expect(access.accessGrantedTo).toContain(kimId)
     expect(access.accessGrantedViaRoles).toEqual([
-      { role: 'https://registry/alice/role/j1g128', label: 'Test', members: [] },
+      { role: 'https://registry/alice/j1g128', label: 'Test', members: [] },
     ])
 
     // grantee-facing (public RPC): kim sees the shared project registration in

@@ -50,7 +50,7 @@ describe('AccessRevocation message', () => {
   test('accepts a valid envelope of grant IRIs', () => {
     const message = {
       type: [INTEROP.AccessRevocation],
-      grants: ['https://registry/acme/grant/g1', 'https://registry/acme/grant/g2'],
+      grants: ['https://registry/acme/g1', 'https://registry/acme/g2'],
     }
     expect(isAccessRevocationMessage(message)).toBe(true)
   })

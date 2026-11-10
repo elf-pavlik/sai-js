@@ -37,11 +37,11 @@ const payload = {
   webId: { id: 'https://id/acme', type: [SOCIAL_AGENT_TYPE] },
   peerId: { id: 'https://id/bob', type: [SOCIAL_AGENT_TYPE] },
 }
-const RECIPROCAL = 'https://registry/bob/social-agent/x7n2qv/'
+const RECIPROCAL = 'https://registry/bob/x7n2qv'
 
 beforeEach(() => {
   h.registration = {
-    id: 'https://registry/acme/social-agent/r-bob',
+    id: 'https://registry/acme/r-bob',
     reciprocalRegistration: RECIPROCAL,
   }
   h.update.mockReset()
@@ -88,7 +88,7 @@ describe('syncReciprocalMirror — terminal-error policy', () => {
   test('a 404 on a linked grant is not peer-gone — the replica is kept', async () => {
     // the reciprocal document still lists a grant the peer already replaced;
     // the next sync reads the updated link set, so this retries
-    const failure = new HttpStatusError('https://registry/bob/grant/g1', 404)
+    const failure = new HttpStatusError('https://registry/bob/g1', 404)
     h.update.mockRejectedValue(failure)
 
     await expect(syncReciprocalMirror(payload)).rejects.toBe(failure)
@@ -104,7 +104,7 @@ describe('syncReciprocalMirror — terminal-error policy', () => {
   })
 
   test('a registration without a reciprocal link is a no-op', async () => {
-    h.registration = { id: 'https://registry/acme/social-agent/r-bob' }
+    h.registration = { id: 'https://registry/acme/r-bob' }
 
     const result = await syncReciprocalMirror(payload)
 

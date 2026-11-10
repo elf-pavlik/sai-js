@@ -15,7 +15,7 @@ const USER_WEBID = 'https://dan.example/profile/card#me'
 const SOCIAL_AGENT_REGISTRY = 'https://registry/yoyo/social-agent/'
 const APPLICATION_REGISTRY = 'https://registry/yoyo/application/'
 const INVITATION_REGISTRY = 'https://registry/yoyo/invitation/'
-const APP_REG = `${APPLICATION_REGISTRY}p9xnub/`
+const APP_REG = 'https://registry/yoyo/p9xnub'
 const APP_WEBID = 'https://projectron.example/#app'
 
 /** The registration body served for the application's graph (CONSTRUCT → application/ld+json). */
@@ -131,8 +131,8 @@ describe('getApplications — org context lists applications via /sparql-admin',
 // ──────────────────────────
 
 describe('getSocialAgentInvitations — org context lists invitations via /sparql-admin', () => {
-  const INVITE_IRI = `${INVITATION_REGISTRY}zi1nic`
-  const SETTLED_IRI = `${INVITATION_REGISTRY}settled`
+  const INVITE_IRI = 'https://registry/yoyo/zi1nic'
+  const SETTLED_IRI = 'https://registry/yoyo/settled'
   const CAPABILITY = 'https://yoyo.example/invitations/zi1nic'
 
   const inviteDoc = (iri: string, registeredAgent?: string) => [

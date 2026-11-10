@@ -121,10 +121,10 @@ describe('role-based access', () => {
   const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
   const danId = 'https://id/dan'
   const yoyoId = 'https://id/yoyo'
-  const roleId = 'https://registry/alice/role/j1g128'
-  const chumsRoleId = 'https://registry/alice/role/xcoq3l'
-  const whizRoleId = 'https://registry/bob/role/v7emok'
-  const bizRoleId = 'https://registry/bob/role/t6nwde'
+  const roleId = 'https://registry/alice/j1g128'
+  const chumsRoleId = 'https://registry/alice/xcoq3l'
+  const whizRoleId = 'https://registry/bob/v7emok'
+  const bizRoleId = 'https://registry/bob/t6nwde'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
 
   // no workflows from earlier tests may be running when the next test starts

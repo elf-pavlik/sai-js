@@ -6,10 +6,10 @@ import { type SparqlTransport, getReciprocalGrants } from '../src/sparql.js'
 
 const { namedNode, quad } = DataFactory
 
-const RECIPROCAL = 'https://registry/alice/social-agent/r-acme'
-const G1 = 'https://registry/alice/grant/g1'
-const G2 = 'https://registry/alice/grant/g2'
-const CHILD = 'https://registry/alice/grant/g-child'
+const RECIPROCAL = 'https://registry/alice/r-acme'
+const G1 = 'https://registry/alice/g1'
+const G2 = 'https://registry/alice/g2'
+const CHILD = 'https://registry/alice/g-child'
 const TREE = 'https://data/shapetrees/trees/Project'
 
 const registrationGraph = (links: string[]): Quad[] =>

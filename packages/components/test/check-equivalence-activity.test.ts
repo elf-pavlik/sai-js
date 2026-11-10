@@ -152,14 +152,10 @@ beforeEach(() => {
 
 describe('checkEquivalence — source-grant reuse', () => {
   test('reuses an equivalent source subtree and re-links parents and children', async () => {
-    const eParent = parent('https://registry/acme/grant/e-parent', [
-      'https://registry/acme/grant/e-child',
-    ])
-    const eChild = child('https://registry/acme/grant/e-child', eParent.id!)
-    const gParent = parent('https://registry/acme/grant/g-parent', [
-      'https://registry/acme/grant/g-child',
-    ])
-    const gChild = child('https://registry/acme/grant/g-child', gParent.id!)
+    const eParent = parent('https://registry/acme/e-parent', ['https://registry/acme/e-child'])
+    const eChild = child('https://registry/acme/e-child', eParent.id!)
+    const gParent = parent('https://registry/acme/g-parent', ['https://registry/acme/g-child'])
+    const gChild = child('https://registry/acme/g-child', gParent.id!)
     h.bodies.set(eParent.id!, eParent)
     h.bodies.set(eChild.id!, eChild)
 
@@ -183,19 +179,15 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('fails closed when a declared child body is missing', async () => {
-    const eParent = parent('https://registry/acme/grant/e-parent', [
-      'https://registry/acme/grant/e-child',
-    ])
-    const gParent = parent('https://registry/acme/grant/g-parent', [
-      'https://registry/acme/grant/g-child',
-    ])
+    const eParent = parent('https://registry/acme/e-parent', ['https://registry/acme/e-child'])
+    const gParent = parent('https://registry/acme/g-parent', ['https://registry/acme/g-child'])
     h.bodies.set(eParent.id!, eParent) // child body absent
 
     const result = await checkEquivalence({
       webId,
       grantee,
       generated: {
-        sourceGrants: [gParent, child('https://registry/acme/grant/g-child', gParent.id!)],
+        sourceGrants: [gParent, child('https://registry/acme/g-child', gParent.id!)],
         delegatedGrants: [],
       },
       existing: [ref(eParent)],
@@ -209,16 +201,12 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('replaces the whole subtree when a child field differs', async () => {
-    const eParent = parent('https://registry/acme/grant/e-parent', [
-      'https://registry/acme/grant/e-child',
-    ])
-    const eChild = child('https://registry/acme/grant/e-child', eParent.id!, {
+    const eParent = parent('https://registry/acme/e-parent', ['https://registry/acme/e-child'])
+    const eChild = child('https://registry/acme/e-child', eParent.id!, {
       accessMode: [INTEROP.Read], // generated child additionally has Create
     })
-    const gParent = parent('https://registry/acme/grant/g-parent', [
-      'https://registry/acme/grant/g-child',
-    ])
-    const gChild = child('https://registry/acme/grant/g-child', gParent.id!)
+    const gParent = parent('https://registry/acme/g-parent', ['https://registry/acme/g-child'])
+    const gChild = child('https://registry/acme/g-child', gParent.id!)
     h.bodies.set(eParent.id!, eParent)
     h.bodies.set(eChild.id!, eChild)
 
@@ -234,16 +222,16 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('partially reuses: only the equivalent tree, stale IRIs are skipped', async () => {
-    const e1 = parent('https://registry/acme/grant/e1')
-    const g1 = parent('https://registry/acme/grant/g1')
-    const g2 = parent('https://registry/acme/grant/g2')
+    const e1 = parent('https://registry/acme/e1')
+    const g1 = parent('https://registry/acme/g1')
+    const g2 = parent('https://registry/acme/g2')
     h.bodies.set(e1.id!, e1)
 
     const result = await checkEquivalence({
       webId,
       grantee,
       generated: { sourceGrants: [g1, g2], delegatedGrants: [] },
-      existing: [ref(e1), { id: 'https://registry/acme/grant/stale', type: [INTEROP.DataGrant] }],
+      existing: [ref(e1), { id: 'https://registry/acme/stale', type: [INTEROP.DataGrant] }],
     })
 
     expect(result.reusedSourceIds).toEqual([g1.id])
@@ -251,10 +239,10 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('reuses an equivalent delegated subtree from the local replica', async () => {
-    const eParent = delegatedParent('https://registry/acme/grant/e-dparent', [
-      'https://registry/acme/grant/e-dchild',
+    const eParent = delegatedParent('https://registry/acme/e-dparent', [
+      'https://registry/acme/e-dchild',
     ])
-    const eChild = delegatedChild('https://registry/acme/grant/e-dchild', eParent.id!)
+    const eChild = delegatedChild('https://registry/acme/e-dchild', eParent.id!)
     h.bodies.set(eParent.id!, eParent)
     h.bodies.set(eChild.id!, eChild)
 
@@ -271,8 +259,8 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('fails closed when a delegated child body is missing from the replica', async () => {
-    const eParent = delegatedParent('https://registry/acme/grant/e-dparent', [
-      'https://registry/acme/grant/e-dchild',
+    const eParent = delegatedParent('https://registry/acme/e-dparent', [
+      'https://registry/acme/e-dchild',
     ])
     h.bodies.set(eParent.id!, eParent) // child body absent
 
@@ -291,12 +279,12 @@ describe('checkEquivalence — source-grant reuse', () => {
   })
 
   test('pairs source and delegated trees independently', async () => {
-    const eSource = parent('https://registry/acme/grant/e-src')
-    const gSource = parent('https://registry/acme/grant/g-src')
-    const eParent = delegatedParent('https://registry/acme/grant/e-dparent', [
-      'https://registry/acme/grant/e-dchild',
+    const eSource = parent('https://registry/acme/e-src')
+    const gSource = parent('https://registry/acme/g-src')
+    const eParent = delegatedParent('https://registry/acme/e-dparent', [
+      'https://registry/acme/e-dchild',
     ])
-    const eChild = delegatedChild('https://registry/acme/grant/e-dchild', eParent.id!)
+    const eChild = delegatedChild('https://registry/acme/e-dchild', eParent.id!)
     h.bodies.set(eSource.id!, eSource)
     h.bodies.set(eParent.id!, eParent)
     h.bodies.set(eChild.id!, eChild)
@@ -322,7 +310,7 @@ describe('checkEquivalence — source-grant reuse', () => {
       { registeredShapeTree: TASK_TREE, hasDataRegistration: TASK_REGISTRATION },
       false
     )
-    const eTask = delegatedParent('https://registry/acme/grant/e-task', [], {
+    const eTask = delegatedParent('https://registry/acme/e-task', [], {
       registeredShapeTree: TASK_TREE,
       hasDataRegistration: TASK_REGISTRATION,
     })

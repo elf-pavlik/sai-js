@@ -5,7 +5,7 @@ import { dataModelContext } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const GRANT_IRI = 'https://registry/acme/grant/p9m2vr'
+const GRANT_IRI = 'https://registry/acme/p9m2vr'
 
 /**
  * Framing regression guards for the shared-context refactor:

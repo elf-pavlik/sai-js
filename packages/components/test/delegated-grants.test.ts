@@ -146,7 +146,7 @@ const pendingActivity = (id: string): PendingActivity => ({
   type: ['Activity', 'DelegatedGrantsUpdated'],
   actor: webId.id,
   target: peerId.id,
-  object: 'https://registry/bob/social-agent/x7n2qv/',
+  object: 'https://registry/bob/x7n2qv',
   createdAt: new Date().toISOString(),
 })
 
@@ -172,7 +172,7 @@ beforeEach(() => {
 
 describe('processDelegatedGrantsUpdated — per-peer consumer', () => {
   test('replicates, regenerates, then completes — in that order', async () => {
-    const first = pendingActivity('https://registry/acme/activity/a1')
+    const first = pendingActivity('https://registry/acme/a1')
     h.state.batches = [[first]]
 
     await processDelegatedGrantsUpdated({ webId, peerId })
@@ -193,8 +193,8 @@ describe('processDelegatedGrantsUpdated — per-peer consumer', () => {
   })
 
   test('coalesces a burst into one replicate/regenerate/completion', async () => {
-    const first = pendingActivity('https://registry/acme/activity/a1')
-    const second = pendingActivity('https://registry/acme/activity/a2')
+    const first = pendingActivity('https://registry/acme/a1')
+    const second = pendingActivity('https://registry/acme/a2')
     h.state.batches = [[first, second]]
 
     await processDelegatedGrantsUpdated({ webId, peerId })
@@ -208,8 +208,8 @@ describe('processDelegatedGrantsUpdated — per-peer consumer', () => {
   })
 
   test('a delivery that lands mid-flight is drained again — no lost update', async () => {
-    const first = pendingActivity('https://registry/acme/activity/a1')
-    const second = pendingActivity('https://registry/acme/activity/a2')
+    const first = pendingActivity('https://registry/acme/a1')
+    const second = pendingActivity('https://registry/acme/a2')
     // second drain empty → idle wait → signal → third drain has the new one
     h.state.batches = [[first], [], [second]]
     h.state.fireSignalOnNextWait = true
@@ -239,7 +239,7 @@ describe('processDelegatedGrantsUpdated — per-peer consumer', () => {
   })
 
   test('a peer-gone sync completes the batch without regenerating', async () => {
-    const first = pendingActivity('https://registry/acme/activity/a1')
+    const first = pendingActivity('https://registry/acme/a1')
     h.state.batches = [[first]]
     // the peer deleted its registration of us: the mirror child drops the
     // replica and reports it — there is no source to regenerate from
@@ -267,7 +267,7 @@ describe('processDelegatedGrantsUpdated — per-peer consumer', () => {
 
 describe('reconcileActivities — delegatedGrantsUpdated arm', () => {
   test('starts the per-peer consumer and leaves completion to it', async () => {
-    h.state.pending = [pendingActivity('https://registry/acme/activity/a1')]
+    h.state.pending = [pendingActivity('https://registry/acme/a1')]
 
     await reconcileActivities({ webId })
 

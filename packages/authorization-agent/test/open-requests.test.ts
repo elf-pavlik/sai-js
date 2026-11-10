@@ -31,7 +31,7 @@ describe('getOpenSentAccessRequests', () => {
       [
         // request r1 — Project + inherited Task (two rows, one request)
         {
-          sent: term('https://registry/bob/activity/sent1'),
+          sent: term('https://registry/bob/sent1'),
           request: term('urn:uuid:r1'),
           grantee: term('https://id/bob'),
           grantedBy: term('https://id/bob'),
@@ -39,7 +39,7 @@ describe('getOpenSentAccessRequests', () => {
           shapeTree: term('https://data/shapetrees/trees/Project'),
         },
         {
-          sent: term('https://registry/bob/activity/sent1'),
+          sent: term('https://registry/bob/sent1'),
           request: term('urn:uuid:r1'),
           grantee: term('https://id/bob'),
           grantedBy: term('https://id/bob'),
@@ -48,7 +48,7 @@ describe('getOpenSentAccessRequests', () => {
         },
         // request r2 — a single tree
         {
-          sent: term('https://registry/bob/activity/sent2'),
+          sent: term('https://registry/bob/sent2'),
           request: term('urn:uuid:r2'),
           grantee: term('https://id/bob'),
           grantedBy: term('https://id/bob'),
@@ -61,7 +61,7 @@ describe('getOpenSentAccessRequests', () => {
     const result = await getOpenSentAccessRequests(transport)
     expect(result).toEqual([
       expect.objectContaining({
-        sent: 'https://registry/bob/activity/sent1',
+        sent: 'https://registry/bob/sent1',
         request: 'urn:uuid:r1',
         grantee: 'https://id/bob',
         grantedBy: 'https://id/bob',
@@ -97,7 +97,7 @@ describe('getOpenAccessRequestsOnRegistry', () => {
     const transport = capturingTransport(
       [
         {
-          request: term('https://registry/alice/access-request/r1'),
+          request: term('https://registry/alice/r1'),
           grantee: term('https://id/bob'),
         },
       ],
@@ -107,9 +107,7 @@ describe('getOpenAccessRequestsOnRegistry', () => {
       transport,
       'https://registry/alice/access-request/'
     )
-    expect(result).toEqual([
-      { id: 'https://registry/alice/access-request/r1', grantee: 'https://id/bob' },
-    ])
+    expect(result).toEqual([{ id: 'https://registry/alice/r1', grantee: 'https://id/bob' }])
     const query = queries[0]
     // container membership in the REGULAR graph (ldp:contains — no meta: read)
     expect(query).toContain('<https://registry/alice/access-request/>')
@@ -128,12 +126,12 @@ describe('getDataGrantsForGrantee', () => {
     const transport = capturingTransport(
       [
         {
-          grant: term('https://registry/alice/grant/g1'),
+          grant: term('https://registry/alice/g1'),
           grantedBy: term('https://id/alice'),
           shapeTree: term('https://data/shapetrees/trees/Project'),
         },
         {
-          grant: term('https://registry/alice/grant/g1-child'),
+          grant: term('https://registry/alice/g1-child'),
           grantedBy: term('https://id/alice'),
           shapeTree: term('https://data/shapetrees/trees/Task'),
         },
@@ -143,12 +141,12 @@ describe('getDataGrantsForGrantee', () => {
     const result = await getDataGrantsForGrantee(transport, 'https://id/bob')
     expect(result).toEqual([
       {
-        grant: 'https://registry/alice/grant/g1',
+        grant: 'https://registry/alice/g1',
         grantedBy: 'https://id/alice',
         shapeTree: 'https://data/shapetrees/trees/Project',
       },
       {
-        grant: 'https://registry/alice/grant/g1-child',
+        grant: 'https://registry/alice/g1-child',
         grantedBy: 'https://id/alice',
         shapeTree: 'https://data/shapetrees/trees/Task',
       },

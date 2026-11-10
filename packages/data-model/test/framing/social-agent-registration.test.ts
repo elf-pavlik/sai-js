@@ -5,9 +5,9 @@ import { fromJsonLd as registrationFromJsonLd } from '../../src/social-agent-reg
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const REGISTRATION_IRI = 'https://registry/acme/social-agent/je0s7n/'
+const REGISTRATION_IRI = 'https://registry/acme/je0s7n'
 
-// Graph <meta:https://registry/acme/social-agent/je0s7n/> in registry.trig: a
+// Graph <meta:https://registry/acme/je0s7n> in registry.trig: a
 // SocialAgentRegistration with registeredAgent, reciprocalRegistration,
 // hasDataGrant, skos:prefLabel and skos:note.
 describe('SocialAgentRegistration framing', () => {
@@ -16,12 +16,12 @@ describe('SocialAgentRegistration framing', () => {
     const registration = await registrationFromJsonLd(doc, REGISTRATION_IRI)
     expect(registration).toEqual({
       id: REGISTRATION_IRI,
-      type: [INTEROP.SocialAgentRegistration, LDP.Resource],
+      type: [INTEROP.SocialAgentRegistration, LDP.Container, LDP.BasicContainer, LDP.Resource],
       registeredAgent: 'https://id/alice',
-      hasDataGrant: ['https://registry/acme/grant/g4yhtm'],
+      hasDataGrant: ['https://registry/acme/g4yhtm'],
       label: { '@none': 'Alice' },
       note: 'Chasing white rabits.',
-      reciprocalRegistration: 'https://registry/alice/social-agent/cp9g7p/',
+      reciprocalRegistration: 'https://registry/alice/cp9g7p',
     })
   })
 })

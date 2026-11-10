@@ -21,7 +21,7 @@ import { postWebhook } from '../src/temporal/activities/webhook-delivery.js'
 import { deliverWebhook } from '../src/temporal/workflows/webhook-delivery.js'
 
 const sendTo = 'https://auth/.sai/activity-webhook/1'
-const body = '{"type":"Add","object":"https://registry/alice/activity/1"}'
+const body = '{"type":"Add","object":"https://registry/alice/1"}'
 
 const channel = {
   id: 'https://registry/.notifications/WebhookChannel2023/1',

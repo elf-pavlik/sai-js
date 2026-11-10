@@ -12,7 +12,7 @@ const sentRequest = (
   dataOwner: string,
   shapeTrees: string[]
 ): OpenSentAccessRequest => ({
-  sent: `https://registry/bob/activity/sent-${id}`,
+  sent: `https://registry/bob/sent-${id}`,
   request: `urn:uuid:${id}`,
   grantee: 'https://id/bob',
   grantedBy: 'https://id/bob', // the requester — `=== grantee` on self-requests
@@ -21,7 +21,7 @@ const sentRequest = (
 })
 
 const grant = (grantedBy: string, shapeTree: string) => ({
-  grant: `https://registry/${grantedBy === 'https://id/alice' ? 'alice' : 'x'}/grant/g`,
+  grant: `https://registry/${grantedBy === 'https://id/alice' ? 'alice' : 'x'}/g`,
   grantedBy,
   shapeTree,
 })

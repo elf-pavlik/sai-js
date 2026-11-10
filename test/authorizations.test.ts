@@ -10,8 +10,8 @@ import { rpcCall, rpcPayload } from './util'
 const acmeCookie = 'css-account=a1b9f0e2-3c4d-4e5f-8a7b-0c9d1e2f3a4b'
 const acmeId = 'https://id/acme'
 const bobId = 'https://id/bob'
-const PARENT = 'https://registry/acme/authorization/p3j7mq'
-const CHILD = 'https://registry/acme/authorization/m9k4wr'
+const PARENT = 'https://registry/acme/p3j7mq'
+const CHILD = 'https://registry/acme/m9k4wr'
 
 interface RecordedAuthorization {
   id: string

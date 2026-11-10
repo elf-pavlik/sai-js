@@ -15,8 +15,8 @@ const grantRegistry = 'https://registry/acme/grant/'
 // seeded in environments/data/registry.trig
 const seededGrantCount = 10
 
-const p9m2vr = `${grantRegistry}p9m2vr` // acme → bob (source)
-const bobOwnGrant = 'https://registry/bob/grant/t2v9cd' // a different owner's registry
+const p9m2vr = 'https://registry/acme/p9m2vr' // acme → bob (source)
+const bobOwnGrant = 'https://registry/bob/t2v9cd' // a different owner's registry
 
 const commonGrantData = {
   grantedBy: bobId,
@@ -150,10 +150,10 @@ describe('DelegationRevocationEndpoint', () => {
     const response = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
-      body: revocationPayload([parentId, 'https://registry/acme/grant/does-not-exist']),
+      body: revocationPayload([parentId, 'https://registry/acme/does-not-exist']),
     })
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual([parentId, 'https://registry/acme/grant/does-not-exist'])
+    expect(await response.json()).toEqual([parentId, 'https://registry/acme/does-not-exist'])
     expect(await countGrants()).toBe(seededGrantCount)
   })
 

@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 
 import { type SparqlTransport, getRole } from '../src/sparql.js'
 
-const ROLE_IRI = 'https://registry/kim/role/r1'
+const ROLE_IRI = 'https://registry/kim/r1'
 // in dev the app's client-id document lives at the application IRI — a
 // tax-paying graph that must NOT resolve as a role
 const CLIENT_ID_IRI = 'https://vuejectron.docker/id'

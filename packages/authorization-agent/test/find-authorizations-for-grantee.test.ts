@@ -10,8 +10,8 @@ const AUTHORIZATION_REGISTRY = 'https://registry/yoyo/authorization/'
 const ROLE_REGISTRY = 'https://registry/yoyo/role/'
 const GRANTEE = 'https://id/bob'
 const GRANTED_BY = 'https://id/yoyo'
-const PRESENT = `${AUTHORIZATION_REGISTRY}present`
-const VANISHED = `${AUTHORIZATION_REGISTRY}vanished`
+const PRESENT = 'https://registry/yoyo/present'
+const VANISHED = 'https://registry/yoyo/vanished'
 
 const registrySet = {
   hasAuthorizationRegistry: { id: AUTHORIZATION_REGISTRY },
@@ -61,7 +61,8 @@ function racingTransport(): SparqlTransport {
     async fetchBindings(query: string) {
       if (query.includes('FILTER(?g = ?role)')) return []
       if (query.includes(LWS.contains)) {
-        const container = /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
+        const container =
+          /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
         return (graphs.get(container) ?? [])
           .filter((entry) => entry.predicate.value === LDP.contains)
           .map((entry) => ({ child: { value: entry.object.value } })) as never

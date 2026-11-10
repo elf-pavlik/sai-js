@@ -185,7 +185,7 @@ describe('PodEndpointStore.findSparqlByIri', () => {
 
   test('resolves a registry resource to its registry pod', async () => {
     const store = await storeWithRecords()
-    expect((await store.findSparqlByIri('https://registry/alice/grant/x'))?.podUrl).toBe(
+    expect((await store.findSparqlByIri('https://registry/alice/x'))?.podUrl).toBe(
       'https://registry/alice/'
     )
   })

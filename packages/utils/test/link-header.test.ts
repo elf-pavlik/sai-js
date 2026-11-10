@@ -35,7 +35,7 @@ describe('getRegistrySetIri', () => {
 
   test('should ignore links with other rels', () => {
     const agentIdLink =
-      '<https://id.sai/agents/random>; anchor="https://registry/yoyo/social-agent/ph8e70/"; rel="http://www.w3.org/ns/solid/interop#registeredAgent"'
+      '<https://id.sai/agents/random>; anchor="https://registry/yoyo/ph8e70"; rel="http://www.w3.org/ns/solid/interop#registeredAgent"'
     expect(getRegistrySetIri(agentIdLink)).toBeUndefined()
   })
 })

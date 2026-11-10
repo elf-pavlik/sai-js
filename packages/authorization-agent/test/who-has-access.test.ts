@@ -23,8 +23,8 @@ const YOYO = 'https://id/yoyo'
 const PROJECT_TREE = 'https://data/shapetrees/trees/Project'
 const TASK_TREE = 'https://data/shapetrees/trees/Task'
 
-const WHIZ = 'https://registry/bob/role/whiz'
-const BIZ = 'https://registry/bob/role/biz'
+const WHIZ = 'https://registry/bob/whiz'
+const BIZ = 'https://registry/bob/biz'
 
 const REGISTRATION = 'https://data/bob/avn9hv'
 const RESOURCE = 'https://data/bob/n3onkx'

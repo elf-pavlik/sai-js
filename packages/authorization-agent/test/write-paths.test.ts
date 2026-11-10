@@ -24,7 +24,7 @@ import { expect } from './expect'
 // ──────────────────────────
 
 describe('role write path', () => {
-  const iri = 'https://registry/alice/role/r1'
+  const iri = 'https://registry/alice/r1'
   const roleData = {
     id: iri,
     type: [INTEROP.Role],
@@ -63,7 +63,7 @@ describe('role write path', () => {
 })
 
 describe('social-agent-invitation write path', () => {
-  const iri = 'https://registry/kim/invitation/inv1'
+  const iri = 'https://registry/kim/inv1'
   const invitationData = {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
@@ -130,12 +130,12 @@ describe('data-registration write path', () => {
 
 describe('application-registration write path', () => {
   test('shared context serializes the registration fields to the expected quads', async () => {
-    const iri = 'https://registry/alice/application/app1/'
+    const iri = 'https://registry/alice/app1'
     const data = {
       id: iri,
       type: [INTEROP.ApplicationRegistration, LDP.Resource],
       registeredAgent: 'https://id/test-client',
-      hasDataGrant: ['https://registry/alice/grant/g1', 'https://registry/alice/grant/g2'],
+      hasDataGrant: ['https://registry/alice/g1', 'https://registry/alice/g2'],
     }
     const store = await toStore(withContext(dataModelContext, data), iri)
     expect(store).toBeRdfDatasetContaining(
@@ -152,12 +152,12 @@ describe('application-registration write path', () => {
       DataFactory.quad(
         DataFactory.namedNode(iri),
         INTEROP.terms.hasDataGrant,
-        DataFactory.namedNode('https://registry/alice/grant/g1')
+        DataFactory.namedNode('https://registry/alice/g1')
       ),
       DataFactory.quad(
         DataFactory.namedNode(iri),
         INTEROP.terms.hasDataGrant,
-        DataFactory.namedNode('https://registry/alice/grant/g2')
+        DataFactory.namedNode('https://registry/alice/g2')
       )
     )
   })

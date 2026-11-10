@@ -6,10 +6,10 @@ import { type SparqlTransport, getLinkedGrantOwners, getRegistrationLinks } from
 
 const { namedNode, quad } = DataFactory
 
-const RECIPROCAL = 'https://registry/acme/social-agent/r-alice'
-const ADMIN_GRANT = 'https://registry/acme/grant/admin'
-const PROJECT_GRANT = 'https://registry/acme/grant/g-project'
-const TASK_GRANT = 'https://registry/acme/grant/g-task'
+const RECIPROCAL = 'https://registry/acme/r-alice'
+const ADMIN_GRANT = 'https://registry/acme/admin'
+const PROJECT_GRANT = 'https://registry/acme/g-project'
+const TASK_GRANT = 'https://registry/acme/g-task'
 const ALICE = 'https://id/alice'
 const CAROL = 'https://id/carol'
 

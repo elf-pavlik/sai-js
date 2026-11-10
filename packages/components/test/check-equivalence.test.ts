@@ -18,9 +18,9 @@ const READ = 'http://www.w3.org/ns/auth/acl#Read'
 const WRITE = 'http://www.w3.org/ns/auth/acl#Write'
 const CREATE = 'http://www.w3.org/ns/auth/acl#Create'
 
-const PARENT = 'https://registry/acme/grant/parent'
-const CHILD = 'https://registry/acme/grant/child'
-const GRANDCHILD = 'https://registry/acme/grant/grandchild'
+const PARENT = 'https://registry/acme/parent'
+const CHILD = 'https://registry/acme/child'
+const GRANDCHILD = 'https://registry/acme/grandchild'
 
 const PROJECT_TREE = 'https://data/shapetrees/trees/Project'
 const TASK_TREE = 'https://data/shapetrees/trees/Task'
@@ -93,10 +93,10 @@ describe('grantFieldsEqual', () => {
   test('ignores ids, type and the derived tree links', () => {
     const a = grant()
     const b = grant({
-      id: 'https://registry/acme/grant/other',
+      id: 'https://registry/acme/other',
       type: [INTEROP.DataGrant],
-      inheritsFromGrant: 'https://registry/acme/grant/from',
-      hasInheritingGrant: ['https://registry/acme/grant/to'],
+      inheritsFromGrant: 'https://registry/acme/from',
+      hasInheritingGrant: ['https://registry/acme/to'],
     })
     expect(grantFieldsEqual(a, b)).toBe(true)
   })
@@ -170,7 +170,7 @@ describe('grantTrees', () => {
 
   test('drops a parent when a declared child points at another parent', () => {
     const declared = grant({ hasInheritingGrant: [CHILD] })
-    const repointed = child({ inheritsFromGrant: 'https://registry/acme/grant/elsewhere' })
+    const repointed = child({ inheritsFromGrant: 'https://registry/acme/elsewhere' })
     expect(grantTrees([declared, repointed])).toEqual([])
   })
 })

@@ -44,7 +44,7 @@ describe('datasetForGraph', () => {
   const opts = { podDatasets }
 
   test('routes registry set graphs to reg-<handle> (meta: ignored)', () => {
-    expect(datasetForGraph('https://registry/acme/authorization/k9m4vp', opts)).toBe('reg-acme')
+    expect(datasetForGraph('https://registry/acme/k9m4vp', opts)).toBe('reg-acme')
     expect(datasetForGraph('meta:https://registry/acme/grant/', opts)).toBe('reg-acme')
   })
 
@@ -82,8 +82,8 @@ describe('splitFixtureByPod', () => {
     ),
   }
   const fixture = `@prefix ex: <http://ex/> .
-GRAPH <https://registry/acme/authorization/a1> { ex:s ex:p ex:o . }
-GRAPH <meta:https://registry/acme/authorization/a1> { ex:s a ex:Resource . }
+GRAPH <https://registry/acme/a1> { ex:s ex:p ex:o . }
+GRAPH <meta:https://registry/acme/a1> { ex:s a ex:Resource . }
 GRAPH <https://data/acme-rnd/r1> { ex:s2 ex:p ex:o . }
 GRAPH <https://data/shapetrees/trees/Project> { ex:t ex:p ex:o . }
 GRAPH <https://id/alice> { ex:me ex:p ex:o . }
@@ -99,8 +99,8 @@ GRAPH <https://id/alice> { ex:me ex:p ex:o . }
     ])
 
     const reg = split.get('reg-acme')!
-    expect(reg).toContain('https://registry/acme/authorization/a1')
-    expect(reg).toContain('meta:https://registry/acme/authorization/a1')
+    expect(reg).toContain('https://registry/acme/a1')
+    expect(reg).toContain('meta:https://registry/acme/a1')
     expect(reg).not.toContain('acme-rnd')
 
     const data = split.get('data-acme-rnd')!
@@ -127,23 +127,23 @@ describe('splitFixtureByPod — reciprocal mirror backfill', () => {
     ),
   }
   const fixture = `@prefix interop: <http://www.w3.org/ns/solid/interop#> .
-GRAPH <meta:https://registry/acme/social-agent/reg-acme/> {
-  <https://registry/acme/social-agent/reg-acme/> a interop:SocialAgentRegistration ;
-    interop:reciprocalRegistration <https://registry/alice/social-agent/reg-alice/> .
+GRAPH <meta:https://registry/acme/reg-acme> {
+  <https://registry/acme/reg-acme> a interop:SocialAgentRegistration ;
+    interop:reciprocalRegistration <https://registry/alice/reg-alice> .
 }
-GRAPH <meta:https://registry/alice/social-agent/reg-alice/> {
-  <https://registry/alice/social-agent/reg-alice/> a interop:SocialAgentRegistration ;
-    interop:hasDataGrant <https://registry/alice/grant/g1> .
+GRAPH <meta:https://registry/alice/reg-alice> {
+  <https://registry/alice/reg-alice> a interop:SocialAgentRegistration ;
+    interop:hasDataGrant <https://registry/alice/g1> .
 }
-GRAPH <https://registry/alice/grant/g1> { <https://registry/alice/grant/g1> a interop:DataGrant . }
+GRAPH <https://registry/alice/g1> { <https://registry/alice/g1> a interop:DataGrant . }
 `
 
   test('copies the reciprocal target + its grants into the linking owner dataset', async () => {
     const split = await splitFixtureByPod(fixture, opts)
     const acme = split.get('reg-acme')!
-    expect(acme).toContain('https://registry/acme/social-agent/reg-acme/')
-    expect(acme).toContain('https://registry/alice/social-agent/reg-alice/')
-    expect(acme).toContain('https://registry/alice/grant/g1')
+    expect(acme).toContain('https://registry/acme/reg-acme')
+    expect(acme).toContain('https://registry/alice/reg-alice')
+    expect(acme).toContain('https://registry/alice/g1')
     expect(split.get('reg-alice')!).not.toContain('reg-acme')
   })
 })

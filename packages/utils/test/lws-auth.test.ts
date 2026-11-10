@@ -265,7 +265,7 @@ describe('createLwsFetch — service paths vs peer storages', () => {
       storages: [BOB_REGISTRY],
       fetch,
     })
-    const response = await lwsFetch(`${ACME_REGISTRY}social-agent/m4k9wp/`)
+    const response = await lwsFetch(`${ACME_REGISTRY}m4k9wp`)
     expect(response.status).toBe(200)
     expect(resources).toEqual([ACME_REGISTRY])
   })
@@ -277,7 +277,7 @@ describe('createLwsFetch — service paths vs peer storages', () => {
       storages: [BOB_REGISTRY],
       fetch,
     })
-    const topic = encodeURIComponent(`${BOB_REGISTRY}social-agent/jc5gt6/`)
+    const topic = encodeURIComponent(`${BOB_REGISTRY}jc5gt6`)
     const response = await lwsFetch(`${REGISTRY}.notifications/StreamingHTTPChannel2023/${topic}`)
     expect(response.status).toBe(200)
     expect(resources).toEqual([BOB_REGISTRY])

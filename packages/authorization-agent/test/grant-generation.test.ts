@@ -23,15 +23,15 @@ const KIM = 'https://id/kim'
 const SOCIAL_AGENT_REGISTRY = 'https://registry/acme/social-agent/'
 const GRANT_REGISTRY = 'https://registry/acme/grant/'
 /** our registration of alice (the grantee's registry is ours) */
-const ALICE_REGISTRATION = 'https://registry/acme/social-agent/r-alice'
+const ALICE_REGISTRATION = 'https://registry/acme/r-alice'
 /** alice's registration of us — the mirrored reciprocal */
-const RECIPROCAL = 'https://registry/alice/social-agent/r-acme'
+const RECIPROCAL = 'https://registry/alice/r-acme'
 /** grants alice issued to us (delegation sources) */
-const PROJECT_GRANT = 'https://registry/alice/grant/g-project'
-const TASK_GRANT = 'https://registry/alice/grant/g-task'
+const PROJECT_GRANT = 'https://registry/alice/g-project'
+const TASK_GRANT = 'https://registry/alice/g-task'
 /** the child of `PROJECT_GRANT` (Inherited scope) + our child authorization */
-const CHILD_GRANT = 'https://registry/alice/grant/g-child'
-const CHILD_AUTHORIZATION = 'https://registry/acme/authorization/a1-child'
+const CHILD_GRANT = 'https://registry/alice/g-child'
+const CHILD_AUTHORIZATION = 'https://registry/acme/a1-child'
 
 const PROJECT_TREE = 'https://data/shapetrees/trees/Project'
 const TASK_TREE = 'https://data/shapetrees/trees/Task'
@@ -83,7 +83,8 @@ function mirrorTransport(graphs: Map<string, Quad[]>): SparqlTransport & { queri
       if (query.includes('lws#contains')) {
         // flat storage listing — the fixtures store the same membership as
         // ldp:contains in the container graph
-        const container = /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
+        const container =
+          /GRAPH <meta:([^>]+)>/.exec(query)?.[1] ?? /GRAPH <([^>]+)>/.exec(query)![1]
         return (graphs.get(container) ?? [])
           .filter((q) => q.predicate.value === LDP.contains)
           .map((q) => ({ child: { value: q.object.value } })) as never
@@ -242,7 +243,7 @@ const childAuthorizationGraph = (): Quad[] => [
   quad(
     namedNode(CHILD_AUTHORIZATION),
     namedNode(INTEROP.inheritsFromAuthorization),
-    namedNode('https://registry/acme/authorization/a1')
+    namedNode('https://registry/acme/a1')
   ),
 ]
 
@@ -269,7 +270,7 @@ function deps(): { deps: DataModelDependencies; fetchStub: ReturnType<typeof vi.
 
 const authorization = (suffix: string, over: Partial<DataAuthorizationData> = {}) =>
   ({
-    id: `https://registry/acme/authorization/${suffix}`,
+    id: `https://registry/acme/${suffix}`,
     type: [INTEROP.DataAuthorization],
     grantee: KIM,
     grantedBy: ACME,

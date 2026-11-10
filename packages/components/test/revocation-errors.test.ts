@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 
 import { revocationFailureDescription } from '../src/GrantRevocationHandler.js'
 
-const grant = 'https://registry/acme/grant/p9m2vr'
+const grant = 'https://registry/acme/p9m2vr'
 
 /**
  * C4 / D11 — the revocation refusals are machine-readable: the authorization

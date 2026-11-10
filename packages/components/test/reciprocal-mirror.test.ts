@@ -72,15 +72,15 @@ vi.mock('fetch-sparql-endpoint', async () => {
 
 import { deleteReciprocalMirror, updateReciprocalMirror } from '../src/services/ReciprocalMirror.js'
 
-const RECIPROCAL = 'https://registry/alice/social-agent/r-acme'
-const G1 = 'https://registry/alice/grant/g1'
-const G2 = 'https://registry/alice/grant/g2'
-const G3 = 'https://registry/alice/grant/g3'
-const STALE = 'https://registry/alice/grant/g-stale'
+const RECIPROCAL = 'https://registry/alice/r-acme'
+const G1 = 'https://registry/alice/g1'
+const G2 = 'https://registry/alice/g2'
+const G3 = 'https://registry/alice/g3'
+const STALE = 'https://registry/alice/g-stale'
 const TREE = 'https://data/shapetrees/trees/Project'
 
 const registration = {
-  id: 'https://registry/acme/social-agent/r-alice',
+  id: 'https://registry/acme/r-alice',
   reciprocalRegistration: RECIPROCAL,
 } as SocialAgentRegistrationData
 

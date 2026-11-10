@@ -12,7 +12,7 @@ const ORG_WEBID = 'https://yoyo.example/profile/card#me'
 const ORG_AA = 'https://yoyo.example/.sai/agents/zzzz'
 const USER_WEBID = 'https://dan.example/profile/card#me'
 const ROLE_REGISTRY = 'https://registry/yoyo/role/'
-const ROLE_IRI = `${ROLE_REGISTRY}r1`
+const ROLE_IRI = 'https://registry/yoyo/r1'
 const MEMBER = 'https://id/dan'
 
 /** Org webid doc exposing the org's authorization agent (admin discovery). */

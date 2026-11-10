@@ -17,7 +17,7 @@ const h = vi.hoisted(() => {
       calls.push('delete-authorizations')
     }),
     resolveGranteeKind: vi.fn(async () => ({
-      id: 'https://registry/acme/role/admin',
+      id: 'https://registry/acme/admin',
       type: ['http://www.w3.org/ns/solid/interop#Role'],
     })),
     getGrantees: vi.fn(async () => [
@@ -53,16 +53,16 @@ const DATA_AUTHORIZATION = 'http://www.w3.org/ns/solid/interop#DataAuthorization
 const webId = { id: 'https://id/acme', type: [SOCIAL_AGENT_TYPE] }
 const refs = [
   {
-    id: 'https://registry/acme/authorization/parent',
+    id: 'https://registry/acme/parent',
     type: [DATA_AUTHORIZATION],
   },
   {
-    id: 'https://registry/acme/authorization/child',
+    id: 'https://registry/acme/child',
     type: [DATA_AUTHORIZATION],
   },
 ]
 const activity = {
-  id: 'https://registry/acme/activity/revoke',
+  id: 'https://registry/acme/revoke',
   type: ['Activity', 'AuthorizationRevoked'],
 }
 
@@ -70,7 +70,7 @@ beforeEach(() => {
   h.calls.length = 0
   h.children.length = 0
   h.activities.resolveGranteeKind.mockResolvedValue({
-    id: 'https://registry/acme/role/admin',
+    id: 'https://registry/acme/admin',
     type: ['http://www.w3.org/ns/solid/interop#Role'],
   })
   h.activities.getGrantees.mockResolvedValue([{ id: 'https://id/bob', type: [SOCIAL_AGENT_TYPE] }])
@@ -78,7 +78,7 @@ beforeEach(() => {
 
 describe('processAuthorizationRevoked', () => {
   test('deletes the DAs, reconciles every expanded grantee, then completes', async () => {
-    await processAuthorizationRevoked(webId, refs, 'https://registry/acme/role/admin', activity)
+    await processAuthorizationRevoked(webId, refs, 'https://registry/acme/admin', activity)
 
     expect(h.activities.deleteAuthorizations).toHaveBeenCalledWith({
       webId,
@@ -86,12 +86,12 @@ describe('processAuthorizationRevoked', () => {
     })
     expect(h.activities.resolveGranteeKind).toHaveBeenCalledWith({
       webId,
-      grantee: 'https://registry/acme/role/admin',
+      grantee: 'https://registry/acme/admin',
     })
     expect(h.activities.getGrantees).toHaveBeenCalledWith({
       webId,
       grantee: {
-        id: 'https://registry/acme/role/admin',
+        id: 'https://registry/acme/admin',
         type: ['http://www.w3.org/ns/solid/interop#Role'],
       },
     })
@@ -116,7 +116,7 @@ describe('processAuthorizationRevoked', () => {
       { id: 'https://id/kim', type: [SOCIAL_AGENT_TYPE] },
     ])
 
-    await processAuthorizationRevoked(webId, refs, 'https://registry/acme/role/admin', activity)
+    await processAuthorizationRevoked(webId, refs, 'https://registry/acme/admin', activity)
 
     expect(h.children).toHaveLength(2)
     expect(h.children.map((child) => child.options?.args?.[0])).toEqual([

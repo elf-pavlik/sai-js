@@ -5,9 +5,9 @@ import { ApplicationRegistration } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const REGISTRATION_IRI = 'https://registry/alice/application/cvmsa4/'
+const REGISTRATION_IRI = 'https://registry/alice/cvmsa4'
 
-// Graph <meta:https://registry/alice/application/cvmsa4/> in registry.trig:
+// Graph <meta:https://registry/alice/cvmsa4> in registry.trig:
 // ApplicationRegistration node (type, registeredAgent, hasDataGrant) and the
 // embedded client-id-document node — the latter must not disturb framing.
 describe('ApplicationRegistration framing', () => {
@@ -16,13 +16,13 @@ describe('ApplicationRegistration framing', () => {
     const data = await ApplicationRegistration.fromJsonLd(doc, REGISTRATION_IRI)
     expect(data).toEqual({
       id: REGISTRATION_IRI,
-      type: [INTEROP.ApplicationRegistration, LDP.Resource],
+      type: [INTEROP.ApplicationRegistration, LDP.Container, LDP.BasicContainer, LDP.Resource],
       registeredAgent: 'https://data/test-client/public/id',
       hasDataGrant: [
-        'https://registry/alice/grant/afiooi',
-        'https://registry/alice/grant/azgyc5',
-        'https://registry/acme/grant/wwp4j6',
-        'https://registry/acme/grant/qwvbcu',
+        'https://registry/alice/afiooi',
+        'https://registry/alice/azgyc5',
+        'https://registry/acme/wwp4j6',
+        'https://registry/acme/qwvbcu',
       ],
       granted: true,
     })

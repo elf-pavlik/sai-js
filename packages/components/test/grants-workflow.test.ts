@@ -61,7 +61,7 @@ const TASK_TREE = 'https://data/shapetrees/trees/Task'
 const webId = { id: ACME, type: [SOCIAL_AGENT_TYPE] }
 const grantee = { id: ALICE, type: [SOCIAL_AGENT_TYPE] }
 
-const grantIri = (suffix: string) => `https://registry/acme/grant/${suffix}`
+const grantIri = (suffix: string) => `https://registry/acme/${suffix}`
 const grantId = (suffix: string) => ({ id: grantIri(suffix), type: [DATA_GRANT] })
 
 /** A source grant (we are dataOwner) — `FinalGrantData` shape. */
@@ -94,7 +94,7 @@ const delegatedGrant = (overrides: Record<string, unknown> = {}) => ({
 })
 
 /** One authorization makes the workflow take the generate path. */
-const authorization = { id: 'https://registry/acme/authorization/da1', type: [DATA_AUTHORIZATION] }
+const authorization = { id: 'https://registry/acme/da1', type: [DATA_AUTHORIZATION] }
 
 /** The body `getExistingGrantBodies` returns for an existing grant. */
 const body = (id: { id: string; type: string[] }, dataOwner: string) => ({
@@ -348,7 +348,7 @@ describe('revokeGrants — owner-side delete + projection patch (C4)', () => {
   const child = grantId('p-child')
   const groups = [
     { grantee: ALICE, grants: [parent.id, child.id] },
-    { grantee: 'https://id/bob', grants: ['https://registry/acme/grant/b-parent'] },
+    { grantee: 'https://id/bob', grants: ['https://registry/acme/b-parent'] },
   ]
 
   test('deletes the closure first, then clears the registration links per grantee', async () => {

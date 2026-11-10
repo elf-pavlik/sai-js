@@ -5,9 +5,9 @@ import { Grant } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const GRANT_IRI = 'https://registry/acme/grant/p9m2vr'
+const GRANT_IRI = 'https://registry/acme/p9m2vr'
 
-// Graph <https://registry/acme/grant/p9m2vr> in registry.trig:
+// Graph <https://registry/acme/p9m2vr> in registry.trig:
 // AllFromRegistry DataGrant, plus the child grant hdaymz pointing
 // inheritsFromGrant at it (frames to hasInheritingGrant via @reverse).
 describe('Grant framing', () => {
@@ -26,7 +26,7 @@ describe('Grant framing', () => {
       scopeOfGrant: INTEROP.AllFromRegistry,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
       inheritsFromGrant: undefined,
-      hasInheritingGrant: ['https://registry/acme/grant/hdaymz'],
+      hasInheritingGrant: ['https://registry/acme/hdaymz'],
     })
   })
 })

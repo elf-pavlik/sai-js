@@ -17,8 +17,8 @@ const grantRegistry = 'https://registry/acme/grant/'
 // seeded in environments/data/registry.trig
 const seededGrantCount = 10
 
-const parent = `${authorizationRegistry}p3j7mq` // Project, AllFromAgent
-const child = `${authorizationRegistry}m9k4wr` // Task, Inherited
+const parent = 'https://registry/acme/p3j7mq' // Project, AllFromAgent
+const child = 'https://registry/acme/m9k4wr' // Task, Inherited
 
 function revokePayload(authorizations: string[]) {
   return rpcPayload({

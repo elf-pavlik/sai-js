@@ -15,7 +15,7 @@
         "peerId": "https://id/bob",
         "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
         "sendTo": "https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/jc5gt6/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/jc5gt6\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b\"}",
         "id": "cb950007-7b6b-427f-8d8b-f96458bfbba3"
       },
       "8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f": {
@@ -23,7 +23,7 @@
         "peerId": "https://id/kim",
         "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
         "sendTo": "https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/kim/social-agent/plp3a3/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/kim/plp3a3\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e\"}",
         "id": "8d4a1c2e-6f3b-4a7d-9c5e-1f2b3d4e5a6f"
       },
       "6af15846-c0e2-4f9c-9221-b9945ee7b4de": {
@@ -31,7 +31,7 @@
         "peerId": "https://id/acme",
         "accountId": "e4fcefdc-5251-4e7c-9374-93ae71f188e3",
         "sendTo": "https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/social-agent/je0s7n/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/je0s7n\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21\"}",
         "id": "6af15846-c0e2-4f9c-9221-b9945ee7b4de"
       }
     },
@@ -157,7 +157,7 @@
         "peerId": "https://id/yoyo",
         "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
         "sendTo": "https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/social-agent/z3k7wm/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/z3k7wm\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd\"}",
         "id": "6e535a99-6762-429b-b93c-10925885519d"
       },
       "64fb7f69-b872-4149-a99a-9ee84b9092df": {
@@ -165,7 +165,7 @@
         "peerId": "https://id/alice",
         "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
         "sendTo": "https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/vzp6ky/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/vzp6ky\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d\"}",
         "id": "64fb7f69-b872-4149-a99a-9ee84b9092df"
       },
       "79962189-ac8a-499c-a44f-f45e278c0abe": {
@@ -173,7 +173,7 @@
         "peerId": "https://id/acme",
         "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
         "sendTo": "https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/social-agent/m4k9wp/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/acme/m4k9wp\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da\"}",
         "id": "79962189-ac8a-499c-a44f-f45e278c0abe"
       },
       "04a09f47-9378-4462-9e99-cd827f314fc8": {
@@ -181,7 +181,7 @@
         "peerId": "https://id/dan",
         "accountId": "281efdff-8a0a-4f57-b058-250717899fae",
         "sendTo": "https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/social-agent/moi15b/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/moi15b\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95\"}",
         "id": "04a09f47-9378-4462-9e99-cd827f314fc8"
       }
     },
@@ -273,7 +273,7 @@
         "peerId": "https://id/alice",
         "accountId": "9f942f30-2631-4403-9a1a-300f8faae267",
         "sendTo": "https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/fpn3ih/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/fpn3ih\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932\"}",
         "id": "5278b054-3f45-4b21-ad6a-fe1f95647fbb"
       }
     },
@@ -389,7 +389,7 @@
         "peerId": "https://id/alice",
         "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
         "sendTo": "https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/social-agent/cp9g7p/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/alice/cp9g7p\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc\"}",
         "id": "bbdef4d5-414e-47f4-8ffe-bd9d48003c7c"
       },
       "6ab253d7-d4d2-4cc1-ab4f-b7aa253d4853": {
@@ -397,7 +397,7 @@
         "peerId": "https://id/bob",
         "accountId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
         "sendTo": "https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/x7n2qv/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/x7n2qv\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e\"}",
         "id": "6ab253d7-d4d2-4cc1-ab4f-b7aa253d4853"
       }
     },
@@ -553,7 +553,7 @@
         "peerId": "https://id/bob",
         "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
         "sendTo": "https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/n4m8qx/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/n4m8qx\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2\"}",
         "id": "91a4e228-9b11-4467-a041-09221af94bfc"
       },
       "5fced755-03b6-4a96-8e85-36e4d8b556f5": {
@@ -561,7 +561,7 @@
         "peerId": "https://id/dan",
         "accountId": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
         "sendTo": "https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/social-agent/zdujx0/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/dan/zdujx0\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17\"}",
         "id": "5fced755-03b6-4a96-8e85-36e4d8b556f5"
       }
     },
@@ -683,7 +683,7 @@
         "peerId": "https://id/bob",
         "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
         "sendTo": "https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/social-agent/n78inc/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/bob/n78inc\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7\"}",
         "id": "00982bbb-18f5-4f26-9a74-9ac646686340"
       },
       "4d0bdd12-b476-4067-af58-ef99a59a3906": {
@@ -691,7 +691,7 @@
         "peerId": "https://id/yoyo",
         "accountId": "9f137c45-2889-430b-8fb0-e1f41312dc09",
         "sendTo": "https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b",
-        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/social-agent/ph8e70/\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b\"}",
+        "channel": "{\"id\":\"https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a\",\"type\":\"http://www.w3.org/ns/solid/notifications#WebhookChannel2023\",\"topic\":\"https://registry/yoyo/ph8e70\",\"sendTo\":\"https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b\"}",
         "id": "4d0bdd12-b476-4067-af58-ef99a59a3906"
       }
     },
@@ -893,19 +893,19 @@
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa5d8f331-700d-4178-919e-51d75fa9898c": {
     "id": "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/bob/social-agent/jc5gt6/",
+    "topic": "https://registry/bob/jc5gt6",
     "sendTo": "https://auth/.sai/reciprocal-webhook/26bf5f67-7858-4c18-ab1a-7404ed530c1b"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fjc5gt6%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fjc5gt6": [
     "https://registry/.notifications/WebhookChannel2023/a5d8f331-700d-4178-919e-51d75fa9898c"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b": {
     "id": "https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/kim/social-agent/plp3a3/",
+    "topic": "https://registry/kim/plp3a3",
     "sendTo": "https://auth/.sai/reciprocal-webhook/b4c2d8e0-5f1a-4b6c-9d3e-7a8f0b1c2d3e"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fkim%2Fsocial-agent%2Fplp3a3%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fkim%2Fplp3a3": [
     "https://registry/.notifications/WebhookChannel2023/3f7e9b1a-2c4d-4e8f-a6b0-5d1c2e3f4a5b"
   ],
   "accounts/index/activityWebhook/5eb86482-3c89-435f-945e-6b5db56cc518": [
@@ -949,10 +949,10 @@
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F6dcbc686-3a72-4cda-8370-389b393b0a76": {
     "id": "https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/yoyo/social-agent/z3k7wm/",
+    "topic": "https://registry/yoyo/z3k7wm",
     "sendTo": "https://auth/.sai/reciprocal-webhook/a2469691-b538-428e-b753-b9aa7b8076fd"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fsocial-agent%2Fz3k7wm%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fz3k7wm": [
     "https://registry/.notifications/WebhookChannel2023/6dcbc686-3a72-4cda-8370-389b393b0a76"
   ],
   "accounts/index/pod/daa74ec1-2e49-4df2-b569-208e7156b4e7": [
@@ -1108,100 +1108,100 @@
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa468d332-ec8e-486c-91ab-38816e0baf12": {
     "id": "https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/alice/social-agent/vzp6ky/",
+    "topic": "https://registry/alice/vzp6ky",
     "sendTo": "https://auth/.sai/reciprocal-webhook/7f7bac3e-72ad-461c-b28b-63238ea3556d"
   },
-  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Fvzp6ky%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Fvzp6ky": [
     "https://registry/.notifications/WebhookChannel2023/a468d332-ec8e-486c-91ab-38816e0baf12"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F3aefc643-8444-41a3-ad4b-58e20b2b5aa4": {
     "id": "https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/alice/social-agent/fpn3ih/",
+    "topic": "https://registry/alice/fpn3ih",
     "sendTo": "https://auth/.sai/reciprocal-webhook/a4c866de-451d-4070-ac97-06024f360932"
   },
-  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Ffpn3ih%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Ffpn3ih": [
     "https://registry/.notifications/WebhookChannel2023/3aefc643-8444-41a3-ad4b-58e20b2b5aa4"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F0c42fb37-13d1-40f7-907a-af8a3a1d6255": {
     "id": "https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/bob/social-agent/n4m8qx/",
+    "topic": "https://registry/bob/n4m8qx",
     "sendTo": "https://auth/.sai/reciprocal-webhook/fac10b8c-329a-4bf2-94e2-5fa13601e6f2"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fn4m8qx%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fn4m8qx": [
     "https://registry/.notifications/WebhookChannel2023/0c42fb37-13d1-40f7-907a-af8a3a1d6255"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fdff318b1-69cd-45ee-8880-2c9e66e92b33": {
     "id": "https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/alice/social-agent/cp9g7p/",
+    "topic": "https://registry/alice/cp9g7p",
     "sendTo": "https://auth/.sai/reciprocal-webhook/43e0ceab-76f9-4cb9-99fd-0f1c6fa741cc"
   },
-  "notifications/https%3A%2F%2Fregistry%2Falice%2Fsocial-agent%2Fcp9g7p%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Falice%2Fcp9g7p": [
     "https://registry/.notifications/WebhookChannel2023/dff318b1-69cd-45ee-8880-2c9e66e92b33"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F91af16a2-39a9-4f98-8fef-5b80158d2589": {
     "id": "https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/acme/social-agent/je0s7n/",
+    "topic": "https://registry/acme/je0s7n",
     "sendTo": "https://auth/.sai/reciprocal-webhook/951b3c79-657a-473b-9f21-b28965ae1e21"
   },
-  "notifications/https%3A%2F%2Fregistry%2Facme%2Fsocial-agent%2Fje0s7n%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Facme%2Fje0s7n": [
     "https://registry/.notifications/WebhookChannel2023/91af16a2-39a9-4f98-8fef-5b80158d2589"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fc477268e-436b-4502-a153-96a3ea9024c4": {
     "id": "https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/bob/social-agent/x7n2qv/",
+    "topic": "https://registry/bob/x7n2qv",
     "sendTo": "https://auth/.sai/reciprocal-webhook/ca4cdfeb-36c4-485e-b40a-ed099500e02e"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fx7n2qv%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fx7n2qv": [
     "https://registry/.notifications/WebhookChannel2023/c477268e-436b-4502-a153-96a3ea9024c4"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F254bb72c-9b52-44f4-b2df-6ffa7f456ee6": {
     "id": "https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/acme/social-agent/m4k9wp/",
+    "topic": "https://registry/acme/m4k9wp",
     "sendTo": "https://auth/.sai/reciprocal-webhook/056d0399-abd3-4b96-a8c7-6d740e8839da"
   },
-  "notifications/https%3A%2F%2Fregistry%2Facme%2Fsocial-agent%2Fm4k9wp%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Facme%2Fm4k9wp": [
     "https://registry/.notifications/WebhookChannel2023/254bb72c-9b52-44f4-b2df-6ffa7f456ee6"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa9780109-b529-4bdd-8c6d-098b6b3f5599": {
     "id": "https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/dan/social-agent/moi15b/",
+    "topic": "https://registry/dan/moi15b",
     "sendTo": "https://auth/.sai/reciprocal-webhook/a2f7088e-f80f-472a-97d8-d66177c88f95"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fsocial-agent%2Fmoi15b%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fmoi15b": [
     "https://registry/.notifications/WebhookChannel2023/a9780109-b529-4bdd-8c6d-098b6b3f5599"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2Fa57ef747-bf77-4da4-be24-7dccddc8a1d5": {
     "id": "https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/bob/social-agent/n78inc/",
+    "topic": "https://registry/bob/n78inc",
     "sendTo": "https://auth/.sai/reciprocal-webhook/4afd03b4-1892-4083-9c5b-cfdec6605cb7"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fsocial-agent%2Fn78inc%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fbob%2Fn78inc": [
     "https://registry/.notifications/WebhookChannel2023/a57ef747-bf77-4da4-be24-7dccddc8a1d5"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F17495ef4-2b24-4622-8c97-2d3c522e38a5": {
     "id": "https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/dan/social-agent/zdujx0/",
+    "topic": "https://registry/dan/zdujx0",
     "sendTo": "https://auth/.sai/reciprocal-webhook/12661e7e-b1bf-4ebf-a854-63abd83fac17"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fsocial-agent%2Fzdujx0%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fdan%2Fzdujx0": [
     "https://registry/.notifications/WebhookChannel2023/17495ef4-2b24-4622-8c97-2d3c522e38a5"
   ],
   "notifications/https%3A%2F%2Fregistry%2F.notifications%2FWebhookChannel2023%2F4fecb811-d33a-4bd0-be56-dad87cae6c6a": {
     "id": "https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a",
     "type": "http://www.w3.org/ns/solid/notifications#WebhookChannel2023",
-    "topic": "https://registry/yoyo/social-agent/ph8e70/",
+    "topic": "https://registry/yoyo/ph8e70",
     "sendTo": "https://auth/.sai/reciprocal-webhook/0118ba37-e9ca-4bfc-b3f6-f7f0e3564e8b"
   },
-  "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fsocial-agent%2Fph8e70%2F": [
+  "notifications/https%3A%2F%2Fregistry%2Fyoyo%2Fph8e70": [
     "https://registry/.notifications/WebhookChannel2023/4fecb811-d33a-4bd0-be56-dad87cae6c6a"
   ],
   "accounts/index/reciprocalWebhook/cb950007-7b6b-427f-8d8b-f96458bfbba3": [

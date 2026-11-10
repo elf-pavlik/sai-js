@@ -312,23 +312,23 @@ describe('groupAuthorizationDataAuthorizations', () => {
 
   test('groups embedded DAs by grantee — a parent + its child stay together', () => {
     const groups = groupAuthorizationDataAuthorizations([
-      da('https://registry/alice/authorization/p-kim', 'https://id/kim'),
-      da('https://registry/alice/authorization/c-kim', 'https://id/kim'),
-      da('https://registry/alice/authorization/p-bob', 'https://id/bob'),
+      da('https://registry/alice/p-kim', 'https://id/kim'),
+      da('https://registry/alice/c-kim', 'https://id/kim'),
+      da('https://registry/alice/p-bob', 'https://id/bob'),
     ])
     expect(groups).toHaveLength(2)
     const ids = groups.map((group) =>
       Array.isArray(group) ? group.map((member) => member.id).toSorted() : []
     )
     expect(ids).toEqual([
-      ['https://registry/alice/authorization/c-kim', 'https://registry/alice/authorization/p-kim'],
-      ['https://registry/alice/authorization/p-bob'],
+      ['https://registry/alice/c-kim', 'https://registry/alice/p-kim'],
+      ['https://registry/alice/p-bob'],
     ])
   })
 
   test('a single DA yields one group', () => {
     const groups = groupAuthorizationDataAuthorizations([
-      da('https://registry/alice/authorization/p-kim', 'https://id/kim'),
+      da('https://registry/alice/p-kim', 'https://id/kim'),
     ])
     expect(groups).toHaveLength(1)
     expect(Array.isArray(groups[0])).toBe(true)

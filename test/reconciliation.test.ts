@@ -16,12 +16,12 @@ import { waitFor, waitForQuiescence } from './util'
 const acmeId = 'https://id/acme'
 const aliceId = 'https://id/alice'
 const bobId = 'https://id/bob'
-const acmeRegForAlice = 'https://registry/acme/social-agent/je0s7n/'
-const seedGrant = 'https://registry/acme/grant/g4yhtm'
-const seedChildGrant = 'https://registry/acme/grant/wpqyds'
+const acmeRegForAlice = 'https://registry/acme/je0s7n'
+const seedGrant = 'https://registry/acme/g4yhtm'
+const seedChildGrant = 'https://registry/acme/wpqyds'
 // bob's mirror of acme: acme's registration of bob + the grants it links
-const acmeRegForBob = 'https://registry/acme/social-agent/m4k9wp/'
-const mirroredGrant = 'https://registry/acme/grant/p9m2vr'
+const acmeRegForBob = 'https://registry/acme/m4k9wp'
+const mirroredGrant = 'https://registry/acme/p9m2vr'
 const GRANT_PREDICATE = 'http://www.w3.org/ns/solid/interop#hasDataGrant'
 
 describe('reconciliation sweep', () => {
@@ -43,7 +43,7 @@ describe('reconciliation sweep', () => {
       target: acmeSession.registrySet.hasAuthorizationRegistry.id,
       object: [
         {
-          id: 'https://registry/acme/authorization/k9m4vp',
+          id: 'https://registry/acme/k9m4vp',
           type: [INTEROP.DataAuthorization],
           grantee: aliceId,
           grantedBy: acmeId,

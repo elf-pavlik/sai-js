@@ -5,9 +5,9 @@ import { DataAuthorization } from '../../src'
 import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
-const AUTH_IRI = 'https://registry/acme/authorization/k9m4vp'
+const AUTH_IRI = 'https://registry/acme/k9m4vp'
 
-// Graph <https://registry/acme/authorization/k9m4vp> in registry.trig:
+// Graph <https://registry/acme/k9m4vp> in registry.trig:
 // SelectedFromRegistry DataAuthorization with hasDataInstance, plus the child
 // authorization r5j8tw pointing inheritsFromAuthorization at it (frames to
 // hasInheritingAuthorization via @reverse).
@@ -28,7 +28,7 @@ describe('DataAuthorization framing', () => {
       inheritsFromAuthorization: undefined,
       accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
       hasDataInstance: ['https://data/acme-rnd/pbh2yw'],
-      hasInheritingAuthorization: ['https://registry/acme/authorization/r5j8tw'],
+      hasInheritingAuthorization: ['https://registry/acme/r5j8tw'],
     })
   })
 })

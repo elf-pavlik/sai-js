@@ -239,7 +239,7 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
  * the registry plane via `/.sai/sparql-admin` (last step).
  *
  * Seed (environments/data/registry.trig): Bob granted YoYo a data grant
- * (`registry/bob/grant/t2v9cd`, AllFromRegistry over
+ * (`registry/bob/t2v9cd`, AllFromRegistry over
  * `data/bob/avn9hv/` — instances `n3onkx`/"Neon" and `gl1tch`/"Glitch"),
  * linked from Bob's registration of YoYo (`n4m8qx`) — the reciprocal of
  * YoYo's registration of Bob (`z3k7wm`).

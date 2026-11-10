@@ -1,4 +1,6 @@
 import {
+  type DataInstanceFacts,
+  type ShareContextFacts,
   type ShareDataInstanceStructure,
   type WhoHasAccess,
   accessForResource,
@@ -17,6 +19,7 @@ import {
   ClientIdDocument,
   type DataAuthorizationData,
   type DataInstanceData,
+  type DataRegistrationData,
   DataRegistration,
   type EmbeddedNeedBasedAccessRequest,
   type NeedBasedAccessRequestGroup,
@@ -44,9 +47,13 @@ import { fetchPeerDocument, peerInstanceNode, peerRegistrationOfInstance } from 
 import {
   getDataAuthorization,
   containingContainer,
+  contextPod,
+  getDataRegistration,
   getRole,
   listContained,
+  listRegistrationsByShapeTrees,
   sparqlTransportFor,
+  sparqlTransportForPod,
 } from './queries/org.js'
 import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
@@ -59,7 +66,7 @@ import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
  */
 export function whoHasAccessMatching(
   authorizations: DataAuthorizationData[],
-  resource: DataInstanceData,
+  resource: DataInstanceFacts,
   ownerWebId: string,
   roles: RoleData[] = []
 ): WhoHasAccess {
@@ -69,7 +76,7 @@ export function whoHasAccessMatching(
 /** `whoHasAccessMatching` projected to its direct agent grantees. */
 export function agentsWithAccessMatching(
   authorizations: DataAuthorizationData[],
-  resource: DataInstanceData,
+  resource: DataInstanceFacts,
   ownerWebId: string,
   roles: RoleData[] = []
 ): string[] {
@@ -89,7 +96,7 @@ export function agentsWithAccessMatching(
  */
 async function orgWhoHasAccess(
   ctx: ResolvedContext,
-  resource: DataInstanceData
+  resource: DataInstanceFacts
 ): Promise<WhoHasAccess> {
   const transport = sparqlTransportFor(ctx)
   const authorizationIris = await listContained(
@@ -191,6 +198,80 @@ export const getResource = async (ctx: ResolvedContext, id: string, lang: string
   })
 }
 
+/**
+ * The context's facts for a share build on a data plane the admin's session
+ * can not read: the admin holds no grants on the org's data pods (isolation),
+ * so the instance's registration (from `lws:partOf`), the child registrations
+ * and the existing access are read through the context's `/sparql-admin`
+ * plane and handed to `buildShareDataAuthorizations`.
+ *
+ * `agentsWithAccess` is the same set the session-side build computes: direct
+ * grantees the context holds a registration for, plus the expanded members of
+ * granted roles (a role grant is materialized as one grant per member).
+ */
+async function orgShareFacts(
+  ctx: ResolvedContext,
+  structure: ShareDataInstanceStructure
+): Promise<ShareContextFacts> {
+  const registrationIri = await containingContainer(ctx, structure.resource)
+  if (!registrationIri) {
+    throw new Error(`cannot resolve the data registration of ${structure.resource}`)
+  }
+  const podUrl = contextPod(ctx, registrationIri)
+  if (!podUrl) throw new Error(`cannot read the data pod of ${registrationIri}`)
+  const dataRegistration = await getDataRegistration(
+    sparqlTransportForPod(ctx, podUrl),
+    registrationIri
+  )
+
+  // child registrations live in the same data registry (`lws:partOf`): one
+  // listing query for the requested shape trees, then one graph read each
+  const registrations = new Map<string, DataRegistrationData>()
+  const shapeTrees = [...new Set(structure.children.map(({ shapeTree }) => shapeTree))]
+  if (shapeTrees.length > 0) {
+    const dataRegistryIri = dataRegistration.partOf
+    if (!dataRegistryIri) {
+      throw new Error(
+        `data registration ${dataRegistration.id} has no containing data registry (lws:partOf)`
+      )
+    }
+    const transport = sparqlTransportForPod(ctx, contextPod(ctx, dataRegistryIri) ?? podUrl)
+    for (const iri of await listRegistrationsByShapeTrees(transport, dataRegistryIri, shapeTrees)) {
+      const registration = await getDataRegistration(transport, iri)
+      if (!registrations.has(registration.registeredShapeTree)) {
+        registrations.set(registration.registeredShapeTree, registration)
+      }
+    }
+  }
+
+  const dataInstance: DataInstanceFacts = {
+    id: structure.resource,
+    shapeTreeIri: dataRegistration.registeredShapeTree,
+    dataRegistration,
+  }
+  const access = await orgWhoHasAccess(ctx, dataInstance)
+  return {
+    dataInstance,
+    registrations,
+    agentsWithAccess: new Set([
+      ...access.agents.map(({ agent }) => agent),
+      ...access.roles.flatMap(({ members }) => members),
+    ]),
+  }
+}
+
+/**
+ * The read side of a share build, chosen per context: the personal context's
+ * session reads its own pods, so it needs no facts; an org context does (see
+ * `orgShareFacts`).
+ */
+export async function shareContextFacts(
+  ctx: ResolvedContext,
+  structure: ShareDataInstanceStructure
+): Promise<ShareContextFacts | undefined> {
+  return ctx.webId === ctx.userWebId ? undefined : orgShareFacts(ctx, structure)
+}
+
 export const shareResource = async (
   ctx: ResolvedContext,
   shareAuthorization: S.Schema.Type<typeof ShareAuthorization>
@@ -214,10 +295,16 @@ export const shareResource = async (
   // parent groups by grantee and fans out one child workflow per grantee
   // (Temporal owns retry/resume per child); the RPC only writes the single
   // activity — no synchronous mutation.
+  //
+  // the build's read side is context-dependent: an org admin's session holds
+  // no grants on the org's data pods, so the org context pre-reads them
+  // through `/sparql-admin` (`facts`); the personal context reads its own pods
+  const facts = await shareContextFacts(ctx, structure)
   const recorded = await ctx.session.buildShareDataAuthorizations(
     structure,
     ctx.webId,
-    ctx.registrySet
+    ctx.registrySet,
+    facts
   )
 
   const clientIdDocument = await loadClientIdDocument(

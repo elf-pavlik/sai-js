@@ -12,7 +12,10 @@ implemented. The client auth migration (§1) and the Dagger integration suite
 - **`dagger call test` is green** — all 22 files, CI mode, on the CSS fork
   branch `lws-sai` at `99c208447` (installed from `package-lock.json` by
   `devbox run fork-css`). Package tests, typecheck, lint and the components
-  build pass.
+  build pass. Last run (2026-11-10) includes the new org-context share check
+  and the `?pod=` data-plane fix (§6). **Not yet run**: the org-context
+  listing + `AuthorizeApp` checks and the `listDataInstances` org-branch fix
+  (§7) — rebuild components and re-run `dagger call test`.
 - The data and registry services run **LWS-only flat storage**; the SAI access
   layer uses `lws:contains` for containment and `lws:partOf` for the parent;
   the fixture and the account bootstrap template carry both. Storage discovery
@@ -210,11 +213,45 @@ executor).
       members, a peer also covered by a role carries a `via <role>` chip and
       a member that is also directly granted carries a `direct` chip; role
       members are not offered as new grantees.
-- [ ] Org-context writes: `buildShareDataAuthorizations` calls
+- [x] Org-context writes: `buildShareDataAuthorizations` called
       `session.loadDataInstance(resource)`/`findDataRegistration` with the
       signed-in user's session, which does not know the org's data-pod
-      endpoints (isolation). Pass the context's `endpoints` (or a transport)
-      through the org-context share path.
+      endpoints (isolation). Fixed with `ShareContextFacts`
+      (`packages/authorization-agent/src/authorization-agent.ts`): the build
+      takes the context's pre-read **instance + registration** (from
+      `lws:partOf`), **child registrations** (`shapeTree` → registration map,
+      authoritative — a miss throws instead of falling back) and
+      **`agentsWithAccess`** (direct registered grantees + role members, the
+      same set the session-side build computes). `components` fills them in
+      `shareContextFacts`/`orgShareFacts` (`services/ShareResource.ts`) over
+      `/sparql-admin` (`containingContainer`, `getDataRegistration`,
+      `listRegistrationsByShapeTrees`, `orgWhoHasAccess`); the personal
+      context passes no facts and keeps reading its own pods. `contextPod`
+      (`services/queries/org.ts`) extracts the pod-prefix resolution
+      `containingContainer` already did. Also fixed alongside: the build used
+      `this.webId` as `dataOwner`/`grantedBy`, so an org share built the
+      authorization as the **admin's** data (that makes
+      `generateDataGrants` take the delegated path); it now uses the context
+      owner (`ownerWebId`).
+- [x] Org-context data-pod queries hit the **registry** dataset:
+      `AdminSparqlHandler` read `?pod=` from `operation.target.path`, but the
+      deployment's `TargetExtractor` strips query strings
+      (`includeQueryString: false` in the CSS LDP request parser), so the
+      parameter was always absent and `resolveEndpoint` fell back to the
+      org's registry pod. Every `/.sai/sparql-admin/<org>?pod=<dataPod>` read
+      — `containingContainer` (`lws:partOf`), `getDataRegistration`,
+      `listRegistrationsByShapeTrees`, the need-based registration reads —
+      silently returned **zero rows instead of erroring**. Found by the new
+      org-context share test: the share build could not resolve
+      `lws:partOf` for `data/yoyo-na/q7p2lm` (`SELECT ?parent … n=0` against
+      `fuseki:3030/reg-yoyo`, no `data-yoyo-na` query in the trace).
+      `podFromRequestUrl` now reads the raw `request.url` — the same fix
+      `ProxyAdminHandler` (`?iri=`) and `LwsTokenHandler` (`?resource=`)
+      already carried. Unit tests in
+      `packages/components/test/admin-sparql-endpoint.test.ts` pin both the
+      parsing and that `handle` targets the `?pod=` dataset with a
+      query-less `target.path`. **Confirmed live**: `org-context.test.ts`
+      green in the full `dagger call test` run.
 - [x] UI notification stream: `NotificationManager` uses the LWS session
       fetch, `createLwsFetch` sends a same-origin storage token for
       `/.notifications/…` service paths, the fork's `servicePaths` accepts it
@@ -266,6 +303,53 @@ executor).
       `authorizations`, `agents` — all green per file and in the 10-file group
       run. The full-suite run on this machine still flakes on the registry-401
       cold start (§ “Open”), not on any of these assertions.
+- [x] New unit tests: `packages/authorization-agent/test/share-build.test.ts`
+      (facts path — no session reads, child registrations from the map, the
+      context owner as grantor/data owner, a missing child registration fails
+      without falling back; default path — the session's `loadDataInstance` /
+      `agentsWithAccessTo` / `findDataRegistration`, and the `lws:partOf`
+      error) and `packages/components/test/share-org-facts.test.ts`
+      (`shareContextFacts` per context; `lws:partOf` registration + child
+      registrations + existing access over `/sparql-admin`; role members).
+- [x] Live org-context share check: `test/org-context.test.ts` “an admin
+      shares an org instance; the authorization and grants belong to the
+      org” — Dan shares `data/yoyo-na/q7p2lm` with Bob in `context: yoyo`
+      (a child Task need forces the child-registration read; Bob holds
+      nothing over `data/yoyo-na/`, unlike `data/yoyo-eu/w4n9kx`, so he is a
+      fresh grantee). Asserts: the RPC ack; the materialized
+      `DataAuthorization` in the ORG authorization registry
+      (`dataOwner`/`grantedBy` = the org, `hasDataRegistration` from
+      `lws:partOf`, the `Inherited` child on the org's Task registration);
+      the source grant in the org grant registry, linked from the org's
+      registration of the peer (behind the `awaitGrantCompletion` barrier);
+      and `GetResource`'s `accessGrantedTo`. First run failed at the RPC (the
+      share build could not resolve the org instance's `lws:partOf`) and
+      surfaced the `?pod=` handler bug above (§6) — fixed. **Green** in the
+      full `dagger call test` run (2026-11-10).
+- [x] Org-context **listing** of the org's own data (the UI's data browser /
+      share picker) — `ListDataRegistries` and `ListDataInstances` with
+      `context: yoyo`, `agentId: yoyo` in `test/org-context.test.ts`
+      (“listing the org’s own data”): both org pods with their registrations
+      and counts (`data/yoyo-na/k9m4wx` = 2, `p3n7vz`), and the instance
+      labels (“Ghost”, “Cipher”). This check exposed a **second** org-context
+      read bug: `listDataInstances`' own-data branch read the registration and
+      each instance over **HTTP with the admin's session** (no grants on the
+      org's data pods → 403). `services/DataRegistry.ts` now takes the org
+      branch through the context plane: membership from
+      `getDataRegistration` over `?pod=` SPARQL, instance content through
+      `/proxy-admin` (`peerInstanceNode` + `labelFromNode`) — the same read
+      `GetResource` makes. Unit tests in
+      `packages/components/test/data-registry.test.ts` (org branch: SPARQL +
+      proxy, never a direct pod deref; personal branch unchanged).
+      **Not run yet** — `dagger call test --testFile="org-context.test.ts"`.
+- [x] Org-context `AuthorizeApp` — the other DataAuthorization producer:
+      `test/org-context.test.ts` (“authorizing an agent over the org’s data”)
+      — the pending ack (`activityId` + 2 pre-minted ids), the materialized
+      AllFromRegistry parent + Inherited Task child in the ORG's
+      authorization registry (`grantedBy` = the org, registration from the
+      request payload), and the source grant in the org's grant registry with
+      `dataOwner`/`grantedBy` = the org, behind the `awaitGrantCompletion`
+      barrier. **Not run yet** — same dagger run.
 - [x] New unit tests: `packages/utils/test/lws-auth.test.ts` (challenge
       parsing, AS discovery, exchange + DPoP proof, cache/retry/tokenSource).
 - [x] New live checks: `packages/components/test/lws-live.test.ts` (skipped
@@ -337,52 +421,12 @@ executor).
 
 ### Resolved: registry storage reads 401 (after fork-css + notification override)
 
-Fixed by fork commit `99c208447` (`CachedJwkGenerator` concurrent first-use race); `package-lock.json` now pins that commit. The notes below are the historical investigation.
-
-First run after an earlier `devbox run fork-css` (lock → `9799e86d2`) plus importing
-`sai:config/overrides/lws-notification-service-paths.json`: `invitation` and
-`reciprocal-webhook` answer **500** on the create RPC, and `roles` fails in
-`waitForQuiescence` → `getSession` → bootstrap fetching
-`https://registry/<pod>/` with **401**. `createLwsFetch` sends storage requests
-unauthenticated first and only mints a token when the `401` carries a parseable
-challenge, so a surfaced `401` means either the challenge is missing or the
-minted token was rejected.
-
-Probe 1 (done): for `dan` everything works — anonymous 401 carries
-`Bearer resource_metadata=… as_uri=… realm=…`, `https://registry/.well-known/
-lws-configuration` is 200, `buildLwsFetch` gets a token and returns 200, and
-`getSession('https://id/dan')` bootstraps. So the notification override does
-**not** break `LwsAccessTokenExtractor`, and the LWS AS metadata is fine.
-
-Probe 2 (done): all five session bootstraps succeed (`registry/alice`,
-`/kim`, `/bob`, `/dan`, `/yoyo`) and `CreateInvitation` as dan returns
-**200 Success** with the pre-minted invitation id. So the batch's 500s/401s
-were **transient**, not code: the `--debug` log of that run shows the stack
-still coming up (Fuseki/Temporal/Garage `port not ready`, Garage handshake
-aborted, Temporal `duplicate key value violates unique constraint
-"namespaces_pkey"`), which is the classic cold-start race. Re-run the three
-files on a warm run; if it recurs, make `testBase()` wait for the auth/registry/
-data health endpoints, not just Temporal.
-
-Probe 3 (done, 2026-11-08): `roles.test.ts` fails **9/9** with the same
-`failed to fetch https://registry/<pod>/: 401`, raised from the `beforeEach`
-`waitForQuiescence([alice, kim, bob, dan, yoyo])` — five concurrent
-client-side session bootstraps (`AuthorizationAgent.build` → `bootstrap`), not
-a single request. It is **not** the read-side rule: the same run with those
-changes stashed and `packages/components/dist` rebuilt from `HEAD` fails 8/8
-identically, and `access-request.test.ts`, `share.test.ts`,
-`org-context.test.ts` pass on the same engine. **Two separate causes.** (a) A stale
-container-side `dist` shows up as these bootstrap 401s rather than as an import
-error: rebuild (`npm run build`, or at least `npm run build --workspace
-@elfpavlik/sai-components`) before a dagger run when sources changed — that is
-what turned `roles.test.ts` green. (b) A **multi-file run on the same stack**
-still storms: `18/22` files fail with the same registry 401s while every one of
-them passes **alone** (`roles` 9/9, `delegation-endpoint` 14/14, `invitation`
-3/3, `share` 1/1, `org-context` 15/15) and a 10-file group passed (40/40). That
-storm reproduces on the baseline tree too (8/8 `roles` failures with the
-change stashed), so it is the stack/session plane, not the assertions: probe
-the concurrent client bootstraps (token cache/in-flight dedupe in
-`createLwsFetch`, or the registry ACR on a cold stack) when it matters.
+Fixed by CSS fork `99c208447` (`CachedJwkGenerator` concurrent first-use race),
+now pinned in `package-lock.json`. The earlier single-file failures were also
+partly stale container-side `packages/components/dist`; rebuild components
+before a dagger run after source changes. With the fixed fork and a fresh
+`npm ci`, the full `dagger call test` suite is green — the former multi-file
+401 storm no longer reproduces.
 
 ### Resolved: `.sai/sparql-admin` DPoP verification (org-context)
 
@@ -394,9 +438,9 @@ plain `buildOidcSession(...).authFetch`. `UnionCredentialsExtractor` has
 403 — the extractor's own `BadRequestHttpError` never reaches the client. Both
 `htm`/`htu` look right client-side (`htm=QUERY`, `htu=<origin><pathname>`), and
 `@solid/access-token-verifier` 2.1.2 (root `overrides` fork) whitelists `QUERY`,
-while DPoP-authenticated `.sai/grants` POSTs pass. Next step: read the auth
-container's warning (`DPoPWebIdExtractor` logs the verification error) with
-`dagger call --debug test --testFile="zz-diagnose.test.ts" 2>&1 | grep -i dpop`.
+while DPoP-authenticated `.sai/grants` POSTs pass. Resolved on the pinned
+fork + root `@solid/access-token-verifier` override; `org-context` passes in the
+full suite.
 
 ### Dagger suite status — all green
 
@@ -480,8 +524,9 @@ Per-file notes worth keeping (regression map):
 ## 8. Dev / CI / images
 
 - [x] **CSS build used by tests/CI**: fork branch `lws-sai` (`99c208447`,
-      includes the auxiliary-containment guard and `LwsAccessTokenExtractor`
-      `servicePaths`), installed from `package-lock.json` by
+      includes the auxiliary-containment guard, `LwsAccessTokenExtractor`
+      `servicePaths`, and the `CachedJwkGenerator` concurrent first-use fix),
+      installed from `package-lock.json` by
       `devbox run fork-css`. npm applies this repo's `overrides` at install time,
       so `@solid/access-token-verifier` is the `QUERY`-capable 2.1.2 fork and the
       tree is consistent. `dagger call test` is green on it.
@@ -575,6 +620,15 @@ curl -s -u admin:sai -H 'Accept: application/sparql-results+json' \
 
 ## Gotchas
 
+- **Handlers must read query parameters from `request.url`, not
+  `operation.target.path`.** The deployment's `TargetExtractor` runs with
+  `includeQueryString: false` (`css:config/ldp/handler/components/request-parser.json`),
+  so `target.path` never carries a query. `ProxyAdminHandler` (`?iri=`),
+  `LwsTokenHandler` (`?resource=`) and — after the §6 fix —
+  `AdminSparqlHandler` (`?pod=`) all parse the raw URL. A handler that reads
+  `target.path` sees `undefined`, and for the admin SPARQL plane that meant
+  *every* data-pod query silently ran against the org's **registry** dataset
+  (zero rows, no error).
 - LWS authorization server metadata lives on the **server base URL**
   (`https://data.docker/.well-known/lws-configuration`), not on the pod host
   (`https://bob.data.docker/…` is a 401). Use the `401` challenge

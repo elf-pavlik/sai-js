@@ -1,8 +1,19 @@
 import { agentId, buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
-import { getRegistrySetIri } from '@janeirodigital/interop-utils'
+import {
+  getDataAuthorization,
+  listContained,
+  localSparqlTransport,
+} from '@janeirodigital/interop-authorization-agent'
+import { INTEROP, getRegistrySetIri } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
-import { waitFor, waitForRoleCreatedCompletion } from './util'
+import {
+  awaitGrantCompletion,
+  dataGrants,
+  waitFor,
+  waitForQuiescence,
+  waitForRoleCreatedCompletion,
+} from './util'
 
 /**
  * Phase 2 of org-admin-feature.md — operating in context.
@@ -349,5 +360,287 @@ describe('org context — peers’ granted data via the proxy (org-context-proxy
 
     const nonHttp = await danSession.authFetch(proxyAdminUrl(yoyoId, 'file:///tmp/x.ldjson'))
     expect(nonHttp.status).toBe(400)
+  })
+})
+
+/**
+ * The org context's WRITE path (org-admin-feature.md §2.4): an admin shares one
+ * of the ORG's own data instances with a peer.
+ *
+ * The org's data pods sit outside the admin's session allowlist (isolation), so
+ * the share build must read the instance's registration (from `lws:partOf`),
+ * the child registrations and the existing access through `/sparql-admin`.
+ * The RPC builds as the CONTEXT owner: the materialized DataAuthorization and
+ * the generated grants must belong to the org, not to the signed-in admin.
+ *
+ * Seed: YoYo's registration of Bob (`z3k7wm`) exists, but the seeded project
+ * authorization (`k2m5qp`) covers `data/yoyo-eu/w4n9kx` only — Bob holds
+ * nothing over `data/yoyo-na/`, so he is a fresh grantee here.
+ */
+describe('org context — sharing the org’s own data (2.4 write path)', () => {
+  const yoyoRegistrationOfBob = 'https://registry/yoyo/z3k7wm'
+  const yoyoAuthorizationRegistry = 'https://registry/yoyo/authorization/'
+  const applicationId = 'https://data/test-client/public/id'
+  const ghost = 'https://data/yoyo-na/q7p2lm' // Project "Ghost"
+  const projectRegistration = 'https://data/yoyo-na/k9m4wx'
+  const taskRegistration = 'https://data/yoyo-na/p3n7vz'
+  const projectShapeTree = 'https://data/shapetrees/trees/Project'
+  const taskShapeTree = 'https://data/shapetrees/trees/Task'
+  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+
+  test('an admin shares an org instance; the authorization and grants belong to the org', async () => {
+    // previous tests in this file leave workflow tails behind (their markers
+    // land mid-chain) — settle before opening the notification barrier below,
+    // so its Update can not be a leftover
+    await waitForQuiescence([yoyoId, bobId])
+
+    const manager = buildSessionManager()
+    const yoyoSession = await manager.getSession(yoyoId)
+    const regForBob = (await yoyoSession.findSocialAgentRegistration(bobId))!
+    expect(regForBob.id).toBe(yoyoRegistrationOfBob)
+
+    // the registration Update + the workflow tail are the completion signal
+    await awaitGrantCompletion(yoyoSession.fetch, regForBob.id, [yoyoId, bobId], async () => {
+      const response = await fetch(rpcEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: danCookie,
+        },
+        body: JSON.stringify(
+          rpcPayload({
+            _tag: 'ShareResource',
+            authorization: {
+              applicationId,
+              resource: ghost,
+              agents: [bobId],
+              accessMode: [readMode],
+              // a child need forces the child-registration read on the org's
+              // data pod (the pre-fix path guessed it from the instance URI)
+              children: [{ shapeTree: taskShapeTree, accessMode: [readMode] }],
+            },
+            context: yoyoId,
+          })
+        ),
+      })
+      expect(response.status).toBe(200)
+      const body = await response.json()
+      const { _tag, value } = body[0]
+      expect(_tag).toBe('Success')
+      expect(value).toEqual(expect.objectContaining({ callbackEndpoint: 'https://test-client' }))
+    })
+
+    // the DataAuthorization in the ORG's authorization registry: the context
+    // owner is grantor and data owner (the session is only the admin), and the
+    // registration came from the org data pod's `lws:partOf`
+    const transport = localSparqlTransport(yoyoSession.sparqlEndpoint)
+    const authorizationIris = await listContained(transport, yoyoAuthorizationRegistry)
+    const authorizations = await Promise.all(
+      authorizationIris.map((iri) => getDataAuthorization(transport, iri))
+    )
+    const shared = authorizations.find(
+      (authorization) =>
+        authorization.grantee === bobId && (authorization.hasDataInstance ?? []).includes(ghost)
+    )
+    expect(shared).toBeDefined()
+    expect(shared!.dataOwner).toBe(yoyoId)
+    expect(shared!.grantedBy).toBe(yoyoId)
+    expect(shared!.registeredShapeTree).toBe(projectShapeTree)
+    expect(shared!.hasDataRegistration).toBe(projectRegistration)
+    expect(shared!.scopeOfAuthorization).toBe(INTEROP.SelectedFromRegistry)
+
+    // the child (Inherited) authorization: its registration is the org's Task
+    // registration — read through the context plane, not guessed from a path
+    const child = authorizations.find(
+      (authorization) => authorization.inheritsFromAuthorization === shared!.id
+    )
+    expect(child).toBeDefined()
+    expect(child!.registeredShapeTree).toBe(taskShapeTree)
+    expect(child!.hasDataRegistration).toBe(taskRegistration)
+    expect(child!.scopeOfAuthorization).toBe(INTEROP.Inherited)
+
+    // the grants: bodies in the ORG's grant registry, linked from the org's
+    // registration of Bob. `dataOwner === yoyo` is the decisive assertion — a
+    // build as the admin would route grant generation down the delegated path
+    const linked = (await yoyoSession.findSocialAgentRegistration(bobId))!
+    const grants = await dataGrants(linked, yoyoSession)
+    const sharedGrant = grants.find(
+      (grant) =>
+        grant.registeredShapeTree === projectShapeTree &&
+        grant.grantee === bobId &&
+        grant.hasDataInstance?.includes(ghost)
+    )
+    expect(sharedGrant).toBeDefined()
+    expect(sharedGrant!.dataOwner).toBe(yoyoId)
+    expect(sharedGrant!.grantedBy).toBe(yoyoId)
+    expect(sharedGrant!.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
+    expect(sharedGrant!.accessMode).toEqual([readMode])
+
+    // the read side agrees: the org context reports the peer as a DIRECT
+    // grantee (the grantee-facing replication of these grants is covered by
+    // delegation-endpoint / federation-mirror)
+    const access = await rpcCall<{ accessGrantedTo: string[] }>(
+      rpcPayload({ _tag: 'GetResource', id: ghost, lang: 'en', context: yoyoId }),
+      danCookie
+    )
+    expect(access.accessGrantedTo).toContain(bobId)
+  })
+})
+
+/**
+ * org-admin-feature.md §2.4 — the org context's OWN data plane. The admin's
+ * session holds no grants on the org's data pods (isolation), so the listings
+ * read the pod's dataset through `/.sai/sparql-admin/<org>?pod=<pod>` and the
+ * instance content through `/.sai/proxy-admin`.
+ *
+ * The first version of this check is what surfaced the `?pod=` handler bug
+ * (every data-pod query used to run against the org's REGISTRY dataset) — see
+ * the share check above.
+ */
+describe('org context — listing the org’s own data (2.4 data plane)', () => {
+  const yoyoEu = 'https://data/yoyo-eu/'
+  const yoyoNa = 'https://data/yoyo-na/'
+  const projectRegistration = 'https://data/yoyo-na/k9m4wx'
+  const taskRegistration = 'https://data/yoyo-na/p3n7vz'
+  const projectShapeTree = 'https://data/shapetrees/trees/Project'
+  const taskShapeTree = 'https://data/shapetrees/trees/Task'
+  const ghost = 'https://data/yoyo-na/q7p2lm'
+  const cipher = 'https://data/yoyo-na/w5x8kr'
+
+  test('ListDataRegistries resolves the org’s own pods and their registrations', async () => {
+    const registries = await rpcCall<
+      {
+        id: string
+        label: string
+        registrations: { id: string; shapeTree: string; count: number }[]
+      }[]
+    >(
+      rpcPayload({ _tag: 'ListDataRegistries', agentId: yoyoId, lang: 'en', context: yoyoId }),
+      danCookie
+    )
+    // both org pods — the registry set's `hasDataRegistry`
+    expect(registries.map((registry) => registry.id).toSorted()).toEqual(
+      [yoyoEu, yoyoNa].toSorted()
+    )
+
+    const na = registries.find((registry) => registry.id === yoyoNa)!
+    expect(na.registrations.map((registration) => registration.id).toSorted()).toEqual(
+      [projectRegistration, taskRegistration].toSorted()
+    )
+    const project = na.registrations.find(
+      (registration) => registration.id === projectRegistration
+    )!
+    expect(project.shapeTree).toBe(projectShapeTree)
+    // Ghost + Cipher live in the project registration
+    expect(project.count).toBe(2)
+    expect(
+      na.registrations.find((registration) => registration.id === taskRegistration)!.shapeTree
+    ).toBe(taskShapeTree)
+  })
+
+  test('ListDataInstances reads the org registration’s membership and labels', async () => {
+    const instances = await rpcCall<{ id: string; label?: string }[]>(
+      rpcPayload({
+        _tag: 'ListDataInstances',
+        agentId: yoyoId,
+        registrationId: projectRegistration,
+        context: yoyoId,
+      }),
+      danCookie
+    )
+    expect(instances.map((instance) => instance.id).toSorted()).toEqual([ghost, cipher].toSorted())
+    expect(instances.find((instance) => instance.id === ghost)?.label).toBe('Ghost')
+    expect(instances.find((instance) => instance.id === cipher)?.label).toBe('Cipher')
+  })
+})
+
+/**
+ * The OTHER DataAuthorization producer in the org context (`AuthorizeApp` —
+ * the app/invitation flow, as opposed to the share build): the DAs are built
+ * from the request payload, so the read side is not the risk here — the write
+ * side is: the pre-minted ids, the stored authorization and the generated
+ * grants must all belong to the ORG (the context owner), not the admin.
+ *
+ * Seed: Bob holds nothing over `data/yoyo-na/k9m4wx`, so the AllFromRegistry
+ * authorization is a fresh one; the Task need inherits from the Project need.
+ */
+describe('org context — authorizing an agent over the org’s data (2.4 write path)', () => {
+  const projectRegistration = 'https://data/yoyo-na/k9m4wx'
+  const projectShapeTree = 'https://data/shapetrees/trees/Project'
+  const taskShapeTree = 'https://data/shapetrees/trees/Task'
+  const accessNeedGroup = 'https://data/test-client/public/access-needs#need-group-pm'
+  const projectNeed = 'https://data/test-client/public/access-needs#need-project'
+  const taskNeed = 'https://data/test-client/public/access-needs#need-task'
+  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+
+  test('the authorization and the grants belong to the org', async () => {
+    await waitForQuiescence([yoyoId, bobId])
+
+    const manager = buildSessionManager()
+    const yoyoSession = await manager.getSession(yoyoId)
+    const regForBob = (await yoyoSession.findSocialAgentRegistration(bobId))!
+    expect(regForBob).toBeDefined()
+
+    let ids: string[] = []
+    await awaitGrantCompletion(yoyoSession.fetch, regForBob.id, [yoyoId, bobId], async () => {
+      const body = await rpcCall<{ activityId: string; ids: string[] }>(
+        rpcPayload({
+          _tag: 'AuthorizeApp',
+          authorization: {
+            grantee: bobId,
+            accessNeedGroup,
+            dataAuthorizations: [
+              {
+                accessNeed: projectNeed,
+                scope: 'AllFromRegistry',
+                dataRegistration: projectRegistration,
+              },
+              { accessNeed: taskNeed, scope: 'Inherited' },
+            ],
+            granted: true,
+          },
+          context: yoyoId,
+        }),
+        danCookie
+      )
+      // activity-first: pending ack with the pre-minted DA ids + the activity
+      expect(body.activityId).toEqual(expect.any(String))
+      expect(body.ids.length).toBe(2)
+      ids = body.ids
+    })
+
+    // the materialized DataAuthorizations — the ORG is the grantor
+    const transport = localSparqlTransport(yoyoSession.sparqlEndpoint)
+    const authorizations = await Promise.all(ids.map((id) => getDataAuthorization(transport, id)))
+    const parent = authorizations.find(
+      (authorization) => authorization.scopeOfAuthorization === INTEROP.AllFromRegistry
+    )
+    expect(parent).toBeDefined()
+    expect(parent!.grantee).toBe(bobId)
+    expect(parent!.grantedBy).toBe(yoyoId)
+    expect(parent!.registeredShapeTree).toBe(projectShapeTree)
+    expect(parent!.hasDataRegistration).toBe(projectRegistration)
+    expect(parent!.accessMode).toContain(readMode)
+
+    const child = authorizations.find(
+      (authorization) => authorization.scopeOfAuthorization === INTEROP.Inherited
+    )
+    expect(child).toBeDefined()
+    expect(child!.registeredShapeTree).toBe(taskShapeTree)
+    expect(child!.inheritsFromAuthorization).toBe(parent!.id)
+
+    // the grants: the org is the data owner, Bob the grantee
+    const linked = (await yoyoSession.findSocialAgentRegistration(bobId))!
+    const grants = await dataGrants(linked, yoyoSession)
+    const projectGrant = grants.find(
+      (grant) =>
+        grant.grantee === bobId &&
+        grant.hasDataRegistration === projectRegistration &&
+        grant.scopeOfGrant === INTEROP.AllFromRegistry
+    )
+    expect(projectGrant).toBeDefined()
+    expect(projectGrant!.dataOwner).toBe(yoyoId)
+    expect(projectGrant!.grantedBy).toBe(yoyoId)
+    expect(projectGrant!.accessMode).toContain(readMode)
   })
 })

@@ -27,11 +27,20 @@ import { registryId } from './util/uriTemplates.js'
 
 const SPARQL_QUERY_MEDIA_TYPE = 'application/sparql-query'
 
-/** The `?pod=<podUrl>` target of an org-context data-plane query, if any. */
-function podFromPath(targetPath: string): string | undefined {
-  const queryIndex = targetPath.indexOf('?')
-  if (queryIndex < 0) return undefined
-  return new URLSearchParams(targetPath.slice(queryIndex + 1)).get('pod') ?? undefined
+/**
+ * The `?pod=<podUrl>` target of an org-context data-plane query, if any.
+ *
+ * Read from the RAW request URL: the deployment's `TargetExtractor` strips
+ * query strings (`includeQueryString: false` in the LDP request parser), so
+ * `operation.target.path` does not carry `?pod=` — the same pitfall
+ * `/proxy-admin` (`?iri=`) and `/.sai/lws-token` (`?resource=`) document.
+ * Parsing the path silently fell back to the org's REGISTRY pod for every
+ * data-pod query (the org-context share/registration reads got an empty
+ * `lws:partOf` result instead of an error).
+ */
+export function podFromRequestUrl(requestUrl: string | undefined): string | undefined {
+  if (!requestUrl) return undefined
+  return new URL(requestUrl, 'http://dummy-base.example').searchParams.get('pod') ?? undefined
 }
 
 /**
@@ -133,7 +142,7 @@ export class AdminSparqlHandler extends OperationHttpHandler {
     // AgentIdHandler pattern); admin check shared with `/proxy-admin`.
     const orgWebId = orgWebIdFromPath(operation.target.path)
     await requireOrgAdmin(this.sessionManager, this.credentialsExtractor, request, orgWebId)
-    const endpoint = await this.resolveEndpoint(orgWebId, podFromPath(operation.target.path))
+    const endpoint = await this.resolveEndpoint(orgWebId, podFromRequestUrl(request.url))
 
     // Query-only: require the sparql-query media type and reject updates.
     if (operation.body.metadata.contentType !== SPARQL_QUERY_MEDIA_TYPE) {

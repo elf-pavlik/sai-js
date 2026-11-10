@@ -1,7 +1,14 @@
 import { ForbiddenHttpError } from '@solid/community-server'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
-import { AdminSparqlHandler } from '../src/AdminSparqlHandler.js'
+// The admin gate needs real sessions; this test only pins WHICH query source
+// the handler targets, so the gate is stubbed out.
+vi.mock('../src/services/adminGate.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/services/adminGate.js')>()
+  return { ...actual, requireOrgAdmin: vi.fn(async () => ({})) }
+})
+
+import { AdminSparqlHandler, podFromRequestUrl } from '../src/AdminSparqlHandler.js'
 import type { SparqlEndpointRecord } from '../src/PodEndpointStore.js'
 
 // registryId() derives the registry pod URL from the environment origins
@@ -88,5 +95,44 @@ describe('AdminSparqlHandler endpoint resolution', () => {
     await expect(resolve('https://id/nobody')).rejects.toThrow(
       'no registry-pod SPARQL endpoint for https://id/nobody'
     )
+  })
+})
+
+describe('AdminSparqlHandler data-pod targeting', () => {
+  test('`?pod=` is read from the raw request URL (the target path carries no query)', () => {
+    const orgSegment = Buffer.from('https://id/yoyo').toString('base64url')
+    const requestUrl = `/.sai/sparql-admin/${orgSegment}?pod=${encodeURIComponent('https://data/yoyo-na/')}`
+    expect(podFromRequestUrl(requestUrl)).toBe('https://data/yoyo-na/')
+    // the deployment's TargetExtractor strips query strings — the path alone
+    // must not be mistaken for a data-pod target
+    expect(podFromRequestUrl(`https://auth/.sai/sparql-admin/${orgSegment}`)).toBeUndefined()
+    expect(podFromRequestUrl(undefined)).toBeUndefined()
+  })
+
+  test('handle targets the `?pod=` dataset, not the org registry pod', async () => {
+    const handler = new AdminSparqlHandler({} as never, {} as never, store, webIdStore)
+    // stop after endpoint resolution: the assertion is the resolution argument
+    const resolveEndpoint = vi
+      .spyOn(
+        handler as unknown as { resolveEndpoint: (org: string, pod?: string) => Promise<string> },
+        'resolveEndpoint'
+      )
+      .mockRejectedValue(new Error('sentinel: stop before the SPARQL fetch'))
+    const orgSegment = Buffer.from('https://id/yoyo').toString('base64url')
+
+    const operation = {
+      method: 'QUERY',
+      // the deployment strips the query from the target identifier
+      target: { path: `https://auth/.sai/sparql-admin/${orgSegment}` },
+    }
+    const request = {
+      url: `/.sai/sparql-admin/${orgSegment}?pod=${encodeURIComponent('https://data/yoyo-na/')}`,
+      headers: {},
+    }
+
+    await expect(
+      handler.handle({ operation, request } as unknown as Parameters<typeof handler.handle>[0])
+    ).rejects.toThrow('sentinel')
+    expect(resolveEndpoint).toHaveBeenCalledWith('https://id/yoyo', 'https://data/yoyo-na/')
   })
 })

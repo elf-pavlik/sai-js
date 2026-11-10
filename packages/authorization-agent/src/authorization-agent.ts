@@ -52,6 +52,7 @@ import { findRegistration as findRegistrationInAgentRegistry } from './agent-reg
 import {
   type AccessAuthorizationStructure,
   type AgentWithAccess,
+  type DataInstanceFacts,
   type GrantedAuthorization,
   type NestedDataAuthorizationData,
   type WhoHasAccess,
@@ -211,6 +212,27 @@ async function readRoles(
   const iris = await listContained(transport, roleRegistry)
   const roles = await Promise.all(iris.map((iri) => getRoleFromSparql(transport, iri)))
   return roles.filter((role): role is RoleData => Boolean(role))
+}
+
+/**
+ * Pre-read inputs for a share build on a CONTEXT whose data pods sit outside
+ * the session's own endpoint allowlist (org context: the admin's session
+ * holds no grants on the org's data pods, so reads go through
+ * `/sparql-admin`). Passed by the caller that owns the context plane;
+ * without them the build resolves the instance, its registration and the
+ * existing access through the session's own pods.
+ */
+export type ShareContextFacts = {
+  /** the instance + its registration, read from the context's data pod */
+  dataInstance: DataInstanceFacts
+  /** everyone who already holds access: direct grantees and role members */
+  agentsWithAccess: Iterable<string>
+  /**
+   * child shape tree → the context's registration for it. Required when the
+   * share selection carries `children` — the map is authoritative, so a miss
+   * fails instead of falling back to the session's pods.
+   */
+  registrations?: ReadonlyMap<string, DataRegistrationData>
 }
 
 export class AuthorizationAgent {
@@ -875,38 +897,50 @@ export class AuthorizationAgent {
 
   private async formatAuthorization(
     agent: string,
-    dataInstance: DataInstanceData,
-    details: ShareDataInstanceStructure
+    dataInstance: DataInstanceFacts,
+    details: ShareDataInstanceStructure,
+    ownerWebId: string,
+    facts?: ShareContextFacts
   ): Promise<GrantedAuthorization> {
     const dataAuthorization: NestedDataAuthorizationData = {
       type: [INTEROP.DataAuthorization],
       grantee: agent,
-      grantedBy: this.webId,
+      // the CONTEXT owner is the grantor/data owner — the session may be an
+      // admin acting for it (org context)
+      grantedBy: ownerWebId,
       registeredShapeTree: dataInstance.dataRegistration!.registeredShapeTree,
       scopeOfAuthorization: INTEROP.SelectedFromRegistry,
-      dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
+      dataOwner: ownerWebId, // TODO: delegated authorizations and trusted agents
       hasDataRegistration: dataInstance.dataRegistration!.id,
       accessMode: details.accessMode,
       hasDataInstance: [dataInstance.id],
       children: await Promise.all(
         details.children.map(async (child) => {
-          const dataRegistryIri = dataInstance.dataRegistration!.partOf
-          if (!dataRegistryIri) {
-            throw new Error(
-              `data registration ${dataInstance.dataRegistration!.id} has no containing data registry (lws:partOf)`
-            )
+          // the caller that owns the context's data plane already read the
+          // registrations (`facts`); otherwise read them from the session's
+          // pods through the instance's `lws:partOf` registry
+          let dataRegistration: DataRegistrationData | undefined
+          if (facts) {
+            dataRegistration = facts.registrations?.get(child.shapeTree)
+          } else {
+            const dataRegistryIri = dataInstance.dataRegistration!.partOf
+            if (!dataRegistryIri) {
+              throw new Error(
+                `data registration ${dataInstance.dataRegistration!.id} has no containing data registry (lws:partOf)`
+              )
+            }
+            dataRegistration = await this.findDataRegistration(dataRegistryIri, child.shapeTree)
           }
-          const dataRegistration = await this.findDataRegistration(dataRegistryIri, child.shapeTree)
           if (!dataRegistration) {
             throw new Error(`no data registration for shape tree ${child.shapeTree}`)
           }
           return {
             type: [INTEROP.DataAuthorization],
             grantee: agent,
-            grantedBy: this.webId,
+            grantedBy: ownerWebId,
             registeredShapeTree: child.shapeTree,
             scopeOfAuthorization: INTEROP.Inherited,
-            dataOwner: this.webId, // TODO: delegated authorizations and trusted agents
+            dataOwner: ownerWebId, // TODO: delegated authorizations and trusted agents
             hasDataRegistration: dataRegistration.id,
             accessMode: child.accessMode,
           }
@@ -948,7 +982,7 @@ export class AuthorizationAgent {
     const dataInstance = await this.loadDataInstance(details.resource)
     const authorizations = await Promise.all(
       agents.map(async (agent) => {
-        const authorization = await this.formatAuthorization(agent, dataInstance, details)
+        const authorization = await this.formatAuthorization(agent, dataInstance, details, owner)
         return this.recordAccessAuthorization(authorization, true)
       })
     )
@@ -965,28 +999,41 @@ export class AuthorizationAgent {
    * context/org session (`getSession(ctx.webId)`) — fixing the org-context
    * debt (`shareDataInstance` wrote against the SESSION's own registry set).
    * `ownerWebId`/`registrySet` are the CONTEXT (the owner), not the session.
+   *
+   * `facts` supplies the read side when the context's data pods are outside
+   * the session's own allowlist (org context: the admin holds no grants on the
+   * org's pods) — the caller reads the instance's registration, the child
+   * registrations and the existing access through the context's plane
+   * (`/sparql-admin`). Without it the session reads its own pods.
    */
   public async buildShareDataAuthorizations(
     details: ShareDataInstanceStructure,
     ownerWebId: string,
-    registrySet: RegistrySetData = this.registrySet
+    registrySet: RegistrySetData = this.registrySet,
+    facts?: ShareContextFacts
   ): Promise<FinalDataAuthorizationData[]> {
     // ensure owner doesn't grant access for oneself (the context owner, not
     // the session's webId)
     const requestedAgents = details.agents.filter((agent) => agent !== ownerWebId)
     // filter out agents who already have access — evaluated from the CONTEXT
-    // owner's perspective in the CONTEXT registry
-    const agentsWithAccess = await this.agentsWithAccessTo(
-      details.resource,
-      ownerWebId,
-      registrySet
-    )
+    // owner's perspective in the CONTEXT registry. On the context's data plane
+    // (`facts`) the caller already read them; otherwise the session reads its
+    // own registries.
+    const agentsWithAccess = facts
+      ? new Set(facts.agentsWithAccess)
+      : await this.agentsWithAccessTo(details.resource, ownerWebId, registrySet)
     const agents = requestedAgents.filter((agent) => !agentsWithAccess.has(agent))
 
-    const dataInstance = await this.loadDataInstance(details.resource)
+    const dataInstance = facts?.dataInstance ?? (await this.loadDataInstance(details.resource))
     const builds = await Promise.all(
       agents.map(async (agent) => {
-        const authorization = await this.formatAuthorization(agent, dataInstance, details)
+        const authorization = await this.formatAuthorization(
+          agent,
+          dataInstance,
+          details,
+          ownerWebId,
+          facts
+        )
         return generateDataAuthorizations(
           authorization.dataAuthorizations ?? [],
           ownerWebId,

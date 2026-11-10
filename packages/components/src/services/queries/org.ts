@@ -201,6 +201,21 @@ export function sparqlTransportForPod(ctx: ResolvedContext, podUrl: string): Spa
 }
 
 /**
+ * The context pod a resource belongs to — longest pod-URL prefix over the
+ * context's endpoint allowlist (isolation: only the context's own pods).
+ * `undefined` when the IRI is outside the allowlist.
+ */
+export function contextPod(ctx: ResolvedContext, iri: string): string | undefined {
+  let podUrl: string | undefined
+  for (const url of ctx.endpoints.keys()) {
+    if ((iri === url || iri.startsWith(url)) && (!podUrl || url.length > podUrl.length)) {
+      podUrl = url
+    }
+  }
+  return podUrl
+}
+
+/**
  * The container a resource belongs to, read from the pod's `lws:partOf`
  * metadata. Flat LWS storage does not encode the parent in the URI path, so
  * this resolves e.g. the data registration of a data instance. Only pods in
@@ -210,15 +225,7 @@ export async function containingContainer(
   ctx: ResolvedContext,
   resourceIri: string
 ): Promise<string | undefined> {
-  let podUrl: string | undefined
-  for (const url of ctx.endpoints.keys()) {
-    if (
-      (resourceIri === url || resourceIri.startsWith(url)) &&
-      (!podUrl || url.length > podUrl.length)
-    ) {
-      podUrl = url
-    }
-  }
+  const podUrl = contextPod(ctx, resourceIri)
   if (!podUrl) return undefined
   return getContainingContainer(sparqlTransportForPod(ctx, podUrl), resourceIri)
 }

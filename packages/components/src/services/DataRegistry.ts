@@ -23,6 +23,7 @@ import type { ResolvedContext } from './Context.js'
 import { peerInstanceIris, peerInstanceNode } from './peerProxy.js'
 import {
   getDataRegistration as getDataRegistrationFromSparql,
+  contextPod,
   getReciprocalGrants,
   listContained,
   sparqlTransportFor,
@@ -184,21 +185,45 @@ export const listDataInstances = async (
 ) => {
   const dataInstances = []
   if (agentId === ctx.webId) {
-    const dataRegistration = await loadDataRegistration(registrationId, ctx.session.fetch)
-    for (const dataInstanceIri of dataRegistration.contains) {
-      const dataInstance = await loadDataInstance(
-        dataInstanceIri,
-        ctx.session.fetch,
-        undefined,
-        descriptionsLang,
-        dataRegistration.id
-      )
-      dataInstances.push(
-        DataInstance.make({
-          id: IRI.make(dataInstance.id),
-          label: dataInstance.label,
-        })
-      )
+    if (ctx.webId === ctx.userWebId) {
+      const dataRegistration = await loadDataRegistration(registrationId, ctx.session.fetch)
+      for (const dataInstanceIri of dataRegistration.contains) {
+        const dataInstance = await loadDataInstance(
+          dataInstanceIri,
+          ctx.session.fetch,
+          undefined,
+          descriptionsLang,
+          dataRegistration.id
+        )
+        dataInstances.push(
+          DataInstance.make({
+            id: IRI.make(dataInstance.id),
+            label: dataInstance.label,
+          })
+        )
+      }
+    } else {
+      // org context — the admin's session holds no grants on the org's data
+      // pod (isolation): membership comes from the context plane
+      // (`/sparql-admin?pod=`) and the instance content through
+      // `/proxy-admin` (the org's server fetches it with the org's session) —
+      // the same read `GetResource` makes (`orgContextDataInstance`).
+      const podUrl = contextPod(ctx, registrationId)
+      if (!podUrl) {
+        throw new Error(`data registration ${registrationId} is outside the context`)
+      }
+      const transport = sparqlTransportForPod(ctx, podUrl)
+      const dataRegistration = await getDataRegistrationFromSparql(transport, registrationId)
+      const shapeTree = await loadShapeTree(dataRegistration.registeredShapeTree, ctx.session.fetch)
+      for (const dataInstanceIri of dataRegistration.contains ?? []) {
+        const node = await peerInstanceNode(ctx, dataInstanceIri, shapeTree)
+        dataInstances.push(
+          DataInstance.make({
+            id: IRI.make(dataInstanceIri),
+            label: labelFromNode(node),
+          })
+        )
+      }
     }
   } else {
     const socialAgentRegistration = await findSocialAgentRegistrationInContext(ctx, agentId)

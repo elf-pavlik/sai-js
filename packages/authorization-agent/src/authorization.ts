@@ -128,6 +128,15 @@ export function scopeFacts(
 }
 
 /**
+ * The instance facts the read-side scope rule and the share build need: the
+ * instance IRI, its shape tree and its registration. A full
+ * `DataInstanceData` satisfies this; callers that read the registration from
+ * the context's own plane (org context: `/sparql-admin`) build just this,
+ * without dereferencing the instance or its registration document.
+ */
+export type DataInstanceFacts = Pick<DataInstanceData, 'id' | 'shapeTreeIri' | 'dataRegistration'>
+
+/**
  * Whether a data authorization grants access to the given data instance — the
  * shared scope-match rule (used by the session's `findWhoHasAccess` and
  * components' org-context read).
@@ -142,7 +151,7 @@ export function scopeFacts(
  */
 export function matchesScope(
   authorization: DataAuthorizationData,
-  resource: DataInstanceData,
+  resource: DataInstanceFacts,
   ownerWebId: string,
   facts: ScopeFacts = EMPTY_SCOPE_FACTS,
   seen: ReadonlySet<string> = new Set()
@@ -186,7 +195,7 @@ export function matchesScope(
  */
 export function accessForResource(
   authorizations: readonly DataAuthorizationData[],
-  resource: DataInstanceData,
+  resource: DataInstanceFacts,
   ownerWebId: string,
   facts: ScopeFacts = EMPTY_SCOPE_FACTS
 ): WhoHasAccess {

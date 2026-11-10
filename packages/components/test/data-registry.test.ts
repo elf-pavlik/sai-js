@@ -3,7 +3,7 @@ import { toStore } from '@janeirodigital/interop-utils'
 import { describe, expect, test, vi } from 'vitest'
 
 import type { ResolvedContext } from '../src/services/Context.js'
-import { getDataRegistries } from '../src/services/DataRegistry.js'
+import { getDataRegistries, listDataInstances } from '../src/services/DataRegistry.js'
 
 // ──────────────────────────
 // Fixtures
@@ -185,5 +185,93 @@ describe('getDataRegistries — personal context reads each data registry from i
     expect(registries[0].registrations).toEqual([
       expect.objectContaining({ id: DATA_REG, shapeTree: SHAPE_TREE, dataRegistry: DATA_REGISTRY }),
     ])
+  })
+})
+
+// ──────────────────────────
+// listDataInstances — own-data branch per context
+// ──────────────────────────
+
+describe('listDataInstances — org context lists the org’s own instances', () => {
+  const INSTANCE = `${DATA_REGISTRY}ghost`
+  const ENTITY = 'http://www.w3.org/2004/02/skos/core#prefLabel'
+
+  test('membership via /sparql-admin?pod=, instance content via /proxy-admin', async () => {
+    const requests: { url: string; init?: RequestInit }[] = []
+    const registrationDocWithInstance = {
+      '@id': DATA_REG,
+      '@type': ['http://www.w3.org/ns/solid/interop#DataRegistration'],
+      'http://www.w3.org/ns/solid/interop#registeredShapeTree': [{ '@id': SHAPE_TREE }],
+      'http://www.w3.org/ns/ldp#contains': [{ '@id': INSTANCE }],
+    }
+    // the shape tree's `describesInstance` predicate maps to `label`
+    const shapeTreeDoc = {
+      '@id': SHAPE_TREE,
+      'http://www.w3.org/ns/shapetrees#expectsType': {
+        '@id': 'http://www.w3.org/ns/shapetrees#RDFResource',
+      },
+      'http://www.w3.org/ns/shapetrees#describesInstance': { '@id': ENTITY },
+      'http://www.w3.org/ns/shapetrees#references': [],
+    }
+    const instanceDoc = { '@id': INSTANCE, [ENTITY]: [{ '@value': 'Ghost' }] }
+    const proxyUrl =
+      `${new URL(ORG_AA).origin}/.sai/proxy-admin/${Buffer.from(ORG_WEBID).toString('base64url')}` +
+      `?iri=${encodeURIComponent(INSTANCE)}`
+
+    const sessionFetch = async (url: string, init?: RequestInit) => {
+      requests.push({ url, init })
+      if (url === ORG_WEBID) return mockResponse(orgProfileDoc)
+      if (url === sparqlAdminPodUrl) {
+        // the registration body (with its membership) comes from the org's
+        // data-pod dataset — a query without `?pod=` would hit the registry
+        expect(String(init?.body ?? '')).toContain('CONSTRUCT')
+        return mockResponse(registrationDocWithInstance, 200, 'application/ld+json')
+      }
+      if (url === SHAPE_TREE) return mockResponse(shapeTreeDoc)
+      if (url === proxyUrl) return mockResponse(instanceDoc)
+      throw new Error(`unexpected request: ${url}`)
+    }
+    const session = { fetch: sessionFetch } as unknown as AuthorizationAgent
+    const ctx = {
+      ...orgCtx(session),
+      endpoints: new Map([[DATA_REGISTRY, 'http://fuseki:3030/data-yoyo/sparql']]),
+    } as unknown as ResolvedContext
+
+    const instances = await listDataInstances(ctx, ORG_WEBID, DATA_REG, 'en')
+
+    expect(instances).toEqual([expect.objectContaining({ id: INSTANCE, label: 'Ghost' })])
+    // the admin's session never derefs the org's data pod directly
+    expect(requests.some((request) => request.url === proxyUrl)).toBe(true)
+    expect(requests.some((request) => request.url === INSTANCE)).toBe(false)
+  })
+
+  test('personal context keeps the session reads', async () => {
+    const instanceDoc = { '@id': INSTANCE, [ENTITY]: [{ '@value': 'Ghost' }] }
+    const registrationDocWithInstance = {
+      '@id': DATA_REG,
+      '@type': ['http://www.w3.org/ns/solid/interop#DataRegistration'],
+      'http://www.w3.org/ns/solid/interop#registeredShapeTree': [{ '@id': SHAPE_TREE }],
+      'http://www.w3.org/ns/ldp#contains': [{ '@id': INSTANCE }],
+    }
+    const sessionFetch = async (url: string) => {
+      if (url === DATA_REG) return mockResponse(registrationDocWithInstance)
+      if (url === INSTANCE) return mockResponse(instanceDoc)
+      if (url === SHAPE_TREE) {
+        return mockResponse({
+          '@id': SHAPE_TREE,
+          'http://www.w3.org/ns/shapetrees#describesInstance': { '@id': ENTITY },
+          'http://www.w3.org/ns/shapetrees#references': [],
+        })
+      }
+      throw new Error(`unexpected request: ${url}`)
+    }
+    const ctx = {
+      session: { fetch: sessionFetch } as unknown as AuthorizationAgent,
+      webId: USER_WEBID,
+      userWebId: USER_WEBID,
+    } as unknown as ResolvedContext
+
+    const instances = await listDataInstances(ctx, USER_WEBID, DATA_REG, 'en')
+    expect(instances).toEqual([expect.objectContaining({ id: INSTANCE, label: 'Ghost' })])
   })
 })

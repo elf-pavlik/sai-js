@@ -61,12 +61,7 @@ import {
 import { loadDataInstance } from './data-instance.ts'
 import { invalidGrantsAfterRemoval } from './grant-chain.ts'
 import { generateGrantsForAuthorization } from './grant-generation.ts'
-import {
-  RevocationError,
-  grantBelongsToRegistry,
-  grantRegistryOf,
-  normalizeRegistryIri,
-} from './revocation.ts'
+import { RevocationError } from './revocation.ts'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
   findAuthorizationsForGrantee,
@@ -129,9 +124,10 @@ export interface RevokedGrant {
  * way out is a future shadowing / need-based revocation request, never a
  * direct grant delete. Refusals are typed `RevocationError`s (D11).
  *
- * The owner/registry check runs on the **requested** IRIs (B2): a request that
- * mixes registries must fail as a whole; grants that merely are not in this
- * registry must not be silently echoed as if they were already removed.
+ * Ownership and registry membership come from the **loaded grant data**, never
+ * from the shape of the requested IRI: a grant that does not exist is an
+ * idempotent echo, existing grants from several owners fail as a whole (B2),
+ * and an existing grant outside this registry is `wrong-data-owner`.
  */
 export async function revokeGrantsClosure(
   transport: SparqlTransport,
@@ -139,39 +135,31 @@ export async function revokeGrantsClosure(
   grants: string[],
   requesterWebId?: string
 ): Promise<RevokedGrant[]> {
-  // B2: group by the requested set, before loading anything. A grant that does
-  // not group under the target registry (nor under its storage root, where
-  // flat members group) cannot be revoked here — it belongs to another data
-  // owner (a backlog/UI bug, never a partial apply). Path-based grant IRIs
-  // group by their registry container, flat ones by the registry pod root, so
-  // a search must not mix the two forms and call it a mixed-owner request.
-  const foreign = grants.filter((grant) => !grantBelongsToRegistry(grant, grantRegistryIri))
+  // Ownership comes from the grant bodies, not from the IRI shape. A requested
+  // IRI with no body is already gone and stays an idempotent echo (regardless
+  // of where its path would have placed it).
+  const loaded = await getGrantsAuthority(transport, grants)
+  if (loaded.size === 0) return []
+
+  // B2: existing grants must all agree on one data owner; a request mixing
+  // owners fails as a whole before any authority check or mutation.
+  const dataOwners = new Set([...loaded.values()].map((grant) => grant.dataOwner))
+  if (dataOwners.size > 1) {
+    throw new RevocationError('mixed-owner', grants, 'all grants must have the same dataOwner')
+  }
+
+  // Registry membership is also data, not path: the grant must be contained in
+  // the target registry. This accepts any existing member IRI shape while still
+  // rejecting an existing grant from another registry.
+  const registryGrants = await getRegistryGrants(transport, grantRegistryIri)
+  const registryGrantIris = new Set(registryGrants.map((grant) => grant.id))
+  const foreign = [...loaded.keys()].filter((iri) => !registryGrantIris.has(iri))
   if (foreign.length > 0) {
-    const mixed =
-      foreign.length < grants.length ||
-      new Set(foreign.map((grant) => normalizeRegistryIri(grantRegistryOf(grant)))).size > 1
-    if (mixed) {
-      throw new RevocationError(
-        'mixed-owner',
-        grants,
-        'all grants must belong to the same data owner registry'
-      )
-    }
     throw new RevocationError(
       'wrong-data-owner',
       foreign,
       `grants do not belong to the targeted grant registry ${grantRegistryIri}`
     )
-  }
-
-  const loaded = await getGrantsAuthority(transport, grants)
-  // already removed → idempotent no-op (the endpoint echoes the request)
-  if (loaded.size === 0) return []
-
-  // defensive: the registry metadata itself disagrees on the owner
-  const dataOwners = new Set([...loaded.values()].map((grant) => grant.dataOwner))
-  if (dataOwners.size > 1) {
-    throw new RevocationError('mixed-owner', grants, 'all grants must have the same dataOwner')
   }
 
   // authority per grant, before any deletion: grantor (grantedBy) or data owner
@@ -192,7 +180,6 @@ export async function revokeGrantsClosure(
   // once the listed grants are treated as absent, plus the same-request
   // inheriting children. Grants already invalid before the operation are not
   // swept (they belong to the sweep).
-  const registryGrants = await getRegistryGrants(transport, grantRegistryIri)
   const invalid = invalidGrantsAfterRemoval(registryGrants, [...loaded.keys()])
 
   const closure = new Map<string, RevokedGrant>()
@@ -205,18 +192,7 @@ export async function revokeGrantsClosure(
       grantee: grant.grantee,
     })
   }
-  // a listed grant that raced out of the registry between the authority read
-  // and the bulk load is already gone; keep the authority echo for the
-  // caller's projection cleanup
-  for (const [iri, grant] of loaded) {
-    if (!closure.has(iri)) closure.set(iri, { iri, ...grant })
-  }
   return [...closure.values()]
-}
-
-// TODO: adjust if registrations are not / nested in the registry
-function registryOfRegistration(dataRegistrationIri: string): string {
-  return `${dataRegistrationIri.split('/').slice(0, -2).join('/')}/`
 }
 
 /**
@@ -869,11 +845,13 @@ export class AuthorizationAgent {
       hasDataInstance: [dataInstance.id],
       children: await Promise.all(
         details.children.map(async (child) => {
-          const dataRegistration = await this.findDataRegistration(
-            dataInstance.dataRegistration!.partOf ??
-              registryOfRegistration(dataInstance.dataRegistration!.id),
-            child.shapeTree
-          )
+          const dataRegistryIri = dataInstance.dataRegistration!.partOf
+          if (!dataRegistryIri) {
+            throw new Error(
+              `data registration ${dataInstance.dataRegistration!.id} has no containing data registry (lws:partOf)`
+            )
+          }
+          const dataRegistration = await this.findDataRegistration(dataRegistryIri, child.shapeTree)
           if (!dataRegistration) {
             throw new Error(`no data registration for shape tree ${child.shapeTree}`)
           }

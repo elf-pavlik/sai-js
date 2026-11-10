@@ -561,10 +561,12 @@ describe.skip('authorization agent', () => {
         dataRegistration: {
           iri: 'https://home.alice.example/some-registration/',
           registeredShapeTree: shapeTree,
+          partOf: 'https://home.alice.example/',
         },
       } as ReadableDataInstance
       const childDataRegistration = { iri: 'mocked' } as ReadableDataRegistration
-      agent.findDataRegistration = vi.fn(async () => childDataRegistration)
+      const findDataRegistration = vi.fn(async () => childDataRegistration)
+      agent.findDataRegistration = findDataRegistration
 
       const mockedAuthorization = { iri: 'also-mocked' } as ReadableAccessAuthorization
       const recordMock = vi.fn(async () => mockedAuthorization)
@@ -574,6 +576,10 @@ describe.skip('authorization agent', () => {
       const authorizationIris = await agent.shareDataInstance(details)
 
       expect(authorizationIris.length).toBe(1)
+      expect(findDataRegistration).toHaveBeenCalledWith(
+        'https://home.alice.example/',
+        details.children[0].shapeTree
+      )
 
       expect(recordMock).toBeCalledWith(
         {
@@ -1144,6 +1150,13 @@ describe('revokeGrants core (C1)', () => {
     inheritsFromGrant: AB,
     accessMode: [ACL.Read],
   })
+  const baseGrants = [root, ab, bc, childSource, child]
+  const foreignGrant = grantFixture('https://auth.kim.example/foreign', {
+    dataOwner: KIM,
+    grantedBy: KIM,
+    grantee: DAN,
+  })
+  const pathGrant = grantFixture(`${GRANT_REGISTRY}path-shaped`)
 
   const grantQuads = (grant: GrantData) => {
     const node = DataFactory.namedNode(grant.id!)
@@ -1164,11 +1177,18 @@ describe('revokeGrants core (C1)', () => {
     return quads
   }
 
-  /** Serve the grant registry listing and every grant graph from `existing`. */
-  const installRegistry = (existing: GrantData[] = [root, ab, bc, childSource, child]) => {
+  /**
+   * Serve the target registry listing from `contained` and every loadable grant
+   * graph/authority from `existing` — a body may exist on the transport without
+   * being a member of this registry.
+   */
+  const installRegistry = (
+    existing: GrantData[] = baseGrants,
+    contained: GrantData[] = existing
+  ) => {
     sparqlMock.handlers.bindings = (query) => {
       if (query.includes('lws#contains')) {
-        return existing.map((grant) => ({
+        return contained.map((grant) => ({
           child: { termType: 'NamedNode', value: grant.id },
         }))
       }
@@ -1251,30 +1271,47 @@ describe('revokeGrants core (C1)', () => {
     })
   })
 
-  test('a mixed-owner request fails as a whole on the requested set (B2)', async () => {
-    installRegistry()
+  test('a mixed-owner request fails as a whole on the existing grants (B2)', async () => {
+    installRegistry([...baseGrants, foreignGrant])
     const agent = await buildAgent()
-    const foreign = 'https://auth.kim.example/grant/foreign'
 
-    // `foreign` does not even exist in either store — the container check runs
-    // on the request, not on whatever happened to load
-    await expect(agent.revokeGrants([AB, foreign], ALICE)).rejects.toMatchObject({
+    // both grants exist; ownership comes from their bodies, not their IRIs
+    await expect(agent.revokeGrants([AB, foreignGrant.id!], ALICE)).rejects.toMatchObject({
       name: 'RevocationError',
       code: 'mixed-owner',
-      grants: [AB, foreign],
+      grants: [AB, foreignGrant.id!],
     })
   })
 
-  test('grants outside the session registry are a typed wrong-data-owner refusal', async () => {
-    installRegistry()
+  test('an existing grant from another registry is a typed wrong-data-owner refusal', async () => {
+    // the body is loadable on this transport, but it is not a member of the
+    // target registry
+    installRegistry([...baseGrants, foreignGrant], baseGrants)
     const agent = await buildAgent()
-    const foreign = 'https://auth.kim.example/grant/foreign'
 
-    await expect(agent.revokeGrants([foreign], ALICE)).rejects.toMatchObject({
+    await expect(agent.revokeGrants([foreignGrant.id!], ALICE)).rejects.toMatchObject({
       name: 'RevocationError',
       code: 'wrong-data-owner',
-      grants: [foreign],
+      grants: [foreignGrant.id!],
     })
+  })
+
+  test('an existing path-shaped member of the target registry is revocable', async () => {
+    // the IRI shape is irrelevant: membership in the target registry is what
+    // makes it revocable
+    installRegistry([...baseGrants, pathGrant])
+    const agent = await buildAgent()
+
+    const revoked = await agent.revokeGrants([pathGrant.id!], ALICE)
+    expect(revoked.map((grant) => grant.iri)).toEqual([pathGrant.id])
+  })
+
+  test('a grant IRI with no body is an idempotent no-op regardless of path shape', async () => {
+    installRegistry()
+    const agent = await buildAgent()
+    const missing = 'https://auth.kim.example/grant/missing'
+
+    await expect(agent.revokeGrants([missing], ALICE)).resolves.toEqual([])
   })
 
   test('an already-removed grant is an empty closure (idempotent no-op)', async () => {

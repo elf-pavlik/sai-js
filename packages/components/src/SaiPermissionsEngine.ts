@@ -359,17 +359,17 @@ export class SaiPermissionsEngine implements PolicyEngine {
       INTEROP.hasDataRegistration
     )
     // TODO: not needed if query only in proper registration
-    const actualParent =
-      (await this.getRegistrationId(parentId)) ?? this.manager.getParent(parentId)
+    const actualParent = await this.getRegistrationId(parentId)
     if (actualParent !== parentRegistrationId)
       throw new Error(`something fishy - ${parentId} not in ${parentRegistrationId}`)
     return parentId
   }
 
   /**
-   * The registration that contains a data instance. Flat storage stores the
-   * parent as `lws:partOf` metadata, so the URI path can not be used.
-   * Falls back to the path-based parent for hierarchical registry pods.
+   * The registration that contains a data instance. Flat data pods store the
+   * parent as `lws:partOf` metadata; the path-based parent remains the
+   * data-side fallback for hierarchical data pods. Registry containment is
+   * metadata-only (flat members), so this is never used for registry members.
    */
   private async getRegistrationId(id: string): Promise<string | undefined> {
     return (await this.getParentFromStore(id)) ?? this.manager.getParent(id)
@@ -410,14 +410,14 @@ export class SaiPermissionsEngine implements PolicyEngine {
     if (types.includes(INTEROP.DataRegistration)) {
       return TargetType.Registration
     }
-    // Flat storage: the registration is the `lws:partOf` parent, not the
-    // path parent. Fall back to the path for hierarchical registry pods.
-    const parent = (await this.getParentFromStore(id)) ?? this.manager.getParent(id)
+    // Flat storage: the registration is the `lws:partOf` parent, not the path
+    // parent. Registry members are flat too, so containment is metadata-only.
+    const parent = await this.getParentFromStore(id)
     if (parent === storage) {
       return TargetType.Registration
     }
     if (parent) {
-      const grandParent = (await this.getParentFromStore(parent)) ?? this.manager.getParent(parent)
+      const grandParent = await this.getParentFromStore(parent)
       if (grandParent === storage) {
         return TargetType.Resource
       }

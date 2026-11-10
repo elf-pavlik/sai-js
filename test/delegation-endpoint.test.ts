@@ -189,6 +189,22 @@ describe('DelegationRevocationEndpoint', () => {
     expect(await countGrants()).toBe(seededGrantCount)
   })
 
+  test('revoking an existing grant owned by someone else is unauthorized', async (): Promise<void> => {
+    const session = await buildOidcSession(acmeId)
+    const response = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
+      body: revocationPayload([bobOwnGrant]),
+    })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({
+      code: 'unauthorized',
+      grants: [bobOwnGrant],
+    })
+    // the foreign owner's grant is untouched
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
   test('a grant IRI from no known registry is a typed unknown refusal', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
     const unknownGrant = 'https://unknown.example/registry/grant/x'

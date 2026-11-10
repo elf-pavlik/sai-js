@@ -22,6 +22,11 @@ export class SaiAuthorizationManager implements AuthorizationManager {
     this.fetcher = new SparqlEndpointFetcher()
   }
 
+  /**
+   * Path-based parent of a **data** resource — the fallback for hierarchical
+   * data pods when `lws:partOf` metadata is unavailable. Registry containment
+   * is flat and metadata-only; registry members must never rely on URI paths.
+   */
   public getParent(id: string): string | undefined {
     const identifier = { path: id }
     return this.identifierStrategy.isRootContainer(identifier)

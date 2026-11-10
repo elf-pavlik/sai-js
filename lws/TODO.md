@@ -231,17 +231,19 @@ different pod layout fails loudly instead of writing to an unexpected URI.
       requested grants, takes the `dataOwner` from them and calls that owner
       session's `revokeGrants` (which knows `hasGrantRegistry`); an
       already-removed grant yields an empty load → idempotent echo.
-      `revokeGrantsClosure` groups a requested grant under the target registry
-      OR its storage root (`grantBelongsToRegistry`), so a path-based grant and
-      a flat one from the same owner no longer look like a mixed-owner request,
-      while a genuinely foreign grant still fails as `wrong-data-owner` (single)
-      or `mixed-owner` (mixed with allowed ones / several foreign groups).
+      `revokeGrantsClosure` loads the requested bodies first: a nonexistent IRI
+      is an idempotent echo, existing grants from multiple owners are
+      `mixed-owner`, and an existing grant not contained in the target registry
+      is `wrong-data-owner`. Ownership and membership come from the data, never
+      from the IRI path shape.
 - [ ] Reduce the per-check SPARQL queries (`determineTargetType` + parent +
       grandparent + registration). Combine into one `SELECT ?type ?parent`
       and pass the registration ID through `findRegistrationModes` /
       `findInheritedModes`.
-- [ ] `SaiAuthorizationManager.getParent` remains path-based; only the engine
-      fallback uses it.
+- [x] Path fallbacks are data-side only: `SaiAuthorizationManager.getParent`
+      is the hierarchical data-pod fallback used by
+      `SaiPermissionsEngine.getRegistrationId`; registry-side parent resolution
+      uses `lws:partOf` only.
 - [ ] Labels in `Authorization.ts` still split `hasDataRegistration` by `/`;
       use the shape-tree label or `hasStorage`.
 

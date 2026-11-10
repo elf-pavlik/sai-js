@@ -1,6 +1,6 @@
 import { ActivityRegistry, setRegisteredAgent } from '@janeirodigital/interop-authorization-agent'
 import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
-import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -55,12 +55,11 @@ export class InvitationHandler extends OperationHttpHandler {
     // a no-op — find-first).
     const existing = await sai.findSocialAgentRegistration(invitedId)
     if (!existing) {
-      // registrations are flat containers: no trailing slash (see
-      // `registryMemberIri`), the same id form `addSocialAgentRegistration`
-      // mints internally
-      const registrationId = registryMemberIri(
+      // Mint the registration id through the social-agent registry storage's
+      // identifier strategy (the same minting addSocialAgentRegistration uses).
+      const registrationId = await sai.mintIdentifier(
         sai.registrySet.hasSocialAgentRegistry.id,
-        sai.randomUUID()
+        true
       )
       const activityRegistry = sai.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')
@@ -84,6 +83,7 @@ export class InvitationHandler extends OperationHttpHandler {
         {
           fetch: sai.fetch,
           randomUUID: sai.randomUUID,
+          identifierStrategies: sai.identifierStrategies,
         },
         activity
       )

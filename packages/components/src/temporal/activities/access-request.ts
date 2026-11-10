@@ -12,7 +12,7 @@ import {
   type SocialAgentId,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, postMember, withContext } from '@janeirodigital/interop-utils'
+import { INTEROP, withContext } from '@janeirodigital/interop-utils'
 
 import { buildSessionManager } from '../../builders/sessionManager.js'
 import { issuanceUrl } from '../../util/uriTemplates.js'
@@ -80,11 +80,13 @@ export async function materializeNeedBasedAccessRequest(
   const session = await manager.getSession(input.dataOwner.id)
   const existing = await session.fetch(input.request.id, { method: 'HEAD' })
   if (existing.status === 200) return
-  // flat member of the AccessRequestRegistry (POST + Slug records containment)
-  await postMember(session.registrySet.hasAccessRequestRegistry.id, session.fetch, {
-    id: input.request.id,
-    body: withContext(dataModelContext, input.request),
-  })
+  // The storage identifier strategy creates the member and records containment.
+  await session.createIdentifierResource(
+    session.registrySet.hasAccessRequestRegistry.id,
+    input.request.id,
+    false,
+    withContext(dataModelContext, input.request)
+  )
 }
 
 // ──────────────────────────
@@ -153,7 +155,11 @@ export async function detectGrantedRequests(input: DetectGrantedRequestsInput): 
       }
     await ActivityRegistry.createActivity(
       registry,
-      { fetch: session.fetch, randomUUID: session.randomUUID },
+      {
+        fetch: session.fetch,
+        randomUUID: session.randomUUID,
+        identifierStrategies: session.identifierStrategies,
+      },
       activity
     )
   }

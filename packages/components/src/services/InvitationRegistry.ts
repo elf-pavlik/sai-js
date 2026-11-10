@@ -4,7 +4,7 @@ import type {
   InvitationCreated,
   SocialAgentInvitationData,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import { pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
@@ -53,11 +53,12 @@ export async function getSocialAgentInvitations(ctx: ResolvedContext, lang: stri
 }
 
 /**
- * Activity-first (see the OpenWiki `services/rpc-and-services.md`): the RPC only mints
- * the invitation id (`iriForContained`) and writes the `invitationCreated`
- * activity — the `createInvitation` workflow PUTs the invitation resource at
- * the minted id and generates the capabilityUrl there (unknowable before the
- * workflow runs, so the pending ack echoes only label/note + the minted id).
+ * Activity-first (see the OpenWiki `services/rpc-and-services.md`): the RPC only
+ * mints the invitation id through the storage identifier strategy and writes
+ * the `invitationCreated` activity — the `createInvitation` workflow creates
+ * the invitation resource at the minted id and generates the capabilityUrl
+ * there (unknowable before the workflow runs, so the pending ack echoes only
+ * label/note + the minted id).
  */
 export async function createInvitation(
   ctx: ResolvedContext,
@@ -67,7 +68,7 @@ export async function createInvitation(
   const invitationRegistry = ctx.registrySet.hasInvitationRegistry
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  const invitationId = registryMemberIri(invitationRegistry.id, ctx.session.randomUUID())
+  const invitationId = await ctx.session.mintIdentifier(invitationRegistry.id)
   // the invitation-to-be — full POJO projection minus capabilityUrl (the
   // workflow generates it) at the pre-minted id; the label is tagged with the
   // preferred language (untagged under `@none` when no language is given)
@@ -90,6 +91,7 @@ export async function createInvitation(
     {
       fetch: ctx.session.fetch,
       randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
     },
     activity
   )

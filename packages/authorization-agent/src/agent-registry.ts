@@ -19,8 +19,8 @@ import {
   INTEROP,
   type WhatwgFetch,
   discoverAuthorizationAgent,
-  postMember,
-  registryMemberIri,
+  createResource,
+  mintResource,
   containedIrisJsonLd,
   loader,
   withContext,
@@ -136,7 +136,7 @@ export async function addApplicationRegistration(
   if (existing) {
     throw new Error(`Application Registration for ${registeredAgent} already exists`)
   }
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const registration: ApplicationRegistrationData = {
     id: iri,
     type: [INTEROP.ApplicationRegistration],
@@ -165,7 +165,7 @@ export async function addSocialAgentRegistration(
   if (existing) {
     throw new Error(`Social Agent Registration for ${registeredAgent} already exists`)
   }
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const registration: SocialAgentRegistrationData = {
     id: iri,
     type: [INTEROP.SocialAgentRegistration],
@@ -197,7 +197,7 @@ export async function addSocialAgentInvitation(
   if (existing) {
     throw new Error(`Social Agent Invitation with ${capabilityUrl} already exists`)
   }
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const invitation: SocialAgentInvitationData = {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
@@ -206,10 +206,7 @@ export async function addSocialAgentInvitation(
     label: { '@none': label },
     note,
   }
-  await postMember(data.id, deps.fetch, {
-    id: iri,
-    body: withContext(dataModelContext, invitation),
-  })
+  await createResource(data.id, iri, deps, false, withContext(dataModelContext, invitation))
   // containment is server-managed — no container PATCH needed
   return invitation
 }

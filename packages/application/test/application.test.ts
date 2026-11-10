@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { statelessFetch } from '@janeirodigital/interop-test-utils'
+import { FlatIdentifierStrategy } from '@janeirodigital/interop-utils'
 import { describe, expect, test, vi } from 'vitest'
 
 import { Application } from '../src'
@@ -123,8 +124,14 @@ describe('iriForNew', () => {
     )
     const app = new Application(webId, applicationId, { fetch: mocked, randomUUID: () => uuid })
     stubGrant(app, registration)
+    const resolve = vi.spyOn(app.identifierStrategies, 'resolve').mockResolvedValue({
+      storageUrl: storage,
+      storageRoot: storage,
+      strategy: new FlatIdentifierStrategy(storage, () => uuid),
+    })
 
     await expect(app.iriForNew(storage, scope)).resolves.toBe(flatIri)
+    expect(resolve).toHaveBeenCalledWith(storage)
     expect(mocked).toHaveBeenCalledWith(
       registration,
       expect.objectContaining({
@@ -133,14 +140,5 @@ describe('iriForNew', () => {
         headers: expect.objectContaining({ slug: uuid }),
       })
     )
-  })
-
-  test('mints a hierarchical IRI without POSTing', async () => {
-    const mocked = vi.fn()
-    const app = new Application(webId, applicationId, { fetch: mocked, randomUUID: () => uuid })
-    stubGrant(app, `${registration}/`)
-
-    await expect(app.iriForNew(storage, scope)).resolves.toBe(`${registration}/${uuid}`)
-    expect(mocked).not.toHaveBeenCalled()
   })
 })

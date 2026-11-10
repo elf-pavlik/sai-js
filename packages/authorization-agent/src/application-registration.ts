@@ -4,7 +4,7 @@ import {
   type ApplicationRegistryData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { type WhatwgFetch, postMember, withContext } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, createResource, withContext } from '@janeirodigital/interop-utils'
 
 import { addApplicationRegistration, findApplicationRegistration } from './agent-registry.ts'
 import type { DataModelDependencies } from './types.ts'
@@ -40,13 +40,7 @@ export async function createApplicationRegistration(
   data: ApplicationRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  // flat container member: POST + Slug to the registry (`lws:Container` link)
-  // and the store patches nothing — the description is populated by
-  // `postMember` with the same `INSERT DATA` patch `createContainer` used
-  await postMember(
-    registry.id,
-    fetch,
-    { id: data.id, body: withContext(dataModelContext, data) },
-    { container: true }
-  )
+  // The identifier strategy creates the flat container member (POST + Slug,
+  // `lws:Container` link) and patches its description with the container body.
+  await createResource(registry.id, data.id, { fetch }, true, withContext(dataModelContext, data))
 }

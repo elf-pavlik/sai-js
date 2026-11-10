@@ -71,7 +71,11 @@ export async function invitationAcceptance(
   if (!registration) {
     registration = await AgentRegistry.addSocialAgentRegistration(
       session.registrySet.hasSocialAgentRegistry,
-      { fetch: session.fetch, randomUUID: session.randomUUID },
+      {
+        fetch: session.fetch,
+        randomUUID: session.randomUUID,
+        identifierStrategies: session.identifierStrategies,
+      },
       { agent: webId, client: session.agentId },
       inviterWebId,
       // the snapshot's label is already the language map

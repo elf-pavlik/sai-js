@@ -8,9 +8,9 @@ import {
   type LanguageMap,
   type WhatwgFetch,
   containedIrisJsonLd,
-  postMember,
+  createResource,
+  mintResource,
   putJsonLd,
-  registryMemberIri,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -39,10 +39,7 @@ export async function createRoleAt(
 ): Promise<void> {
   const existing = await fetch(role.id, { method: 'HEAD' })
   if (existing.status === 200) return
-  await postMember(data.id, fetch, {
-    id: role.id,
-    body: withContext(dataModelContext, role),
-  })
+  await createResource(data.id, role.id, { fetch }, false, withContext(dataModelContext, role))
 }
 
 // ──────────────────────────
@@ -64,7 +61,7 @@ export async function createRole(
   label: LanguageMap,
   members: string[]
 ): Promise<RoleData> {
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const role: RoleData = { id: iri, label, members, type: [INTEROP.Role] }
   await createRoleAt(data, deps.fetch, role)
   return role

@@ -1,4 +1,4 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { FlatIdentifierStrategy, INTEROP, executeCreationPlan } from '@janeirodigital/interop-utils'
 import { describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -80,6 +80,21 @@ function makeSession(registeredInvitations: string[] = []) {
     session: {
       registrySet: { hasInvitationRegistry: { id: INVITATION_REGISTRY } },
       fetch,
+      createIdentifierResource: async (
+        parent: string,
+        identifier: string,
+        isContainer: boolean,
+        body?: unknown
+      ) =>
+        executeCreationPlan(
+          new FlatIdentifierStrategy('https://auth.example/', () => 'unused').create({
+            parent,
+            identifier,
+            isContainer,
+            body,
+          }),
+          fetch
+        ),
     },
     puts,
   }

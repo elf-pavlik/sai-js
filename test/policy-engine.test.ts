@@ -435,8 +435,8 @@ describe('protected resources (scope inherited, modes all)', () => {
 
         // creation goes through the registration container (the Task
         // registration of the inherited-scope chain, `btze4a`): the flat
-        // POST-then-PUT the Application uses (`postMember`), which allocates
-        // the member IRI from the storage root via the UUID Slug
+        // POST-then-PUT the Application's identifier strategy emits, which
+        // allocates the member IRI from the storage root via the UUID Slug
         const registrationId = 'https://data/alice-work/btze4a'
         const createResponse = await storageFetch(registrationId, {
           method: 'POST',

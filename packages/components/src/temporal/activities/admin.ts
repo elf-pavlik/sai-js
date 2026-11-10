@@ -23,9 +23,7 @@ import {
   getAcl,
   containedIrisJsonLd,
   loader,
-  postMember,
   putJsonLd,
-  registryMemberIri,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -85,10 +83,12 @@ export async function recordAdminAuthorizationAtId(payload: {
     grantedBy: payload.authorization.grantedBy,
     scopeOfAuthorization: payload.authorization.scopeOfAuthorization,
   }
-  await postMember(session.registrySet.hasAuthorizationRegistry.id, session.fetch, {
-    id: payload.authorization.id,
-    body: AdminAuthorization.toJsonLd(data),
-  })
+  await session.createIdentifierResource(
+    session.registrySet.hasAuthorizationRegistry.id,
+    payload.authorization.id,
+    false,
+    AdminAuthorization.toJsonLd(data)
+  )
 }
 
 /**
@@ -126,7 +126,7 @@ export async function buildAdminGrants(payload: {
   const registry = session.registrySet.hasGrantRegistry
 
   const registrySetGrant: AdminGrantData = {
-    id: registryMemberIri(registry.id, session.randomUUID()),
+    id: await session.mintIdentifier(registry.id),
     type: [INTEROP.AdminGrant],
     grantee: payload.admin.id,
     grantedBy: payload.webId.id,
@@ -137,7 +137,7 @@ export async function buildAdminGrants(payload: {
   const dataRegistryGrants: AdminGrantData[] = []
   for (const dataRegistry of session.registrySet.hasDataRegistry) {
     dataRegistryGrants.push({
-      id: registryMemberIri(registry.id, session.randomUUID()),
+      id: await session.mintIdentifier(registry.id),
       type: [INTEROP.AdminGrant],
       grantee: payload.admin.id,
       grantedBy: payload.webId.id,
@@ -154,10 +154,12 @@ export async function buildAdminGrants(payload: {
 export async function storeAdminGrant(grant: AdminGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(grant.dataOwner)
-  await postMember(session.registrySet.hasGrantRegistry.id, session.fetch, {
-    id: grant.id!,
-    body: withContext(dataModelContext, grant),
-  })
+  await session.createIdentifierResource(
+    session.registrySet.hasGrantRegistry.id,
+    grant.id!,
+    false,
+    withContext(dataModelContext, grant)
+  )
 }
 
 /**

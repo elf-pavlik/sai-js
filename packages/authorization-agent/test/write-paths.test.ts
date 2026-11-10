@@ -148,12 +148,26 @@ describe('data-registration write path', () => {
     const recordingFetch = (async (url: string, options?: RequestInit) => {
       if (options?.method === 'POST') posted = url
       if (options?.method === 'PATCH') patchBody = options.body as string
+      const accept = (options?.headers as Record<string, string> | undefined)?.Accept
+      if (accept === 'application/lws+cid') {
+        return {
+          ok: true,
+          headers: { get: () => 'application/lws+cid' },
+          json: async () => ({
+            id: url,
+            type: 'Storage',
+            service: [{ type: 'StorageRoot', serviceEndpoint: url }],
+          }),
+        } as unknown as Response
+      }
       return {
         ok: true,
         headers: {
           get: (name: string) => {
             if (name === 'Location') return iri
-            if (name === 'Link') return '<https://data/alice/reg.meta>; rel="describedby"'
+            if (name === 'Link') {
+              return '<https://data/alice/>; rel="https://www.w3.org/ns/lws#storage", <https://data/alice/reg.meta>; rel="describedby"'
+            }
             return null
           },
         },

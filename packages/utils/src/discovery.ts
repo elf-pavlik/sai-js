@@ -157,10 +157,27 @@ export async function fetchLwsStorageDescription(
   return (await response.json()) as Record<string, unknown>
 }
 
+/** The exact `StorageRoot` service endpoint advertised by the description. */
+export function storageRootFromDescription(
+  description: Record<string, unknown>
+): string | undefined {
+  const rawServices = description.service
+  const services = Array.isArray(rawServices) ? rawServices : rawServices ? [rawServices] : []
+  for (const service of services) {
+    if (!service || typeof service !== 'object') continue
+    const record = service as Record<string, unknown>
+    const types = Array.isArray(record.type) ? record.type : [record.type]
+    if (!types.some((type) => LWS_STORAGE_ROOT_TYPES.includes(type as string))) continue
+    if (typeof record.serviceEndpoint === 'string') return record.serviceEndpoint
+  }
+  return undefined
+}
+
 /**
  * Resolves the storage root of a resource through LWS discovery:
  * `rel="https://www.w3.org/ns/lws#storage"` → storage description → the
- * `StorageRoot` service entry.
+ * `StorageRoot` service entry. The endpoint is used verbatim — no URL
+ * normalization or trailing-slash changes.
  */
 export async function lwsStorageRoot(
   resourceIri: string,
@@ -170,18 +187,7 @@ export async function lwsStorageRoot(
   if (!storage) return undefined
   const description = await fetchLwsStorageDescription(storage, fetch)
   if (!description) return undefined
-  const rawServices = description.service
-  const services = Array.isArray(rawServices) ? rawServices : rawServices ? [rawServices] : []
-  for (const service of services) {
-    if (!service || typeof service !== 'object') continue
-    const record = service as Record<string, unknown>
-    const types = Array.isArray(record.type) ? record.type : [record.type]
-    if (!types.some((type) => LWS_STORAGE_ROOT_TYPES.includes(type as string))) continue
-    if (typeof record.serviceEndpoint === 'string') {
-      return new URL(record.serviceEndpoint, storage).href
-    }
-  }
-  return undefined
+  return storageRootFromDescription(description)
 }
 
 /**

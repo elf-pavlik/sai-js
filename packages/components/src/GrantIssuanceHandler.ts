@@ -13,7 +13,7 @@ import type {
   NeedBasedAccessRequestMessage,
   NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, registryMemberIri } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
@@ -118,7 +118,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // is sent IMMEDIATELY — it awaits nothing beyond the activity write.
     const requestRegistry = sai.registrySet.hasAccessRequestRegistry
     if (!requestRegistry) throw new Error('access-request registry not found in registry set')
-    const requestId = registryMemberIri(requestRegistry.id, sai.randomUUID())
+    const requestId = await sai.mintIdentifier(requestRegistry.id)
     const activityRegistry = sai.registrySet.hasActivityRegistry
     if (!activityRegistry) throw new Error('activity registry not found in registry set')
     const object: EmbeddedNeedBasedAccessRequest = {
@@ -138,7 +138,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     }
     await ActivityRegistry.createActivity(
       activityRegistry,
-      { fetch: sai.fetch, randomUUID: sai.randomUUID },
+      {
+        fetch: sai.fetch,
+        randomUUID: sai.randomUUID,
+        identifierStrategies: sai.identifierStrategies,
+      },
       activity
     )
     return new ResponseDescription(202)
@@ -167,9 +171,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // build FinalGrantData for each parent and its inheriting children.
     const finalGrants: FinalGrantData[] = []
     for (const topGrant of grants) {
-      const grantId = registryMemberIri(sai.registrySet.hasGrantRegistry.id, sai.randomUUID())
-      const inheritingGrants = (topGrant.hasInheritingGrant ?? []).map((childData) =>
-        this.buildInheritingGrant(sai, childData, grantId)
+      const grantId = await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id)
+      const inheritingGrants = await Promise.all(
+        (topGrant.hasInheritingGrant ?? []).map((childData) =>
+          this.buildInheritingGrant(sai, childData, grantId)
+        )
       )
       finalGrants.push(
         {
@@ -218,11 +224,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     return message
   }
 
-  private buildInheritingGrant(
+  private async buildInheritingGrant(
     sai: Awaited<ReturnType<SessionManager['getSession']>>,
     childData: IncomingGrantData,
     inheritsFromGrant: string
-  ): FinalGrantData {
+  ): Promise<FinalGrantData> {
     return {
       type: childData.type ?? [INTEROP.DataGrant],
       grantee: childData.grantee,
@@ -235,7 +241,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       accessMode: childData.accessMode,
       creatorAccessMode: childData.creatorAccessMode,
       hasDataInstance: childData.hasDataInstance,
-      id: registryMemberIri(sai.registrySet.hasGrantRegistry.id, sai.randomUUID()),
+      id: await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id),
       inheritsFromGrant,
     }
   }

@@ -19,7 +19,8 @@ import type { SocialAgentInvitationData } from './social-agent-invitation.ts'
 // The class's primary object rides as `as:object` in one of two forms
 // (the object-embedding amendment — the inventory is the wire truth):
 //  - live link — a single `as:object <iri>` triple (the resource exists or
-//    is pre-minted via `iriForContained` and materialized by the workflow);
+//    is pre-minted by the storage identifier strategy and materialized by
+//    the workflow);
 //  - snapshot — a minted `urn:uuid` node embedding the full POJO projection
 //    inline in the activity graph (id known only at write; never
 //    dereferenced — the singly-fetched activity doc already contains it).
@@ -258,8 +259,9 @@ export type InvitationCreatedId = {
  *
  * `target` dropped (the InvitationCreated precedent): the changed record's
  * id rides `object.id` — the REAL pre-minted registration id (the handler
- * pre-mints via `iriForContained`; the `establishReciprocal` workflow PUTs
- * the registration there and discovers the reciprocal). */
+ * pre-mints through the storage identifier strategy; the
+ * `establishReciprocal` workflow creates the registration there and discovers
+ * the reciprocal). */
 export type AgentRegistrationAdded = Omit<ActivityBase, 'target'> & {
   type: ['Activity', 'AgentRegistrationAdded', 'as:Add']
   /** as:actor — plain IRI (the session that wrote the registration) */

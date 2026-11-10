@@ -239,7 +239,11 @@ export const shareResource = async (
     }
     await ActivityRegistry.createActivity(
       activityRegistry,
-      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+      {
+        fetch: ctx.session.fetch,
+        randomUUID: ctx.session.randomUUID,
+        identifierStrategies: ctx.session.identifierStrategies,
+      },
       activity
     )
   }
@@ -280,7 +284,11 @@ async function recordAccessRequest(
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   return NeedBasedAccessRequestSentMessage.make({

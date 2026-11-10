@@ -3,7 +3,7 @@ import type {
   AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
+import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   AdminAuthorizationGrantedMessage,
   AdminAuthorizationRevokedMessage,
@@ -37,7 +37,7 @@ export const addAdmin = async (
 
   // pre-mint the AdminAuthorization id — the workflow PUTs the resource there
   // (the same minting the AA's recordAdminAuthorization would do)
-  const authorizationId = registryMemberIri(authorizationRegistry.id, ctx.session.randomUUID())
+  const authorizationId = await ctx.session.mintIdentifier(authorizationRegistry.id)
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
@@ -55,7 +55,11 @@ export const addAdmin = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // pending ack — echoes the pre-minted AdminAuthorization id (pending
@@ -118,7 +122,11 @@ export const removeAdmin = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // pending ack — echoes the revoked AdminAuthorization id (pending handle)

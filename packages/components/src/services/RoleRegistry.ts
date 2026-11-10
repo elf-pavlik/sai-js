@@ -8,7 +8,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 const loadRole = loader(RoleModel.fromJsonLd)
 
-import { INTEROP, loader, pickLanguage, registryMemberIri } from '@janeirodigital/interop-utils'
+import { INTEROP, loader, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
   Role,
@@ -58,7 +58,7 @@ export const createRole = async (
   // minted id, real-id embedded projection) — the createRole workflow PUTs
   // the role there and completes. No derived work: no authorizations can
   // exist before the role exists (the PUT IS the create).
-  const roleId = registryMemberIri(ctx.registrySet.hasRoleRegistry.id, ctx.session.randomUUID())
+  const roleId = await ctx.session.mintIdentifier(ctx.registrySet.hasRoleRegistry.id)
   const object: RoleData = {
     id: roleId,
     type: [INTEROP.Role],
@@ -75,7 +75,11 @@ export const createRole = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // pending ack — echoes the role-to-be (pending handle) + the triggering
@@ -120,7 +124,11 @@ export const updateRole = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // pending ack — echoes the role-to-be (pending handle) + the triggering
@@ -160,7 +168,11 @@ export const deleteRole = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // pending ack — echoes the deleted role id (pending handle) + the

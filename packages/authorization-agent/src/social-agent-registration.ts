@@ -14,7 +14,7 @@ import {
   deletePatch,
   insertPatch,
   loader,
-  postMember,
+  createResource,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -40,9 +40,9 @@ export async function createSocialAgentRegistration(
     ...data,
     type: [...new Set([...(data.type ?? []), INTEROP.SocialAgentRegistration])],
   })
-  // flat container member (POST + Slug + `lws:Container` link); the store
-  // ignores the POST body for containers, `postMember` patches the description
-  await postMember(registry.id, fetch, { id: data.id, body: doc }, { container: true })
+  // The identifier strategy creates the flat container member (POST + Slug,
+  // `lws:Container` link); container bodies are applied as a description patch.
+  await createResource(registry.id, data.id, { fetch }, true, doc)
 }
 
 /**

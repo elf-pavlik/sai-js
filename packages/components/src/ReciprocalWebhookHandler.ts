@@ -75,7 +75,11 @@ export class ReciprocalWebhookHandler extends OperationHttpHandler {
       }
       await ActivityRegistry.createActivity(
         activityRegistry,
-        { fetch: session.fetch, randomUUID: session.randomUUID },
+        {
+          fetch: session.fetch,
+          randomUUID: session.randomUUID,
+          identifierStrategies: session.identifierStrategies,
+        },
         activity
       )
     }

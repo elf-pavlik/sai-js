@@ -13,11 +13,36 @@ const storageDescriptionJsonLd = JSON.stringify([
   },
 ])
 
+/** The flat test store's storage root: the container without its last segment. */
+function storageRootFor(containerIri: string): string {
+  const container = containerIri.replace(/\/$/u, '')
+  const cut = container.lastIndexOf('/')
+  if (cut < 0) throw new Error(`cannot derive a storage root from ${containerIri}`)
+  return `${container.slice(0, cut + 1)}`
+}
+
 async function common(
   url: string,
   options?: RequestInit,
   state?: { [key: string]: string }
 ): Promise<Response> {
+  const strippedUrl = url.replace(/#.*$/, '')
+  // Access Accept header via type assertion since RequestInit.headers is HeadersInit
+  const accept = (options?.headers as Record<string, string> | undefined)?.Accept
+
+  // LWS storage description: the requested storage root is the StorageRoot.
+  if (accept === 'application/lws+cid') {
+    return {
+      ok: true,
+      headers: { get: () => 'application/lws+cid' },
+      json: async () => ({
+        id: strippedUrl,
+        type: 'Storage',
+        service: [{ type: 'StorageRoot', serviceEndpoint: strippedUrl }],
+      }),
+    } as unknown as Response
+  }
+
   // handle storage description requests
   if (url === STORAGE_DESCRIPTION_IRI) {
     return {
@@ -31,10 +56,6 @@ async function common(
     } as unknown as Response
   }
 
-  // strip fragment
-  const strippedUrl = url.replace(/#.*$/, '')
-  // Access Accept header via type assertion since RequestInit.headers is HeadersInit
-  const accept = (options?.headers as Record<string, string> | undefined)?.Accept
   // JSON-LD by default; serve Turtle only for an explicit text/turtle Accept
   // (ACL resources, and any transitional callers that still ask for it).
   const acceptsTurtle = accept === 'text/turtle'
@@ -49,7 +70,7 @@ async function common(
 
   const headers: Record<string, string> = {
     'Content-Type': acceptsTurtle ? 'text/turtle' : 'application/ld+json',
-    Link: `<${strippedUrl}.acr>; rel="acl", <http://just.en.example/description-resource>; rel="describedby", <${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription`,
+    Link: `<${strippedUrl}.acr>; rel="acl", <http://just.en.example/description-resource>; rel="describedby", <${STORAGE_DESCRIPTION_IRI}>; rel="http://www.w3.org/ns/solid/terms#storageDescription", <${storageRootFor(strippedUrl)}>; rel="https://www.w3.org/ns/lws#storage"`,
   }
 
   const response = {
@@ -75,16 +96,13 @@ async function common(
 /**
  * The identifier the flat LWS store allocates for a POST: the `slug` header
  * (a UUID, which our clients pre-mint) under the storage root — the container
- * IRI without its last path segment. Mirrors `registryMemberIri`.
+ * IRI without its last path segment. Mirrors the flat identifier strategy.
  */
 function slugLocation(containerIri: string, headers?: HeadersInit): string {
   const record = (headers ?? {}) as Record<string, string>
   const slug = record.slug ?? record.Slug
   if (!slug) throw new Error('POST without a slug header')
-  const container = containerIri.replace(/\/$/u, '')
-  const cut = container.lastIndexOf('/')
-  if (cut < 0) throw new Error(`cannot derive a storage root from ${containerIri}`)
-  return `${container.slice(0, cut + 1)}${slug}`
+  return `${storageRootFor(containerIri)}${slug}`
 }
 
 function postResponse(location: string): Response {

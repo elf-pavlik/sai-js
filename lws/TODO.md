@@ -10,7 +10,7 @@ implemented. The client auth migration (§1) and the Dagger integration suite
 ## Current state (check before starting)
 
 - **`dagger call test` is green** — all 22 files, CI mode, on the CSS fork
-  branch `lws-sai` at `9799e86d2` (installed from `package-lock.json` by
+  branch `lws-sai` at `99c208447` (installed from `package-lock.json` by
   `devbox run fork-css`). Package tests, typecheck, lint and the components
   build pass.
 - The data and registry services run **LWS-only flat storage**; the SAI access
@@ -27,9 +27,10 @@ implemented. The client auth migration (§1) and the Dagger integration suite
   dev URL mapping.
 - Local CSS iteration without pushing: see §8 (`--css` constructor argument, or
   copy the fork build into `node_modules/@solid/community-server`).
-- Remaining work is the tail of §2/§5/§6/§7 plus §8 images/docs — the flat-LWS
-  migration itself (client auth, containment, representations, storage
-  discovery, authorization, tests) is complete.
+- Remaining work is the long-term hierarchical identifier strategy plus the
+  tail of §6/§7 and §8 images/docs — the flat-LWS migration itself (client
+  auth, containment, representations, storage discovery, authorization,
+  tests) is complete.
 
 ## 1. Client auth migration — done
 
@@ -67,40 +68,37 @@ Solid-OIDC DPoP (it is the IdP/UAS).
 The registry **config** is flat (`HonorUuidSlugDataAccessorBasedStore` over the
 routed SPARQL accessor) and the access layer uses `lws:contains`. The registry
 **set** and dedicated registries are bootstrap structure with path-based IRIs;
-their **members** are flat UUIDs. Every member is pre-minted at
-`{registryPodRoot}{uuid}` (`registryMemberIri`) and created with
-`postMember` — POST to the registry container with that UUID as `Slug`, which
-the fork's `HonorUuidSlugDataAccessorBasedStore` honors — so the store records
-`lws:contains` on the registry and `lws:partOf` on the member. `postMember`
-throws when the allocated `Location` differs from the pre-minted IRI, so a
-different pod layout fails loudly instead of writing to an unexpected URI.
+their **members** are minted through the storage identifier strategy.
 
-- [x] Flat UUIDs for registry members with the honored `Slug` header
-      (`packages/utils/src/container.ts`: `registryMemberIri`, `postMember`).
+`CachingIdentifierStrategyResolver` discovers the storage root from
+`rel="storage"` + the LWS storage description, caches the exact discovered URLs
+(no normalization), and returns the strategy bound to that root. The first and
+only strategy is flat: it mints `{storageRoot}{uuid}` and emits a creation plan
+that POSTs to the parent with the UUID as `Slug` (containers are created empty
+and their description is patched). Execution verifies the returned `Location`;
+duplicate-UUID retry safety will add `Idempotency-Key` later (TODO in the
+executor).
+
+- [x] Flat UUIDs for registry members with the honored `Slug` header.
       Migrated: activities and completions, data authorizations, grants,
-      roles, invitations, social-agent/application registrations (containers:
-      POST + `lws:Container` link, then the description PATCH), admin
+      roles, invitations, social-agent/application registrations, admin
       authorizations and admin grants, access requests. Pre-minted ids ride
-      the activities unchanged — the existing activity-first flows needed no
-      redesign, only the minting helper and the create calls. - `putJsonLd`/`createContainer` remain for _updates_ and for the
-      hierarchical bootstrap resources (fixture, data registrations). - The fork's `LinkedWebStorageFlatSlug` integration test pins the
-      semantics this relies on: slug → `{storageRoot}{uuid}` (never nested,
-      no trailing slash, also for containers), body stored for documents,
-      409 on a duplicate slug, 400 for a non-UUID slug.
-- [x] `createDataRegistration` now POSTs a flat container member through
-      `postMember(… { container: true })` when `partOf` is present (pre-minted
-      id, UUID Slug, description PATCH); `createContainer` remains only for
-      hierarchical/bootstrap data registrations.
-- [x] `createContainer` for social-agent/application registrations verified
-      against the flat store: PUT the empty container, discover the `.meta`
-      description (registry config has the ACR/`.meta` auxiliary), PATCH the
-      description; `.acr` writes now convert to quads (see §3). Live test:
+      the activities unchanged — the activity-first flows mint through the
+      session's resolver and create through the strategy's creation plan.
+- [x] `createDataRegistration` creates the flat container through the storage
+      strategy when `partOf` is present (pre-minted id, UUID Slug, description
+      PATCH).
+- [x] Flat container creation for social-agent/application registrations
+      verified against the store through the same creation plan: POST empty
+      container + `lws:Container` link, then PATCH the description; `.acr`
+      writes convert to quads (see §3). Live test:
       `AgentRegistry.addSocialAgentRegistration`.
-- [x] Data-instance allocation no longer uses `postForIri`.
-      `Application.iriForNew` mints `flatMemberIri(grant.hasStorage, uuid)` and
-      POSTs that UUID as the Slug through `postMember`; the POST creates the
-      empty resource plus containment, and the caller writes the representation
-      afterwards (documented on `postMember`).
+- [x] Data-instance allocation uses the strategy too:
+      `Application.iriForNew` resolves the storage, mints at its root, and
+      executes the creation plan. The resource is created empty; the caller
+      writes the representation afterwards.
+- [ ] Long-term: implement a hierarchical/path identifier strategy. The old
+      path-based helpers and branches were deliberately removed for now.
 
 ## 3. LWS-only representations and writes
 
@@ -331,15 +329,17 @@ different pod layout fails loudly instead of writing to an unexpected URI.
       `Resource` branch), which `policy-engine.test.ts` now asserts
       (POST → PUT denied → link parent → PUT 204).
 - [x] Run the dagger integration suite — **green**, all 22 files
-      (`dagger call test`, CI mode, fork CSS `9799e86d2`). The suite mounts the
+      (`dagger call test`, CI mode, fork CSS `99c208447`). The suite mounts the
       working tree and the **built** `packages/components/dist`, so rebuild
       first when components sources changed:
       `npm run build --workspace @elfpavlik/sai-components`. Narrow runs with
       `--testFile="agents.test.ts share.test.ts"` / `--only="<test name>"`.
 
-### Open: registry storage reads 401 (after fork-css + notification override)
+### Resolved: registry storage reads 401 (after fork-css + notification override)
 
-First run after `devbox run fork-css` (lock → `9799e86d2`) plus importing
+Fixed by fork commit `99c208447` (`CachedJwkGenerator` concurrent first-use race); `package-lock.json` now pins that commit. The notes below are the historical investigation.
+
+First run after an earlier `devbox run fork-css` (lock → `9799e86d2`) plus importing
 `sai:config/overrides/lws-notification-service-paths.json`: `invitation` and
 `reciprocal-webhook` answer **500** on the create RPC, and `roles` fails in
 `waitForQuiescence` → `getSession` → bootstrap fetching
@@ -400,7 +400,7 @@ container's warning (`DPoPWebIdExtractor` logs the verification error) with
 
 ### Dagger suite status — all green
 
-`dagger call test` (CI mode, fork CSS `9799e86d2`) passes **all 22 files**.
+`dagger call test` (CI mode, fork CSS `99c208447`) passes **all 22 files**.
 Keep it as the regression baseline; narrow runs are for bisecting only:
 
 ```bash
@@ -479,7 +479,7 @@ Per-file notes worth keeping (regression map):
 
 ## 8. Dev / CI / images
 
-- [x] **CSS build used by tests/CI**: fork branch `lws-sai` (`9799e86d2`,
+- [x] **CSS build used by tests/CI**: fork branch `lws-sai` (`99c208447`,
       includes the auxiliary-containment guard and `LwsAccessTokenExtractor`
       `servicePaths`), installed from `package-lock.json` by
       `devbox run fork-css`. npm applies this repo's `overrides` at install time,
@@ -580,19 +580,20 @@ curl -s -u admin:sai -H 'Accept: application/sparql-results+json' \
   (`https://bob.data.docker/…` is a 401). Use the `401` challenge
   (`resource_metadata` / `as_uri`) to find it; the origin probe only works
   when the storage origin is the base URL (registry).
-- The running git CSS (`01ad3376`) only sends `as_uri`; the fork HEAD sends
+- Older CSS builds (`01ad3376`) only send `as_uri`; newer fork builds send
   `resource_metadata` too. `parseLwsChallenge` handles both.
 - A sender-constrained subject token (`cnf.jkt`) needs a `DPoP` proof at the
   token endpoint on the fork HEAD; `01ad3376` ignores it.
-- `postForIri` must send a `Content-Type`; CSS rejects POST without one. The
-  created resource is empty — PUT the representation afterwards.
+- Creation POSTs carry `Content-Type: application/ld+json`; without a body the
+  strategy sends `[]`. Data instances are created empty — PUT the
+  representation afterwards.
 - The flat registry store writes to the SPARQL accessor, which accepts only
   `internal/quads`; `flat-sparql.json` sets the converting store's
   `inPreferences`. The data service converts in `HybridDataAccessor` instead.
 - `putJsonLd` with `application/ld+json` works for RDF writes; containers are
   the only LWS-JSON response shape (and `fetchJsonLd` falls back to turtle).
 - Auxiliary resources (`.acr`/`.acl`/`.meta`) are **not** container members. On
-  the installed CSS `01ad3376` the flat store still records `lws:contains` for
+  older CSS builds (`01ad3376`) the flat store still records `lws:contains` for
   an auxiliary at creation time, so every runtime-created resource (grant +
   `.acr`, access request + `.acr`, …) adds two entries to its container
   listing. Do not "fix" a count by doubling expectations — either filter
@@ -618,8 +619,9 @@ curl -s -u admin:sai -H 'Accept: application/sparql-results+json' \
   Send a concrete type (`AUXILIARY_DISCOVERY_ACCEPT`) — that is what
   `discoverAccessResource` / `discoverDescriptionResource` do. Nested
   containers (e.g. `…/grant/`) are unaffected and do return the aux links.
-- The latest local CSS is ahead of the fork remote; `fork-css`/CI will keep
-  using `01ad3376` until the branch is pushed.
+- The CSS fork branch is pushed and `package-lock.json` pins `99c208447`;
+  `devbox run fork-css` installs that commit. Re-run the lock update when the
+  fork branch advances.
 - The compose stack mounts the repo; a components change needs
   `npm run build --workspace @elfpavlik/sai-components` and a restart of the
   consuming service (`auth`, `data`, `registry`).

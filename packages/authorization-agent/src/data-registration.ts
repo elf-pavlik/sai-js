@@ -1,10 +1,5 @@
 import { type DataRegistrationData, dataModelContext } from '@janeirodigital/interop-data-model'
-import {
-  type WhatwgFetch,
-  createContainer,
-  postMember,
-  withContext,
-} from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, createResource, withContext } from '@janeirodigital/interop-utils'
 
 // ──────────────────────────
 // Write path: DataRegistrationData → container (container.create)
@@ -14,15 +9,11 @@ export async function createDataRegistration(
   data: DataRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  const doc = withContext(dataModelContext, data)
-  if (data.partOf) {
-    // Flat LWS storage: the registration is a pre-minted container member of
-    // the data registry. POST + the id's UUID as Slug creates it there (the
-    // store records `lws:contains` / `lws:partOf`) and patches its description.
-    await postMember(data.partOf, fetch, { id: data.id, body: doc }, { container: true })
-    return
+  if (!data.partOf) {
+    throw new Error(`data registration ${data.id} has no containing data registry (partOf)`)
   }
-  // Hierarchical/bootstrap storage: PUT the container and patch its
-  // description resource with `INSERT DATA`.
-  await createContainer(data.id, fetch, doc)
+  // The identifier strategy creates the container at its pre-minted id: POST
+  // to the data registry with the id's UUID as Slug, then patch the new
+  // container's description resource.
+  await createResource(data.partOf, data.id, { fetch }, true, withContext(dataModelContext, data))
 }

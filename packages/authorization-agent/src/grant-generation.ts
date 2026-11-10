@@ -15,7 +15,7 @@ const loadShapeTree = loader(ShapeTree.fromJsonLd)
 import {
   INTEROP,
   type WhatwgFetch,
-  registryMemberIri,
+  mintResource,
   loader,
   requireLwsStorageRoot,
 } from '@janeirodigital/interop-utils'
@@ -297,7 +297,7 @@ async function generateDelegatedDataGrants(
     }
 
     for (const sourceGrant of matchingDataGrants) {
-      const regularGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
+      const regularGrantIri = await mintResource(registrySet.hasGrantRegistry.id, deps)
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
         data,
@@ -355,7 +355,7 @@ async function generateChildSourceGrantData(
   const result: FinalGrantData[] = []
   const childAuthorizations = await inheritingAuthorizations(data, transport)
   for (const childAuthorization of childAuthorizations) {
-    const childGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
+    const childGrantIri = await mintResource(registrySet.hasGrantRegistry.id, deps)
     const dataRegistration = dataRegistrations.find(
       (registration) => registration.registeredShapeTree === childAuthorization.registeredShapeTree
     )
@@ -425,7 +425,7 @@ async function generateSourceDataGrants(
     if (!matchingRegistration) continue
 
     // create source grant
-    const regularGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
+    const regularGrantIri = await mintResource(registrySet.hasGrantRegistry.id, deps)
 
     // create children if needed
     const childGrantData: FinalGrantData[] = await generateChildSourceGrantData(

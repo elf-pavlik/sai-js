@@ -526,7 +526,11 @@ export const revokeAuthorizations = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   return { activityId: created.id, authorizations: [...refs.keys()] }
@@ -594,7 +598,11 @@ export const recordAuthorization = async (
       nested,
       ctx.webId,
       ctx.registrySet.hasAuthorizationRegistry,
-      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID }
+      {
+        fetch: ctx.session.fetch,
+        randomUUID: ctx.session.randomUUID,
+        identifierStrategies: ctx.session.identifierStrategies,
+      }
     )
     const activity: Omit<AuthorizationGranted, 'id'> = {
       type: ['Activity', 'AuthorizationGranted'],
@@ -611,7 +619,11 @@ export const recordAuthorization = async (
     }
     const created = await ActivityRegistry.createActivity(
       activityRegistry,
-      { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+      {
+        fetch: ctx.session.fetch,
+        randomUUID: ctx.session.randomUUID,
+        identifierStrategies: ctx.session.identifierStrategies,
+      },
       activity
     )
     // pending ack — the pre-minted DataAuthorization ids (pending handles) +
@@ -636,7 +648,11 @@ export const recordAuthorization = async (
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   return AuthorizationGrantedMessage.make({ ids: [], activityId: IRI.make(created.id) })
@@ -679,7 +695,11 @@ export async function archiveAccessRequest(
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   return AccessRequestArchivedMessage.make({

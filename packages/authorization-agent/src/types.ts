@@ -1,12 +1,13 @@
-import type { WhatwgFetch } from '@janeirodigital/interop-utils'
+import type { IdentifierStrategyResolver, WhatwgFetch } from '@janeirodigital/interop-utils'
 
 /**
  * Plain dependencies for data-model functions (replaces the factories):
- * functions that read/write pass `fetch`; writers that assign new resource
- * IRIs (via `iriForContained`) pass the full `DataModelDependencies`.
- * Moved here from the data-model package — nothing in data-model consumes it.
+ * functions that read/write pass `fetch`; writers that mint or create new
+ * resource identifiers pass the full `DataModelDependencies` (the resolver is
+ * optional so callers can share a storage-strategy cache).
  */
 export interface DataModelDependencies {
   fetch: WhatwgFetch
   randomUUID(): string
+  identifierStrategies?: IdentifierStrategyResolver
 }

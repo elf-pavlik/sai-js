@@ -33,12 +33,14 @@ const loadAdminAuthorization = loader(AdminAuthorization.fromJsonLd)
 import {
   INTEROP,
   type WhatwgFetch,
+  CachingIdentifierStrategyResolver,
+  type IdentifierStrategyResolver,
   addStatement,
+  createResource,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   getRegistrySetIri,
-  registryMemberIri,
-  postMember,
+  mintResource,
   containedIrisJsonLd,
   loader,
   replaceStatement,
@@ -214,8 +216,11 @@ async function readRoles(
 export class AuthorizationAgent {
   fetch: WhatwgFetch
 
-  /** UUID generator for new resource IRIs (iriForContained). */
+  /** UUID generator used by client-mintable identifier strategies. */
   randomUUID: () => string
+
+  /** Storage identifier strategies and their discovery cache (per session). */
+  identifierStrategies: IdentifierStrategyResolver
 
   /** Internal SPARQL endpoint (shared store) this session reads registry data from. */
   sparqlEndpoint: string
@@ -253,8 +258,38 @@ export class AuthorizationAgent {
     this.registrySetId = registrySetId
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
+    this.identifierStrategies = new CachingIdentifierStrategyResolver(this.fetch, this.randomUUID)
     this.sparqlEndpoint = dependencies.sparqlEndpoint
     this.sparqlEndpoints = dependencies.sparqlEndpoints ?? new Map()
+  }
+
+  /** Mint a new member identifier through the parent storage's strategy. */
+  public async mintIdentifier(parent: string, isContainer = false): Promise<string> {
+    return mintResource(
+      parent,
+      {
+        fetch: this.fetch,
+        randomUUID: this.randomUUID,
+        identifierStrategies: this.identifierStrategies,
+      },
+      isContainer
+    )
+  }
+
+  /** Create a resource at a pre-minted identifier through its storage strategy. */
+  public async createIdentifierResource(
+    parent: string,
+    identifier: string,
+    isContainer = false,
+    body?: unknown
+  ): Promise<string> {
+    return createResource(
+      parent,
+      identifier,
+      { fetch: this.fetch, identifierStrategies: this.identifierStrategies },
+      isContainer,
+      body
+    )
   }
 
   /**
@@ -445,7 +480,11 @@ export class AuthorizationAgent {
       authorization,
       this.webId,
       this.registrySet.hasAuthorizationRegistry,
-      { fetch: this.fetch, randomUUID: this.randomUUID },
+      {
+        fetch: this.fetch,
+        randomUUID: this.randomUUID,
+        identifierStrategies: this.identifierStrategies,
+      },
       extendIfExists,
       this.sparqlEndpoint
     )
@@ -628,7 +667,11 @@ export class AuthorizationAgent {
       dataAuthorizations,
       this.registrySet,
       grantee,
-      { fetch: this.fetch, randomUUID: this.randomUUID },
+      {
+        fetch: this.fetch,
+        randomUUID: this.randomUUID,
+        identifierStrategies: this.identifierStrategies,
+      },
       transport,
       dataPodEndpoints.size ? dataPodEndpoints : undefined
     )
@@ -639,9 +682,9 @@ export class AuthorizationAgent {
   // ──────────────────────────
 
   /**
-   * Record an AdminAuthorization in the given AuthorizationRegistry as a flat
-   * member (POST + Slug, like data authorizations). Defaults to the session's
-   * own authorization registry.
+   * Record an AdminAuthorization in the given AuthorizationRegistry through
+   * the storage identifier strategy. Defaults to the session's own
+   * authorization registry.
    */
   public async recordAdminAuthorization(
     adminAuthorization: Pick<
@@ -650,16 +693,18 @@ export class AuthorizationAgent {
     >,
     registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
   ): Promise<AdminAuthorizationData> {
-    const iri = registryMemberIri(registry.id, this.randomUUID())
+    const deps = {
+      fetch: this.fetch,
+      randomUUID: this.randomUUID,
+      identifierStrategies: this.identifierStrategies,
+    }
+    const iri = await mintResource(registry.id, deps)
     const data: AdminAuthorizationData = {
       id: iri,
       type: [INTEROP.AdminAuthorization],
       ...adminAuthorization,
     }
-    await postMember(registry.id, this.fetch, {
-      id: iri,
-      body: AdminAuthorization.toJsonLd(data),
-    })
+    await createResource(registry.id, iri, deps, false, AdminAuthorization.toJsonLd(data))
     return data
   }
 
@@ -946,7 +991,11 @@ export class AuthorizationAgent {
           authorization.dataAuthorizations ?? [],
           ownerWebId,
           registrySet.hasAuthorizationRegistry,
-          { fetch: this.fetch, randomUUID: this.randomUUID }
+          {
+            fetch: this.fetch,
+            randomUUID: this.randomUUID,
+            identifierStrategies: this.identifierStrategies,
+          }
         )
       })
     )

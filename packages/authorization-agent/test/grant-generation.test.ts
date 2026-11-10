@@ -1,5 +1,5 @@
 import type { DataAuthorizationData, RegistrySetData } from '@janeirodigital/interop-data-model'
-import { ACL, INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import { ACL, FlatIdentifierStrategy, INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -259,10 +259,19 @@ function deps(): { deps: DataModelDependencies; fetchStub: ReturnType<typeof vi.
   const fetchStub = vi.fn(() => {
     throw new Error('delegated-grant generation must not fetch (mirror-only)')
   })
+  const strategy = new FlatIdentifierStrategy('https://registry/acme/', () => 'minted')
   return {
     deps: {
       fetch: fetchStub as unknown as DataModelDependencies['fetch'],
       randomUUID: () => 'minted',
+      identifierStrategies: {
+        resolve: async (storageUrl: string) => ({
+          storageUrl,
+          storageRoot: 'https://registry/acme/',
+          strategy,
+        }),
+        forStorage: () => strategy,
+      },
     },
     fetchStub,
   }

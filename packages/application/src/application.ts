@@ -8,15 +8,15 @@ const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   ACL,
+  CachingIdentifierStrategyResolver,
+  type IdentifierStrategyResolver,
   type WhatwgFetch,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
   discoverDescriptionResource,
-  flatMemberIri,
-  iriForContained,
+  executeCreationPlan,
   loader,
-  postMember,
 } from '@janeirodigital/interop-utils'
 
 import { getDataGrants, getDataInstanceIterator, getGranted } from './grant.ts'
@@ -44,6 +44,8 @@ export class Application {
 
   randomUUID: () => string
 
+  identifierStrategies: IdentifierStrategyResolver
+
   authorizationAgentIri!: string
 
   authorizationRedirectEndpoint!: string
@@ -66,6 +68,7 @@ export class Application {
     this.applicationId = applicationId
     this.fetch = dependencies.fetch
     this.randomUUID = dependencies.randomUUID
+    this.identifierStrategies = new CachingIdentifierStrategyResolver(this.fetch, this.randomUUID)
   }
 
   private async bootstrap(): Promise<void> {
@@ -230,15 +233,14 @@ export class Application {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
     const registration = grant.hasDataRegistration
-    if (registration.endsWith('/')) {
-      // Hierarchical storage: the resource IRI is minted under the registration.
-      return iriForContained({ id: registration }, this.randomUUID)
-    }
-    // Flat LWS storage: mint at the storage root and POST that UUID as the Slug
-    // to the registration container. The POST creates the (empty) resource and
-    // the containment; the caller writes its representation afterwards.
-    const id = flatMemberIri(grant.hasStorage, this.randomUUID())
-    await postMember(registration, this.fetch, { id })
+    const { strategy } = await this.identifierStrategies.resolve(grant.hasStorage)
+    const id = strategy.mint({ parent: registration, isContainer: false })
+    // The creation plan creates the empty resource and the containment; the
+    // caller writes its representation afterwards.
+    await executeCreationPlan(
+      strategy.create({ parent: registration, identifier: id, isContainer: false }),
+      this.fetch
+    )
     return id
   }
 

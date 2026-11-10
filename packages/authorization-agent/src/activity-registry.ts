@@ -19,8 +19,8 @@ import {
   type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
-  postMember,
-  registryMemberIri,
+  createResource,
+  mintResource,
   containedIrisJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -36,9 +36,9 @@ export async function getActivityIris(
 }
 
 /**
- * Create an activity resource in the Activity Registry: a pre-minted flat IRI
- * (`{registryPodRoot}{uuid}`, see `registryMemberIri`) materialized with
- * POST + `Slug` so the store records containment on the activity registry.
+ * Create an activity resource in the Activity Registry: the storage identifier
+ * strategy mints the IRI, then materializes it with the strategy's creation
+ * plan so the store records containment on the activity registry.
  * The typed class tuple (`type: ['Activity', '<Class>', <as:*>]`) and the flat
  * plain-IRI/literal fields + the `as:object` forms serialize directly — no
  * `activityType`, no JSON-string `payload`.
@@ -48,9 +48,9 @@ export async function createActivity(
   deps: DataModelDependencies,
   activity: Omit<ActivityData, 'id'>
 ): Promise<ActivityData> {
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const doc = withContext(dataModelContext, { ...activity, id: iri })
-  await postMember(data.id, deps.fetch, { id: iri, body: doc })
+  await createResource(data.id, iri, deps, false, doc)
   return { ...activity, id: iri } as ActivityData
 }
 
@@ -521,14 +521,14 @@ export async function createCompletion(
   deps: DataModelDependencies,
   completedId: string
 ): Promise<void> {
-  const iri = registryMemberIri(data.id, deps.randomUUID())
+  const iri = await mintResource(data.id, deps)
   const doc = withContext(dataModelContext, {
     id: iri,
     type: ['Activity', 'ActivityCompleted'],
     target: completedId,
     createdAt: new Date().toISOString(),
   })
-  await postMember(data.id, deps.fetch, { id: iri, body: doc })
+  await createResource(data.id, iri, deps, false, doc)
 }
 
 /**

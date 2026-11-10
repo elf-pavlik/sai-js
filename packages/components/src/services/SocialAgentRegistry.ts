@@ -270,7 +270,11 @@ export async function acceptInvitation(
   }
   const created = await ActivityRegistry.createActivity(
     activityRegistry,
-    { fetch: ctx.session.fetch, randomUUID: ctx.session.randomUUID },
+    {
+      fetch: ctx.session.fetch,
+      randomUUID: ctx.session.randomUUID,
+      identifierStrategies: ctx.session.identifierStrategies,
+    },
     activity
   )
   // the activity id is the uniform UI claim anchor — the snapshot object

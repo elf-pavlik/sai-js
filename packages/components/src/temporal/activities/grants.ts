@@ -52,7 +52,6 @@ import {
   discoverDelegationIssuanceEndpoint,
   getAcl,
   loader,
-  postMember,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -323,11 +322,13 @@ export async function createRoleAtId(payload: {
   const session = await manager.getSession(payload.webId.id)
   const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
   if (existing) return
-  // flat member of the Role Registry (POST + Slug records the containment)
-  await postMember(session.registrySet.hasRoleRegistry.id, session.fetch, {
-    id: payload.role.id,
-    body: withContext(dataModelContext, payload.role),
-  })
+  // The storage identifier strategy creates the member and records containment.
+  await session.createIdentifierResource(
+    session.registrySet.hasRoleRegistry.id,
+    payload.role.id,
+    false,
+    withContext(dataModelContext, payload.role)
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -694,13 +695,15 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
-  // flat member of the data owner's GrantRegistry (POST + Slug). Find-first at
-  // the callee (`storeGrant` is retried by Temporal) — the store answers 409
-  // when the pre-minted id already exists.
-  await postMember(session.registrySet.hasGrantRegistry.id, session.fetch, {
-    id: payload.id,
-    body: toJsonLd(payload),
-  })
+  // The storage identifier strategy creates the member at its pre-minted id.
+  // Find-first at the callee (`storeGrant` is retried by Temporal) — a
+  // duplicate create is handled by the strategy's retry policy (TODO).
+  await session.createIdentifierResource(
+    session.registrySet.hasGrantRegistry.id,
+    payload.id,
+    false,
+    toJsonLd(payload)
+  )
 }
 
 /*
@@ -926,6 +929,7 @@ export async function storeAuthorizationGranted(
     {
       fetch: session.fetch,
       randomUUID: session.randomUUID,
+      identifierStrategies: session.identifierStrategies,
     }
   )
 }
@@ -1001,7 +1005,11 @@ export async function resolveAuthorizationGrantee(
     }
     await ensureApplicationRegistration(
       session.registrySet.hasApplicationRegistry,
-      { fetch: session.fetch, randomUUID: session.randomUUID },
+      {
+        fetch: session.fetch,
+        randomUUID: session.randomUUID,
+        identifierStrategies: session.identifierStrategies,
+      },
       { agent: payload.webId.id, client: session.agentId },
       granteeIri
     )
@@ -1086,7 +1094,11 @@ export async function markActivitiesDone(payload: MarkActivitiesDoneInput): Prom
   for (const activity of payload.activities) {
     await ActivityRegistry.createCompletion(
       registry,
-      { fetch: session.fetch, randomUUID: session.randomUUID },
+      {
+        fetch: session.fetch,
+        randomUUID: session.randomUUID,
+        identifierStrategies: session.identifierStrategies,
+      },
       activity.id
     )
   }

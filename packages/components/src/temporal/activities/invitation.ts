@@ -1,7 +1,6 @@
-import { putSocialAgentInvitation } from '@janeirodigital/interop-authorization-agent'
 import type { CreateInvitationPojo } from '@janeirodigital/interop-data-model'
-import { SocialAgentInvitation } from '@janeirodigital/interop-data-model'
-import { loader } from '@janeirodigital/interop-utils'
+import { SocialAgentInvitation, dataModelContext } from '@janeirodigital/interop-data-model'
+import { loader, postMember, withContext } from '@janeirodigital/interop-utils'
 const loadSocialAgentInvitation = loader(SocialAgentInvitation.fromJsonLd)
 
 import { buildSessionManager } from '../../builders/sessionManager.js'
@@ -30,11 +29,9 @@ export async function createSocialAgentInvitation(
   )
   if (existing) return
   const capabilityUrl = invitationUrl(webId)
-  await putSocialAgentInvitation(
-    {
-      ...invitation,
-      capabilityUrl,
-    },
-    session.fetch
-  )
+  // flat member of the Invitation Registry (POST + Slug records containment)
+  await postMember(session.registrySet.hasInvitationRegistry.id, session.fetch, {
+    id: invitation.id,
+    body: withContext(dataModelContext, { ...invitation, capabilityUrl }),
+  })
 }

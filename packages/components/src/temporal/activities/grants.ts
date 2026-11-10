@@ -50,9 +50,9 @@ import {
   INTEROP,
   discoverAuthorizationAgent,
   discoverDelegationIssuanceEndpoint,
-  expandedJsonLd,
   getAcl,
   loader,
+  postMember,
   putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -323,10 +323,10 @@ export async function createRoleAtId(payload: {
   const session = await manager.getSession(payload.webId.id)
   const existing = await loadRole(payload.role.id, session.fetch).catch((): undefined => undefined)
   if (existing) return
-  // the shared context carries the `label` language-map container so the map
-  // expands to proper literals on the wire
-  await putJsonLd(payload.role.id, session.fetch, withContext(dataModelContext, payload.role), {
-    'If-None-Match': '*',
+  // flat member of the Role Registry (POST + Slug records the containment)
+  await postMember(session.registrySet.hasRoleRegistry.id, session.fetch, {
+    id: payload.role.id,
+    body: withContext(dataModelContext, payload.role),
   })
 }
 
@@ -694,16 +694,13 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
-  const body = JSON.stringify(await expandedJsonLd(toJsonLd(payload)))
-  const response = await session.fetch(payload.id, {
-    method: 'PUT',
-    body,
-    headers: {
-      'Content-Type': 'application/ld+json',
-      'If-None-Match': '*',
-    },
+  // flat member of the data owner's GrantRegistry (POST + Slug). Find-first at
+  // the callee (`storeGrant` is retried by Temporal) — the store answers 409
+  // when the pre-minted id already exists.
+  await postMember(session.registrySet.hasGrantRegistry.id, session.fetch, {
+    id: payload.id,
+    body: toJsonLd(payload),
   })
-  if (!response.ok) throw new Error(`failed to store grant: ${response.status}`)
 }
 
 /*
@@ -923,10 +920,14 @@ export async function storeAuthorizationGranted(
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  await storeDataAuthorizations(payload.dataAuthorizations, {
-    fetch: session.fetch,
-    randomUUID: session.randomUUID,
-  })
+  await storeDataAuthorizations(
+    payload.dataAuthorizations,
+    session.registrySet.hasAuthorizationRegistry,
+    {
+      fetch: session.fetch,
+      randomUUID: session.randomUUID,
+    }
+  )
 }
 
 export interface AuthorizationGrantedObjectInput {

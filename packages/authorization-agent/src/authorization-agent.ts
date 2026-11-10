@@ -37,10 +37,10 @@ import {
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   getRegistrySetIri,
-  iriForContained,
+  registryMemberIri,
+  postMember,
   containedIrisJsonLd,
   loader,
-  putJsonLd,
   replaceStatement,
   withContext,
 } from '@janeirodigital/interop-utils'
@@ -61,7 +61,12 @@ import {
 import { loadDataInstance } from './data-instance.ts'
 import { invalidGrantsAfterRemoval } from './grant-chain.ts'
 import { generateGrantsForAuthorization } from './grant-generation.ts'
-import { RevocationError, grantRegistryOf, normalizeRegistryIri } from './revocation.ts'
+import {
+  RevocationError,
+  grantBelongsToRegistry,
+  grantRegistryOf,
+  normalizeRegistryIri,
+} from './revocation.ts'
 import {
   findApplicationRegistration as findApplicationRegistrationFromSparql,
   findAuthorizationsForGrantee,
@@ -134,23 +139,27 @@ export async function revokeGrantsClosure(
   grants: string[],
   requesterWebId?: string
 ): Promise<RevokedGrant[]> {
-  // B2: group by the requested set, before loading anything. A grant whose
-  // container differs from the target registry cannot be revoked here — it
-  // belongs to another data owner (a backlog/UI bug, never a partial apply).
-  const requestedRegistries = new Set(grants.map(grantRegistryOf))
-  if (requestedRegistries.size > 1) {
-    throw new RevocationError(
-      'mixed-owner',
-      grants,
-      'all grants must belong to the same data owner registry'
-    )
-  }
-  const target = normalizeRegistryIri(grantRegistryIri)
-  const [requestedRegistry] = requestedRegistries
-  if (requestedRegistry && normalizeRegistryIri(requestedRegistry) !== target) {
+  // B2: group by the requested set, before loading anything. A grant that does
+  // not group under the target registry (nor under its storage root, where
+  // flat members group) cannot be revoked here — it belongs to another data
+  // owner (a backlog/UI bug, never a partial apply). Path-based grant IRIs
+  // group by their registry container, flat ones by the registry pod root, so
+  // a search must not mix the two forms and call it a mixed-owner request.
+  const foreign = grants.filter((grant) => !grantBelongsToRegistry(grant, grantRegistryIri))
+  if (foreign.length > 0) {
+    const mixed =
+      foreign.length < grants.length ||
+      new Set(foreign.map((grant) => normalizeRegistryIri(grantRegistryOf(grant)))).size > 1
+    if (mixed) {
+      throw new RevocationError(
+        'mixed-owner',
+        grants,
+        'all grants must belong to the same data owner registry'
+      )
+    }
     throw new RevocationError(
       'wrong-data-owner',
-      grants,
+      foreign,
       `grants do not belong to the targeted grant registry ${grantRegistryIri}`
     )
   }
@@ -654,9 +663,9 @@ export class AuthorizationAgent {
   // ──────────────────────────
 
   /**
-   * Record an AdminAuthorization in the given AuthorizationRegistry — PUT via
-   * iriForContained (containment is server-managed, matching data
-   * authorizations). Defaults to the session's own authorization registry.
+   * Record an AdminAuthorization in the given AuthorizationRegistry as a flat
+   * member (POST + Slug, like data authorizations). Defaults to the session's
+   * own authorization registry.
    */
   public async recordAdminAuthorization(
     adminAuthorization: Pick<
@@ -665,13 +674,16 @@ export class AuthorizationAgent {
     >,
     registry: AuthorizationRegistryData = this.registrySet.hasAuthorizationRegistry
   ): Promise<AdminAuthorizationData> {
-    const iri = iriForContained(registry, this.randomUUID)
+    const iri = registryMemberIri(registry.id, this.randomUUID())
     const data: AdminAuthorizationData = {
       id: iri,
       type: [INTEROP.AdminAuthorization],
       ...adminAuthorization,
     }
-    await putJsonLd(iri, this.fetch, AdminAuthorization.toJsonLd(data), { 'If-None-Match': '*' })
+    await postMember(registry.id, this.fetch, {
+      id: iri,
+      body: AdminAuthorization.toJsonLd(data),
+    })
     return data
   }
 

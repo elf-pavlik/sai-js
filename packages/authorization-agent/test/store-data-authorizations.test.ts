@@ -25,8 +25,8 @@ import { expect as saiExpect } from './expect'
 // and the readers query the forward direction as the reliable source.
 // ──────────────────────────
 
-const PARENT = 'https://registry/bob/authorization/parent'
-const CHILD = 'https://registry/bob/authorization/child'
+const PARENT = 'https://auth.alice.example/00000000-0000-4000-8000-000000000001'
+const CHILD = 'https://auth.alice.example/00000000-0000-4000-8000-000000000002'
 const GRANTEE = 'https://id/alice'
 const GRANTED_BY = 'https://id/bob'
 
@@ -57,13 +57,19 @@ const dataAuthorizations = [
   },
 ]
 
+const AUTHORIZATION_REGISTRY = 'https://auth.alice.example/authorization-registry/'
+
 describe('storeDataAuthorizations — re-links the parent from the child forward link', () => {
   test('stored parent carries the reverse quad even when the input dropped it', async () => {
     const fetch = createStatefulFetch()
-    await storeDataAuthorizations(dataAuthorizations as never, {
-      fetch,
-      randomUUID: () => '00000000-0000-0000-0000-000000000000',
-    })
+    await storeDataAuthorizations(
+      dataAuthorizations as never,
+      { id: AUTHORIZATION_REGISTRY },
+      {
+        fetch,
+        randomUUID: () => '00000000-0000-0000-0000-000000000000',
+      }
+    )
     // the parent's stored graph must contain the child→parent quad
     // (`@reverse` serializes the inverse triple into the parent's PUT body)
     const store = await toStore(await fetchJsonLd(PARENT, fetch), PARENT)

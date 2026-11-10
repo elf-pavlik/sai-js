@@ -8,6 +8,7 @@ import {
   SocialAgentRegistration,
   type SocialAgentRegistrationData,
   type SocialAgentRegistryData,
+  dataModelContext,
 } from '@janeirodigital/interop-data-model'
 const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
 const loadSocialAgentInvitation = loader(SocialAgentInvitation.fromJsonLd)
@@ -18,15 +19,16 @@ import {
   INTEROP,
   type WhatwgFetch,
   discoverAuthorizationAgent,
-  iriForContained,
+  postMember,
+  registryMemberIri,
   containedIrisJsonLd,
   loader,
+  withContext,
 } from '@janeirodigital/interop-utils'
 import type { LanguageMap } from '@janeirodigital/interop-utils'
 
 import { setAcr } from './agent-registration.ts'
 import { createApplicationRegistration } from './application-registration.ts'
-import { putSocialAgentInvitation } from './social-agent-invitation.ts'
 import { createSocialAgentRegistration } from './social-agent-registration.ts'
 import type { DataModelDependencies } from './types.ts'
 
@@ -134,7 +136,7 @@ export async function addApplicationRegistration(
   if (existing) {
     throw new Error(`Application Registration for ${registeredAgent} already exists`)
   }
-  const iri = iriForContained(data, deps.randomUUID, true)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const registration: ApplicationRegistrationData = {
     id: iri,
     type: [INTEROP.ApplicationRegistration],
@@ -142,7 +144,7 @@ export async function addApplicationRegistration(
     hasDataGrant: [],
     granted: false,
   }
-  await createApplicationRegistration(registration, deps.fetch)
+  await createApplicationRegistration(data, registration, deps.fetch)
   // containment is server-managed — no container PATCH needed
   await setAcr(registration, deps.fetch, creator, {
     agent: creator.agent,
@@ -163,7 +165,7 @@ export async function addSocialAgentRegistration(
   if (existing) {
     throw new Error(`Social Agent Registration for ${registeredAgent} already exists`)
   }
-  const iri = iriForContained(data, deps.randomUUID, true)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const registration: SocialAgentRegistrationData = {
     id: iri,
     type: [INTEROP.SocialAgentRegistration],
@@ -173,7 +175,7 @@ export async function addSocialAgentRegistration(
     hasDataGrant: [],
     hasAdminGrant: [],
   }
-  await createSocialAgentRegistration(registration, deps.fetch)
+  await createSocialAgentRegistration(data, registration, deps.fetch)
   // containment is server-managed — no container PATCH needed
   const peerUas = await discoverAuthorizationAgent(registeredAgent, deps.fetch)
   if (!peerUas) throw new Error(`cannot discover authorization agent for ${registeredAgent}`)
@@ -195,7 +197,7 @@ export async function addSocialAgentInvitation(
   if (existing) {
     throw new Error(`Social Agent Invitation with ${capabilityUrl} already exists`)
   }
-  const iri = iriForContained(data, deps.randomUUID)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const invitation: SocialAgentInvitationData = {
     id: iri,
     type: [INTEROP.SocialAgentInvitation],
@@ -204,7 +206,10 @@ export async function addSocialAgentInvitation(
     label: { '@none': label },
     note,
   }
-  await putSocialAgentInvitation(invitation, deps.fetch)
+  await postMember(data.id, deps.fetch, {
+    id: iri,
+    body: withContext(dataModelContext, invitation),
+  })
   // containment is server-managed — no container PATCH needed
   return invitation
 }

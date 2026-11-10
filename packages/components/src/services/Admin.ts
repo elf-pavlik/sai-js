@@ -3,7 +3,7 @@ import type {
   AdminAuthorizationGranted,
   AdminAuthorizationRevoked,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
 import {
   AdminAuthorizationGrantedMessage,
   AdminAuthorizationRevokedMessage,
@@ -37,7 +37,7 @@ export const addAdmin = async (
 
   // pre-mint the AdminAuthorization id — the workflow PUTs the resource there
   // (the same minting the AA's recordAdminAuthorization would do)
-  const authorizationId = iriForContained(authorizationRegistry, ctx.session.randomUUID)
+  const authorizationId = registryMemberIri(authorizationRegistry.id, ctx.session.randomUUID())
 
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')

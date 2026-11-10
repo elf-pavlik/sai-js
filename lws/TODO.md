@@ -62,36 +62,46 @@ Solid-OIDC DPoP (it is the IdP/UAS).
       with `createLwsFetch({ tokenSource })`.
 - [x] Temporary dual-auth fallback not needed.
 
-## 2. Registry creation: current choice vs fully flat
+## 2. Registry creation: flat UUID members (done)
 
 The registry **config** is flat (`HonorUuidSlugDataAccessorBasedStore` over the
 routed SPARQL accessor) and the access layer uses `lws:contains`. The registry
 **set** and dedicated registries are bootstrap structure with path-based IRIs;
-their **members** are still created by `iriForContained` + PUT (path-based
-member IRIs) — this is the “reuse the old code” choice. The flat store writes
-`lws:contains` to the path parent, so listings work; new PUT members do not get
-`lws:partOf` (the path fallback is used for up/deletion).
+their **members** are flat UUIDs. Every member is pre-minted at
+`{registryPodRoot}{uuid}` (`registryMemberIri`) and created with
+`postMember` — POST to the registry container with that UUID as `Slug`, which
+the fork's `HonorUuidSlugDataAccessorBasedStore` honors — so the store records
+`lws:contains` on the registry and `lws:partOf` on the member. `postMember`
+throws when the allocated `Location` differs from the pre-minted IRI, so a
+different pod layout fails loudly instead of writing to an unexpected URI.
 
-- [ ] Decide: keep the path-based registry member IRIs (current) or switch to
-      flat UUIDs. If fully flat, replace the registry
-      `iriForContained` + `putJsonLd` pairs with the `postForIri` / POST+Slug
-      helper used for data instances
-      (`packages/utils/src/container.ts`).
+- [x] Flat UUIDs for registry members with the honored `Slug` header
+      (`packages/utils/src/container.ts`: `registryMemberIri`, `postMember`).
+      Migrated: activities and completions, data authorizations, grants,
+      roles, invitations, social-agent/application registrations (containers:
+      POST + `lws:Container` link, then the description PATCH), admin
+      authorizations and admin grants, access requests. Pre-minted ids ride
+      the activities unchanged — the existing activity-first flows needed no
+      redesign, only the minting helper and the create calls. - `putJsonLd`/`createContainer` remain for _updates_ and for the
+      hierarchical bootstrap resources (fixture, data registrations). - The fork's `LinkedWebStorageFlatSlug` integration test pins the
+      semantics this relies on: slug → `{storageRoot}{uuid}` (never nested,
+      no trailing slash, also for containers), body stored for documents,
+      409 on a duplicate slug, 400 for a non-UUID slug.
 - [ ] `createDataRegistration`
       (`packages/authorization-agent/src/data-registration.ts`) is still
-      PUT/description-PATCH based and has no callers. Flat path: POST +
-      `Link: <https://www.w3.org/ns/lws#Container>; rel="type"` to the pod
-      root, then write `registeredShapeTree` to `meta:<registration>` (direct
-      SPARQL update), or add a CSS extension for container metadata.
+      PUT/description-PATCH based and has no callers. It is now a one-liner
+      over `postMember(… { container: true })` — either rewrite it that way or
+      delete it (the data registrations the app creates go through
+      `Application.iriForNew`, which already POSTs a UUID slug).
 - [x] `createContainer` for social-agent/application registrations verified
       against the flat store: PUT the empty container, discover the `.meta`
       description (registry config has the ACR/`.meta` auxiliary), PATCH the
       description; `.acr` writes now convert to quads (see §3). Live test:
       `AgentRegistry.addSocialAgentRegistration`.
-- [ ] Data instances created by POST are **empty** resources (the body is not
-      the data representation); callers must PUT the data afterwards. This is
-      what `Application.iriForNew` + the LDO write do; document it in
-      `postForIri`.
+- [ ] Data instances created by `postForIri` are **empty** resources (it POSTs
+      an empty JSON-LD body by design, unlike `postMember` which sends the
+      representation); callers must PUT the data afterwards. This is what
+      `Application.iriForNew` + the LDO write do; document it in `postForIri`.
 
 ## 3. LWS-only representations and writes
 
@@ -157,15 +167,16 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
 - [x] `rel="https://www.w3.org/ns/lws#storage"` → `application/lws+cid`
       storage description → `StorageRoot` service
       (`discoverLwsStorage`, `fetchLwsStorageDescription`, `lwsStorageRoot`).
-- [x] `storageIri` prefers LWS and keeps a Solid fallback for the auth/registry
-      servers that do not advertise it.
 - [x] Data/registry LWS configs advertise `rel="storage"` and serve the
       storage description (verified with curl).
-- [ ] Remove the Solid fallback once the auth service also advertises the LWS
-      storage link (or keep it for auth-only resources).
-- [ ] Use `lwsStorageRoot` wherever the app needs a storage root (search
-      `storageIri` callers); the registry/data labels now resolve through the
-      LWS description.
+- [x] `storageIri` (and its Solid `space:Storage` fallback) is gone.
+      `requireLwsStorageRoot(iri, fetch)` throws when a resource does not
+      advertise the LWS storage link; every caller uses it — the grant
+      `hasStorage` (`grant-generation`) and the data-registry label
+      (`services/DataRegistry.ts`, which falls back to the registry IRI for
+      the label only). The auth server is an authorization server, not an LWS
+      storage, so nothing needs the Solid fallback: no caller resolves a
+      storage root for an auth-only resource.
 
 ## 6. Authorization / permissions
 
@@ -187,26 +198,21 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       `authorization-agent/src/authorization.ts`, per
       `docs/plans/architecture.md` step 3); components keeps thin wrappers
       (`agentsWithAccessMatching`, `whoHasAccessMatching`) over the registry
-      read.
-      - `AllFromRole` covers a resource only when the context owner is a
-        member of the authorization's `dataOwner` role (the set
-        `generateDataGrants` iterates) — no throw, and an unlisted (peer) role
-        can not be confirmed either.
-      - `Inherited` resolves its parent `inheritsFromAuthorization` inside the
-        same registry snapshot (cycle-safe) instead of throwing. This was
-        reachable: alice's seeded Task authorization is `Inherited`.
-      - The bearer split is by **grantee type**, not scope: a role grantee (of
-        any scope) is reported with its members expanded. `GetResource` now
-        returns `accessGrantedTo` (direct agents) plus `accessGrantedViaRoles`
-        (`api-messages` `RoleWithAccess`: role, label, members), so an agent
-        granted directly AND through a role is visible in both.
-      - Share dedupe counts role members too (`agentsWithAccessTo`), so
-        re-sharing with a role-covered agent no longer duplicates the grant.
-      - UI (`ui/authorization` `ShareResource.vue`): separate “Peers with
-        access” and “Roles with access” sections, the role row expands to its
-        members, a peer also covered by a role carries a `via <role>` chip and
-        a member that is also directly granted carries a `direct` chip; role
-        members are not offered as new grantees.
+      read. - `AllFromRole` covers a resource only when the context owner is a
+      member of the authorization's `dataOwner` role (the set
+      `generateDataGrants` iterates) — no throw, and an unlisted (peer) role
+      can not be confirmed either. - `Inherited` resolves its parent `inheritsFromAuthorization` inside the
+      same registry snapshot (cycle-safe) instead of throwing. This was
+      reachable: alice's seeded Task authorization is `Inherited`. - The bearer split is by **grantee type**, not scope: a role grantee (of
+      any scope) is reported with its members expanded. `GetResource` now
+      returns `accessGrantedTo` (direct agents) plus `accessGrantedViaRoles`
+      (`api-messages` `RoleWithAccess`: role, label, members), so an agent
+      granted directly AND through a role is visible in both. - Share dedupe counts role members too (`agentsWithAccessTo`), so
+      re-sharing with a role-covered agent no longer duplicates the grant. - UI (`ui/authorization` `ShareResource.vue`): separate “Peers with
+      access” and “Roles with access” sections, the role row expands to its
+      members, a peer also covered by a role carries a `via <role>` chip and
+      a member that is also directly granted carries a `direct` chip; role
+      members are not offered as new grantees.
 - [ ] Org-context writes: `buildShareDataAuthorizations` calls
       `session.loadDataInstance(resource)`/`findDataRegistration` with the
       signed-in user's session, which does not know the org's data-pod
@@ -218,6 +224,18 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       and the handlers authorize the decoded topic (the reciprocal-webhook
       streaming test is the live proof). The UI bundle still needs a rebuild
       (§8) for the compose stack.
+- [x] Revocation is containment-agnostic. The delegation endpoint used to
+      derive the grant registry from the first grant IRI
+      (`grants[0].replace(/[^/]*$/, '')`), which flat members break (their IRI
+      sits under the registry pod root). `GrantRevocationHandler` now loads the
+      requested grants, takes the `dataOwner` from them and calls that owner
+      session's `revokeGrants` (which knows `hasGrantRegistry`); an
+      already-removed grant yields an empty load → idempotent echo.
+      `revokeGrantsClosure` groups a requested grant under the target registry
+      OR its storage root (`grantBelongsToRegistry`), so a path-based grant and
+      a flat one from the same owner no longer look like a mixed-owner request,
+      while a genuinely foreign grant still fails as `wrong-data-owner` (single)
+      or `mixed-owner` (mixed with allowed ones / several foreign groups).
 - [ ] Reduce the per-check SPARQL queries (`determineTargetType` + parent +
       grandparent + registration). Combine into one `SELECT ?type ?parent`
       and pass the registration ID through `findRegistrationModes` /
@@ -242,6 +260,13 @@ member IRIs) — this is the “reuse the old code” choice. The flat store wri
       (the new direct grantee alongside the seeded role-granted authorization).
       Both green in `dagger call test`, as is `org-context.test.ts`'s
       `accessGrantedViaRoles` assertion.
+- [x] Live checks for the flat-member migration (§2) and the storage-root
+      cleanup (§5): `roles`, `share`, `org-context`, `invitation`,
+      `access-request`, `delegation-endpoint`, `personal-admin`, `admin-events`,
+      `check-equivalence`, `reconciliation`, `agent-discovery`, `authorization`,
+      `authorizations`, `agents` — all green per file and in the 10-file group
+      run. The full-suite run on this machine still flakes on the registry-401
+      cold start (§ “Open”), not on any of these assertions.
 - [x] New unit tests: `packages/utils/test/lws-auth.test.ts` (challenge
       parsing, AS discovery, exchange + DPoP proof, cache/retry/tokenSource).
 - [x] New live checks: `packages/components/test/lws-live.test.ts` (skipped
@@ -345,12 +370,18 @@ client-side session bootstraps (`AuthorizationAgent.build` → `bootstrap`), not
 a single request. It is **not** the read-side rule: the same run with those
 changes stashed and `packages/components/dist` rebuilt from `HEAD` fails 8/8
 identically, and `access-request.test.ts`, `share.test.ts`,
-`org-context.test.ts` pass on the same engine. **Resolved:** after rebuilding
-the workspace the file passes (9/9) — the 401 was a stale container-side build
-artifact, not code, so no probe of `createLwsFetch` is needed. Rebuild
-(`npm run build`, or at least `npm run build --workspace
-@elfpavlik/sai-components`) before a dagger run when sources changed; a stale
-`dist` shows up as these bootstrap 401s rather than as an import error.
+`org-context.test.ts` pass on the same engine. **Two separate causes.** (a) A stale
+container-side `dist` shows up as these bootstrap 401s rather than as an import
+error: rebuild (`npm run build`, or at least `npm run build --workspace
+@elfpavlik/sai-components`) before a dagger run when sources changed — that is
+what turned `roles.test.ts` green. (b) A **multi-file run on the same stack**
+still storms: `18/22` files fail with the same registry 401s while every one of
+them passes **alone** (`roles` 9/9, `delegation-endpoint` 14/14, `invitation`
+3/3, `share` 1/1, `org-context` 15/15) and a 10-file group passed (40/40). That
+storm reproduces on the baseline tree too (8/8 `roles` failures with the
+change stashed), so it is the stack/session plane, not the assertions: probe
+the concurrent client bootstraps (token cache/in-flight dedupe in
+`createLwsFetch`, or the registry ACR on a cold stack) when it matters.
 
 ### Resolved: `.sai/sparql-admin` DPoP verification (org-context)
 

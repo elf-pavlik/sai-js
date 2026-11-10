@@ -19,8 +19,8 @@ import {
   INTEROP,
   type LanguageMap,
   type WhatwgFetch,
-  iriForContained,
-  putJsonLd,
+  postMember,
+  registryMemberIri,
 } from '@janeirodigital/interop-utils'
 
 import {
@@ -319,11 +319,14 @@ export async function generateDataAuthorizations(
 
   const result: FinalDataAuthorizationData[] = []
   for (const dataAuthorization of validDataAuthorizations) {
-    const dataAuthorizationIri = iriForContained(authorizationRegistry, deps.randomUUID)
+    const dataAuthorizationIri = registryMemberIri(authorizationRegistry.id, deps.randomUUID())
     const children: FinalDataAuthorizationData[] = []
     if (dataAuthorization.children) {
       for (const childDataAuthorization of dataAuthorization.children) {
-        const childDataAuthorizationIri = iriForContained(authorizationRegistry, deps.randomUUID)
+        const childDataAuthorizationIri = registryMemberIri(
+          authorizationRegistry.id,
+          deps.randomUUID()
+        )
         children.push({
           ...childDataAuthorization,
           id: childDataAuthorizationIri,
@@ -391,12 +394,13 @@ export async function replaceDataAuthorizationsForGrantee(
 /**
  * Store pre-built DataAuthorization resources at their embedded ids
  * (activity-first granting, authorization-granting.md Step 2) — find-first
- * idempotent (a retry/reconcile re-run sees the resource and skips).
- * Containment is server-managed (ldp:contains) so a PUT into the registry
- * container links the members.
+ * idempotent (a retry/reconcile re-run sees the resource and skips). Each
+ * member is created as a flat registry member (POST + Slug to the
+ * Authorization Registry), so containment and `lws:partOf` are recorded.
  */
 export async function storeDataAuthorizations(
   dataAuthorizations: FinalDataAuthorizationData[],
+  authorizationRegistry: AuthorizationRegistryData,
   deps: DataModelDependencies
 ): Promise<void> {
   // Re-link children to parents BEFORE storage (the activity-first write
@@ -422,12 +426,10 @@ export async function storeDataAuthorizations(
   for (const dataAuthorization of dataAuthorizations) {
     const existing = await deps.fetch(dataAuthorization.id, { method: 'HEAD' })
     if (existing.status === 200) continue
-    await putJsonLd(
-      dataAuthorization.id,
-      deps.fetch,
-      DataAuthorization.toJsonLd(dataAuthorization),
-      { 'If-None-Match': '*' }
-    )
+    await postMember(authorizationRegistry.id, deps.fetch, {
+      id: dataAuthorization.id,
+      body: DataAuthorization.toJsonLd(dataAuthorization),
+    })
   }
 }
 
@@ -504,14 +506,13 @@ export async function generateAuthorization(
       deps
     )
 
-    // store data authorizations — raw JSON-LD PUT (expanded form, see putJsonLd)
+    // store data authorizations as flat registry members: POST + Slug to the
+    // Authorization Registry (the id is pre-minted at the registry pod root)
     for (const dataAuthorization of dataAuthorizations) {
-      await putJsonLd(
-        dataAuthorization.id,
-        deps.fetch,
-        DataAuthorization.toJsonLd(dataAuthorization),
-        { 'If-None-Match': '*' }
-      )
+      await postMember(authorizationRegistry.id, deps.fetch, {
+        id: dataAuthorization.id,
+        body: DataAuthorization.toJsonLd(dataAuthorization),
+      })
     }
 
     // delete the grantee's existing data authorization resources which are not reused

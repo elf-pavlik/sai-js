@@ -19,9 +19,9 @@ import {
   type WhatwgFetch,
   fetchJsonLd,
   frameDoc,
-  iriForContained,
+  postMember,
+  registryMemberIri,
   containedIrisJsonLd,
-  putJsonLd,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -36,21 +36,21 @@ export async function getActivityIris(
 }
 
 /**
- * PUT a new activity resource into the Activity Registry — same pattern as
- * grants and data authorizations: `iriForContained` + PUT with
- * `If-None-Match: *` (expanded JSON-LD). The typed class tuple
- * (`type: ['Activity', '<Class>', <as:*>]`) and the flat plain-IRI/literal
- * fields + the `as:object` forms serialize directly — no `activityType`,
- * no JSON-string `payload`.
+ * Create an activity resource in the Activity Registry: a pre-minted flat IRI
+ * (`{registryPodRoot}{uuid}`, see `registryMemberIri`) materialized with
+ * POST + `Slug` so the store records containment on the activity registry.
+ * The typed class tuple (`type: ['Activity', '<Class>', <as:*>]`) and the flat
+ * plain-IRI/literal fields + the `as:object` forms serialize directly — no
+ * `activityType`, no JSON-string `payload`.
  */
 export async function createActivity(
   data: ActivityRegistryData,
   deps: DataModelDependencies,
   activity: Omit<ActivityData, 'id'>
 ): Promise<ActivityData> {
-  const iri = iriForContained(data, deps.randomUUID)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const doc = withContext(dataModelContext, { ...activity, id: iri })
-  await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
+  await postMember(data.id, deps.fetch, { id: iri, body: doc })
   return { ...activity, id: iri } as ActivityData
 }
 
@@ -510,7 +510,7 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
 }
 
 /**
- * Record the completion of an activity: PUT a minimal `activityCompleted`
+ * Record the completion of an activity: create a minimal `activityCompleted`
  * activity whose `target` is the completed activity's IRI. Activity resources
  * are never mutated — 'done' is represented by the existence of a completion,
  * not by a status change. Uses a random IRI like any other activity; duplicate
@@ -521,14 +521,14 @@ export async function createCompletion(
   deps: DataModelDependencies,
   completedId: string
 ): Promise<void> {
-  const iri = iriForContained(data, deps.randomUUID)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const doc = withContext(dataModelContext, {
     id: iri,
     type: ['Activity', 'ActivityCompleted'],
     target: completedId,
     createdAt: new Date().toISOString(),
   })
-  await putJsonLd(iri, deps.fetch, doc, { 'If-None-Match': '*' })
+  await postMember(data.id, deps.fetch, { id: iri, body: doc })
 }
 
 /**

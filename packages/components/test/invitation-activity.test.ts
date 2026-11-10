@@ -37,14 +37,22 @@ interface PutRecord {
 
 /**
  * A fake session: its fetch serves the invitation registry listing (used by
- * loadSocialAgentInvitation's read path) and records PUTs. `registeredInvites`
- * lets a test pre-seed an existing invitation (the idempotency case) — the
- * read fetches the resource doc for a listed id, so the fake returns the doc
- * directly when the URL matches a registered invitation.
+ * loadSocialAgentInvitation's read path) and records the create call (a flat
+ * member POST + Slug to the registry, which the store answers with the
+ * pre-minted `Location`). `registeredInvites` lets a test pre-seed an existing
+ * invitation (the idempotency case) — the read fetches the resource doc for a
+ * listed id, so the fake returns the doc directly when the URL matches a
+ * registered invitation.
  */
 function makeSession(registeredInvitations: string[] = []) {
   const puts: PutRecord[] = []
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      // the mock store honors the Slug under the registry pod root and
+      // answers with the pre-minted member IRI
+      puts.push({ url, body: JSON.parse(String(init.body)) })
+      return new Response(null, { status: 201, headers: { Location: INVITATION_ID } })
+    }
     if (init?.method === 'PUT') {
       puts.push({ url, body: JSON.parse(String(init.body)) })
       return new Response(null, { status: 201 })
@@ -97,7 +105,7 @@ function labelOf(put: PutRecord): string {
 // ──────────────────────────
 
 describe('createSocialAgentInvitation (activity-first step 1)', () => {
-  test('PUTs the invitation at the pre-minted id with a generated capabilityUrl', async () => {
+  test('creates the invitation as a flat registry member with a generated capabilityUrl', async () => {
     const { session, puts } = makeSession()
     sessionMock.setSession(session)
     await createSocialAgentInvitation(OWNER, {
@@ -109,7 +117,8 @@ describe('createSocialAgentInvitation (activity-first step 1)', () => {
 
     expect(puts).toHaveLength(1)
     const put = puts[0] as PutRecord
-    expect(put.url).toBe(INVITATION_ID)
+    // POSTed to the Invitation Registry (the container, not the member IRI)
+    expect(put.url).toBe(INVITATION_REGISTRY)
     // the id, the class + the flat fields ride the expanded wire form —
     // `type` expands to @type (context: type → @type)
     expect(put.body[0]['@id']).toBe(INVITATION_ID)

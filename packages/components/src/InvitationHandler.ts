@@ -1,6 +1,6 @@
 import { ActivityRegistry, setRegisteredAgent } from '@janeirodigital/interop-authorization-agent'
 import type { AgentRegistrationAdded } from '@janeirodigital/interop-data-model'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   ForbiddenHttpError,
@@ -47,7 +47,7 @@ export class InvitationHandler extends OperationHttpHandler {
 
     // mint-in-service (the InvitationCreated form): pre-mint the registration
     // id and write the agentRegistrationAdded activity — the
-    // establishReciprocal workflow PUTs the registration at the minted id
+    // establishReciprocal workflow creates the registration at the minted id
     // (real-id embedded projection: no target, object.id is the changed
     // record, `registeredAgent` — the peer — rides inside) and discovers the
     // reciprocal. The activity is written only when the registration does not
@@ -55,12 +55,12 @@ export class InvitationHandler extends OperationHttpHandler {
     // a no-op — find-first).
     const existing = await sai.findSocialAgentRegistration(invitedId)
     if (!existing) {
-      const registrationId = iriForContained(
-        sai.registrySet.hasSocialAgentRegistry,
-        sai.randomUUID,
-        // registrations are containers — same container-id form
-        // addSocialAgentRegistration mints internally (iriForContained …, true)
-        true
+      // registrations are flat containers: no trailing slash (see
+      // `registryMemberIri`), the same id form `addSocialAgentRegistration`
+      // mints internally
+      const registrationId = registryMemberIri(
+        sai.registrySet.hasSocialAgentRegistry.id,
+        sai.randomUUID()
       )
       const activityRegistry = sai.registrySet.hasActivityRegistry
       if (!activityRegistry) throw new Error('activity registry not found in registry set')

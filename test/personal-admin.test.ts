@@ -166,7 +166,7 @@ describe('personal context — Kim makes Alice her admin (phase 5, regular user)
       rpcPayload({ _tag: 'AddAdmin', webId: aliceId, context: kimId }),
       kimCookie
     )
-    expect(promoted.id).toMatch('https://registry/kim/authorization/')
+    expect(promoted.id).toMatch(/^https:\/\/registry\/kim\/[0-9a-f-]{36}$/u)
     expect(promoted.activityId).toEqual(expect.any(String))
 
     const pending = await awaitEvent(
@@ -252,7 +252,7 @@ describe('personal context — Kim makes Alice her admin (phase 5, regular user)
       rpcPayload({ _tag: 'RemoveAdmin', webId: aliceId, context: kimId }),
       kimCookie
     )
-    expect(demoted.id).toMatch('https://registry/kim/authorization/')
+    expect(demoted.id).toMatch(/^https:\/\/registry\/kim\/[0-9a-f-]{36}$/u)
     expect(demoted.activityId).toEqual(expect.any(String))
 
     const revoked = await awaitEvent(

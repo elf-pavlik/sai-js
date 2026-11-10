@@ -1,6 +1,7 @@
 import {
   SocialAgentRegistration,
   type SocialAgentRegistrationData,
+  type SocialAgentRegistryData,
   dataModelContext,
   getAdminGrantIris,
 } from '@janeirodigital/interop-data-model'
@@ -10,10 +11,10 @@ import {
   INTEROP,
   type WhatwgFetch,
   applyPatch,
-  createContainer,
   deletePatch,
   insertPatch,
   loader,
+  postMember,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -31,6 +32,7 @@ export async function loadReciprocalRegistration(
 }
 
 export async function createSocialAgentRegistration(
+  registry: SocialAgentRegistryData,
   data: SocialAgentRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
@@ -38,7 +40,9 @@ export async function createSocialAgentRegistration(
     ...data,
     type: [...new Set([...(data.type ?? []), INTEROP.SocialAgentRegistration])],
   })
-  await createContainer(data.id, fetch, doc)
+  // flat container member (POST + Slug + `lws:Container` link); the store
+  // ignores the POST body for containers, `postMember` patches the description
+  await postMember(registry.id, fetch, { id: data.id, body: doc }, { container: true })
 }
 
 /**

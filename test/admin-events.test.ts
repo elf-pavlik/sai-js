@@ -123,7 +123,7 @@ describe('org context — admin event forwarding (phase 3)', () => {
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.id).toMatch(/^https:\/\/registry\/yoyo\/[0-9a-f-]{36}$/u)
     expect(demoted.activityId).toEqual(expect.any(String))
 
     const revoked = await awaitEvent(
@@ -429,7 +429,7 @@ describe('org context — ACR + completion integrity (phase 4 guards)', () => {
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.id).toMatch(/^https:\/\/registry\/yoyo\/[0-9a-f-]{36}$/u)
     expect(demoted.activityId).toEqual(expect.any(String))
 
     const revokedPending = await awaitEvent(

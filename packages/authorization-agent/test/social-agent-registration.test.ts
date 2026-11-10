@@ -129,9 +129,9 @@ describe('admin grant links (R1)', () => {
 })
 
 describe('createSocialAgentRegistration', () => {
-  test('patches a valid registration document carrying the registration type', async () => {
+  test('creates a flat container member and patches the registration document', async () => {
     const registration: SocialAgentRegistrationData = {
-      id: 'https://auth.alice.example/new-registration/',
+      id: 'https://auth.alice.example/6f1e6c1e-0000-4000-8000-000000000000',
       type: [INTEROP.SocialAgentRegistration],
       registeredAgent: 'https://acme.example/#corp',
       hasDataGrant: [],
@@ -140,20 +140,37 @@ describe('createSocialAgentRegistration', () => {
     }
 
     let patchBody = ''
-    const recordingFetch = (async (_url: string, options?: RequestInit) => {
+    let posted = ''
+    const recordingFetch = (async (url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') posted = url
       if (options?.method === 'PATCH') patchBody = options.body as string
       return {
         ok: true,
         headers: {
-          get: (name: string) =>
-            name === 'Link' ? '<http://just.en.example/description>; rel="describedby"' : undefined,
+          get: (name: string) => {
+            if (name === 'Link') {
+              return '<http://just.en.example/description>; rel="describedby"'
+            }
+            if (name === 'Location') return registration.id
+            return undefined
+          },
         },
         text: async () => '',
-        status: 200,
+        status: nameToStatus(posted),
       } as unknown as Response
     }) as WhatwgFetch
+    function nameToStatus(value: string): number {
+      return value ? 201 : 200
+    }
 
-    await createSocialAgentRegistration(registration, recordingFetch)
+    // POST the flat member to the Social Agent Registry (slug = the pre-minted
+    // uuid), then PATCH its description
+    await createSocialAgentRegistration(
+      { id: 'https://auth.alice.example/social-agent-registry/' },
+      registration,
+      recordingFetch
+    )
+    expect(posted).toBe('https://auth.alice.example/social-agent-registry/')
 
     // the body must be a valid SPARQL data block — parse it back as N-Quads
     expect(patchBody.startsWith('INSERT DATA { ')).toBe(true)

@@ -7,22 +7,42 @@ import {
   INTEROP,
   type LanguageMap,
   type WhatwgFetch,
-  iriForContained,
   containedIrisJsonLd,
+  postMember,
   putJsonLd,
+  registryMemberIri,
   withContext,
 } from '@janeirodigital/interop-utils'
 
 import type { DataModelDependencies } from './types.ts'
 
 // ──────────────────────────
-// Write path: RoleData → JSON-LD (PUT)
+// Write path: RoleData → JSON-LD
 // ──────────────────────────
 
+/** Update an existing role (its IRI is already contained in the registry). */
 export async function putRole(data: RoleData, fetch: WhatwgFetch): Promise<void> {
   // the shared context carries the `label` language-map container so the map
   // expands to proper literals on the wire
   await putJsonLd(data.id, fetch, withContext(dataModelContext, data))
+}
+
+/**
+ * Materialize a role at its PRE-MINTED flat IRI: POST + `Slug` to the role
+ * registry (the store records `lws:contains`/`lws:partOf`), idempotent under
+ * workflow retries (an existing role is left alone).
+ */
+export async function createRoleAt(
+  data: RoleRegistryData,
+  fetch: WhatwgFetch,
+  role: RoleData
+): Promise<void> {
+  const existing = await fetch(role.id, { method: 'HEAD' })
+  if (existing.status === 200) return
+  await postMember(data.id, fetch, {
+    id: role.id,
+    body: withContext(dataModelContext, role),
+  })
 }
 
 // ──────────────────────────
@@ -44,9 +64,9 @@ export async function createRole(
   label: LanguageMap,
   members: string[]
 ): Promise<RoleData> {
-  const iri = iriForContained(data, deps.randomUUID)
+  const iri = registryMemberIri(data.id, deps.randomUUID())
   const role: RoleData = { id: iri, label, members, type: [INTEROP.Role] }
-  await putRole(role, deps.fetch)
+  await createRoleAt(data, deps.fetch, role)
   return role
 }
 

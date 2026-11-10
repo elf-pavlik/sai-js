@@ -254,7 +254,7 @@ describe('approve a need-based access request', () => {
     expect(registry).toBeDefined()
     const [requestIri] = await containedIris(aliceSession, registry!.id)
     expect(requestIri).toBeDefined()
-    expect(requestIri).toMatch('https://registry/alice/access-request/')
+    expect(requestIri).toMatch(/^https:\/\/registry\/alice\/[0-9a-f-]{36}$/u)
 
     // the authorization data resolves from the EMBEDDED group in the request
     // (accessRequestIri) — no client-id doc, no reciprocal registration

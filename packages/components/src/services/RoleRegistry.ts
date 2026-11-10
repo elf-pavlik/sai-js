@@ -8,7 +8,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 const loadRole = loader(RoleModel.fromJsonLd)
 
-import { INTEROP, iriForContained, loader, pickLanguage } from '@janeirodigital/interop-utils'
+import { INTEROP, loader, pickLanguage, registryMemberIri } from '@janeirodigital/interop-utils'
 import {
   IRI,
   Role,
@@ -58,7 +58,7 @@ export const createRole = async (
   // minted id, real-id embedded projection) — the createRole workflow PUTs
   // the role there and completes. No derived work: no authorizations can
   // exist before the role exists (the PUT IS the create).
-  const roleId = iriForContained(ctx.registrySet.hasRoleRegistry, ctx.session.randomUUID)
+  const roleId = registryMemberIri(ctx.registrySet.hasRoleRegistry.id, ctx.session.randomUUID())
   const object: RoleData = {
     id: roleId,
     type: [INTEROP.Role],

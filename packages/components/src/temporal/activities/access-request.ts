@@ -12,7 +12,7 @@ import {
   type SocialAgentId,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, putJsonLd, withContext } from '@janeirodigital/interop-utils'
+import { INTEROP, postMember, withContext } from '@janeirodigital/interop-utils'
 
 import { buildSessionManager } from '../../builders/sessionManager.js'
 import { issuanceUrl } from '../../util/uriTemplates.js'
@@ -80,8 +80,11 @@ export async function materializeNeedBasedAccessRequest(
   const session = await manager.getSession(input.dataOwner.id)
   const existing = await session.fetch(input.request.id, { method: 'HEAD' })
   if (existing.status === 200) return
-  const doc = withContext(dataModelContext, input.request)
-  await putJsonLd(input.request.id, session.fetch, doc, { 'If-None-Match': '*' })
+  // flat member of the AccessRequestRegistry (POST + Slug records containment)
+  await postMember(session.registrySet.hasAccessRequestRegistry.id, session.fetch, {
+    id: input.request.id,
+    body: withContext(dataModelContext, input.request),
+  })
 }
 
 // ──────────────────────────

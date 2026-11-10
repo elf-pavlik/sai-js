@@ -1,3 +1,5 @@
+import { registryStorageRoot } from '@janeirodigital/interop-utils'
+
 /**
  * Typed revocation errors (C4 / D11).
  *
@@ -42,9 +44,11 @@ export function isRevocationError(value: unknown): value is RevocationError {
 }
 
 /**
- * The grant registry container a grant IRI is contained in. Grants are direct
- * children of the registry container (`<registry>/<id>`), so the container is
- * the IRI without its last path segment. Used to group/compare owners by the
+ * The identifier a grant IRI groups by. Flat LWS storage makes the URI
+ * independent of containment, so a flat member (`<registryPodRoot><uuid>`)
+ * groups by the pod root while a hierarchical one
+ * (`<registryContainer><id>`) groups by its path parent — both are the IRI
+ * without its last path segment. Used to group/compare owners by the
  * **requested** set — before anything is loaded — which closes the B2 hole
  * (mixed-owner requests must fail as a whole, not partially apply the grants
  * that happened to load from one registry).
@@ -57,4 +61,16 @@ export function grantRegistryOf(grantIri: string): string {
 /** Normalize a registry container IRI to the trailing-slash form. */
 export function normalizeRegistryIri(registryIri: string): string {
   return registryIri.endsWith('/') ? registryIri : `${registryIri}/`
+}
+
+/**
+ * Whether a requested grant can be revoked through `registryIri`: its
+ * grouping key is the registry itself (hierarchical member) or the registry's
+ * storage root (flat member, whose IRI carries no registry segment).
+ */
+export function grantBelongsToRegistry(grantIri: string, registryIri: string): boolean {
+  const target = normalizeRegistryIri(registryIri)
+  const podRoot = registryStorageRoot(target)
+  const group = normalizeRegistryIri(grantRegistryOf(grantIri))
+  return group === target || group === podRoot
 }

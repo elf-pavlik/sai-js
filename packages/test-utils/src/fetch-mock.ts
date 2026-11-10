@@ -72,6 +72,31 @@ async function common(
   return response
 }
 
+/**
+ * The identifier the flat LWS store allocates for a POST: the `slug` header
+ * (a UUID, which our clients pre-mint) under the storage root — the container
+ * IRI without its last path segment. Mirrors `registryMemberIri`.
+ */
+function slugLocation(containerIri: string, headers?: HeadersInit): string {
+  const record = (headers ?? {}) as Record<string, string>
+  const slug = record.slug ?? record.Slug
+  if (!slug) throw new Error('POST without a slug header')
+  const container = containerIri.replace(/\/$/u, '')
+  const cut = container.lastIndexOf('/')
+  if (cut < 0) throw new Error(`cannot derive a storage root from ${containerIri}`)
+  return `${container.slice(0, cut + 1)}${slug}`
+}
+
+function postResponse(location: string): Response {
+  const response = {
+    ok: true,
+    status: 201,
+    headers: { get: (name: string) => (name.toLowerCase() === 'location' ? location : undefined) },
+  } as unknown as Response
+  response.clone = () => ({ ...response })
+  return response
+}
+
 function addState(state: { [key: string]: string }): WhatwgFetch {
   return async function statefulFetch(url: string, options?: RequestInit): Promise<Response> {
     if (options?.method === 'PUT') {
@@ -79,6 +104,14 @@ function addState(state: { [key: string]: string }): WhatwgFetch {
       const response = { ok: true } as Response
       response.clone = () => ({ ...response })
       return response
+    }
+
+    if (options?.method === 'POST') {
+      const location = slugLocation(url, options.headers)
+      if (typeof options.body === 'string' && options.body.length > 2) {
+        state[location] = options.body
+      }
+      return postResponse(location)
     }
 
     if (options?.method === 'DELETE') {
@@ -111,6 +144,9 @@ export const statelessFetch = async function statelessFetch(
     const response = { ok: true } as Response
     response.clone = () => ({ ...response })
     return response
+  }
+  if (options?.method === 'POST') {
+    return postResponse(slugLocation(url, options.headers))
   }
   return common(url, options)
 } as WhatwgFetch

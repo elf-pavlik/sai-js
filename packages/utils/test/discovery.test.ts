@@ -9,7 +9,8 @@ import {
   discoverDelegationIssuanceEndpoint,
   discoverDescriptionResource,
   discoverWebPushService,
-  storageIri,
+  lwsStorageRoot,
+  requireLwsStorageRoot,
 } from '../src'
 
 const aliceId = 'https://id/alice'
@@ -101,39 +102,11 @@ describe('discoverWebPushService', () => {
   })
 })
 
-describe('storageIri', () => {
-  const storageDescriptionIri = 'https://fake.example/storage-desription'
-  const spaceStorage = 'http://www.w3.org/ns/pim/space#Storage'
+describe('lwsStorageRoot / requireLwsStorageRoot', () => {
+  const storage = 'https://home.alice.example/'
 
-  test('resolves the storage IRI from the container id', async () => {
-    const mock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
-      if (init?.method === 'HEAD') {
-        return {
-          ok: true,
-          headers: {
-            get: (name: string) =>
-              name === 'Link'
-                ? `<${storageDescriptionIri}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
-                : undefined,
-          },
-        } as unknown as Response
-      }
-      return {
-        ok: true,
-        json: async () => [{ '@id': storageDescriptionIri, '@type': [spaceStorage] }],
-      } as unknown as Response
-    })
-
-    const iri = await storageIri(
-      { id: 'https://home.alice.example/registry/' },
-      mock as unknown as WhatwgFetch
-    )
-    expect(iri).toBe(storageDescriptionIri)
-  })
-
-  test('prefers the LWS storage link and the StorageRoot service', async () => {
-    const storage = 'https://home.alice.example/'
-    const mock = vi.fn(async (_input: RequestInfo, init?: RequestInit) => {
+  function lwsFetch(): WhatwgFetch {
+    return vi.fn(async (_input: RequestInfo, init?: RequestInit) => {
       if (init?.method === 'HEAD') {
         return {
           ok: true,
@@ -154,13 +127,42 @@ describe('storageIri', () => {
           service: [{ type: 'StorageRoot', serviceEndpoint: storage }],
         }),
       } as unknown as Response
-    })
+    }) as unknown as WhatwgFetch
+  }
 
-    const iri = await storageIri(
-      { id: 'https://home.alice.example/registry/' },
-      mock as unknown as WhatwgFetch
+  test('resolves the storage root through the LWS storage description', async () => {
+    expect(await lwsStorageRoot('https://home.alice.example/registry/', lwsFetch())).toBe(storage)
+    expect(await requireLwsStorageRoot('https://home.alice.example/registry/', lwsFetch())).toBe(
+      storage
     )
-    expect(iri).toBe(storage)
+  })
+
+  test('a Solid-only server has no storage root any more (the fallback is gone)', async () => {
+    const storageDescriptionIri = 'https://fake.example/storage-desription'
+    const solidOnly = vi.fn(async (_input: RequestInfo, init?: RequestInit) => {
+      if (init?.method === 'HEAD') {
+        return {
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name === 'Link'
+                ? `<${storageDescriptionIri}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
+                : undefined,
+          },
+        } as unknown as Response
+      }
+      return {
+        ok: true,
+        json: async () => [
+          { '@id': storageDescriptionIri, '@type': ['http://www.w3.org/ns/pim/space#Storage'] },
+        ],
+      } as unknown as Response
+    }) as unknown as WhatwgFetch
+
+    expect(await lwsStorageRoot('https://home.alice.example/registry/', solidOnly)).toBeUndefined()
+    await expect(
+      requireLwsStorageRoot('https://home.alice.example/registry/', solidOnly)
+    ).rejects.toThrow(/cannot discover the LWS storage root/)
   })
 })
 

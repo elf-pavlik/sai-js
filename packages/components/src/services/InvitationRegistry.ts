@@ -4,7 +4,7 @@ import type {
   InvitationCreated,
   SocialAgentInvitationData,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, iriForContained } from '@janeirodigital/interop-utils'
+import { INTEROP, registryMemberIri } from '@janeirodigital/interop-utils'
 import { pickLanguage } from '@janeirodigital/interop-utils'
 import {
   IRI,
@@ -67,7 +67,7 @@ export async function createInvitation(
   const invitationRegistry = ctx.registrySet.hasInvitationRegistry
   const activityRegistry = ctx.registrySet.hasActivityRegistry
   if (!activityRegistry) throw new Error('activity registry not found in registry set')
-  const invitationId = iriForContained(invitationRegistry, ctx.session.randomUUID)
+  const invitationId = registryMemberIri(invitationRegistry.id, ctx.session.randomUUID())
   // the invitation-to-be — full POJO projection minus capabilityUrl (the
   // workflow generates it) at the pre-minted id; the label is tagged with the
   // preferred language (untagged under `@none` when no language is given)

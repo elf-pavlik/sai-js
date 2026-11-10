@@ -4,7 +4,7 @@ import {
   type ApplicationRegistryData,
   dataModelContext,
 } from '@janeirodigital/interop-data-model'
-import { type WhatwgFetch, createContainer, withContext } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, postMember, withContext } from '@janeirodigital/interop-utils'
 
 import { addApplicationRegistration, findApplicationRegistration } from './agent-registry.ts'
 import type { DataModelDependencies } from './types.ts'
@@ -36,11 +36,17 @@ export async function ensureApplicationRegistration(
 }
 
 export async function createApplicationRegistration(
+  registry: ApplicationRegistryData,
   data: ApplicationRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  // the document is the POJO with the shared context — the rdf:type quad comes
-  // from `data.type` (captured from framing on read); createContainer PUTs the
-  // container and patches its description resource with `INSERT DATA`
-  await createContainer(data.id, fetch, withContext(dataModelContext, data))
+  // flat container member: POST + Slug to the registry (`lws:Container` link)
+  // and the store patches nothing — the description is populated by
+  // `postMember` with the same `INSERT DATA` patch `createContainer` used
+  await postMember(
+    registry.id,
+    fetch,
+    { id: data.id, body: withContext(dataModelContext, data) },
+    { container: true }
+  )
 }

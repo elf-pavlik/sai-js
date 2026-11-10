@@ -975,7 +975,8 @@ describe('AdminAuthorization session methods', () => {
       { id: MIXED_REGISTRY }
     )
 
-    expect(recorded.id).toMatch(new RegExp(`^${MIXED_REGISTRY}`))
+    // flat member: `{registryPodRoot}{uuid}`, independent of the registry IRI
+    expect(recorded.id).toMatch(/^https:\/\/auth\.alice\.example\/[0-9a-f-]{36}$/u)
     expect(recorded.type).toEqual([INTEROP.AdminAuthorization])
     expect(recorded.grantee).toBe('https://id/eve')
     expect(recorded.grantedBy).toBe('https://id/yoyo')

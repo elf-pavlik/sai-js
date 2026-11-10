@@ -173,7 +173,7 @@ describe('org context — owner identity (2.4)', () => {
       }),
       danCookie
     )
-    expect(role.id).toMatch('https://registry/yoyo/role/')
+    expect(role.id).toMatch(/^https:\/\/registry\/yoyo\/[0-9a-f-]{36}$/u)
     // activity-first (step 9): the role is PUT by the createRole workflow —
     // wait for the completion before reading it back
     const manager = buildSessionManager()
@@ -219,7 +219,7 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
       rpcPayload({ _tag: 'RemoveAdmin', webId: bobId, context: yoyoId }),
       danCookie
     )
-    expect(demoted.id).toMatch('https://registry/yoyo/authorization/')
+    expect(demoted.id).toMatch(/^https:\/\/registry\/yoyo\/[0-9a-f-]{36}$/u)
     expect(demoted.activityId).toEqual(expect.any(String))
     await waitFor(async () => (await orgContextAdminFlag(bobId, danCookie)) === false, {
       timeout: 20_000,

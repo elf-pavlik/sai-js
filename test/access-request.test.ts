@@ -114,7 +114,7 @@ describe('request access (sent side)', () => {
       accepted: true,
       activityId: expect.any(String),
     })
-    expect(value.activityId).toMatch('https://registry/bob/activity/')
+    expect(value.activityId).toMatch(/^https:\/\/registry\/bob\/[0-9a-f-]{36}$/u)
 
     // the requester-side workflow forwarded the request (the data owner's
     // endpoint responded 202) and completed the activity — the done event

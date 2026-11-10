@@ -10,7 +10,7 @@ import {
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 const loadDataRegistration = loader(DataRegistrationModel.fromJsonLd)
 
-import { loader, pickLanguage, storageIri } from '@janeirodigital/interop-utils'
+import { loader, lwsStorageRoot, pickLanguage } from '@janeirodigital/interop-utils'
 import {
   DataInstance,
   DataRegistration,
@@ -63,7 +63,10 @@ const buildDataRegistry = async (
   }
   return DataRegistrySchema.make({
     id: IRI.make(registry.id),
-    label: await storageIri(registry, ctx.session.fetch),
+    // the registry label is its storage root, resolved through the LWS
+    // storage description; a pod that does not advertise one falls back to the
+    // registry IRI (label only — nothing is stored with it)
+    label: (await lwsStorageRoot(registry.id, ctx.session.fetch)) ?? registry.id,
     registrations,
   })
 }

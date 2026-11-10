@@ -13,7 +13,7 @@ import type {
   NeedBasedAccessRequestMessage,
   NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
-import { discoverAuthorizationAgent, iriForContained } from '@janeirodigital/interop-utils'
+import { discoverAuthorizationAgent, registryMemberIri } from '@janeirodigital/interop-utils'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
@@ -80,7 +80,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // the delegation endpoint dispatches on the message `type`
     const message = await this.parseMessage(operation)
     if (isAccessRevocationMessage(message)) {
-      return new GrantRevocationHandler(this.endpointStore).revoke(message, credentials, operation)
+      return new GrantRevocationHandler(this.endpointStore, this.sessionManager).revoke(
+        message,
+        credentials,
+        operation
+      )
     }
     if (isNeedBasedAccessRequestMessage(message)) {
       return this.acceptNeedBasedAccessRequest(message, credentials)
@@ -114,7 +118,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // is sent IMMEDIATELY — it awaits nothing beyond the activity write.
     const requestRegistry = sai.registrySet.hasAccessRequestRegistry
     if (!requestRegistry) throw new Error('access-request registry not found in registry set')
-    const requestId = iriForContained(requestRegistry, sai.randomUUID)
+    const requestId = registryMemberIri(requestRegistry.id, sai.randomUUID())
     const activityRegistry = sai.registrySet.hasActivityRegistry
     if (!activityRegistry) throw new Error('activity registry not found in registry set')
     const object: EmbeddedNeedBasedAccessRequest = {
@@ -163,7 +167,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     // build FinalGrantData for each parent and its inheriting children.
     const finalGrants: FinalGrantData[] = []
     for (const topGrant of grants) {
-      const grantId = iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID)
+      const grantId = registryMemberIri(sai.registrySet.hasGrantRegistry.id, sai.randomUUID())
       const inheritingGrants = (topGrant.hasInheritingGrant ?? []).map((childData) =>
         this.buildInheritingGrant(sai, childData, grantId)
       )
@@ -231,7 +235,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       accessMode: childData.accessMode,
       creatorAccessMode: childData.creatorAccessMode,
       hasDataInstance: childData.hasDataInstance,
-      id: iriForContained(sai.registrySet.hasGrantRegistry, sai.randomUUID),
+      id: registryMemberIri(sai.registrySet.hasGrantRegistry.id, sai.randomUUID()),
       inheritsFromGrant,
     }
   }

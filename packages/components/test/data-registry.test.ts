@@ -26,13 +26,12 @@ const registrationDoc = [
   },
 ]
 
-/** Storage description doc — `storageIri` stays HTTP data-plane. */
-const storageDescriptionDoc = [
-  {
-    '@id': STORAGE,
-    '@type': ['http://www.w3.org/ns/pim/space#Storage'],
-  },
-]
+/** LWS storage description doc — the registry label resolves through it. */
+const storageDescriptionDoc = {
+  id: STORAGE,
+  type: 'Storage',
+  service: [{ type: 'StorageRoot', serviceEndpoint: STORAGE }],
+}
 
 const orgProfileDoc = {
   '@id': ORG_WEBID,
@@ -54,8 +53,8 @@ function mockResponse(body: unknown, status = 200, contentType = 'application/ld
 const sparqlAdminUrl = `${new URL(ORG_AA).origin}/.sai/sparql-admin/${Buffer.from(ORG_WEBID).toString('base64url')}`
 const sparqlAdminPodUrl = `${sparqlAdminUrl}?pod=${encodeURIComponent(DATA_REGISTRY)}`
 
-/** Storage-description discovery header served on HEAD of the data registry. */
-const storageLink = `<${STORAGE}>; rel="http://www.w3.org/ns/solid/terms#storageDescription"`
+/** LWS storage discovery header served on HEAD of the data registry. */
+const storageLink = `<${STORAGE}>; rel="https://www.w3.org/ns/lws#storage"`
 
 /** Minimal resolved org context (webId ≠ userWebId routes via /sparql-admin). */
 function orgCtx(session: AuthorizationAgent): ResolvedContext {
@@ -109,7 +108,8 @@ describe('getDataRegistries — org context lists own data registries via /sparq
         } as unknown as Response
       }
       if (url === STORAGE) {
-        return mockResponse(storageDescriptionDoc)
+        // the LWS description is negotiated by content type
+        return mockResponse(storageDescriptionDoc, 200, 'application/lws+cid')
       }
       if (url === SHAPE_TREE) {
         return mockResponse({ '@id': SHAPE_TREE, 'http://www.w3.org/ns/shapetrees#references': [] })
@@ -160,7 +160,9 @@ describe('getDataRegistries — personal context reads each data registry from i
           text: async () => '',
         } as unknown as Response
       }
-      if (url === STORAGE) return mockResponse(storageDescriptionDoc)
+      if (url === STORAGE) {
+        return mockResponse(storageDescriptionDoc, 200, 'application/lws+cid')
+      }
       if (url === SHAPE_TREE) {
         return mockResponse({ '@id': SHAPE_TREE, 'http://www.w3.org/ns/shapetrees#references': [] })
       }

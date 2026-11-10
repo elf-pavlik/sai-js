@@ -267,7 +267,9 @@ describe('DelegationIssuanceEndpoint', () => {
         inheritsFromGrant?: string
       }[]
       expect(granted).toHaveLength(2) // parent + inheriting child
-      for (const grant of granted) expect(grant.id).toMatch(grantRegistry)
+      // issued grants are flat registry members: `{registryPodRoot}{uuid}`
+      for (const grant of granted)
+        expect(grant.id).toMatch(/^https:\/\/registry\/acme\/[0-9a-f-]{36}$/u)
       expect(granted[0].hasInheritingGrant).toEqual([granted[1].id])
       expect(granted[1].inheritsFromGrant).toBe(granted[0].id)
       expect(await countGrants()).toBe(seededGrantCount + 2)
@@ -285,7 +287,9 @@ describe('DelegationIssuanceEndpoint', () => {
         hasInheritingGrant?: string[]
       }[]
       expect(granted).toHaveLength(4) // two parents + two inheriting children
-      for (const grant of granted) expect(grant.id).toMatch(grantRegistry)
+      // issued grants are flat registry members: `{registryPodRoot}{uuid}`
+      for (const grant of granted)
+        expect(grant.id).toMatch(/^https:\/\/registry\/acme\/[0-9a-f-]{36}$/u)
       // response order: parent, its children, next parent, its children
       expect(granted[0].hasInheritingGrant).toEqual([granted[1].id])
       expect(granted[2].hasInheritingGrant).toEqual([granted[3].id])

@@ -143,7 +143,7 @@ describe('role-based access', () => {
       }),
       aliceCookie
     )
-    expect(body.id).toMatch('https://registry/alice/role/')
+    expect(body.id).toMatch(/^https:\/\/registry\/alice\/[0-9a-f-]{36}$/u)
     expect(body.label).toBe('Test Role')
     expect(body.members).toEqual([])
     // activity-first (step 9): the ack echoes the role-to-be (pending
@@ -280,7 +280,7 @@ describe('role-based access', () => {
       expect(body.activityId).toBeDefined()
       expect(body.ids.length).toBeGreaterThan(0)
       // minted in bob's authorization registry (the pre-minted ids)
-      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
+      expect(body.ids[0]).toMatch(/^https:\/\/registry\/bob\/[0-9a-f-]{36}$/u)
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
@@ -411,7 +411,7 @@ describe('role-based access', () => {
         grantedIds = body.ids
         expect(grantedIds.length).toBeGreaterThan(0)
         // minted in bob's authorization registry (the pre-minted ids)
-        expect(grantedIds[0]).toMatch('https://registry/bob/authorization/')
+        expect(grantedIds[0]).toMatch(/^https:\/\/registry\/bob\/[0-9a-f-]{36}$/u)
       })
       // the dedicated workflow PUTs the DA at the pre-minted id for the role
       await waitFor(async () => {
@@ -430,7 +430,7 @@ describe('role-based access', () => {
       expect(body.activityId).toBeDefined()
       expect(body.ids.length).toBeGreaterThan(0)
       // minted in bob's authorization registry (the pre-minted ids)
-      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
+      expect(body.ids[0]).toMatch(/^https:\/\/registry\/bob\/[0-9a-f-]{36}$/u)
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)
@@ -473,7 +473,7 @@ describe('role-based access', () => {
       expect(body.activityId).toBeDefined()
       expect(body.ids.length).toBeGreaterThan(0)
       // minted in bob's authorization registry (the pre-minted ids)
-      expect(body.ids[0]).toMatch('https://registry/bob/authorization/')
+      expect(body.ids[0]).toMatch(/^https:\/\/registry\/bob\/[0-9a-f-]{36}$/u)
 
       const manager = buildSessionManager()
       const bobSession = await manager.getSession(bobId)

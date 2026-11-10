@@ -102,9 +102,11 @@ export async function reciprocalRegistration(
     (): undefined => undefined
   )
   if (!loaded) {
-    // the inviter side — the workflow PUTs the registration at the pre-minted
-    // id from the activity object (the ACR setup mirrors addSocialAgentRegistration)
+    // the inviter side — the workflow creates the registration at the
+    // pre-minted flat id from the activity object (POST + Slug to the Social
+    // Agent Registry; the ACR setup mirrors addSocialAgentRegistration)
     await createSocialAgentRegistration(
+      session.registrySet.hasSocialAgentRegistry,
       { ...registration, hasDataGrant: [], hasAdminGrant: [] },
       session.fetch
     )

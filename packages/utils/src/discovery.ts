@@ -1,4 +1,4 @@
-import { documentValues, fetchJsonLd, findNodeIdByType } from './jsonld.ts'
+import { documentValues, fetchJsonLd } from './jsonld.ts'
 import {
   getAcl,
   getAgentRegistrationIri,
@@ -6,7 +6,7 @@ import {
   getLwsStorage,
   getStorageDescription,
 } from './link-header.ts'
-import { INTEROP, NOTIFY, SPACE } from './namespaces.ts'
+import { INTEROP, NOTIFY } from './namespaces.ts'
 import type { WhatwgFetch } from './whatwg-fetch.ts'
 
 export class RequestError extends Error {
@@ -185,20 +185,22 @@ export async function lwsStorageRoot(
 }
 
 /**
- * Resolve the storage IRI behind a container or registry. Prefers LWS
- * discovery (`rel="storage"` → `StorageRoot` service) and falls back to the
- * Solid storage description + `space:Storage` node for servers that only
- * speak Solid. `data` carries the container IRI in its `id` field.
+ * The storage root of a resource, resolved through LWS discovery only
+ * (`rel="storage"` → `StorageRoot` service). Callers that need a definite
+ * answer (grant `hasStorage`, registry labels) handle `undefined` themselves —
+ * the Solid `space:Storage` fallback is gone: every data and registry pod in
+ * this deployment advertises the LWS storage link, and the auth server is an
+ * authorization server, not a storage.
  */
-export async function storageIri(data: { id: string }, fetch: WhatwgFetch): Promise<string> {
-  const lws = await lwsStorageRoot(data.id, fetch).catch(() => undefined)
-  if (lws) return lws
-  const storageDescriptionIri = await discoverStorageDescription(data.id, fetch)
-  if (!storageDescriptionIri) {
-    throw new Error(`cannot discover storage description for ${data.id}`)
+export async function requireLwsStorageRoot(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<string> {
+  const storage = await lwsStorageRoot(resourceIri, fetch)
+  if (!storage) {
+    throw new Error(`cannot discover the LWS storage root of ${resourceIri}`)
   }
-  const doc = await fetchJsonLd(storageDescriptionIri, fetch)
-  return findNodeIdByType(doc, SPACE.Storage, storageDescriptionIri)
+  return storage
 }
 
 export async function discoverAuthorizationRedirectEndpoint(

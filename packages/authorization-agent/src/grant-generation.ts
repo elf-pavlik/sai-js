@@ -15,9 +15,9 @@ const loadShapeTree = loader(ShapeTree.fromJsonLd)
 import {
   INTEROP,
   type WhatwgFetch,
-  iriForContained,
+  registryMemberIri,
   loader,
-  storageIri,
+  requireLwsStorageRoot,
 } from '@janeirodigital/interop-utils'
 
 import {
@@ -297,7 +297,7 @@ async function generateDelegatedDataGrants(
     }
 
     for (const sourceGrant of matchingDataGrants) {
-      const regularGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
+      const regularGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
         data,
@@ -355,7 +355,7 @@ async function generateChildSourceGrantData(
   const result: FinalGrantData[] = []
   const childAuthorizations = await inheritingAuthorizations(data, transport)
   for (const childAuthorization of childAuthorizations) {
-    const childGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
+    const childGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
     const dataRegistration = dataRegistrations.find(
       (registration) => registration.registeredShapeTree === childAuthorization.registeredShapeTree
     )
@@ -425,7 +425,7 @@ async function generateSourceDataGrants(
     if (!matchingRegistration) continue
 
     // create source grant
-    const regularGrantIri = iriForContained(registrySet.hasGrantRegistry, deps.randomUUID)
+    const regularGrantIri = registryMemberIri(registrySet.hasGrantRegistry.id, deps.randomUUID())
 
     // create children if needed
     const childGrantData: FinalGrantData[] = await generateChildSourceGrantData(
@@ -434,7 +434,7 @@ async function generateSourceDataGrants(
       dataRegistrations,
       registrySet,
       grantee,
-      await storageIri({ id: podUrl }, deps.fetch),
+      await requireLwsStorageRoot(podUrl, deps.fetch),
       deps,
       transport
     )
@@ -450,7 +450,7 @@ async function generateSourceDataGrants(
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
       hasDataRegistration: matchingRegistration.id,
-      hasStorage: await storageIri({ id: podUrl }, deps.fetch),
+      hasStorage: await requireLwsStorageRoot(podUrl, deps.fetch),
       scopeOfGrant,
       accessMode: data.accessMode,
     }

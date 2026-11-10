@@ -19,13 +19,13 @@ import {
   INTEROP,
   discoverAccessResource,
   discoverAuthorizationAgent,
-  expandedJsonLd,
   fetchJsonLd,
   getAcl,
-  iriForContained,
   containedIrisJsonLd,
   loader,
+  postMember,
   putJsonLd,
+  registryMemberIri,
   withContext,
 } from '@janeirodigital/interop-utils'
 
@@ -85,8 +85,9 @@ export async function recordAdminAuthorizationAtId(payload: {
     grantedBy: payload.authorization.grantedBy,
     scopeOfAuthorization: payload.authorization.scopeOfAuthorization,
   }
-  await putJsonLd(payload.authorization.id, session.fetch, AdminAuthorization.toJsonLd(data), {
-    'If-None-Match': '*',
+  await postMember(session.registrySet.hasAuthorizationRegistry.id, session.fetch, {
+    id: payload.authorization.id,
+    body: AdminAuthorization.toJsonLd(data),
   })
 }
 
@@ -125,7 +126,7 @@ export async function buildAdminGrants(payload: {
   const registry = session.registrySet.hasGrantRegistry
 
   const registrySetGrant: AdminGrantData = {
-    id: iriForContained(registry, session.randomUUID),
+    id: registryMemberIri(registry.id, session.randomUUID()),
     type: [INTEROP.AdminGrant],
     grantee: payload.admin.id,
     grantedBy: payload.webId.id,
@@ -136,7 +137,7 @@ export async function buildAdminGrants(payload: {
   const dataRegistryGrants: AdminGrantData[] = []
   for (const dataRegistry of session.registrySet.hasDataRegistry) {
     dataRegistryGrants.push({
-      id: iriForContained(registry, session.randomUUID),
+      id: registryMemberIri(registry.id, session.randomUUID()),
       type: [INTEROP.AdminGrant],
       grantee: payload.admin.id,
       grantedBy: payload.webId.id,
@@ -149,21 +150,14 @@ export async function buildAdminGrants(payload: {
   return { registrySetGrant, dataRegistryGrants }
 }
 
-/** PUT an AdminGrant resource into the org's GrantRegistry (org session). */
+/** Create an AdminGrant in the org's GrantRegistry (org session) as a flat member. */
 export async function storeAdminGrant(grant: AdminGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(grant.dataOwner)
-
-  const body = JSON.stringify(await expandedJsonLd(withContext(dataModelContext, grant)))
-  const response = await session.fetch(grant.id!, {
-    method: 'PUT',
-    body,
-    headers: {
-      'Content-Type': 'application/ld+json',
-      'If-None-Match': '*',
-    },
+  await postMember(session.registrySet.hasGrantRegistry.id, session.fetch, {
+    id: grant.id!,
+    body: withContext(dataModelContext, grant),
   })
-  if (!response.ok) throw new Error(`failed to store admin grant: ${response.status}`)
 }
 
 /**

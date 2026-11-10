@@ -2,9 +2,9 @@ import {
   type RevokedGrant,
   type RevocationErrorCode,
   RevocationError,
+  getGrantsAuthority,
   isRevocationError,
   localSparqlTransport,
-  revokeGrantsClosure,
 } from '@janeirodigital/interop-authorization-agent'
 import type {
   AccessRevocationMessage,
@@ -22,6 +22,7 @@ import {
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 
 import type { PodEndpointStore } from './PodEndpointStore.js'
+import type { SessionManager } from './SessionManager.js'
 import { Temporal } from './temporal/client.js'
 import { revokeGrants } from './temporal/workflows/grants.js'
 
@@ -84,7 +85,10 @@ export function revocationFailureDescription(
  * status + JSON body — no message substring matching.
  */
 export class GrantRevocationHandler {
-  public constructor(private readonly endpointStore: PodEndpointStore) {}
+  public constructor(
+    private readonly endpointStore: PodEndpointStore,
+    private readonly sessionManager: SessionManager
+  ) {}
 
   public async revoke(
     message: AccessRevocationMessage,
@@ -152,10 +156,18 @@ export class GrantRevocationHandler {
 
     const record = records[0].record!
     const transport = localSparqlTransport(record.endpoint)
-    // grants are direct children of the grant registry container
-    const grantRegistryIri = grants[0].replace(/[^/]*$/, '')
-
-    const revoked = await revokeGrantsClosure(transport, grantRegistryIri, grants, requesterWebId)
+    // The grant registry is NOT derivable from a grant IRI any more (flat LWS
+    // members live under the registry pod root): load the requested grants and
+    // let the data owner's own session resolve its grant registry.
+    const loaded = await getGrantsAuthority(transport, grants)
+    // already removed → idempotent no-op (the endpoint echoes the request)
+    if (loaded.size === 0) return []
+    const dataOwners = new Set([...loaded.values()].map((grant) => grant.dataOwner))
+    if (dataOwners.size > 1) {
+      throw new RevocationError('mixed-owner', grants, 'all grants must have the same dataOwner')
+    }
+    const ownerSession = await this.sessionManager.getSession([...dataOwners][0])
+    const revoked = await ownerSession.revokeGrants(grants, requesterWebId)
 
     // delete through Temporal, mirroring issuance: the worker runs the deletes
     // with the data owner's own session (owner rights), with activity-retry

@@ -1,5 +1,10 @@
-import type { GrantData } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import {
+  type GrantData,
+  type GrantTargetInput,
+  type LwsAccessPolicy,
+  grantAccess,
+} from '@janeirodigital/interop-data-model'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -32,24 +37,56 @@ const ALICE = 'https://id/alice'
 const ACME = 'https://id/acme'
 const KIM = 'https://id/kim'
 
-function grant(overrides: Partial<GrantData> = {}): GrantData {
+interface GrantOverrides extends Partial<GrantData> {
+  /** legacy-named fixture fields — derived into the canonical access policy */
+  grantee?: string
+  accessMode?: string[]
+  hasStorage?: string
+}
+
+function target(
+  scopeOfGrant: string,
+  hasDataRegistration: string,
+  hasDataInstance: string[] | undefined,
+  storage: string
+): GrantTargetInput {
+  return { scopeOfGrant, hasDataRegistration, hasDataInstance, storage }
+}
+
+function withAssignee(grant: GrantData, assignee: string): GrantData {
+  return {
+    ...grant,
+    access: grant.access.map((policy) => ({ ...policy, assignee })),
+  }
+}
+
+function grant(overrides: GrantOverrides = {}): GrantData {
+  const { grantee = KIM, accessMode = [READ], hasStorage = STORAGE, ...rest } = overrides
+  const storage = rest.storage ?? hasStorage
+  const hasDataRegistration = rest.hasDataRegistration ?? PROJECT_REGISTRATION
+  const scopeOfGrant = rest.scopeOfGrant ?? INTEROP.AllFromRegistry
   return {
     id: PARENT,
-    type: [INTEROP.DataGrant],
-    grantee: KIM,
+    type: [LWS.AccessGrant],
+    storage,
+    access:
+      rest.access ??
+      (grantAccess({
+        ...target(scopeOfGrant, hasDataRegistration, rest.hasDataInstance, storage),
+        assignee: grantee,
+        actions: accessMode,
+      }) as LwsAccessPolicy[]),
     grantedBy: ACME,
     dataOwner: ALICE,
     registeredShapeTree: PROJECT_TREE,
-    hasDataRegistration: PROJECT_REGISTRATION,
-    hasStorage: STORAGE,
-    scopeOfGrant: INTEROP.AllFromRegistry,
-    accessMode: [READ],
-    ...overrides,
+    hasDataRegistration,
+    scopeOfGrant,
+    ...rest,
   }
 }
 
 /** An Inherited-scope Task child of PARENT. */
-function child(overrides: Partial<GrantData> = {}): GrantData {
+function child(overrides: GrantOverrides = {}): GrantData {
   return grant({
     id: CHILD,
     inheritsFromGrant: PARENT,
@@ -91,7 +128,7 @@ describe('grantFieldsEqual', () => {
     const a = grant()
     const b = grant({
       id: 'https://registry/acme/other',
-      type: [INTEROP.DataGrant],
+      type: [LWS.AccessGrant],
       inheritsFromGrant: 'https://registry/acme/from',
       hasInheritingGrant: ['https://registry/acme/to'],
     })
@@ -99,12 +136,11 @@ describe('grantFieldsEqual', () => {
   })
 
   const scalarChanges: [keyof GrantData, string][] = [
-    ['grantee', 'https://id/bob'],
     ['grantedBy', 'https://id/bob'],
     ['dataOwner', 'https://id/bob'],
     ['registeredShapeTree', 'https://data/shapetrees/trees/Other'],
     ['hasDataRegistration', 'https://data/acme/registrations/other/'],
-    ['hasStorage', 'https://data/acme/hr/'],
+    ['storage', 'https://data/acme/hr/'],
     ['scopeOfGrant', INTEROP.SelectedFromRegistry],
   ]
   for (const [field, value] of scalarChanges) {
@@ -115,6 +151,10 @@ describe('grantFieldsEqual', () => {
 
   test('differs on accessMode', () => {
     expect(grantFieldsEqual(grant(), grant({ accessMode: [READ, MODIFY] }))).toBe(false)
+  })
+
+  test('differs on assignee', () => {
+    expect(grantFieldsEqual(grant(), withAssignee(grant(), 'https://id/bob'))).toBe(false)
   })
 
   test('differs on hasDataInstance', () => {

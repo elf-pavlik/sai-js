@@ -23,15 +23,15 @@ const h = vi.hoisted(() => {
       reusedDelegatedIndexes: [],
       reusedExisting: [],
     })),
-    storeDataGrant: vi.fn(async () => {}),
+    storeAccessGrant: vi.fn(async () => {}),
     createAcr: vi.fn(async () => {}),
     requestDelegations: vi.fn(async () => [] as { id: string; type: string[] }[]),
     requestRevocations: vi.fn(async () => [] as string[]),
     revokeGrantClosure: vi.fn(async () => [] as string[]),
-    deleteDataGrants: vi.fn(async () => {}),
+    deleteAccessGrants: vi.fn(async () => {}),
     removeGrantsFromRegistrations: vi.fn(async () => {}),
     dropGrantReplicas: vi.fn(async () => {}),
-    replaceDataGrantsOnRegistration: vi.fn(async () => {}),
+    replaceAccessGrantsOnRegistration: vi.fn(async () => {}),
   }
   return { activities }
 })
@@ -50,7 +50,7 @@ vi.mock('@temporalio/workflow', () => ({
 import { createGrantsForAgent, revokeGrants } from '../src/temporal/workflows/grants.js'
 
 const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
-const DATA_GRANT = 'http://www.w3.org/ns/solid/interop#DataGrant'
+const ACCESS_GRANT = 'https://www.w3.org/ns/lws#AccessGrant'
 const DATA_AUTHORIZATION = 'http://www.w3.org/ns/solid/interop#DataAuthorization'
 
 const ALICE = 'https://id/alice'
@@ -62,12 +62,12 @@ const webId = { id: ACME, type: [SOCIAL_AGENT_TYPE] }
 const grantee = { id: ALICE, type: [SOCIAL_AGENT_TYPE] }
 
 const grantIri = (suffix: string) => `https://registry/acme/${suffix}`
-const grantId = (suffix: string) => ({ id: grantIri(suffix), type: [DATA_GRANT] })
+const grantId = (suffix: string) => ({ id: grantIri(suffix), type: [ACCESS_GRANT] })
 
 /** A source grant (we are dataOwner) — `FinalGrantData` shape. */
 const sourceGrant = (suffix: string, overrides: Record<string, unknown> = {}) => ({
   id: grantIri(suffix),
-  type: [DATA_GRANT],
+  type: [ACCESS_GRANT],
   grantee: ALICE,
   grantedBy: ACME,
   dataOwner: ACME,
@@ -81,7 +81,7 @@ const sourceGrant = (suffix: string, overrides: Record<string, unknown> = {}) =>
 
 /** A delegated grant (we are grantedBy, the peer is dataOwner) — no id yet. */
 const delegatedGrant = (overrides: Record<string, unknown> = {}) => ({
-  type: [DATA_GRANT],
+  type: [ACCESS_GRANT],
   grantee: ALICE,
   grantedBy: ACME,
   dataOwner: ALICE,
@@ -148,13 +148,13 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
     })
     // the GC happens before the creates (delete-before-create)
     expect(h.activities.revokeGrantClosure).toHaveBeenCalledWith({ webId, grants: existing })
-    expect(h.activities.storeDataGrant).toHaveBeenCalledTimes(2)
+    expect(h.activities.storeAccessGrant).toHaveBeenCalledTimes(2)
     expect(h.activities.createAcr).toHaveBeenCalledTimes(2)
     expect(h.activities.requestDelegations).toHaveBeenCalledWith({
       webId,
       grants: [delegated],
     })
-    expect(h.activities.replaceDataGrantsOnRegistration).toHaveBeenCalledWith({
+    expect(h.activities.replaceAccessGrantsOnRegistration).toHaveBeenCalledWith({
       webId,
       grantee,
       grants: [grantId('s-parent'), grantId('s-child'), grantId('new-delegated')],
@@ -190,11 +190,11 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
 
     expect(h.activities.revokeGrantClosure).not.toHaveBeenCalled()
     expect(h.activities.requestRevocations).not.toHaveBeenCalled()
-    expect(h.activities.storeDataGrant).not.toHaveBeenCalled()
+    expect(h.activities.storeAccessGrant).not.toHaveBeenCalled()
     expect(h.activities.createAcr).not.toHaveBeenCalled()
     expect(h.activities.requestDelegations).not.toHaveBeenCalled()
     // the full-set PATCH must keep parents AND children; an empty diff
-    expect(h.activities.replaceDataGrantsOnRegistration).toHaveBeenCalledWith({
+    expect(h.activities.replaceAccessGrantsOnRegistration).toHaveBeenCalledWith({
       webId,
       grantee,
       grants: existing,
@@ -227,8 +227,8 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
       webId,
       grants: [grantId('e-old')],
     })
-    expect(h.activities.storeDataGrant).toHaveBeenCalledTimes(1)
-    expect(h.activities.storeDataGrant).toHaveBeenCalledWith(newSource)
+    expect(h.activities.storeAccessGrant).toHaveBeenCalledTimes(1)
+    expect(h.activities.storeAccessGrant).toHaveBeenCalledWith(newSource)
     expect(h.activities.createAcr).toHaveBeenCalledTimes(1)
     expect(h.activities.createAcr).toHaveBeenCalledWith(newSource)
     expect(h.activities.requestDelegations).toHaveBeenCalledTimes(1)
@@ -236,7 +236,7 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
       webId,
       grants: [requestedDelegated],
     })
-    expect(h.activities.replaceDataGrantsOnRegistration).toHaveBeenCalledWith({
+    expect(h.activities.replaceAccessGrantsOnRegistration).toHaveBeenCalledWith({
       webId,
       grantee,
       grants: [grantId('s-new'), grantId('new-delegated'), grantId('e-reused')],
@@ -261,7 +261,7 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
       webId,
       grants: [grantId('e-parent')],
     })
-    expect(h.activities.replaceDataGrantsOnRegistration).toHaveBeenCalledWith({
+    expect(h.activities.replaceAccessGrantsOnRegistration).toHaveBeenCalledWith({
       webId,
       grantee,
       grants: [],
@@ -322,7 +322,7 @@ describe('reconcileGrantsForGrantee — projection + GC', () => {
     // sweep/closure cleans the orphan)
     expect(h.activities.revokeGrantClosure).not.toHaveBeenCalled()
     expect(h.activities.requestRevocations).not.toHaveBeenCalled()
-    expect(h.activities.replaceDataGrantsOnRegistration).toHaveBeenCalledWith({
+    expect(h.activities.replaceAccessGrantsOnRegistration).toHaveBeenCalledWith({
       webId,
       grantee,
       grants: [],
@@ -354,7 +354,7 @@ describe('revokeGrants — owner-side delete + projection patch (C4)', () => {
   test('deletes the closure first, then clears the registration links per grantee', async () => {
     await revokeGrants({ webId, grants: [parent, child], projection: groups })
 
-    expect(h.activities.deleteDataGrants).toHaveBeenCalledWith({
+    expect(h.activities.deleteAccessGrants).toHaveBeenCalledWith({
       webId,
       grants: [parent, child],
       projection: groups,
@@ -363,7 +363,7 @@ describe('revokeGrants — owner-side delete + projection patch (C4)', () => {
       webId,
       groups,
     })
-    const deleteOrder = h.activities.deleteDataGrants.mock.invocationCallOrder[0]
+    const deleteOrder = h.activities.deleteAccessGrants.mock.invocationCallOrder[0]
     const patchOrder = h.activities.removeGrantsFromRegistrations.mock.invocationCallOrder[0]
     expect(deleteOrder).toBeLessThan(patchOrder)
   })
@@ -371,7 +371,7 @@ describe('revokeGrants — owner-side delete + projection patch (C4)', () => {
   test('a payload without a projection only deletes (older/internal callers)', async () => {
     await revokeGrants({ webId, grants: [parent] })
 
-    expect(h.activities.deleteDataGrants).toHaveBeenCalledWith({ webId, grants: [parent] })
+    expect(h.activities.deleteAccessGrants).toHaveBeenCalledWith({ webId, grants: [parent] })
     expect(h.activities.removeGrantsFromRegistrations).not.toHaveBeenCalled()
   })
 })

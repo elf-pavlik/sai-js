@@ -5,7 +5,7 @@ import {
   presentGraphs,
 } from '@janeirodigital/interop-authorization-agent'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { type AuthorizationGranted, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { type AuthorizationGranted, getAccessGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { SparqlEndpointFetcher } from 'fetch-sparql-endpoint'
@@ -95,7 +95,7 @@ describe('reconciliation sweep', () => {
       localSparqlTransport(acmeSession.sparqlEndpoint),
       acmeRegForAlice
     )
-    const iris = await getDataGrantIris(regForAlice)
+    const iris = await getAccessGrantIris(regForAlice)
     expect(iris.length).toBeGreaterThan(0)
     // real equivalence (source trees): the unchanged seed subtree is REUSED —
     // same IRIs after the regeneration. The seed links only the parent; the
@@ -139,7 +139,7 @@ describe('reconciliation sweep', () => {
     await waitFor(
       async () => {
         const current = await getSocialAgentRegistration(transport, acmeRegForAlice)
-        const iris = await getDataGrantIris(current)
+        const iris = await getAccessGrantIris(current)
         return iris.length > 0 && !iris.includes(seedGrant) && !iris.includes(seedChildGrant)
       },
       { timeout: 30_000 }

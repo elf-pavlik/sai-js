@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 import {
   type SparqlBindingTerm,
   type SparqlTransport,
-  getDataGrantsForGrantee,
+  getAccessGrantsForGrantee,
   getOpenAccessRequestsOnRegistry,
   getOpenSentAccessRequests,
 } from '../src/sparql.js'
@@ -120,7 +120,7 @@ describe('getOpenAccessRequestsOnRegistry', () => {
   })
 })
 
-describe('getDataGrantsForGrantee', () => {
+describe('getAccessGrantsForGrantee', () => {
   test('binds the requester as grantee and returns grantedBy + shapeTree per grant', async () => {
     const queries: string[] = []
     const transport = capturingTransport(
@@ -138,7 +138,7 @@ describe('getDataGrantsForGrantee', () => {
       ],
       queries
     )
-    const result = await getDataGrantsForGrantee(transport, 'https://id/bob')
+    const result = await getAccessGrantsForGrantee(transport, 'https://id/bob')
     expect(result).toEqual([
       {
         grant: 'https://registry/alice/g1',

@@ -37,7 +37,6 @@ export const INTEROP = createVocabulary(
   'AuthorizationStructure',
   'createdAt',
   'DataAuthorization',
-  'DataGrant',
   'dataOwner',
   'DataRegistration',
   'DataRegistry',
@@ -158,6 +157,7 @@ export const LWS = createVocabulary(
   'create',
   'partOf',
   'storage',
+  'value',
   'Container',
   'DataResource',
   'StorageResource'

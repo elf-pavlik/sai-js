@@ -2,7 +2,7 @@ import {
   type AgentRegistrationData,
   agentRegistrationAcrJsonLd,
   dataModelContext,
-  getDataGrantIris,
+  getAccessGrantIris,
 } from '@janeirodigital/interop-data-model'
 import type { AgentAndClient } from '@janeirodigital/interop-data-model'
 import {
@@ -36,7 +36,7 @@ export async function setAcr(
   )
 }
 
-export async function addDataGrant(
+export async function addAccessGrant(
   data: AgentRegistrationData,
   fetch: WhatwgFetch,
   grantIri: string
@@ -49,7 +49,7 @@ export async function addDataGrant(
   data.hasDataGrant = [...(data.hasDataGrant ?? []), grantIri]
 }
 
-export async function removeDataGrant(
+export async function removeAccessGrant(
   data: AgentRegistrationData,
   fetch: WhatwgFetch,
   grantIri: string
@@ -62,12 +62,12 @@ export async function removeDataGrant(
   data.hasDataGrant = (data.hasDataGrant ?? []).filter((iri) => iri !== grantIri)
 }
 
-export async function removeAllDataGrants(
+export async function removeAllAccessGrants(
   data: AgentRegistrationData,
   fetch: WhatwgFetch
 ): Promise<void> {
-  const iris = getDataGrantIris(data)
-  await Promise.all(iris.map((iri) => removeDataGrant(data, fetch, iri)))
+  const iris = getAccessGrantIris(data)
+  await Promise.all(iris.map((iri) => removeAccessGrant(data, fetch, iri)))
 }
 
 /**
@@ -76,12 +76,12 @@ export async function removeAllDataGrants(
  * registration emits exactly one Update notification. `grantIris` is the FULL
  * new set (may be []). No-op (no PATCH) when the set is unchanged.
  */
-export async function replaceDataGrants(
+export async function replaceAccessGrants(
   data: AgentRegistrationData,
   fetch: WhatwgFetch,
   grantIris: string[]
 ): Promise<void> {
-  const current = getDataGrantIris(data)
+  const current = getAccessGrantIris(data)
   const currentSet = new Set(current)
   const targetSet = new Set(grantIris)
   const removed = currentSet.difference(targetSet)

@@ -1,4 +1,4 @@
-import type { GrantData } from '@janeirodigital/interop-data-model'
+import { type GrantData, grantAccessModes, grantGrantee } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 
 /**
@@ -8,13 +8,13 @@ import { INTEROP } from '@janeirodigital/interop-utils'
  * source/root grant (`grantedBy === dataOwner`) or it is covered by a valid
  * upstream grant:
  *
- *   up.grantee === down.grantedBy
+ *   up.access[].assignee === down.grantedBy
  *   up.dataOwner === down.dataOwner
  *   up.registeredShapeTree === down.registeredShapeTree
  *   up.hasDataRegistration === down.hasDataRegistration
- *   up.hasStorage === down.hasStorage
+ *   up.storage === down.storage
  *   up.scopeOfGrant covers down.scopeOfGrant
- *   up.accessMode ⊇ down.accessMode
+ *   up.access[].action ⊇ down.access[].action
  *   (for down SelectedFromRegistry) up.hasDataInstance ⊇ down.hasDataInstance
  *   ∧ up itself valid
  *
@@ -47,8 +47,8 @@ const SCOPE_ORDER: Record<string, number> = {
  * shape tree + registration + storage; scope/mode/instance coverage is checked
  * after the lookup.
  */
-function upstreamKey(dataOwner: string, grantee: string, grant: GrantData): string {
-  return `${dataOwner}\u0000${grantee}\u0000${grant.registeredShapeTree}\u0000${grant.hasDataRegistration}\u0000${grant.hasStorage}`
+function upstreamKey(dataOwner: string, grantee: string | undefined, grant: GrantData): string {
+  return `${dataOwner}\u0000${grantee ?? ''}\u0000${grant.registeredShapeTree}\u0000${grant.hasDataRegistration}\u0000${grant.storage}`
 }
 
 /**
@@ -115,12 +115,12 @@ export function instancesCover(upstream: GrantData, downstream: GrantData): bool
 export function grantCovers(upstream: GrantData, downstream: GrantData): boolean {
   return (
     upstream.dataOwner === downstream.dataOwner &&
-    upstream.grantee === downstream.grantedBy &&
+    grantGrantee(upstream) === downstream.grantedBy &&
     upstream.registeredShapeTree === downstream.registeredShapeTree &&
     upstream.hasDataRegistration === downstream.hasDataRegistration &&
-    upstream.hasStorage === downstream.hasStorage &&
+    upstream.storage === downstream.storage &&
     scopeCovers(upstream.scopeOfGrant, downstream.scopeOfGrant) &&
-    accessModesCover(upstream.accessMode, downstream.accessMode) &&
+    accessModesCover(grantAccessModes(upstream), grantAccessModes(downstream)) &&
     instancesCover(upstream, downstream)
   )
 }
@@ -137,8 +137,8 @@ export function parentCoversChild(parent: GrantData, child: GrantData): boolean 
     child.scopeOfGrant === INTEROP.Inherited &&
     parent.dataOwner === child.dataOwner &&
     parent.grantedBy === child.grantedBy &&
-    parent.grantee === child.grantee &&
-    parent.hasStorage === child.hasStorage
+    grantGrantee(parent) === grantGrantee(child) &&
+    parent.storage === child.storage
   )
 }
 
@@ -173,7 +173,7 @@ export function grantChainValidity(
   // registry on every fixed-point iteration.
   const upstreamIndex = new Map<string, GrantData[]>()
   for (const grant of byId.values()) {
-    const key = upstreamKey(grant.dataOwner, grant.grantee, grant)
+    const key = upstreamKey(grant.dataOwner, grantGrantee(grant), grant)
     const list = upstreamIndex.get(key) ?? []
     list.push(grant)
     upstreamIndex.set(key, list)

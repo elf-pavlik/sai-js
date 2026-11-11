@@ -1,5 +1,5 @@
-import type { GrantData } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { type GrantData, grantAccess } from '@janeirodigital/interop-data-model'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -31,19 +31,53 @@ const READ = 'http://www.w3.org/ns/odrl/2/read'
 const UPDATE = 'http://www.w3.org/ns/odrl/2/modify'
 const CREATE = 'https://www.w3.org/ns/lws#create'
 
-function grant(id: string, overrides: Partial<GrantData> = {}): GrantData {
+interface GrantOverrides {
+  grantee?: string
+  accessMode?: string[]
+  hasStorage?: string
+  grantedBy?: string
+  dataOwner?: string
+  registeredShapeTree?: string
+  hasDataRegistration?: string
+  scopeOfGrant?: string
+  hasDataInstance?: string[]
+  inheritsFromGrant?: string
+}
+
+/** Build a canonical grant from the legacy-named fixture overrides. */
+function grant(id: string, overrides: GrantOverrides = {}): GrantData {
+  const grantee = overrides.grantee ?? B
+  const actions = overrides.accessMode ?? [READ, UPDATE]
+  const storage = overrides.hasStorage ?? STORAGE
+  const hasDataRegistration = overrides.hasDataRegistration ?? PROJECT_REG
+  const scopeOfGrant = overrides.scopeOfGrant ?? INTEROP.AllFromRegistry
+  const hasDataInstance = overrides.hasDataInstance
   return {
     id,
-    type: [INTEROP.DataGrant],
-    grantee: B,
-    grantedBy: A,
-    dataOwner: OWNER,
-    registeredShapeTree: PROJECT_TREE,
-    hasDataRegistration: PROJECT_REG,
-    hasStorage: STORAGE,
-    scopeOfGrant: INTEROP.AllFromRegistry,
-    accessMode: [READ, UPDATE],
-    ...overrides,
+    type: [LWS.AccessGrant],
+    storage,
+    access: grantAccess({
+      scopeOfGrant,
+      storage,
+      hasDataRegistration,
+      hasDataInstance,
+      assignee: grantee,
+      actions,
+    }),
+    grantedBy: overrides.grantedBy ?? A,
+    dataOwner: overrides.dataOwner ?? OWNER,
+    registeredShapeTree: overrides.registeredShapeTree ?? PROJECT_TREE,
+    hasDataRegistration,
+    scopeOfGrant,
+    ...(hasDataInstance ? { hasDataInstance } : {}),
+    ...(overrides.inheritsFromGrant ? { inheritsFromGrant: overrides.inheritsFromGrant } : {}),
+  }
+}
+
+function withAssignee(grant: GrantData, assignee: string): GrantData {
+  return {
+    ...grant,
+    access: grant.access.map((policy) => ({ ...policy, assignee })),
   }
 }
 
@@ -116,10 +150,10 @@ describe('grantCovers — match-based upstream', () => {
     const downstream = aliceToBob('ab')
     expect(grantCovers(upstream, downstream)).toBe(true)
     expect(grantCovers({ ...upstream, dataOwner: 'https://id/other' }, downstream)).toBe(false)
-    expect(grantCovers({ ...upstream, grantee: C }, downstream)).toBe(false)
+    expect(grantCovers(withAssignee(upstream, C), downstream)).toBe(false)
     expect(grantCovers({ ...upstream, registeredShapeTree: TASK_TREE }, downstream)).toBe(false)
     expect(grantCovers({ ...upstream, hasDataRegistration: TASK_REG }, downstream)).toBe(false)
-    expect(grantCovers({ ...upstream, hasStorage: 'https://data/other/' }, downstream)).toBe(false)
+    expect(grantCovers({ ...upstream, storage: 'https://data/other/' }, downstream)).toBe(false)
   })
 
   test('requires scope, mode and instance coverage', () => {

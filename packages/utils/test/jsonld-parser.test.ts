@@ -65,3 +65,62 @@ test('parses a CID document with the embedded cid context', async () => {
     )
   )
 })
+
+test('parses an LWS access document through the bundled LWS context', async () => {
+  const doc = JSON.stringify({
+    '@context': ['https://www.w3.org/ns/lws/v1'],
+    id: 'https://registry.example/grant-1',
+    type: ['AccessGrant'],
+    storage: 'https://data.example/',
+    access: [
+      {
+        type: ['AccessPolicy'],
+        assignee: 'https://id.example/bob',
+        action: ['read', 'create'],
+        target: { type: 'Container', value: ['https://data.example/registration'] },
+      },
+    ],
+  })
+  const dataset = await parseJsonld(doc)
+  const { namedNode, quad } = DataFactory
+  const quads = [...dataset]
+  const grant = namedNode('https://registry.example/grant-1')
+  const LWS = 'https://www.w3.org/ns/lws#'
+  const ODRL = 'http://www.w3.org/ns/odrl/2/'
+
+  expect(quads).toContainEqual(
+    quad(
+      grant,
+      namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+      namedNode(`${LWS}AccessGrant`)
+    )
+  )
+
+  const access = quads.find((q) => q.predicate.value === `${LWS}access`)!
+  const policy = access.object
+  // assignee is an IRI (the upstream context stores it as a literal)
+  expect(quads).toContainEqual(
+    quad(policy, namedNode(`${ODRL}assignee`), namedNode('https://id.example/bob'))
+  )
+  expect(
+    quads
+      .filter((q) => q.subject.equals(policy) && q.predicate.value === `${ODRL}action`)
+      .map((q) => q.object.value)
+      .toSorted()
+  ).toEqual([`${LWS}create`, `${ODRL}read`].toSorted())
+
+  const target = quads.find(
+    (q) => q.subject.equals(policy) && q.predicate.value === `${ODRL}target`
+  )!.object
+  expect(quads).toContainEqual(
+    quad(
+      target,
+      namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+      namedNode(`${LWS}Container`)
+    )
+  )
+  // target.value survives expansion as lws:value
+  expect(quads).toContainEqual(
+    quad(target, namedNode(`${LWS}value`), namedNode('https://data.example/registration'))
+  )
+})

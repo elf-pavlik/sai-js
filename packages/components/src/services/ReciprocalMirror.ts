@@ -23,14 +23,14 @@ import type { Quad } from 'n3'
  * - the reciprocal registration body (the peer's registration *of the org*)
  *   in a graph **named after the resource's own IRI** — the same IRI we
  *   would otherwise HTTP-GET;
- * - each data grant linked from it (`interop:hasDataGrant`) likewise in a
+ * - each access grant linked from it (`interop:hasDataGrant`) likewise in a
  *   graph named after its own IRI.
  *
  * This covers everything org-context reads would otherwise dereference on
  * the peer's server (where the admin's credentials match no ACR policy):
- * `buildSocialAgentProfile`, `getSocialAgents` pass 2,
- * `findDataGrantIndex` (its reciprocal-leg reads now resolve via the
- * registry plane, docs/sparql.md).
+ * `buildSocialAgentProfile`, `getSocialAgents` pass 2, and the reciprocal-leg
+ * access-grant index reads (all now resolve via the registry plane,
+ * docs/sparql.md).
  *
  * **Single-writer invariant:** mirrors are written only by server-side sync
  * (`syncReciprocalMirror`) using the context's own session; UI/service code
@@ -47,7 +47,7 @@ import type { Quad } from 'n3'
  *   unregister flow does not exist yet).
  *
  * Consequence: the mirror is the only peer source for the registry plane.
- * `generateDelegatedDataGrants` reads it without any peer dereference and
+ * `generateDelegatedAccessGrants` reads it without any peer dereference and
  * raises `MirrorIncompleteError` when a reciprocal-linked graph is absent, and
  * webhook delivery is the only refresh path (the drift scan/backfill in
  * `docs/plans/pod-isolation-followup.md` A1 is the recovery for missed ones).
@@ -179,7 +179,7 @@ export async function updateReciprocalMirror(
   }
 
   // No-op guard: only the `hasDataGrant` link set is authoritative — the same
-  // rule as the registration projection (`replaceDataGrants`). Grants are
+  // rule as the registration projection (`replaceAccessGrants`). Grants are
   // immutable (the oracle above skips present bodies); if no grant was added
   // or removed and the mirrored registration graph is present, nothing needs
   // writing. Non-grant registration fields (label/note) ride along whenever a

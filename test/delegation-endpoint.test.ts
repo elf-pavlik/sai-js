@@ -1,6 +1,6 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
-import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
+import { type IncomingGrantData, grantAccess } from '@janeirodigital/interop-data-model'
+import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { afterEach, describe, expect, test } from 'vitest'
 
 import { containedCount, waitForQuiescence } from './util'
@@ -18,47 +18,68 @@ const seededGrantCount = 10
 const p9m2vr = 'https://registry/acme/p9m2vr' // acme → bob (source)
 const bobOwnGrant = 'https://registry/bob/t2v9cd' // a different owner's registry
 
-const commonGrantData = {
-  grantedBy: bobId,
-  dataOwner: acmeId,
-  grantee: testClient,
-  hasStorage: 'https://data/acme-rnd/',
+interface IncomingGrantFields {
+  assignee?: string
+  storage?: string
+  scopeOfGrant: string
+  hasDataRegistration: string
+  registeredShapeTree: string
+  grantedBy?: string
+  dataOwner?: string
+  actions?: string[]
+  hasDataInstance?: string[]
+  hasInheritingGrant?: IncomingGrantData[]
 }
-const tasksGrantData: IncomingGrantData = {
-  ...commonGrantData,
+
+function incomingGrant(fields: IncomingGrantFields): IncomingGrantData {
+  const storage = fields.storage ?? 'https://data/acme-rnd/'
+  const actions = fields.actions ?? [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify]
+  return {
+    type: [LWS.AccessGrant],
+    storage,
+    access: grantAccess({
+      scopeOfGrant: fields.scopeOfGrant,
+      storage,
+      hasDataRegistration: fields.hasDataRegistration,
+      hasDataInstance: fields.hasDataInstance,
+      assignee: fields.assignee ?? testClient,
+      actions,
+    }),
+    grantedBy: fields.grantedBy ?? bobId,
+    dataOwner: fields.dataOwner ?? acmeId,
+    registeredShapeTree: fields.registeredShapeTree,
+    hasDataRegistration: fields.hasDataRegistration,
+    scopeOfGrant: fields.scopeOfGrant,
+    ...(fields.hasDataInstance ? { hasDataInstance: fields.hasDataInstance } : {}),
+    ...(fields.hasInheritingGrant ? { hasInheritingGrant: fields.hasInheritingGrant } : {}),
+  }
+}
+
+const tasksGrantData: IncomingGrantData = incomingGrant({
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-rnd/x0md9s',
-  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.Inherited,
-}
-const projectsGrantData: IncomingGrantData = {
-  ...commonGrantData,
+})
+const projectsGrantData: IncomingGrantData = incomingGrant({
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-rnd/reb39k',
-  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [tasksGrantData],
-}
+})
 // second delegable chain from the seed: acme-hr project → inherited task
-const hrCommonGrantData = {
-  ...commonGrantData,
-  hasStorage: 'https://data/acme-hr/',
-}
-const hrTasksGrantData: IncomingGrantData = {
-  ...hrCommonGrantData,
+const hrTasksGrantData: IncomingGrantData = incomingGrant({
+  storage: 'https://data/acme-hr/',
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-hr/v4n2qx',
-  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.Inherited,
-}
-const hrProjectsGrantData: IncomingGrantData = {
-  ...hrCommonGrantData,
+})
+const hrProjectsGrantData: IncomingGrantData = incomingGrant({
+  storage: 'https://data/acme-hr/',
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-hr/p7t9km',
-  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [hrTasksGrantData],
-}
+})
 
 const issuancePayload = (grants: IncomingGrantData[]): string =>
   JSON.stringify({ type: [INTEROP.AccessRequest], grants })
@@ -227,20 +248,19 @@ describe('DelegationRevocationEndpoint', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
-          {
-            ...commonGrantData,
+          incomingGrant({
             grantedBy,
-            grantee,
+            assignee: grantee,
             registeredShapeTree: SOLIDTREES.Project,
             hasDataRegistration: 'https://data/acme-rnd/reb39k',
-            accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
             scopeOfGrant: INTEROP.AllFromRegistry,
-          },
+          }),
         ]),
       })
       expect(response.status).toBe(200)
-      const granted = (await response.json()) as { id: string }[]
+      const granted = (await response.json()) as { id: string; type: string[] }[]
       expect(granted).toHaveLength(1)
+      expect(granted[0].type).toContain(LWS.AccessGrant)
       return granted[0].id
     }
 

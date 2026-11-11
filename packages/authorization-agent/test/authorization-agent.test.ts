@@ -9,11 +9,15 @@ import {
   type ReadableDataInstance,
   type ReadableDataRegistration,
   ReadableWebIdProfile,
+  grantAccess,
+  grantGrantee,
 } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch, statelessFetch } from '@janeirodigital/interop-test-utils'
 import {
   ACCESS_ACTIONS,
   INTEROP,
+  LWS,
+  ODRL,
   asyncIterableToArray,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
@@ -337,8 +341,8 @@ describe.skip('authorization agent', () => {
     })
   })
 
-  describe.skip('generateDataGrants', () => {
-    test('should generate grants without changing data grant iris', async () => {
+  describe.skip('generateAccessGrants', () => {
+    test('should generate grants without changing access grant iris', async () => {
       const statefulFetch = createStatefulFetch()
       const accessAuthorizationIri =
         'https://auth.alice.example/eac2c39c-c8b3-4880-8b9f-a3e12f7f6372'
@@ -351,13 +355,13 @@ describe.skip('authorization agent', () => {
         await agent.registrySet.hasSocialAgentRegistry.findSocialAgentRegistration(
           registeredAgentIri
         )
-      const beforeIris = getDataGrantIris(agentRegistration!)
-      await agent.generateDataGrants(accessAuthorizationIri)
+      const beforeIris = getAccessGrantIris(agentRegistration!)
+      await agent.generateAccessGrants(accessAuthorizationIri)
       const updatedAgentRegistration =
         await agent.registrySet.hasSocialAgentRegistry.findSocialAgentRegistration(
           registeredAgentIri
         )
-      const afterIris = getDataGrantIris(updatedAgentRegistration!)
+      const afterIris = getAccessGrantIris(updatedAgentRegistration!)
       expect(afterIris).not.toEqual(beforeIris)
       expect(afterIris.length).toBeGreaterThan(beforeIris.length)
     })
@@ -368,7 +372,7 @@ describe.skip('authorization agent', () => {
         fetch: statelessFetch,
         randomUUID,
       })
-      const result = await agent.generateDataGrants(accessAuthorizationIri)
+      const result = await agent.generateAccessGrants(accessAuthorizationIri)
       expect(result.sourceGrants).toEqual([])
       expect(result.delegatedGrants).toEqual([])
     })
@@ -1115,19 +1119,47 @@ describe('revokeGrants core (C1)', () => {
   const TASK_REG = 'https://data.alice.example/tasks/'
   const STORAGE = 'https://data.alice.example/'
 
-  const grantFixture = (id: string, overrides: Partial<GrantData> = {}): GrantData => ({
-    id,
-    type: [INTEROP.DataGrant],
-    dataOwner: ALICE,
-    grantedBy: ALICE,
-    grantee: BOB,
-    registeredShapeTree: PROJECT_TREE,
-    hasDataRegistration: PROJECT_REG,
-    hasStorage: STORAGE,
-    scopeOfGrant: INTEROP.AllFromRegistry,
-    accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
-    ...overrides,
-  })
+  interface GrantOverrides {
+    grantee?: string
+    accessMode?: string[]
+    hasStorage?: string
+    dataOwner?: string
+    grantedBy?: string
+    registeredShapeTree?: string
+    hasDataRegistration?: string
+    scopeOfGrant?: string
+    hasDataInstance?: string[]
+    inheritsFromGrant?: string
+  }
+
+  /** Build a canonical grant from the legacy-named fixture overrides. */
+  const grantFixture = (id: string, overrides: GrantOverrides = {}): GrantData => {
+    const grantee = overrides.grantee ?? BOB
+    const actions = overrides.accessMode ?? [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify]
+    const storage = overrides.hasStorage ?? STORAGE
+    const hasDataRegistration = overrides.hasDataRegistration ?? PROJECT_REG
+    const scopeOfGrant = overrides.scopeOfGrant ?? INTEROP.AllFromRegistry
+    return {
+      id,
+      type: [LWS.AccessGrant],
+      storage,
+      access: grantAccess({
+        scopeOfGrant,
+        storage,
+        hasDataRegistration,
+        hasDataInstance: overrides.hasDataInstance,
+        assignee: grantee,
+        actions,
+      }),
+      dataOwner: overrides.dataOwner ?? ALICE,
+      grantedBy: overrides.grantedBy ?? ALICE,
+      registeredShapeTree: overrides.registeredShapeTree ?? PROJECT_TREE,
+      hasDataRegistration,
+      scopeOfGrant,
+      ...(overrides.hasDataInstance ? { hasDataInstance: overrides.hasDataInstance } : {}),
+      ...(overrides.inheritsFromGrant ? { inheritsFromGrant: overrides.inheritsFromGrant } : {}),
+    }
+  }
 
   // source D→A; delegated A→B; delegated B→C; the source child D→A for the
   // Task shape and the delegated child A→B inheriting from A→B Project
@@ -1162,16 +1194,50 @@ describe('revokeGrants core (C1)', () => {
     const node = DataFactory.namedNode(grant.id!)
     const q = (predicate: string, object: string) =>
       DataFactory.quad(node, DataFactory.namedNode(predicate), DataFactory.namedNode(object))
+    const policy = DataFactory.blankNode()
+    const target = DataFactory.blankNode()
+    const targetType =
+      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
+        ? LWS.DataResource
+        : grant.scopeOfGrant === INTEROP.AllFromAgent
+          ? LWS.StorageResource
+          : LWS.Container
+    const targetValues =
+      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
+        ? (grant.hasDataInstance ?? [])
+        : grant.scopeOfGrant === INTEROP.AllFromAgent
+          ? [grant.storage]
+          : [grant.hasDataRegistration]
     const quads = [
-      q(RDF_TYPE, INTEROP.DataGrant),
-      q(INTEROP.grantee, grant.grantee),
+      q(RDF_TYPE, LWS.AccessGrant),
+      q(RDF_TYPE, LWS.AccessGrant),
       q(INTEROP.grantedBy, grant.grantedBy),
       q(INTEROP.dataOwner, grant.dataOwner),
       q(INTEROP.registeredShapeTree, grant.registeredShapeTree),
       q(INTEROP.hasDataRegistration, grant.hasDataRegistration),
-      q(INTEROP.hasStorage, grant.hasStorage),
+      q(LWS.storage, grant.storage),
       q(INTEROP.scopeOfGrant, grant.scopeOfGrant),
-      ...grant.accessMode.map((mode) => q(INTEROP.accessMode, mode)),
+      DataFactory.quad(node, DataFactory.namedNode(LWS.access), policy),
+      DataFactory.quad(
+        policy,
+        DataFactory.namedNode(RDF_TYPE),
+        DataFactory.namedNode(LWS.AccessPolicy)
+      ),
+      DataFactory.quad(
+        policy,
+        DataFactory.namedNode(ODRL.assignee),
+        DataFactory.namedNode(grantGrantee(grant) ?? '')
+      ),
+      ...grant.access.flatMap((p) =>
+        p.action.map((mode) =>
+          DataFactory.quad(policy, DataFactory.namedNode(ODRL.action), DataFactory.namedNode(mode))
+        )
+      ),
+      DataFactory.quad(policy, DataFactory.namedNode(ODRL.target), target),
+      DataFactory.quad(target, DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(targetType)),
+      ...targetValues.map((value) =>
+        DataFactory.quad(target, DataFactory.namedNode(LWS.value), DataFactory.namedNode(value))
+      ),
     ]
     if (grant.inheritsFromGrant) quads.push(q(INTEROP.inheritsFromGrant, grant.inheritsFromGrant))
     return quads
@@ -1201,7 +1267,7 @@ describe('revokeGrants core (C1)', () => {
             grant: { termType: 'NamedNode', value: grant.id },
             dataOwner: { termType: 'NamedNode', value: grant.dataOwner },
             grantedBy: { termType: 'NamedNode', value: grant.grantedBy },
-            grantee: { termType: 'NamedNode', value: grant.grantee },
+            grantee: { termType: 'NamedNode', value: grantGrantee(grant) ?? '' },
           }))
       }
       throw new Error(`unexpected SELECT: ${query}`)
@@ -1362,7 +1428,7 @@ describe('dataInstanceIrisForGrant (Phase 4)', () => {
     for await (const id of dataInstanceIrisForGrant(
       {
         id: 'https://auth.alice.example/grant/1',
-        type: [INTEROP.DataGrant],
+        type: [LWS.AccessGrant],
         grantee: 'https://bob.example/#id',
         grantedBy: webId,
         dataOwner: webId,

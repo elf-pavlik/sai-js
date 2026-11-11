@@ -5,9 +5,11 @@ export type AgentRegistrationId = {
 
 export type AgentRegistrationData = AgentRegistrationId & {
   registeredAgent: string
+  /** `interop:hasDataGrant` — the registration's link predicate to `lws:AccessGrant` resources (the wire term is kept for Interop compatibility). */
   hasDataGrant?: string[]
 }
 
-export function getDataGrantIris(data: AgentRegistrationData): string[] {
+/** IRIs of the linked access grants (`hasDataGrant` link set). */
+export function getAccessGrantIris(data: AgentRegistrationData): string[] {
   return data.hasDataGrant ?? []
 }

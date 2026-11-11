@@ -27,9 +27,9 @@ import type { SessionManager } from './SessionManager'
  * only**. The admin's AA (or any admin-authenticated caller) asks for a
  * peer resource (a data registration or a data instance document) by IRI;
  * this handler fetches it with the **org's** session credentials — the
- * grantee, whose data grants the peer's permission engine authorizes —
+ * grantee, whose access grants the peer's permission engine authorizes —
  * and returns the upstream representation to the caller. The caller's own
- * UAS never touches the peer's server (it holds no data grants).
+ * UAS never touches the peer's server (it holds no access grants).
  *
  * JSON-LD only: the upstream document is read through `fetchJsonLd` (LWS
  * profile first, RDF fallback for an LWS page-listing container) and served
@@ -39,7 +39,7 @@ import type { SessionManager } from './SessionManager'
  * Gate: same as `/sparql-admin` (`requireOrgAdmin` — the caller must be an
  * admin of the org). Read-only by construction: GET only, and the proxy
  * never issues writes upstream. Peer-side access is enforced by the
- * peer's permission engine against its data grants (openwiki/architecture/federation.md §1) —
+ * peer's permission engine against its access grants (openwiki/architecture/federation.md §1) —
  * the org's credentials only succeed where the org holds a grant
  * (safe-by-grant; no peer allow-list needed).
  *

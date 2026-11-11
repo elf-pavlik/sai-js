@@ -56,10 +56,25 @@ export type { AccessNeedData, AccessNeedId } from './access-need.ts'
 export * as AccessNeed from './access-need.ts'
 export type { AccessNeedGroupData, AccessNeedGroupId } from './access-need-group.ts'
 export * as AccessNeedGroup from './access-need-group.ts'
-export { acrContext, dataModelContext } from './context.ts'
-export type { GrantData, GrantId, FinalGrantData, GeneratedGrants } from './grant.ts'
+export { acrContext, dataModelContext, grantContext, lwsGrantContext } from './context.ts'
+export type {
+  GrantData,
+  GrantId,
+  FinalGrantData,
+  GeneratedGrants,
+  LwsAccessPolicy,
+  GrantTargetInput,
+  LwsTarget,
+} from './grant.ts'
 export * as Grant from './grant.ts'
-export { toJsonLd } from './grant.ts'
+export {
+  grantAccess,
+  grantAccessModes,
+  grantGrantee,
+  grantTarget,
+  grantTargets,
+  toJsonLd,
+} from './grant.ts'
 export type {
   AccessRequestMessage,
   IncomingGrantData,

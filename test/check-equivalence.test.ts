@@ -6,7 +6,7 @@ import {
   getSocialAgentRegistration,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
-import { type AgentId, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { type AgentId, getAccessGrantIris } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -60,7 +60,7 @@ async function acmeRegistrationIris(): Promise<string[]> {
     localSparqlTransport(session.sparqlEndpoint),
     acmeRegForAlice
   )
-  return getDataGrantIris(registration).toSorted()
+  return getAccessGrantIris(registration).toSorted()
 }
 
 /** Fresh read of alice's registration of the test client (source + delegated). */
@@ -72,7 +72,7 @@ async function applicationRegistrationIris(): Promise<string[]> {
     localSparqlTransport(session.sparqlEndpoint),
     listed.id
   )
-  return getDataGrantIris(registration).toSorted()
+  return getAccessGrantIris(registration).toSorted()
 }
 
 /**

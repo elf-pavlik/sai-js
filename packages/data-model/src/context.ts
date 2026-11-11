@@ -6,6 +6,7 @@ import {
   type JsonLdContext,
   LDP,
   LWS,
+  ODRL,
   OIDC,
   SHAPETREES,
   SKOS,
@@ -179,6 +180,73 @@ export const dataModelContext: JsonLdContext = {
 
   // nfo
   fileName: { '@id': NFO.fileName },
+}
+
+/**
+ * The LWS `odrl:target` value object context. `value` is a local LWS-context
+ * fix pending upstream: without it JSON-LD expansion drops the target value
+ * array entirely (the target node keeps only its `rdf:type`).
+ */
+const lwsTargetContext: JsonLdContext = {
+  id: '@id',
+  type: { '@id': '@type' },
+  value: { '@id': LWS.value, '@type': '@id', '@container': '@set' },
+}
+
+/** The LWS `AccessPolicy` node context (scoped under `access`). */
+const lwsAccessPolicyContext: JsonLdContext = {
+  id: '@id',
+  type: { '@id': '@type', '@container': '@set' },
+  assignee: iriTermDef(ODRL, 'assignee'),
+  action: { '@id': ODRL.action, '@type': '@vocab', '@container': '@set' },
+  target: { '@id': ODRL.target, '@context': lwsTargetContext },
+}
+
+/**
+ * JSON-LD context for the canonical grant resource (read + write).
+ *
+ * The graph carries the LWS truth (`storage`, `access[].assignee`, `action`,
+ * `target`) plus SAI extension fields; the legacy flat fields are gone. Types
+ * stay full IRIs here so the internal model compares the `lws:AccessGrant`
+ * type and the action IRIs directly. `lwsGrantContext` adds the compact LWS terms for
+ * the public grant view.
+ *
+ * `target` is redefined inside the scoped `access` context so the policy's
+ * `odrl:target` does not collide with the shared `as:target` term used by
+ * activities.
+ */
+export const grantContext: JsonLdContext = {
+  ...dataModelContext,
+  storage: iriTermDef(LWS, 'storage'),
+  access: { '@id': LWS.access, '@container': '@set', '@context': lwsAccessPolicyContext },
+}
+
+/**
+ * Context for the compact LWS grant view (`AccessGrant` / `AccessPolicy` /
+ * `DataResource` / `Container` / `StorageResource` as bare terms). Used by the
+ * grant endpoint's JSON-LD framing; the internal read model uses
+ * `grantContext` (full IRIs).
+ */
+export const lwsGrantContext: JsonLdContext = {
+  ...grantContext,
+  AccessGrant: { '@id': LWS.AccessGrant },
+  access: {
+    '@id': LWS.access,
+    '@container': '@set',
+    '@context': {
+      ...lwsAccessPolicyContext,
+      AccessPolicy: { '@id': LWS.AccessPolicy },
+      target: {
+        '@id': ODRL.target,
+        '@context': {
+          ...lwsTargetContext,
+          DataResource: { '@id': LWS.DataResource },
+          Container: { '@id': LWS.Container },
+          StorageResource: { '@id': LWS.StorageResource },
+        },
+      },
+    },
+  },
 }
 
 /**

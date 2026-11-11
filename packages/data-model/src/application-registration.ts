@@ -9,8 +9,9 @@ export type ApplicationRegistrationId = {
 
 export type ApplicationRegistrationData = ApplicationRegistrationId & {
   registeredAgent: string
+  /** `interop:hasDataGrant` — the registration's link predicate to `lws:AccessGrant` resources (the wire term is kept for Interop compatibility). */
   hasDataGrant: string[]
-  /** Derived: whether the registration has any data grants. */
+  /** Derived: whether the registration has any access grants. */
   granted: boolean
 }
 
@@ -22,7 +23,7 @@ export type ApplicationId = {
 /**
  * Convert a JSON-LD document (fetched as application/ld+json) directly into an
  * ApplicationRegistrationData POJO. The document can be in expanded, compacted,
- * or flattened form. `granted` is derived from the presence of data grants.
+ * or flattened form. `granted` is derived from the presence of access grants.
  */
 export async function fromJsonLd(doc: unknown, id: string): Promise<ApplicationRegistrationData> {
   const node = await frameNode(doc, dataModelContext, id)

@@ -57,7 +57,7 @@ import { syncReciprocalMirror } from './reciprocal.js'
 // built-ins). The values must match what producers put in the refs they build.
 const ROLE_TYPE = 'http://www.w3.org/ns/solid/interop#Role'
 const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
-const DATA_GRANT_TYPE = 'http://www.w3.org/ns/solid/interop#DataGrant'
+const ACCESS_GRANT_TYPE = 'https://www.w3.org/ns/lws#AccessGrant'
 
 /** Sandbox-safe discriminant check (the data-model `isActivityClass` helper
  * is a runtime import — not allowed here; the tuples are read as string[]). */
@@ -77,7 +77,7 @@ const {
   getRegistryGrantsForGrantee,
   generateGrants,
   checkEquivalence,
-  deleteDataGrants,
+  deleteAccessGrants,
   deleteAuthorizations,
   revokeGrantClosure,
   requestRevocations,
@@ -86,10 +86,10 @@ const {
   resolveGranteeKind,
   findRoleUsage,
   createRoleAtId,
-  storeDataGrant,
+  storeAccessGrant,
   createAcr,
   requestDelegations,
-  replaceDataGrantsOnRegistration,
+  replaceAccessGrantsOnRegistration,
   getPendingDelegatedGrantsUpdates,
   getPendingActivities,
   resolveAuthorizationGrantee,
@@ -102,7 +102,7 @@ const {
 })
 
 async function storeGrantAndAcr(grant: FinalGrantData) {
-  await storeDataGrant(grant)
+  await storeAccessGrant(grant)
   await createAcr(grant)
 }
 
@@ -133,7 +133,7 @@ export async function revokeGrants(payload: {
   /** removed grants grouped by grantee for the owner's projection patch */
   projection?: { grantee: string; grants: string[] }[]
 }): Promise<void> {
-  await deleteDataGrants(payload)
+  await deleteAccessGrants(payload)
   if (payload.projection?.length) {
     await removeGrantsFromRegistrations({
       webId: payload.webId,
@@ -544,7 +544,7 @@ export async function processRoleDeletion(
  * authorization state (the C5 drift arm; a pending-activity drain alone cannot
  * see a change whose activity row is gone). The mirror repair is a forced sync
  * for locally incomplete pairs; the drift pass reuses unchanged trees and
- * `replaceDataGrants` is a no-op when the link set is unchanged, so a no-op
+ * `replaceAccessGrants` is a no-op when the link set is unchanged, so a no-op
  * sweep writes nothing. Reuses the same routing as the webhook handler:
  * grantee activities join the per-grantee consumer (deterministic workflowId —
  * a running consumer absorbs them),
@@ -795,7 +795,7 @@ export async function reconcileGrantsForGrantee(
       const owner = body?.dataOwner ?? (ownIds.has(grant.id) ? payload.webId.id : undefined)
       if (!owner) continue
       const group = byOwner.get(owner) ?? []
-      group.push({ id: grant.id, type: body?.type ?? [DATA_GRANT_TYPE] })
+      group.push({ id: grant.id, type: body?.type ?? [ACCESS_GRANT_TYPE] })
       byOwner.set(owner, group)
     }
     for (const [owner, grants] of byOwner) {
@@ -834,7 +834,7 @@ export async function reconcileGrantsForGrantee(
     newGrantIds.push(...(await requestDelegations({ webId: payload.webId, grants })))
   }
 
-  await replaceDataGrantsOnRegistration({
+  await replaceAccessGrantsOnRegistration({
     webId: payload.webId,
     grantee: payload.grantee,
     grants: [...newGrantIds, ...reusedExisting],

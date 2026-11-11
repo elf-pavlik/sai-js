@@ -32,7 +32,7 @@ export function orgWebIdFromPath(targetPath: string): string {
  *
  * Returns the **org's** session, whose credentials are legitimate on the
  * org's own resources and — as the grantee — on peers' data registrations
- * the org holds data grants for (org-context-proxy.md). No server-side
+ * the org holds access grants for (org-context-proxy.md). No server-side
  * work is triggered for unauthenticated callers.
  */
 export async function requireOrgAdmin(

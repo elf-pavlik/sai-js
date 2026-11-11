@@ -134,7 +134,7 @@ export async function acceptInvitation(
  * activity, by the delegated-grants consumer (which serializes it per
  * `(webId, peerId)` and runs it BEFORE regenerating grants —
  * openwiki/architecture/federation.md). Re-fetches the peer's reciprocal
- * registration (+ data grants) with the context's own credentials and
+ * registration (+ access grants) with the context's own credentials and
  * rewrites the local mirror graphs.
  *
  * Returns `peerGone` for the terminal `404`/`410` case (the replica was dropped

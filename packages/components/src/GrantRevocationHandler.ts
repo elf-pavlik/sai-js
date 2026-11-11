@@ -11,7 +11,7 @@ import type {
   GrantId,
   SocialAgentId,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
   BadRequestHttpError,
@@ -180,7 +180,7 @@ export class GrantRevocationHandler {
       }
       const toDelete: GrantId[] = revoked.map((grant) => ({
         id: grant.iri,
-        type: [INTEROP.DataGrant],
+        type: [LWS.AccessGrant],
       }))
       // group the removed grants by grantee for the owner-side projection
       // patch (the owner's registry links them from each grantee's

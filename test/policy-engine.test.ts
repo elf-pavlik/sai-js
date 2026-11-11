@@ -636,7 +636,7 @@ describe('protected resources (admin grant, scope DataRegistry, mode Read)', () 
       const response = await storageFetch(registry, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(403)
     })
-    test('can Read instance (bob already holds DataGrants from YoYo)', async () => {
+    test('can Read instance (bob already holds access grants from YoYo)', async () => {
       const response = await storageFetch(id, { headers: { Accept: 'text/turtle' } })
       expect(response.status).toBe(200)
     })

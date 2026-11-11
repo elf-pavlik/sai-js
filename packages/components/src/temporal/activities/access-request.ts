@@ -1,7 +1,7 @@
 import {
   ActivityRegistry,
   type OpenSentAccessRequest,
-  getDataGrantsForGrantee,
+  getAccessGrantsForGrantee,
   getOpenSentAccessRequests,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
@@ -100,7 +100,7 @@ export async function materializeNeedBasedAccessRequest(
  * child grants carry the child tree and match child needs).
  *
  * The `grant.grantee` anchor is bound at QUERY level
- * (`getDataGrantsForGrantee` — grants arriving for this requester), so a
+ * (`getAccessGrantsForGrantee` — grants arriving for this requester), so a
  * per-grant check is redundant here: requests made by this requester always
  * carry `grantedBy === requester` (self-requests included). Returns the
  * snapshot ids of the requests to close.
@@ -137,7 +137,7 @@ export async function detectGrantedRequests(input: DetectGrantedRequestsInput): 
   const transport = localSparqlTransport(session.sparqlEndpoint)
   const open = await getOpenSentAccessRequests(transport)
   if (open.length === 0) return
-  const grants = await getDataGrantsForGrantee(transport, input.requester.id)
+  const grants = await getAccessGrantsForGrantee(transport, input.requester.id)
   const matched = matchGrantedRequests(open, grants)
   if (matched.size === 0) return
   const registry = session.registrySet.hasActivityRegistry

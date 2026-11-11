@@ -1,5 +1,10 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { type GrantData, Grant, getDataGrantIris } from '@janeirodigital/interop-data-model'
+import {
+  type GrantData,
+  Grant,
+  getAccessGrantIris,
+  grantAccessModes,
+} from '@janeirodigital/interop-data-model'
 import { INTEROP, loader } from '@janeirodigital/interop-utils'
 const loadGrant = loader(Grant.fromJsonLd)
 
@@ -61,7 +66,7 @@ describe('share resource', () => {
     // registry (she is the data owner) — re-read after the barrier
     const linked = (await aliceSession.findSocialAgentRegistration(kimId))!
     const grants: GrantData[] = []
-    for (const iri of getDataGrantIris(linked)) {
+    for (const iri of getAccessGrantIris(linked)) {
       const grant = await loadGrant(iri, aliceSession.fetch).catch(() => undefined)
       if (grant) grants.push(grant)
     }
@@ -74,7 +79,7 @@ describe('share resource', () => {
     )
     expect(sharedGrant).toBeDefined()
     expect(sharedGrant!.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
-    expect(sharedGrant!.accessMode).toEqual([readMode])
+    expect(grantAccessModes(sharedGrant!)).toEqual([readMode])
 
     // "who has access" (GetResource) reports the new DIRECT grantee, and keeps
     // the seeded ROLE-granted authorization (the `Test` role, no members)

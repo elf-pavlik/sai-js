@@ -7,6 +7,7 @@ export type SocialAgentRegistrationId = AgentRegistrationId
 
 export type SocialAgentRegistrationData = SocialAgentRegistrationId & {
   registeredAgent: string
+  /** `interop:hasDataGrant` — the registration's link predicate to `lws:AccessGrant` resources (the wire term is kept for Interop compatibility). */
   hasDataGrant?: string[]
   hasAdminGrant?: string[]
   /** language map — the untagged label under `@none`, translations under their tags */

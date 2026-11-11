@@ -74,23 +74,23 @@ const buildDataRegistry = async (
 
 const buildDataRegistryForGrant = async (
   registryIri: string,
-  dataGrants: GrantData[],
+  accessGrants: GrantData[],
   descriptionsLang: string,
   ctx: ResolvedContext
 ) => {
   const seen = new Set<string>()
   const registrations: S.Schema.Type<typeof DataRegistration>[] = []
-  for (const dataGrant of dataGrants) {
-    if (seen.has(dataGrant.hasDataRegistration)) continue
-    seen.add(dataGrant.hasDataRegistration)
-    const shapeTree = await loadShapeTree(dataGrant.registeredShapeTree, ctx.session.fetch)
+  for (const accessGrant of accessGrants) {
+    if (seen.has(accessGrant.hasDataRegistration)) continue
+    seen.add(accessGrant.hasDataRegistration)
+    const shapeTree = await loadShapeTree(accessGrant.registeredShapeTree, ctx.session.fetch)
     const shapeTreeDescription = descriptionsLang
       ? await ShapeTree.getDescription(shapeTree, descriptionsLang, ctx.session.fetch)
       : undefined
     registrations.push(
       DataRegistration.make({
-        id: IRI.make(dataGrant.hasDataRegistration),
-        shapeTree: dataGrant.registeredShapeTree,
+        id: IRI.make(accessGrant.hasDataRegistration),
+        shapeTree: accessGrant.registeredShapeTree,
         dataRegistry: registryIri,
         label: pickLanguage(shapeTreeDescription?.label, descriptionsLang),
       })
@@ -98,17 +98,17 @@ const buildDataRegistryForGrant = async (
   }
   return DataRegistrySchema.make({
     id: IRI.make(registryIri),
-    label: dataGrants[0].hasStorage,
+    label: registryIri,
     registrations,
   })
 }
 
-function indexFromGrants(dataGrants: GrantData[]): Record<string, GrantData[]> {
-  return dataGrants.reduce(
-    (acc, dataGrant) => {
-      const regIri = Grant.dataRegistryIri(dataGrant)
+function indexFromGrants(accessGrants: GrantData[]): Record<string, GrantData[]> {
+  return accessGrants.reduce(
+    (acc, accessGrant) => {
+      const regIri = Grant.dataRegistryIri(accessGrant)
       if (!acc[regIri]) acc[regIri] = [] as GrantData[]
-      acc[regIri].push(dataGrant)
+      acc[regIri].push(accessGrant)
       return acc
     },
     {} as Record<string, GrantData[]>
@@ -116,7 +116,7 @@ function indexFromGrants(dataGrants: GrantData[]): Record<string, GrantData[]> {
 }
 
 /**
- * The data grants linked from a mirrored reciprocal registration — two queries
+ * The access grants linked from a mirrored reciprocal registration — two queries
  * per registration (link set + all linked bodies) instead of the previous
  * 1 + N. Both contexts go through
  * `sparqlTransportFor`: personal → internal endpoint, org → `/sparql-admin`;
@@ -127,7 +127,7 @@ async function reciprocalGrants(ctx: ResolvedContext, reciprocalIri: string): Pr
 }
 
 /**
- * The data grants the context has for `agentId` (peer branch): the reciprocal
+ * The access grants the context has for `agentId` (peer branch): the reciprocal
  * of the context's registration of `agentId`, then its linked grants.
  *
  * Fallback scan (kept deliberately — it is load-bearing for delegated chains):
@@ -135,7 +135,7 @@ async function reciprocalGrants(ctx: ResolvedContext, reciprocalIri: string): Pr
  * reciprocal (an onward delegated grant), when the context has no registration
  * of `agentId` at all. Only that per-registration batching was optimised.
  */
-async function dataGrantIndexForAgent(
+async function accessGrantIndexForAgent(
   ctx: ResolvedContext,
   agentId: string
 ): Promise<Record<string, GrantData[]>> {
@@ -169,10 +169,10 @@ export const getDataRegistries = async (
       )
     )
   }
-  const dataGrantIndex = await dataGrantIndexForAgent(ctx, agentId)
+  const accessGrantIndex = await accessGrantIndexForAgent(ctx, agentId)
   return Promise.all(
-    Object.entries(dataGrantIndex).map(([registryIri, dataGrants]) =>
-      buildDataRegistryForGrant(registryIri, dataGrants, descriptionsLang, ctx)
+    Object.entries(accessGrantIndex).map(([registryIri, accessGrants]) =>
+      buildDataRegistryForGrant(registryIri, accessGrants, descriptionsLang, ctx)
     )
   )
 }
@@ -234,18 +234,18 @@ export const listDataInstances = async (
     const direct = socialAgentRegistration?.reciprocalRegistration
       ? await reciprocalGrants(ctx, socialAgentRegistration.reciprocalRegistration)
       : []
-    const dataGrants: GrantData[] = direct.length
+    const accessGrants: GrantData[] = direct.length
       ? direct
-      : Object.values(await dataGrantIndexForAgent(ctx, agentId)).flat()
-    if (!dataGrants.length) {
+      : Object.values(await accessGrantIndexForAgent(ctx, agentId)).flat()
+    if (!accessGrants.length) {
       throw new Error(`missing social agent registration: ${agentId}`)
     }
     const seenInstances = new Set<string>()
-    for (const dataGrant of dataGrants) {
-      if (dataGrant.hasDataRegistration !== registrationId) continue
+    for (const accessGrant of accessGrants) {
+      if (accessGrant.hasDataRegistration !== registrationId) continue
       if (ctx.webId === ctx.userWebId) {
         for await (const instanceId of dataInstanceIrisForGrant(
-          dataGrant,
+          accessGrant,
           transport,
           ctx.session.fetch
         )) {
@@ -254,7 +254,7 @@ export const listDataInstances = async (
           const dataInstance = await loadDataInstance(
             instanceId,
             ctx.session.fetch,
-            dataGrant.registeredShapeTree,
+            accessGrant.registeredShapeTree,
             descriptionsLang
           )
           dataInstances.push(
@@ -268,8 +268,8 @@ export const listDataInstances = async (
         // org context — the admin's session derefs no peer document
         // (403); the org's server fetches peer docs with the org's session
         // via /proxy-admin. Shape trees are public (admin-session fetch).
-        const shapeTree = await loadShapeTree(dataGrant.registeredShapeTree, ctx.session.fetch)
-        for await (const instanceId of peerInstanceIris(ctx, dataGrant)) {
+        const shapeTree = await loadShapeTree(accessGrant.registeredShapeTree, ctx.session.fetch)
+        for await (const instanceId of peerInstanceIris(ctx, accessGrant)) {
           if (seenInstances.has(instanceId)) continue
           seenInstances.add(instanceId)
           const node = await peerInstanceNode(ctx, instanceId, shapeTree)

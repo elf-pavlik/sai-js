@@ -14,7 +14,7 @@ import type {
   NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import {
   APPLICATION_JSON,
   BadRequestHttpError,
@@ -180,7 +180,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       finalGrants.push(
         {
           ...topGrant,
-          type: topGrant.type ?? [INTEROP.DataGrant],
+          type: topGrant.type ?? [LWS.AccessGrant],
           id: grantId,
           hasInheritingGrant: inheritingGrants.map((grant) => grant.id!),
         },
@@ -230,15 +230,14 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     inheritsFromGrant: string
   ): Promise<FinalGrantData> {
     return {
-      type: childData.type ?? [INTEROP.DataGrant],
-      grantee: childData.grantee,
+      type: childData.type ?? [LWS.AccessGrant],
+      storage: childData.storage,
+      access: childData.access,
       grantedBy: childData.grantedBy,
       dataOwner: childData.dataOwner,
       registeredShapeTree: childData.registeredShapeTree,
       hasDataRegistration: childData.hasDataRegistration,
-      hasStorage: childData.hasStorage,
       scopeOfGrant: childData.scopeOfGrant,
-      accessMode: childData.accessMode,
       hasDataInstance: childData.hasDataInstance,
       id: await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id),
       inheritsFromGrant,

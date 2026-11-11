@@ -150,7 +150,7 @@ export async function reciprocalRegistration(
 export interface SyncReciprocalMirrorInput {
   /** the context whose registration of `peerId` carries the reciprocal link */
   webId: SocialAgentId
-  /** the peer whose reciprocal registration (+ data grants) gets mirrored */
+  /** the peer whose reciprocal registration (+ access grants) gets mirrored */
   peerId: SocialAgentId
 }
 
@@ -193,7 +193,7 @@ function ownerEndpoint(session: { sparqlEndpoint: string }): string {
 }
 
 /**
- * Replicate the peer's reciprocal registration and its linked data grants into
+ * Replicate the peer's reciprocal registration and its linked access grants into
  * the local mirror. Runs with the context's own session credentials —
  * server-side, where they are legitimate.
  *

@@ -4,7 +4,7 @@ import {
   type SocialAgentRegistrationData,
   WebIdProfile,
   getAdminGrantIris,
-  getDataGrantIris,
+  getAccessGrantIris,
 } from '@janeirodigital/interop-data-model'
 const loadWebIdProfile = loader(WebIdProfile.fromJsonLd)
 
@@ -146,7 +146,7 @@ export const buildSocialAgentProfile = async (
     adminOf,
     // the grantor-side registration's hasDataGrant: the grants WE issued to
     // this agent — first grant IRI; absent → the SocialAgentList warning badge
-    accessGrant: getDataGrantIris(registration)[0],
+    accessGrant: getAccessGrantIris(registration)[0],
   })
 }
 

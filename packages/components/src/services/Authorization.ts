@@ -166,20 +166,20 @@ async function findUserDataRegistrations(
 }
 
 async function findSocialAgentDataRegistrations(
-  dataGrants: GrantData[],
+  accessGrants: GrantData[],
   accessNeedGroup: AccessNeedGroupData,
   ctx: ResolvedContext,
   shapeTreeLabelFor: (shapeTreeIri: string) => Promise<string>
 ) {
   const dataRegistrations = []
-  for (const dataGrant of dataGrants) {
+  for (const accessGrant of accessGrants) {
     for (const accessNeed of accessNeedGroup.accessNeeds) {
       if (
-        dataGrant.registeredShapeTree === accessNeed.registeredShapeTree &&
-        dataGrant.scopeOfGrant !== INTEROP.Inherited // TODO clarify case when this could happen
+        accessGrant.registeredShapeTree === accessNeed.registeredShapeTree &&
+        accessGrant.scopeOfGrant !== INTEROP.Inherited // TODO clarify case when this could happen
       ) {
         dataRegistrations.push({
-          id: IRI.make(dataGrant.hasDataRegistration),
+          id: IRI.make(accessGrant.hasDataRegistration),
           // the registration's display label is its shape tree's label (a flat
           // LWS IRI says nothing about what the registration holds)
           label: await shapeTreeLabelFor(accessNeed.registeredShapeTree),
@@ -188,9 +188,9 @@ async function findSocialAgentDataRegistrations(
           // set on SelectedFromRegistry grants (empty [] otherwise, which is
           // truthy and used to make the AllFromRegistry count silently 0).
           count:
-            dataGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
-              ? (dataGrant.hasDataInstance?.length ?? 0)
-              : (await dataRegistrationContains(ctx, dataGrant.hasDataRegistration)).length,
+            accessGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
+              ? (accessGrant.hasDataInstance?.length ?? 0)
+              : (await dataRegistrationContains(ctx, accessGrant.hasDataRegistration)).length,
         })
       }
     }
@@ -312,12 +312,12 @@ export const getDescriptions = async (
     if (socialAgentRegistration.reciprocalRegistration) {
       // the mirrored reciprocal's grants in two queries, no matter how many are
       // linked
-      const dataGrants = await getReciprocalGrants(
+      const accessGrants = await getReciprocalGrants(
         transport,
         socialAgentRegistration.reciprocalRegistration
       )
       const dataRegistrations = await findSocialAgentDataRegistrations(
-        dataGrants,
+        accessGrants,
         accessNeedGroup,
         ctx,
         shapeTreeLabelFor

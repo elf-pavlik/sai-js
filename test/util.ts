@@ -2,7 +2,7 @@ import { buildSessionManager } from '@elfpavlik/sai-components'
 import {
   ActivityRegistry,
   type AuthorizationAgent,
-  getDataGrant,
+  getAccessGrant,
   getSocialAgentRegistration,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
@@ -73,15 +73,15 @@ export async function rpcCall<T = any>(payload: unknown, cookie: string): Promis
 }
 
 /**
- * Data grants of a registration, read via the session's SPARQL plane —
- * the SPARQL counterpart of the removed data-model HTTP `getDataGrants`.
+ * Access grants of a registration, read via the session's SPARQL plane —
+ * the SPARQL counterpart of the removed data-model HTTP helper.
  */
-export async function dataGrants(
+export async function accessGrants(
   registration: SocialAgentRegistrationData,
   session: AuthorizationAgent
 ): Promise<GrantData[]> {
   const transport = localSparqlTransport(session.sparqlEndpoint)
-  return Promise.all((registration.hasDataGrant ?? []).map((iri) => getDataGrant(transport, iri)))
+  return Promise.all((registration.hasDataGrant ?? []).map((iri) => getAccessGrant(transport, iri)))
 }
 
 /**

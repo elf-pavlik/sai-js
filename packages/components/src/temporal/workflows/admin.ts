@@ -50,7 +50,7 @@ export interface AdminWorkflowInput {
  * DataRegistry-scoped grant per data registry in the org's RegistrySet, each
  * with its own ACR. Idempotent against re-delivery: the link replace rewrites
  * rather than duplicates (fresh grants are created on each run, mirroring the
- * data-grant regeneration path).
+ * access-grant regeneration path).
  *
  * Completion is NOT recorded here — the caller (processAdminChange or the
  * grantee consumer in grants.ts) marks done only after the ACR rewrite also

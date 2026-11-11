@@ -37,7 +37,7 @@ export class PeerProxyError extends Error {
  * Admin-side client for `/.sai/proxy-admin` (org-context-proxy.md): the
  * org-context RPC services fetch a peer resource — a data registration or
  * a data instance document — **through the org's server** instead of
- * dereferencing it directly. The admin holds no data grants on the peer's
+ * dereferencing it directly. The admin holds no access grants on the peer's
  * server (credentials match nothing), and the admin's server never holds
  * the org's session, so the fetch has to happen on the org's server with
  * the org's credentials.
@@ -130,8 +130,8 @@ export async function peerRegistrationOfInstance(
  * The `contains` of a data registration, resolved with the right
  * credentials for the context (org-context-proxy.md). Personal context
  * derefs directly with the user's own session (the user holds the
- * peer's data grants); org context goes through `/proxy-admin` with the
- * admin's session — the admin holds no data grants on the peer's server.
+ * peer's access grants); org context goes through `/proxy-admin` with the
+ * admin's session — the admin holds no access grants on the peer's server.
  *
  * Used by the `getDescriptions` `AllFromRegistry` counts and by
  * `peerInstanceIris`'s `AllFromRegistry` branch.
@@ -165,9 +165,9 @@ export async function peerInstanceNode(
 }
 
 /**
- * Data-instance IRIs covered by a peer data grant in **org context** — the
+ * Data-instance IRIs covered by a peer access grant in **org context** — the
  * counterpart of the AA's `dataInstanceIrisForGrant` (which derefs peer docs
- * with the session's factory — the admin holds no data grants → 403):
+ * with the session's factory — the admin holds no access grants → 403):
  * `contains` via `dataRegistrationContains`, `SelectedFromRegistry` from
  * grant metadata, and `Inherited` walks the parent grant and the parent
  * instance content, all through `/proxy-admin`. Personal context keeps
@@ -175,21 +175,21 @@ export async function peerInstanceNode(
  */
 export async function* peerInstanceIris(
   ctx: ResolvedContext,
-  dataGrant: GrantData
+  accessGrant: GrantData
 ): AsyncIterable<string> {
-  switch (dataGrant.scopeOfGrant) {
+  switch (accessGrant.scopeOfGrant) {
     case INTEROP.AllFromRegistry:
-      yield* await dataRegistrationContains(ctx, dataGrant.hasDataRegistration)
+      yield* await dataRegistrationContains(ctx, accessGrant.hasDataRegistration)
       break
     case INTEROP.SelectedFromRegistry:
-      yield* dataGrant.hasDataInstance ?? []
+      yield* accessGrant.hasDataInstance ?? []
       break
     case INTEROP.Inherited: {
       // the parent grant lives in the peer's registry — refetched here via
       // the proxy (SAPI supports one level of inheritance today)
       const parentGrant = await Grant.fromJsonLd(
-        await fetchPeerDocument(ctx.session, ctx.webId, dataGrant.inheritsFromGrant!),
-        dataGrant.inheritsFromGrant!
+        await fetchPeerDocument(ctx.session, ctx.webId, accessGrant.inheritsFromGrant!),
+        accessGrant.inheritsFromGrant!
       )
       for await (const parentIri of peerInstanceIris(ctx, parentGrant)) {
         const parentShapeTree = await loadShapeTree(
@@ -199,12 +199,12 @@ export async function* peerInstanceIris(
         yield* childIris(
           await peerInstanceNode(ctx, parentIri, parentShapeTree),
           parentShapeTree,
-          dataGrant.registeredShapeTree
+          accessGrant.registeredShapeTree
         )
       }
       break
     }
     default:
-      throw new Error(`Unknown scope: ${dataGrant.scopeOfGrant}`)
+      throw new Error(`Unknown scope: ${accessGrant.scopeOfGrant}`)
   }
 }

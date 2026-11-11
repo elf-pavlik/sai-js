@@ -1,8 +1,16 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
+import { grantAccessModes } from '@janeirodigital/interop-data-model'
 import { INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
-import { awaitGrantCompletion, dataGrants, localMirror, rpcCall, rpcPayload, waitFor } from './util'
+import {
+  awaitGrantCompletion,
+  accessGrants,
+  localMirror,
+  rpcCall,
+  rpcPayload,
+  waitFor,
+} from './util'
 
 /**
  * The one place in the black-box suite that reads replica graphs directly.
@@ -36,9 +44,9 @@ describe('reciprocal mirror replication', () => {
     expect(replica.registeredAgent).toBe(bobId)
     expect(replica.hasDataGrant?.length).toBeGreaterThan(0)
 
-    // every linked grant body is present — `dataGrants` resolves each graph and
+    // every linked grant body is present — `accessGrants` resolves each graph and
     // throws if one is missing
-    const grants = await dataGrants(replica, bobSession)
+    const grants = await accessGrants(replica, bobSession)
     expect(grants).toHaveLength(replica.hasDataGrant?.length ?? 0)
   })
 
@@ -76,7 +84,7 @@ describe('reciprocal mirror replication', () => {
         const mirrored = await localMirror(kimSession, aliceId)
         if (new Set(mirrored.hasDataGrant ?? []).size !== expected.length) return false
         // throws while a body is still missing — the completeness half
-        await dataGrants(mirrored, kimSession)
+        await accessGrants(mirrored, kimSession)
         return true
       },
       { timeout: 30_000 }
@@ -86,7 +94,7 @@ describe('reciprocal mirror replication', () => {
     expect(new Set(replica.hasDataGrant ?? [])).toEqual(new Set(expected))
 
     // the replicated body carries the grant semantics the delegation path needs
-    const grants = await dataGrants(replica, kimSession)
+    const grants = await accessGrants(replica, kimSession)
     const sharedGrant = grants.find(
       (grant) =>
         grant.registeredShapeTree === projectShapeTree &&
@@ -95,6 +103,7 @@ describe('reciprocal mirror replication', () => {
     )
     expect(sharedGrant).toBeDefined()
     expect(sharedGrant!.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
-    expect(sharedGrant!.accessMode).toEqual([readMode])
+    expect(sharedGrant!.type).toContain('https://www.w3.org/ns/lws#AccessGrant')
+    expect(grantAccessModes(sharedGrant!)).toEqual([readMode])
   })
 })

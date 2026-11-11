@@ -104,7 +104,7 @@ describe('iriForNew', () => {
         id: webId,
         issuedGrants: [
           {
-            hasStorage: storage,
+            storage,
             hasDataRegistration: dataRegistration,
             registeredShapeTree: scope,
           },

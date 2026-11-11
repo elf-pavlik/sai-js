@@ -6,6 +6,7 @@ import {
   ACCESS_ACTIONS,
   INTEROP,
   LWS,
+  ODRL,
   discoverAuthorizationAgent,
   loader,
 } from '@janeirodigital/interop-utils'
@@ -160,9 +161,10 @@ export class SaiPermissionsEngine implements PolicyEngine {
   async getAccessModes(data: Quad[], grantId: string): Promise<string[]> {
     const store = new Store([...data])
     const modesQuery = `
-    SELECT * WHERE {
+    SELECT ?action WHERE {
       <${grantId}>
-        <${INTEROP.accessMode}> ?o .
+        <${LWS.access}> ?policy .
+      ?policy <${ODRL.action}> ?action .
     }
   `
     const modesBindingsStream = await this.queryEngine.queryBindings(modesQuery, {
@@ -170,18 +172,18 @@ export class SaiPermissionsEngine implements PolicyEngine {
     })
     const modesBindings = await modesBindingsStream.toArray()
     return modesBindings
-      .map((b) => b.get('o')?.value)
+      .map((b) => b.get('action')?.value)
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
   }
 
   /**
    * The requester's Read-only DataRegistry-scoped AdminGrant for the target's
    * storage (R1 / step 2.8 of org-admin-feature.md). `authorizationData` is
-   * already filtered by `getAuthorizationData` to grants with `hasStorage` =
-   * the target's storage, so matching `AdminGrant` + `grantee` +
+   * already filtered by `getAuthorizationData` to grants with `storage` = the
+   * target's storage, so matching `AdminGrant` + policy assignee +
    * `scopeOfAdminGrant DataRegistry` here identifies an admin of *this*
-   * storage. Returns the grant's `accessMode`s (Read-only in the seed — the
-   * design keeps admins read-only through the data service; structural
+   * storage. Returns the grant's `access[].action`s (Read-only in the seed —
+   * the design keeps admins read-only through the data service; structural
    * registries stay on ACP).
    */
   async findAdminModes(data: Quad[], credentials: Credentials): Promise<string[]> {
@@ -192,8 +194,9 @@ export class SaiPermissionsEngine implements PolicyEngine {
       SELECT * WHERE {
         ?s
           a <${INTEROP.AdminGrant}> ;
-          <${INTEROP.grantee}> <${agent}> ;
-          <${INTEROP.scopeOfAdminGrant}> <${INTEROP.DataRegistry}> .
+          <${INTEROP.scopeOfAdminGrant}> <${INTEROP.DataRegistry}> ;
+          <${LWS.access}> ?policy .
+        ?policy <${ODRL.assignee}> <${agent}> .
       }
     `
     const bindingsStream = await this.queryEngine.queryBindings(adminGrantQuery, {
@@ -226,20 +229,19 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const store = new Store([...data])
     const grantQuery = `
       SELECT * WHERE {
-        ?s 
-          ${
-            uas
-              ? `
-              <${INTEROP.grantee}> <${agent}> ;
-            `
-              : `
-              <${INTEROP.grantedBy}> <${agent}> ;
-              <${INTEROP.grantee}> <${client}> ;
-            `
-          }
+        ?s
+          <${LWS.access}> ?policy ;
           <${INTEROP.hasDataRegistration}> <${registrationId}> ;
-          ${selected ? `<${INTEROP.hasDataInstance}> <${id}> ;` : ''}
           <${INTEROP.scopeOfGrant}> <${scope}> .
+        ${selected ? `?s <${INTEROP.hasDataInstance}> <${id}> .` : ''}
+        ${
+          uas
+            ? `?policy <${ODRL.assignee}> <${agent}> .`
+            : `
+            ?s <${INTEROP.grantedBy}> <${agent}> .
+            ?policy <${ODRL.assignee}> <${client}> .
+          `
+        }
       }
     `
     const grantBindingsStream = await this.queryEngine.queryBindings(grantQuery, {

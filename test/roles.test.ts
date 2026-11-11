@@ -4,7 +4,8 @@ import {
   DataAuthorization,
   type GrantData,
   Grant,
-  getDataGrantIris,
+  getAccessGrantIris,
+  grantGrantee,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, loader } from '@janeirodigital/interop-utils'
 const loadDataAuthorization = loader(DataAuthorization.fromJsonLd)
@@ -59,17 +60,22 @@ async function verifyAccessGrant(
 
   // grant bodies live in the data owner's grant registry
   const ownerSession = await manager.getSession(dataOwnerId)
-  const grants: GrantData[] = []
-  for (const iri of getDataGrantIris(registration!)) {
-    const grant = await loadGrant(iri, ownerSession.fetch).catch(() => undefined)
-    if (grant) grants.push(grant)
+  const findAccessGrant = async (): Promise<GrantData | undefined> => {
+    // re-read the registration: the projection is PATCHed by the workflow
+    const current = await grantedBySession.findSocialAgentRegistration(granteeId)
+    if (!current) return undefined
+    const grants: GrantData[] = []
+    for (const iri of getAccessGrantIris(current)) {
+      const grant = await loadGrant(iri, ownerSession.fetch).catch(() => undefined)
+      if (grant) grants.push(grant)
+    }
+    return grants.find(
+      (grant) =>
+        grant.registeredShapeTree === shapeTree &&
+        grant.grantedBy === grantedById &&
+        grant.dataOwner === dataOwnerId
+    )
   }
-  const dataGrant = grants.find(
-    (grant) =>
-      grant.registeredShapeTree === shapeTree &&
-      grant.grantedBy === grantedById &&
-      grant.dataOwner === dataOwnerId
-  )
 
   const cookie = GRANTEE_COOKIES[granteeId]
   expect(cookie, `no seeded cookie for ${granteeId}`).toBeDefined()
@@ -90,10 +96,13 @@ async function verifyAccessGrant(
   await waitFor(async () => (await seesGrant()) === expectGrant, { timeout: 30_000 })
 
   if (expectGrant) {
-    expect(dataGrant).toBeDefined()
-    expect(dataGrant!.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
+    const accessGrant = await waitFor(findAccessGrant, { timeout: 30_000 })
+    // role authorizations are expanded to concrete grantees; the materialized
+    // grant never carries a role IRI as its assignee
+    expect(grantGrantee(accessGrant)).toBe(granteeId)
+    expect(accessGrant.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
   } else {
-    expect(dataGrant).toBeUndefined()
+    await waitFor(async () => (await findAccessGrant()) === undefined, { timeout: 30_000 })
   }
 }
 

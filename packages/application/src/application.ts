@@ -2,6 +2,7 @@ import {
   ApplicationRegistration,
   type ApplicationRegistrationData,
   type DataOwnerData,
+  grantAccessModes,
 } from '@janeirodigital/interop-data-model'
 const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
 
@@ -19,7 +20,7 @@ import {
   loader,
 } from '@janeirodigital/interop-utils'
 
-import { getDataGrants, getDataInstanceIterator, getGranted } from './grant.ts'
+import { getAccessGrants, getDataInstanceIterator, getGranted } from './grant.ts'
 
 interface ApplicationDependencies {
   fetch: WhatwgFetch
@@ -121,7 +122,7 @@ export class Application {
    */
   get dataOwners(): DataOwnerData[] {
     if (!this.applicationRegistration) return []
-    // Note: this is now lazy — fetches data grants each time
+    // Note: this is now lazy — fetches access grants each time
     // The property access pattern changed from sync to async.
     // Consumers should use getDataOwnersAsync() instead.
     return []
@@ -131,8 +132,8 @@ export class Application {
     if (!this.applicationRegistration || !getGranted(this.applicationRegistration)) {
       return []
     }
-    const dataGrants = await getDataGrants(this.applicationRegistration, this.fetch)
-    return dataGrants.reduce((acc, grant) => {
+    const accessGrants = await getAccessGrants(this.applicationRegistration, this.fetch)
+    return accessGrants.reduce((acc, grant) => {
       let owner = acc.find((agent) => agent.id === grant.dataOwner)
       if (!owner) {
         owner = { id: grant.dataOwner, issuedGrants: [] }
@@ -153,7 +154,7 @@ export class Application {
     const dataOwner = owners.find((owner) => owner.id === resourceOwner)
     if (!dataOwner) return new Set()
     const grants = dataOwner.issuedGrants.filter((grant) => grant.registeredShapeTree === scope)
-    return new Set(grants.map((grant) => grant.hasStorage))
+    return new Set(grants.map((grant) => grant.storage))
   }
 
   private async findGrant(storage: string, scope: string) {
@@ -161,7 +162,8 @@ export class Application {
     return owners
       .flatMap((owner) => owner.issuedGrants)
       .find(
-        (dataGrant) => dataGrant.hasStorage === storage && dataGrant.registeredShapeTree === scope
+        (accessGrant) =>
+          accessGrant.storage === storage && accessGrant.registeredShapeTree === scope
       )
   }
 
@@ -206,26 +208,26 @@ export class Application {
 
   public async canCreate(resourceServer: string, scope: string): Promise<boolean> {
     const grant = await this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACCESS_ACTIONS.create) ?? false
+    return grant ? grantAccessModes(grant).includes(ACCESS_ACTIONS.create) : false
   }
 
   public async canCreateChild(parentId: string, scope: string): Promise<boolean> {
     const parentInfo = this.parentMap.get(parentId)
     if (!parentInfo) throw new Error(`no parent info for ${parentId}`)
     const grant = await this.findGrant(parentInfo.resourceServer, scope)
-    return grant?.accessMode.includes(ACCESS_ACTIONS.create) ?? false
+    return grant ? grantAccessModes(grant).includes(ACCESS_ACTIONS.create) : false
   }
 
   public async canUpdate(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACCESS_ACTIONS.modify) ?? false
+    return grant ? grantAccessModes(grant).includes(ACCESS_ACTIONS.modify) : false
   }
 
   public async canDelete(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACCESS_ACTIONS.delete) ?? false
+    return grant ? grantAccessModes(grant).includes(ACCESS_ACTIONS.delete) : false
   }
 
   // TODO: rename to idForNew
@@ -233,7 +235,7 @@ export class Application {
     const grant = await this.findGrant(resourceServer, scope)
     if (!grant) throw new Error('No grant found')
     const registration = grant.hasDataRegistration
-    const { strategy } = await this.identifierStrategies.resolve(grant.hasStorage)
+    const { strategy } = await this.identifierStrategies.resolve(grant.storage)
     const id = strategy.mint({ parent: registration, isContainer: false })
     // The creation plan creates the empty resource and the containment; the
     // caller writes its representation afterwards.

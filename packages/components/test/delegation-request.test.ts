@@ -1,4 +1,4 @@
-import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -51,15 +51,24 @@ const ENDPOINT = 'https://registry/acme/sparql'
 const webId = { id: 'https://id/acme', type: [SOCIAL_AGENT_TYPE] }
 
 const grant = (dataOwner = 'https://id/alice') => ({
-  type: [INTEROP.DataGrant],
-  grantee: 'https://id/kim',
+  type: [LWS.AccessGrant],
+  storage: 'https://data/alice/',
+  access: [
+    {
+      type: [LWS.AccessPolicy],
+      assignee: 'https://id/kim',
+      action: [ACCESS_ACTIONS.read],
+      target: {
+        type: LWS.Container,
+        value: ['https://data/alice/registrations/p'],
+      },
+    },
+  ],
   grantedBy: 'https://id/acme',
   dataOwner,
   registeredShapeTree: 'https://data/shapetrees/trees/Project',
   hasDataRegistration: 'https://data/alice/registrations/p',
-  hasStorage: 'https://data/alice/',
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [ACCESS_ACTIONS.read],
 })
 
 /** One echoed finalised grant (the issuance response is now the grant bodies). */
@@ -103,8 +112,8 @@ describe('requestDelegations — one request per data owner (T7)', () => {
     })
 
     expect(ids).toEqual([
-      { id: 'https://data/alice/grant/d1', type: [INTEROP.DataGrant] },
-      { id: 'https://data/alice/grant/d2', type: [INTEROP.DataGrant] },
+      { id: 'https://data/alice/grant/d1', type: [LWS.AccessGrant] },
+      { id: 'https://data/alice/grant/d2', type: [LWS.AccessGrant] },
     ])
     expect(h.fetch).toHaveBeenCalledTimes(1)
     const [endpoint, init] = h.fetch.mock.calls[0] as [string, { body: string; method: string }]
@@ -130,7 +139,7 @@ describe('requestDelegations — one request per data owner (T7)', () => {
 
     const ids = await requestDelegations({ webId, grants: [grant()] })
 
-    expect(ids).toEqual([{ id: 'https://data/alice/grant/d1', type: [INTEROP.DataGrant] }])
+    expect(ids).toEqual([{ id: 'https://data/alice/grant/d1', type: [LWS.AccessGrant] }])
   })
 
   test('does nothing for an empty group', async () => {

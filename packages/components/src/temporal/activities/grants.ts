@@ -5,14 +5,14 @@ import {
   RoleRegistry,
   ensureApplicationRegistration,
   getApplicationRegistration,
-  getDataGrant,
+  getAccessGrant,
   getRegistryGrants,
   getSocialAgentRegistration,
   invalidGrantsAfterRemoval,
   listContained,
   localSparqlTransport,
   presentGraphs,
-  replaceDataGrants,
+  replaceAccessGrants,
   storeDataAuthorizations,
 } from '@janeirodigital/interop-authorization-agent'
 import {
@@ -37,9 +37,10 @@ import {
   type RoleData,
   type RoleId,
   type SocialAgentId,
-  dataGrantAcrJsonLd,
+  accessGrantAcrJsonLd,
   dataModelContext,
-  getDataGrantIris,
+  getAccessGrantIris,
+  grantGrantee,
   isActivityClass,
   toJsonLd,
 } from '@janeirodigital/interop-data-model'
@@ -48,6 +49,7 @@ const loadClientIdDocument = loader(ClientIdDocument.fromJsonLd)
 
 import {
   INTEROP,
+  LWS,
   discoverAuthorizationAgent,
   discoverDelegationIssuanceEndpoint,
   getAcl,
@@ -352,7 +354,7 @@ export async function getAuthorizations(
 export async function generateGrants(payload: GenerateGrantsInput): Promise<GeneratedGrants> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  return session.generateDataGrants(
+  return session.generateAccessGrants(
     payload.dataAuthorizations.map((dataAuthorization) => dataAuthorization.id!),
     payload.grantee.id
   )
@@ -390,7 +392,7 @@ export async function getExistingGrants(payload: {
   if (!agentRegistration) {
     throw new Error('agent registration for the peer does not exist')
   }
-  return getDataGrantIris(agentRegistration).map((id) => ({ id, type: [INTEROP.DataGrant] }))
+  return getAccessGrantIris(agentRegistration).map((id) => ({ id, type: [LWS.AccessGrant] }))
 }
 
 export interface GetExistingGrantBodiesInput {
@@ -433,7 +435,7 @@ export async function getExistingGrantBodies(
     attempted.add(iri)
     let grant: GrantData
     try {
-      grant = await getDataGrant(transport, iri)
+      grant = await getAccessGrant(transport, iri)
     } catch {
       continue // missing/unframable body → fail closed (not reusable)
     }
@@ -449,11 +451,11 @@ export async function getExistingGrantBodies(
  * HTTP-DELETE grant resources using the webId's session.
  *
  * Internal to the data owner's revocation handler only (DD14): the
- * data-grant ACR is read-only for everyone but the owner, so a
+ * access-grant ACR is read-only for everyone but the owner, so a
  * grantor's direct DELETE of grant resources in another peer's registry is
  * ACR-blocked. Idempotent: 404 is tolerated (already gone).
  */
-export async function deleteDataGrants(payload: {
+export async function deleteAccessGrants(payload: {
   webId: SocialAgentId
   grants: GrantId[]
 }): Promise<void> {
@@ -499,9 +501,9 @@ export async function revokeGrantClosure(payload: {
     registryGrants,
     payload.grants.map((grant) => grant.id!)
   )
-  await deleteDataGrants({
+  await deleteAccessGrants({
     webId: payload.webId,
-    grants: closure.map((grant) => ({ id: grant.id!, type: grant.type ?? [INTEROP.DataGrant] })),
+    grants: closure.map((grant) => ({ id: grant.id!, type: grant.type ?? [LWS.AccessGrant] })),
   })
   return closure.map((grant) => grant.id!)
 }
@@ -559,8 +561,9 @@ export async function dropGrantReplicas(payload: {
 }
 
 /**
- * Orphan scan for the actor's own grant registry: grants whose `grantee`
- * matches, including ones no longer linked from the registration projection.
+ * Orphan scan for the actor's own grant registry: grants whose
+ * `access[].assignee` matches, including ones no longer linked from the
+ * registration projection.
  * Unioned with the projection in `reconcileGrantsForGrantee` so a crash
  * between delete and PATCH cannot hide collectable grants.
  */
@@ -573,8 +576,8 @@ export async function getRegistryGrantsForGrantee(payload: {
   const transport = localSparqlTransport(session.sparqlEndpoint)
   const grants = await getRegistryGrants(transport, session.registrySet.hasGrantRegistry.id)
   return grants
-    .filter((grant) => grant.grantee === payload.grantee.id)
-    .map((grant) => ({ id: grant.id!, type: grant.type ?? [INTEROP.DataGrant] }))
+    .filter((grant) => grantGrantee(grant) === payload.grantee.id)
+    .map((grant) => ({ id: grant.id!, type: grant.type ?? [LWS.AccessGrant] }))
 }
 
 /**
@@ -691,7 +694,7 @@ export async function deleteAuthorizations(payload: {
 // Storing grants (unchanged)
 // ---------------------------------------------------------------------------
 
-export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
+export async function storeAccessGrant(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
 
@@ -715,10 +718,11 @@ export async function storeDataGrant(payload: FinalGrantData): Promise<void> {
 export async function createAcr(payload: FinalGrantData): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.dataOwner)
+  const grantee = grantGrantee(payload) ?? ''
   // TODO: improve error handling
   let uasId
   try {
-    uasId = await discoverAuthorizationAgent(payload.grantee, fetch)
+    uasId = await discoverAuthorizationAgent(grantee, fetch)
   } catch {}
   let grantor
   let peer
@@ -733,18 +737,18 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
   }
   if (uasId) {
     // no self granting at this moment!
-    if (payload.grantee === payload.dataOwner) throw payload
+    if (grantee === payload.dataOwner) throw payload
 
     // grantee is a social agent - only their UAS has access
     peer = {
-      agent: payload.grantee,
+      agent: grantee,
       client: uasId,
     }
   } else {
     // grantee is an application - used by the grantedBy
     client = {
       agent: payload.grantedBy,
-      client: payload.grantee,
+      client: grantee,
     }
   }
   if (!peer && !client) throw new Error('peer or client are required')
@@ -756,7 +760,7 @@ export async function createAcr(payload: FinalGrantData): Promise<void> {
   await putJsonLd(
     acrId,
     session.fetch,
-    dataGrantAcrJsonLd({
+    accessGrantAcrJsonLd({
       id: acrId,
       resource: payload.id,
       owner: {
@@ -846,7 +850,7 @@ export async function requestDelegations(payload: RequestDelegationsInput): Prom
 // Registration link/unlink
 // ---------------------------------------------------------------------------
 
-export interface ReplaceDataGrantsOnRegistrationInput {
+export interface ReplaceAccessGrantsOnRegistrationInput {
   webId: SocialAgentId
   grantee: AgentId
   grants: GrantId[]
@@ -857,8 +861,8 @@ export interface ReplaceDataGrantsOnRegistrationInput {
  * single PATCH (remove old + insert new) → exactly one Update notification on
  * the registration. Deny case: `grants: []`.
  */
-export async function replaceDataGrantsOnRegistration(
-  payload: ReplaceDataGrantsOnRegistrationInput
+export async function replaceAccessGrantsOnRegistration(
+  payload: ReplaceAccessGrantsOnRegistrationInput
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
@@ -871,10 +875,10 @@ export async function replaceDataGrantsOnRegistration(
   if (!agentRegistration) {
     throw new Error('agent registration for the grantee does not exist')
   }
-  // `replaceDataGrants` is a no-op when the link set is unchanged (no PATCH,
+  // `replaceAccessGrants` is a no-op when the link set is unchanged (no PATCH,
   // no reciprocal webhook), so an unchanged projection from the sweep writes
   // nothing.
-  await replaceDataGrants(
+  await replaceAccessGrants(
     agentRegistration,
     session.fetch,
     payload.grants.map((grant) => grant.id!)

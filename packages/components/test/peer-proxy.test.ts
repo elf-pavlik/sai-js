@@ -5,7 +5,7 @@ import type {
   GrantData,
   RoleData,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import type { ResolvedContext } from '../src/services/Context.js'
@@ -229,7 +229,7 @@ describe('dataRegistrationContains', () => {
 
 const grantData = (scopeOfGrant: string, extra: Partial<GrantData> = {}): GrantData => ({
   id: 'https://peer.example/grants/1',
-  type: [INTEROP.DataGrant],
+  type: [LWS.AccessGrant],
   grantee: YOYO_WEBID,
   grantedBy: 'https://peer.example/profile/card#me',
   dataOwner: 'https://peer.example/profile/card#me',

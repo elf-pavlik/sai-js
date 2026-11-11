@@ -127,6 +127,7 @@ describe('splitFixtureByPod — reciprocal mirror backfill', () => {
     ),
   }
   const fixture = `@prefix interop: <http://www.w3.org/ns/solid/interop#> .
+@prefix lws: <https://www.w3.org/ns/lws#> .
 GRAPH <meta:https://registry/acme/reg-acme> {
   <https://registry/acme/reg-acme> a interop:SocialAgentRegistration ;
     interop:reciprocalRegistration <https://registry/alice/reg-alice> .
@@ -135,7 +136,7 @@ GRAPH <meta:https://registry/alice/reg-alice> {
   <https://registry/alice/reg-alice> a interop:SocialAgentRegistration ;
     interop:hasDataGrant <https://registry/alice/g1> .
 }
-GRAPH <https://registry/alice/g1> { <https://registry/alice/g1> a interop:DataGrant . }
+GRAPH <https://registry/alice/g1> { <https://registry/alice/g1> a lws:AccessGrant . }
 `
 
   test('copies the reciprocal target + its grants into the linking owner dataset', async () => {

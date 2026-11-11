@@ -13,12 +13,12 @@ const deps = { fetch, randomUUID }
 const snippetIri = 'https://auth.alice.example/cd247a67-0879-4301-abd0-828f63abb252'
 
 test('should set correct scopeOfGrant', async () => {
-  const dataGrant = await loadGrant(snippetIri, deps.fetch)
-  expect(dataGrant.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
+  const accessGrant = await loadGrant(snippetIri, deps.fetch)
+  expect(accessGrant.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
 })
 
 test('should set hasDataRegistration', async () => {
-  const dataGrant = await loadGrant(snippetIri, deps.fetch)
+  const accessGrant = await loadGrant(snippetIri, deps.fetch)
   const dataRegistrationIri = 'https://pro.alice.example/773605f0-b5bf-4d46-878d-5c167eac8b5d'
-  expect(dataGrant.hasDataRegistration).toBe(dataRegistrationIri)
+  expect(accessGrant.hasDataRegistration).toBe(dataRegistrationIri)
 })

@@ -8,7 +8,7 @@ import {
   SocialAgentRegistration,
   type SocialAgentRegistrationData,
   getAdminGrantIris,
-  getDataGrantIris,
+  getAccessGrantIris,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, type WhatwgFetch, jsonld, loader } from '@janeirodigital/interop-utils'
 const loadSocialAgentRegistration = loader(SocialAgentRegistration.fromJsonLd)
@@ -53,13 +53,13 @@ describe('build', () => {
       'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
     )
   })
-  test('should have data grant IRIs', async () => {
+  test('should have access grant IRIs', async () => {
     const acme2bobRegistrationIri = 'https://auth.acme.example/2437895a-3a68-4048-8965-889b7e93936c'
     const socialAgentRegistration = await loadSocialAgentRegistration(
       acme2bobRegistrationIri,
       deps.fetch
     )
-    const iris = getDataGrantIris(socialAgentRegistration)
+    const iris = getAccessGrantIris(socialAgentRegistration)
     expect(iris.length).toBeGreaterThan(0)
   })
 })

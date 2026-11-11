@@ -56,11 +56,11 @@ export function agentRegistrationAcrJsonLd({
 }
 
 /**
- * Compacted JSON-LD document for a data-grant ACR. The owner always gets full
+ * Compacted JSON-LD document for an access-grant ACR. The owner always gets full
  * access; an optional delegating `grantor` and an optional `peer`/`client`
  * matcher get read-only access. Node IRIs mirror the former Turtle template.
  */
-export function dataGrantAcrJsonLd({
+export function accessGrantAcrJsonLd({
   id,
   resource,
   owner,

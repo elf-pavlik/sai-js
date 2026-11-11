@@ -272,15 +272,22 @@ GRAPH <https://registry/acme/m4k9wp.acr> {
 
 GRAPH <https://registry/acme/p9m2vr> {
   <https://registry/acme/p9m2vr>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/acme-rnd/>;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-rnd/reb39k>
+      ]
+    ].
   <https://registry/acme/hdaymz>
     interop:inheritsFromGrant <https://registry/acme/p9m2vr>.
 }
@@ -291,16 +298,23 @@ GRAPH <meta:https://registry/acme/p9m2vr> {
 
 GRAPH <https://registry/acme/hdaymz> {
   <https://registry/acme/hdaymz>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/acme-rnd/>;
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/p9m2vr>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-rnd/x0md9s>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/hdaymz> {
@@ -309,15 +323,22 @@ GRAPH <meta:https://registry/acme/hdaymz> {
 
 GRAPH <https://registry/acme/x4j8lm> {
   <https://registry/acme/x4j8lm>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/acme-hr/>;
     interop:hasDataRegistration <https://data/acme-hr/p7t9km>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/acme-hr/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-hr/p7t9km>
+      ]
+    ].
   <https://registry/acme/q2v9pt>
     interop:inheritsFromGrant <https://registry/acme/x4j8lm>.
 }
@@ -328,16 +349,23 @@ GRAPH <meta:https://registry/acme/x4j8lm> {
 
 GRAPH <https://registry/acme/q2v9pt> {
   <https://registry/acme/q2v9pt>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/acme-hr/>;
     interop:hasDataRegistration <https://data/acme-hr/v4n2qx>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/x4j8lm>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/acme-hr/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-hr/v4n2qx>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/q2v9pt> {
@@ -346,16 +374,23 @@ GRAPH <meta:https://registry/acme/q2v9pt> {
 
 GRAPH <https://registry/acme/g4yhtm> {
   <https://registry/acme/g4yhtm>
-    a interop:DataGrant;
-    interop:grantee <https://id/alice>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/acme-rnd/>;
-    interop:scopeOfGrant interop:SelectedFromRegistry;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:hasDataInstance <https://data/acme-rnd/pbh2yw>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    interop:scopeOfGrant interop:SelectedFromRegistry;
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/alice>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:DataResource;
+        lws:value <https://data/acme-rnd/pbh2yw>
+      ]
+    ].
   <https://registry/acme/wpqyds>
     interop:inheritsFromGrant <https://registry/acme/g4yhtm>.
 }
@@ -366,16 +401,23 @@ GRAPH <meta:https://registry/acme/g4yhtm> {
 
 GRAPH <https://registry/acme/wpqyds> {
   <https://registry/acme/wpqyds>
-    a interop:DataGrant;
-    interop:grantee <https://id/alice>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/acme>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/acme-rnd/>;
-    interop:scopeOfGrant interop:Inherited;
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
+    interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/g4yhtm>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/alice>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-rnd/x0md9s>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/wpqyds> {
@@ -384,16 +426,23 @@ GRAPH <meta:https://registry/acme/wpqyds> {
 
 GRAPH <https://registry/acme/wwp4j6> {
   <https://registry/acme/wwp4j6>
-    a interop:DataGrant;
-    interop:grantee <https://data/test-client/public/id>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/acme-rnd/>;
-    interop:scopeOfGrant interop:SelectedFromRegistry;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:hasDataInstance <https://data/acme-rnd/pbh2yw>;
-    interop:accessMode odrl:read.
+    interop:scopeOfGrant interop:SelectedFromRegistry;
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://data/test-client/public/id>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:DataResource;
+        lws:value <https://data/acme-rnd/pbh2yw>
+      ]
+    ].
   <https://registry/acme/qwvbcu>
     interop:inheritsFromGrant <https://registry/acme/wwp4j6>.
 }
@@ -404,16 +453,23 @@ GRAPH <meta:https://registry/acme/wwp4j6> {
 
 GRAPH <https://registry/acme/qwvbcu> {
   <https://registry/acme/qwvbcu>
-    a interop:DataGrant;
-    interop:grantee <https://data/test-client/public/id>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/acme-rnd/>;
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/wwp4j6>;
-    interop:accessMode odrl:read.
+    lws:storage <https://data/acme-rnd/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://data/test-client/public/id>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/acme-rnd/x0md9s>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/qwvbcu> {
@@ -422,15 +478,22 @@ GRAPH <meta:https://registry/acme/qwvbcu> {
 
 GRAPH <https://registry/acme/vled83> {
   <https://registry/acme/vled83>
-    a interop:DataGrant;
-    interop:grantee acp:PublicClient;
+    a lws:AccessGrant;
     interop:grantedBy acp:PublicAgent;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Tree;
-    interop:hasStorage <https://data/shapetrees/>;
-    interop:scopeOfGrant interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/shapetrees/trees/>;
-    interop:accessMode odrl:read.
+    interop:scopeOfGrant interop:AllFromRegistry;
+    lws:storage <https://data/shapetrees/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee acp:PublicClient;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/shapetrees/trees/>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/vled83> {
@@ -443,15 +506,22 @@ GRAPH <meta:https://registry/acme/.acr> {
 
 GRAPH <https://registry/acme/wegvwe> {
   <https://registry/acme/wegvwe>
-    a interop:DataGrant;
-    interop:grantee acp:PublicClient;
+    a lws:AccessGrant;
     interop:grantedBy acp:PublicAgent;
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:TODO;
-    interop:hasStorage <https://data/test-client/>;
-    interop:scopeOfGrant interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/test-client/public/>;
-    interop:accessMode odrl:read.
+    interop:scopeOfGrant interop:AllFromRegistry;
+    lws:storage <https://data/test-client/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee acp:PublicClient;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/test-client/public/>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/acme/wegvwe> {
@@ -810,15 +880,22 @@ GRAPH <https://registry/alice/fpn3ih.acr> {
 
 GRAPH <https://registry/alice/p3m8kr> {
   <https://registry/alice/p3m8kr>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/alice-home/>;
     interop:hasDataRegistration <https://data/alice-home/x1n3cm>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/alice-home/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/alice-home/x1n3cm>
+      ]
+    ].
   <https://registry/alice/t7k5nw>
     interop:inheritsFromGrant <https://registry/alice/p3m8kr>.
 }
@@ -829,16 +906,23 @@ GRAPH <meta:https://registry/alice/p3m8kr> {
 
 GRAPH <https://registry/alice/t7k5nw> {
   <https://registry/alice/t7k5nw>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/alice-home/>;
     interop:hasDataRegistration <https://data/alice-home/pm1oxz>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/alice/p3m8kr>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/alice-home/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/alice-home/pm1oxz>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/alice/t7k5nw> {
@@ -900,15 +984,22 @@ GRAPH <https://registry/alice/cvmsa4.acr> {
 
 GRAPH <https://registry/alice/afiooi> {
   <https://registry/alice/afiooi>
-    a interop:DataGrant;
-    interop:grantee <https://data/test-client/public/id>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/alice-work/>;
     interop:hasDataRegistration <https://data/alice-work/sx86hi>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/alice-work/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://data/test-client/public/id>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/alice-work/sx86hi>
+      ]
+    ].
   <https://registry/alice/azgyc5>
     interop:inheritsFromGrant <https://registry/alice/afiooi>.
 }
@@ -919,16 +1010,23 @@ GRAPH <meta:https://registry/alice/afiooi> {
 
 GRAPH <https://registry/alice/azgyc5> {
   <https://registry/alice/azgyc5>
-    a interop:DataGrant;
-    interop:grantee <https://data/test-client/public/id>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/alice>;
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/alice-work/>;
     interop:hasDataRegistration <https://data/alice-work/btze4a>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/alice/afiooi>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/alice-work/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://data/test-client/public/id>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/alice-work/btze4a>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/alice/azgyc5> {
@@ -985,15 +1083,22 @@ GRAPH <meta:https://registry/bob/grant/> {
 # https://data/bob/avn9hv — the org-context peer-data read plane.
 GRAPH <https://registry/bob/t2v9cd> {
   <https://registry/bob/t2v9cd>
-    a interop:DataGrant;
-    interop:grantee <https://id/yoyo>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/bob>;
     interop:dataOwner <https://id/bob>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/bob/>;
     interop:hasDataRegistration <https://data/bob/avn9hv>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read.
+    lws:storage <https://data/bob/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/yoyo>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/bob/avn9hv>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/bob/t2v9cd> {
@@ -1653,15 +1758,22 @@ GRAPH <https://registry/yoyo/ph8e70.acr> {
 
 GRAPH <https://registry/yoyo/p7n2vx> {
   <https://registry/yoyo/p7n2vx>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/yoyo>;
     interop:dataOwner <https://id/yoyo>;
     interop:registeredShapeTree shapetrees:Project;
-    interop:hasStorage <https://data/yoyo-eu/>;
     interop:hasDataRegistration <https://data/yoyo-eu/w4n9kx>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/yoyo-eu/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/yoyo-eu/w4n9kx>
+      ]
+    ].
   <https://registry/yoyo/t5m8qr>
     interop:inheritsFromGrant <https://registry/yoyo/p7n2vx>.
 }
@@ -1672,16 +1784,23 @@ GRAPH <meta:https://registry/yoyo/p7n2vx> {
 
 GRAPH <https://registry/yoyo/t5m8qr> {
   <https://registry/yoyo/t5m8qr>
-    a interop:DataGrant;
-    interop:grantee <https://id/bob>;
+    a lws:AccessGrant;
     interop:grantedBy <https://id/yoyo>;
     interop:dataOwner <https://id/yoyo>;
     interop:registeredShapeTree shapetrees:Task;
-    interop:hasStorage <https://data/yoyo-eu/>;
     interop:hasDataRegistration <https://data/yoyo-eu/m7p3qt>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/yoyo/p7n2vx>;
-    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
+    lws:storage <https://data/yoyo-eu/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/bob>;
+      odrl:action odrl:read, lws:create, odrl:modify, odrl:delete;
+      odrl:target [
+        a lws:Container;
+        lws:value <https://data/yoyo-eu/m7p3qt>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/yoyo/t5m8qr> {
@@ -1690,11 +1809,20 @@ GRAPH <meta:https://registry/yoyo/t5m8qr> {
 
 GRAPH <https://registry/yoyo/vbg74v> {
   <https://registry/yoyo/vbg74v>
-    a interop:AdminGrant;
-    interop:grantee <https://id/dan>;
+    a interop:AdminGrant, lws:AccessGrant;
     interop:grantedBy <https://id/yoyo>;
     interop:dataOwner <https://id/yoyo>;
-    interop:scopeOfAdminGrant interop:RegistrySet.
+    interop:scopeOfAdminGrant interop:RegistrySet;
+    lws:storage <https://registry/yoyo/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/dan>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:StorageResource;
+        lws:value <https://registry/yoyo/>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/yoyo/vbg74v> {
@@ -1740,13 +1868,20 @@ GRAPH <https://registry/yoyo/vbg74v.acr> {
 
 GRAPH <https://registry/yoyo/ds0emv> {
   <https://registry/yoyo/ds0emv>
-    a interop:AdminGrant;
-    interop:grantee <https://id/dan>;
+    a interop:AdminGrant, lws:AccessGrant;
     interop:grantedBy <https://id/yoyo>;
     interop:dataOwner <https://id/yoyo>;
     interop:scopeOfAdminGrant interop:DataRegistry;
-    interop:hasStorage <https://data/yoyo-eu/>;
-    interop:accessMode odrl:read.
+    lws:storage <https://data/yoyo-eu/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/dan>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:StorageResource;
+        lws:value <https://data/yoyo-eu/>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/yoyo/ds0emv> {
@@ -1792,13 +1927,20 @@ GRAPH <https://registry/yoyo/ds0emv.acr> {
 
 GRAPH <https://registry/yoyo/f76tbp> {
   <https://registry/yoyo/f76tbp>
-    a interop:AdminGrant;
-    interop:grantee <https://id/dan>;
+    a interop:AdminGrant, lws:AccessGrant;
     interop:grantedBy <https://id/yoyo>;
     interop:dataOwner <https://id/yoyo>;
     interop:scopeOfAdminGrant interop:DataRegistry;
-    interop:hasStorage <https://data/yoyo-na/>;
-    interop:accessMode odrl:read.
+    lws:storage <https://data/yoyo-na/>;
+    lws:access [
+      a lws:AccessPolicy;
+      odrl:assignee <https://id/dan>;
+      odrl:action odrl:read;
+      odrl:target [
+        a lws:StorageResource;
+        lws:value <https://data/yoyo-na/>
+      ]
+    ].
 }
 
 GRAPH <meta:https://registry/yoyo/f76tbp> {

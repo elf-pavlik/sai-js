@@ -6,7 +6,7 @@ import { describe, expect, test } from 'vitest'
 import {
   awaitGrantCompletion,
   containedIris,
-  dataGrants,
+  accessGrants,
   waitForActivityCompletion,
   waitForNeedBasedAccessRequestReceivedCompletion,
 } from './util'
@@ -410,7 +410,7 @@ describe('approve a need-based access request', () => {
     // must still emit the INHERITED child grant — a count-only check passes
     // with the parent grant alone (exactly why the missing Task grant slipped
     // through: test/ had no shape assertion on runtime-generated grants).
-    const grantsAfter = await dataGrants(regAfter!, aliceSession)
+    const grantsAfter = await accessGrants(regAfter!, aliceSession)
     const projectGrants = grantsAfter.filter(
       (grant) => grant.registeredShapeTree === 'https://data/shapetrees/trees/Project'
     )

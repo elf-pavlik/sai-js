@@ -121,16 +121,16 @@ type DataAuthorizationData = {
 
 ## Access Grant
 
-Based on existing Access Authorization the Data Grants can be created
+Based on existing Access Authorization the Access Grants can be created
 
-`async generateDataGrants(accessAuthorizationIri: string): Promise<GeneratedGrants>`
+`async generateAccessGrants(accessAuthorizationIri: string): Promise<GeneratedGrants>`
 
-This method updates the appropriate agent registration to reference the newly created data grants.
+This method updates the appropriate agent registration to reference the newly created access grants.
 
 ```ts
 const authorizationData: AccessAuthorizationStructure = {/* all the data */}
 const authorization = await agent.recordAccessAuthorization(authorizationData)
-await agent.generateDataGrants(authorization.iri)
+await agent.generateAccessGrants(authorization.iri)
 ```
 
 ## Funding

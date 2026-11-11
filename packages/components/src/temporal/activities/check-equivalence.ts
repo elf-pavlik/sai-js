@@ -17,16 +17,15 @@ import type { GrantData } from '@janeirodigital/interop-data-model'
  */
 
 const SCALAR_FIELDS = [
-  'grantee',
   'grantedBy',
   'dataOwner',
   'registeredShapeTree',
   'hasDataRegistration',
-  'hasStorage',
+  'storage',
   'scopeOfGrant',
 ] as const
 
-const SET_FIELDS = ['accessMode', 'hasDataInstance'] as const
+const SET_FIELDS = ['hasDataInstance'] as const
 
 /** A grant plus its descendants (one level in generation today, recursive for future n-depth). */
 export interface GrantTree {
@@ -55,6 +54,24 @@ function sameSet(a: readonly string[] | undefined, b: readonly string[] | undefi
 }
 
 /**
+ * Normalize the LWS access policies into comparable strings: assignee, the
+ * action set, the target type and the target value set. The policy order and
+ * the action/value order do not matter.
+ */
+function accessShape(grant: GrantData): string[] {
+  return grant.access
+    .map((policy) =>
+      [
+        policy.assignee,
+        [...new Set(policy.action)].toSorted().join(','),
+        policy.target.type,
+        [...new Set(policy.target.value)].toSorted().join(','),
+      ].join('\u0000')
+    )
+    .toSorted()
+}
+
+/**
  * Semantic-field equality for one grant (no tree walk). Set-valued fields are
  * compared as sets, so order and duplicates do not matter; an absent optional
  * set equals an empty one.
@@ -66,7 +83,7 @@ export function grantFieldsEqual(a: GrantData, b: GrantData): boolean {
   for (const field of SET_FIELDS) {
     if (!sameSet(a[field], b[field])) return false
   }
-  return true
+  return sameSet(accessShape(a), accessShape(b))
 }
 
 function declaredChildIds(grant: GrantData): string[] {

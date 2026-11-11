@@ -4,12 +4,13 @@ import {
   listContained,
   localSparqlTransport,
 } from '@janeirodigital/interop-authorization-agent'
+import { grantAccessModes, grantGrantee } from '@janeirodigital/interop-data-model'
 import { INTEROP, getRegistrySetIri } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import {
   awaitGrantCompletion,
-  dataGrants,
+  accessGrants,
   waitFor,
   waitForQuiescence,
   waitForRoleCreatedCompletion,
@@ -249,7 +250,7 @@ describe('org context — admin gating + last-admin guard (2.2/2.4)', () => {
  * org-context-proxy.md — peer-data read plane via `/.sai/proxy-admin` and
  * the registry plane via `/.sai/sparql-admin` (last step).
  *
- * Seed (environments/data/registry.trig): Bob granted YoYo a data grant
+ * Seed (environments/data/registry.trig): Bob granted YoYo an access grant
  * (`registry/bob/t2v9cd`, AllFromRegistry over
  * `data/bob/avn9hv/` — instances `n3onkx`/"Neon" and `gl1tch`/"Glitch"),
  * linked from Bob's registration of YoYo (`n4m8qx`) — the reciprocal of
@@ -463,18 +464,18 @@ describe('org context — sharing the org’s own data (2.4 write path)', () => 
     // registration of Bob. `dataOwner === yoyo` is the decisive assertion — a
     // build as the admin would route grant generation down the delegated path
     const linked = (await yoyoSession.findSocialAgentRegistration(bobId))!
-    const grants = await dataGrants(linked, yoyoSession)
+    const grants = await accessGrants(linked, yoyoSession)
     const sharedGrant = grants.find(
       (grant) =>
         grant.registeredShapeTree === projectShapeTree &&
-        grant.grantee === bobId &&
+        grantGrantee(grant) === bobId &&
         grant.hasDataInstance?.includes(ghost)
     )
     expect(sharedGrant).toBeDefined()
     expect(sharedGrant!.dataOwner).toBe(yoyoId)
     expect(sharedGrant!.grantedBy).toBe(yoyoId)
     expect(sharedGrant!.scopeOfGrant).toBe(INTEROP.SelectedFromRegistry)
-    expect(sharedGrant!.accessMode).toEqual([readMode])
+    expect(grantAccessModes(sharedGrant!)).toEqual([readMode])
 
     // the read side agrees: the org context reports the peer as a DIRECT
     // grantee (the grantee-facing replication of these grants is covered by
@@ -631,16 +632,16 @@ describe('org context — authorizing an agent over the org’s data (2.4 write 
 
     // the grants: the org is the data owner, Bob the grantee
     const linked = (await yoyoSession.findSocialAgentRegistration(bobId))!
-    const grants = await dataGrants(linked, yoyoSession)
+    const grants = await accessGrants(linked, yoyoSession)
     const projectGrant = grants.find(
       (grant) =>
-        grant.grantee === bobId &&
+        grantGrantee(grant) === bobId &&
         grant.hasDataRegistration === projectRegistration &&
         grant.scopeOfGrant === INTEROP.AllFromRegistry
     )
     expect(projectGrant).toBeDefined()
     expect(projectGrant!.dataOwner).toBe(yoyoId)
     expect(projectGrant!.grantedBy).toBe(yoyoId)
-    expect(projectGrant!.accessMode).toContain(readMode)
+    expect(grantAccessModes(projectGrant!)).toContain(readMode)
   })
 })

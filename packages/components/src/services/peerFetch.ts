@@ -11,7 +11,7 @@ export class PeerFetchError extends Error {}
 /**
  * The org-side upstream fetch behind `/.sai/proxy-admin`: fetch a peer
  * resource — a data registration document or a data instance document —
- * with the ORG's session credentials, the grantee, whose data grants the
+ * with the ORG's session credentials, the grantee, whose access grants the
  * peer's permission engine authorizes (org-context-proxy.md). Runs on the
  * **org's server** inside `ProxyAdminHandler`, responding to the admin's
  * AA's proxy request; the admin side never holds the org session and

@@ -19,6 +19,7 @@ import {
   INTEROP,
   LDP,
   LWS,
+  ODRL,
   type LanguageMap,
   frameDoc,
   isAuxiliaryResource,
@@ -413,7 +414,7 @@ export async function getRegistrationLinks(
 }
 
 /**
- * `dataOwner` IRIs of the data grants linked from a registration — one query,
+ * `dataOwner` IRIs of the access grants linked from a registration — one query,
  * no grant bodies. The link set comes from the registration graph (resource
  * UNION `meta:` twin), joined with each linked grant's own graph.
  *
@@ -437,7 +438,7 @@ export async function getLinkedGrantOwners(
 }
 
 /**
- * Data grants linked from a registration graph — typically a **mirrored**
+ * Access grants linked from a registration graph — typically a **mirrored**
  * reciprocal registration — read in two queries regardless of the link count:
  *
  * 1. the `hasDataGrant` link set, from the resource graph UNION its `meta:`
@@ -449,12 +450,12 @@ export async function getLinkedGrantOwners(
  * The grants are then framed from that combined document, so the reverse edges
  * a grantor writes into a parent's document (`<child> inheritsFromGrant
  * <parent>`, surfaced as `hasInheritingGrant`) survive. Replaces the 1 + N
- * pattern (`getSocialAgentRegistration` + one `getDataGrant` per link) that the
+ * pattern (`getSocialAgentRegistration` + one `getAccessGrant` per link) that the
  * grantee-side views used.
  *
  * A linked grant with **no** body is skipped rather than throwing: these are
  * browsing/consent views over a replica. Callers that must fail loudly
- * (delegated-grant generation) keep using `presentGraphs` + `getDataGrant`.
+ * (delegated-grant generation) keep using `presentGraphs` + `getAccessGrant`.
  */
 export async function getReciprocalGrants(
   transport: SparqlTransport,
@@ -493,11 +494,11 @@ export async function getReciprocalGrants(
 }
 
 /**
- * Data grant body from its graph — framed via the data-model's own
- * `Grant.fromJsonLd`, producing the same `GrantData` POJO as
- * `factory.dataGrant`. Grants are immutable, so a present graph is current.
+ * Access grant body from its graph — framed via the data-model's own
+ * `Grant.fromJsonLd`, producing the `GrantData` POJO. Grants are immutable, so
+ * a present graph is current.
  */
-export async function getDataGrant(transport: SparqlTransport, iri: string): Promise<GrantData> {
+export async function getAccessGrant(transport: SparqlTransport, iri: string): Promise<GrantData> {
   const doc = await graphDoc(transport, iri)
   return Grant.fromJsonLd(doc, iri)
 }
@@ -516,7 +517,7 @@ export async function getRegistryGrants(
   const grants = await Promise.all(
     iris.map(async (iri) => {
       try {
-        return await getDataGrant(transport, iri)
+        return await getAccessGrant(transport, iri)
       } catch {
         return undefined
       }
@@ -709,7 +710,8 @@ export async function getGrantsAuthority(
       ?grant
         <${INTEROP.dataOwner}> ?dataOwner;
         <${INTEROP.grantedBy}> ?grantedBy;
-        <${INTEROP.grantee}> ?grantee .
+        <${LWS.access}> ?policy .
+      ?policy <${ODRL.assignee}> ?grantee .
     }
     VALUES ?grant { ${values} }
   }`
@@ -836,23 +838,24 @@ SELECT DISTINCT ?request ?grantee WHERE {
 
 /**
  * The grants received by `webId` across the requester's plane (see the
- * OpenWiki `services/activity-lifecycle.md`) — the grantor's DataGrants naming the
+ * OpenWiki `services/activity-lifecycle.md`) — the grantor's access grants naming the
  * requester as `grantee` (the dev/test env resolves them via the
  * shared-store shortcut, openwiki/architecture/federation.md §1). Feeds the detector's
  * best-effort match (§3.3): `grantedBy` (the owner) + per-grant
  * `registeredShapeTree`.
  */
-export async function getDataGrantsForGrantee(
+export async function getAccessGrantsForGrantee(
   transport: SparqlTransport,
   webId: string
 ): Promise<{ grant: string; grantedBy: string; shapeTree: string }[]> {
   const query = `
 SELECT DISTINCT ?grant ?grantedBy ?shapeTree WHERE {
   GRAPH ?g {
-    ?grant a <${INTEROP.DataGrant}> ;
-           <${INTEROP.grantee}> <${webId}> ;
+    ?grant a <${LWS.AccessGrant}> ;
            <${INTEROP.grantedBy}> ?grantedBy ;
-           <${INTEROP.registeredShapeTree}> ?shapeTree .
+           <${INTEROP.registeredShapeTree}> ?shapeTree ;
+           <${LWS.access}> ?policy .
+    ?policy <${ODRL.assignee}> <${webId}> .
   }
 }`
   const bindings = await transport.fetchBindings(query)

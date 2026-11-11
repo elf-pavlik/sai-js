@@ -1,5 +1,5 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
-import { getDataGrantIris } from '@janeirodigital/interop-data-model'
+import { getAccessGrantIris } from '@janeirodigital/interop-data-model'
 import { describe, expect, test } from 'vitest'
 
 import { containedCount, rpcCall, rpcPayload, waitForActivityCompletion } from './util'
@@ -53,7 +53,7 @@ describe('authorization revocation (C2)', () => {
     // acme's own projection of bob no longer links any grant
     const registration = await acme.findSocialAgentRegistration(bobId)
     expect(registration).toBeDefined()
-    expect(getDataGrantIris(registration!)).toEqual([])
+    expect(getAccessGrantIris(registration!)).toEqual([])
   })
 
   test('re-revoking already-removed authorizations is a no-op success', async () => {

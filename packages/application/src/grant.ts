@@ -14,16 +14,16 @@ const loadDataRegistration = loader(DataRegistration.fromJsonLd)
 import { INTEROP, type WhatwgFetch, loader } from '@janeirodigital/interop-utils'
 
 /**
- * Whether the application registration has any data grants.
+ * Whether the application registration has any access grants.
  */
 export function getGranted(data: ApplicationRegistrationData): boolean {
   return (data.hasDataGrant ?? []).length > 0
 }
 
 /**
- * Fetch all data grants of this application registration.
+ * Fetch all access grants of this application registration.
  */
-export async function getDataGrants(
+export async function getAccessGrants(
   data: ApplicationRegistrationData,
   fetch: WhatwgFetch
 ): Promise<GrantData[]> {

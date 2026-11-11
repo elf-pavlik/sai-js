@@ -9,11 +9,14 @@ import {
   ShapeTree,
   childIris,
   frameDataInstance,
+  grantAccess,
+  grantAccessModes,
 } from '@janeirodigital/interop-data-model'
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 
 import {
   INTEROP,
+  LWS,
   type WhatwgFetch,
   mintResource,
   loader,
@@ -24,7 +27,7 @@ import {
   type SparqlTransport,
   findInheritingAuthorizations,
   getDataAuthorization,
-  getDataGrant,
+  getAccessGrant,
   getDataRegistration,
   getRole,
   getSocialAgentRegistration,
@@ -66,7 +69,7 @@ export async function* dataInstanceIrisForGrant(
       break
     }
     case INTEROP.Inherited: {
-      const parentGrant = await getDataGrant(transport, grant.inheritsFromGrant!)
+      const parentGrant = await getAccessGrant(transport, grant.inheritsFromGrant!)
       for await (const parentId of dataInstanceIrisForGrant(parentGrant, transport, fetch)) {
         yield* await getChildInstanceIris(parentGrant, parentId, grant.registeredShapeTree, fetch)
       }
@@ -136,7 +139,7 @@ async function generateChildDelegatedGrantData(
     // Find matching child grant by reading each child IRI (registry plane)
     let childSourceGrant: GrantData | undefined
     for (const childIri of sourceGrant.hasInheritingGrant ?? []) {
-      const childGrant = await getDataGrant(transport, childIri)
+      const childGrant = await getAccessGrant(transport, childIri)
       if (childGrant.registeredShapeTree === childAuthorization.registeredShapeTree) {
         childSourceGrant = childGrant
         break
@@ -144,19 +147,26 @@ async function generateChildDelegatedGrantData(
     }
     if (!childSourceGrant) continue
 
+    const storage = childSourceGrant.storage
+    const hasDataRegistration = childSourceGrant.hasDataRegistration
+    const scopeOfGrant = INTEROP.Inherited
+    const sourceActions = grantAccessModes(childSourceGrant)
     const childData: GrantData = {
       // no id — delegation endpoint assigns IRIs
-      type: [INTEROP.DataGrant],
-      grantee,
+      type: [LWS.AccessGrant],
+      storage,
+      access: grantAccess({
+        scopeOfGrant,
+        storage,
+        hasDataRegistration,
+        assignee: grantee,
+        actions: childAuthorization.accessMode.filter((mode) => sourceActions.includes(mode)),
+      }),
       grantedBy: data.grantedBy,
       dataOwner: childSourceGrant.dataOwner,
       registeredShapeTree: childAuthorization.registeredShapeTree,
-      hasDataRegistration: childSourceGrant.hasDataRegistration,
-      hasStorage: childSourceGrant.hasStorage,
-      scopeOfGrant: INTEROP.Inherited,
-      accessMode: childAuthorization.accessMode.filter((mode) =>
-        childSourceGrant.accessMode.includes(mode)
-      ),
+      hasDataRegistration,
+      scopeOfGrant,
       inheritsFromGrant: parentGrantIri,
     }
     result.push(childData)
@@ -196,7 +206,7 @@ interface MirroredPeer {
 /**
  * Per-regeneration cache over the mirrored peer side.
  *
- * `generateDelegatedDataGrants` runs once per data authorization (and once per
+ * `generateDelegatedAccessGrants` runs once per data authorization (and once per
  * role member for `AllFromRole`), and it used to re-read the whole social-agent
  * registry plus every reciprocal registration and grant body on each pass —
  * A × (1 + 2P + PG) graph reads. This index reads the registry listing once and
@@ -254,12 +264,12 @@ class MirroredPeerIndex {
     const presentGrants = await presentGraphs(this.transport, grantIris)
     const missing = grantIris.find((iri) => !presentGrants.has(iri))
     if (missing) throw new MirrorIncompleteError(missing, 'grant')
-    const grants = await Promise.all(grantIris.map((iri) => getDataGrant(this.transport, iri)))
+    const grants = await Promise.all(grantIris.map((iri) => getAccessGrant(this.transport, iri)))
     return { reciprocal, grants }
   }
 }
 
-async function generateDelegatedDataGrants(
+async function generateDelegatedAccessGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
   peers: MirroredPeerIndex,
@@ -278,7 +288,7 @@ async function generateDelegatedDataGrants(
     if (dataOwner && dataOwner !== agentRegistration.registeredAgent) {
       continue
     }
-    // don't create delegated data grants for data owned by the grantee (registeredAgent)
+    // don't create delegated access grants for data owned by the grantee (registeredAgent)
     if (grantee === agentRegistration.registeredAgent) {
       continue
     }
@@ -287,16 +297,16 @@ async function generateDelegatedDataGrants(
     const peer = await peers.for(agentRegistration)
     if (!peer || peer.grants.length === 0) continue
 
-    let matchingDataGrants = peer.grants.filter(
+    let matchingGrants = peer.grants.filter(
       (grant) => grant.registeredShapeTree === data.registeredShapeTree
     )
     if (data.hasDataRegistration) {
-      matchingDataGrants = matchingDataGrants.filter(
+      matchingGrants = matchingGrants.filter(
         (grant) => grant.hasDataRegistration === data.hasDataRegistration
       )
     }
 
-    for (const sourceGrant of matchingDataGrants) {
+    for (const sourceGrant of matchingGrants) {
       const regularGrantIri = await mintResource(registrySet.hasGrantRegistry.id, deps)
 
       const childGrantData: GrantData[] = await generateChildDelegatedGrantData(
@@ -313,23 +323,32 @@ async function generateDelegatedDataGrants(
         sourceGrant.scopeOfGrant === INTEROP.SelectedFromRegistry
           ? INTEROP.SelectedFromRegistry
           : INTEROP.AllFromRegistry
+      const storage = sourceGrant.storage
+      const hasDataRegistration = sourceGrant.hasDataRegistration
+      const hasDataInstance =
+        scope === INTEROP.SelectedFromRegistry
+          ? data.hasDataInstance?.length
+            ? [...data.hasDataInstance]
+            : [...(sourceGrant.hasDataInstance ?? [])]
+          : undefined
+      const sourceActions = grantAccessModes(sourceGrant)
       const grant: GrantData = {
-        type: [INTEROP.DataGrant],
-        grantee,
+        type: [LWS.AccessGrant],
+        storage,
+        access: grantAccess({
+          scopeOfGrant: scope,
+          storage,
+          hasDataRegistration,
+          hasDataInstance,
+          assignee: grantee,
+          actions: data.accessMode.filter((mode) => sourceActions.includes(mode)),
+        }),
         grantedBy: data.grantedBy,
         dataOwner: sourceGrant.dataOwner,
         registeredShapeTree: sourceGrant.registeredShapeTree,
-        hasDataRegistration: sourceGrant.hasDataRegistration,
-        hasStorage: sourceGrant.hasStorage,
+        hasDataRegistration,
         scopeOfGrant: scope,
-        accessMode: data.accessMode.filter((mode) => sourceGrant.accessMode.includes(mode)),
-      }
-      if (grant.scopeOfGrant === INTEROP.SelectedFromRegistry) {
-        if (data.hasDataInstance?.length) {
-          grant.hasDataInstance = [...data.hasDataInstance]
-        } else {
-          grant.hasDataInstance = [...(sourceGrant.hasDataInstance ?? [])]
-        }
+        ...(hasDataInstance ? { hasDataInstance } : {}),
       }
       if (childGrantData.length) {
         // embed full child grant data for delegation endpoint to assign IRIs
@@ -361,17 +380,24 @@ async function generateChildSourceGrantData(
     )
     if (!dataRegistration) continue
 
+    const scopeOfGrant = INTEROP.Inherited
+    const hasDataRegistration = dataRegistration.id
     const childData: FinalGrantData = {
       id: childGrantIri,
-      type: [INTEROP.DataGrant],
-      grantee,
+      type: [LWS.AccessGrant],
+      storage: dataStorageIri,
+      access: grantAccess({
+        scopeOfGrant,
+        storage: dataStorageIri,
+        hasDataRegistration,
+        assignee: grantee,
+        actions: childAuthorization.accessMode,
+      }),
       grantedBy: childAuthorization.grantedBy,
       dataOwner: childAuthorization.grantedBy,
       registeredShapeTree: childAuthorization.registeredShapeTree,
-      hasDataRegistration: dataRegistration.id,
-      hasStorage: dataStorageIri,
-      scopeOfGrant: INTEROP.Inherited,
-      accessMode: childAuthorization.accessMode,
+      hasDataRegistration,
+      scopeOfGrant,
       inheritsFromGrant: parentGrantIri,
     }
     result.push(childData)
@@ -379,7 +405,7 @@ async function generateChildSourceGrantData(
   return result
 }
 
-async function generateSourceDataGrants(
+async function generateSourceAccessGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
   grantee: string,
@@ -442,20 +468,26 @@ async function generateSourceDataGrants(
     let scopeOfGrant: string = INTEROP.AllFromRegistry
     if (data.scopeOfAuthorization === INTEROP.SelectedFromRegistry)
       scopeOfGrant = INTEROP.SelectedFromRegistry
+    const storage = await requireLwsStorageRoot(podUrl, deps.fetch)
+    const hasDataRegistration = matchingRegistration.id
     const grant: FinalGrantData = {
       id: regularGrantIri,
-      type: [INTEROP.DataGrant],
-      grantee,
+      type: [LWS.AccessGrant],
+      storage,
+      access: grantAccess({
+        scopeOfGrant,
+        storage,
+        hasDataRegistration,
+        hasDataInstance: data.hasDataInstance,
+        assignee: grantee,
+        actions: data.accessMode,
+      }),
       grantedBy: data.grantedBy,
       dataOwner: data.grantedBy,
       registeredShapeTree: data.registeredShapeTree,
-      hasDataRegistration: matchingRegistration.id,
-      hasStorage: await requireLwsStorageRoot(podUrl, deps.fetch),
+      hasDataRegistration,
       scopeOfGrant,
-      accessMode: data.accessMode,
-    }
-    if (data.hasDataInstance?.length) {
-      grant.hasDataInstance = data.hasDataInstance
+      ...(data.hasDataInstance?.length ? { hasDataInstance: data.hasDataInstance } : {}),
     }
     if (childGrantData.length) {
       grant.hasInheritingGrant = childGrantData.map((g) => g.id).filter(Boolean)
@@ -463,15 +495,15 @@ async function generateSourceDataGrants(
     result.push(grant, ...childGrantData)
   }
 
-  if (!result.length) throw new Error('no data grants were generated!')
+  if (!result.length) throw new Error('no access grants were generated!')
   return result
 }
 
 /**
- * Generate source and/or delegated data grants for a single data authorization.
+ * Generate source and/or delegated access grants for a single data authorization.
  *
  * Source grants are only created if the data authorization is registered by the
- * data owner; otherwise only delegated data grants are created. Handles the
+ * data owner; otherwise only delegated access grants are created. Handles the
  * AllFromRole scope by iterating over role members.
  *
  * Kept as the public single-authorization entry point: it builds a fresh
@@ -480,7 +512,7 @@ async function generateSourceDataGrants(
  * across them (the peer side is then read once per regeneration, not once per
  * authorization).
  */
-export async function generateDataGrants(
+export async function generateAccessGrants(
   data: DataAuthorizationData,
   registrySet: RegistrySetData,
   grantee: string,
@@ -488,7 +520,7 @@ export async function generateDataGrants(
   transport: SparqlTransport,
   endpoints?: Map<string, string>
 ): Promise<SourceAndDelegatedGrants> {
-  return generateDataGrantsWithPeers(
+  return generateAccessGrantsWithPeers(
     data,
     new MirroredPeerIndex(transport, registrySet),
     registrySet,
@@ -499,7 +531,7 @@ export async function generateDataGrants(
   )
 }
 
-async function generateDataGrantsWithPeers(
+async function generateAccessGrantsWithPeers(
   data: DataAuthorizationData,
   peers: MirroredPeerIndex,
   registrySet: RegistrySetData,
@@ -508,7 +540,7 @@ async function generateDataGrantsWithPeers(
   transport: SparqlTransport,
   endpoints?: Map<string, string>
 ): Promise<SourceAndDelegatedGrants> {
-  const dataGrantData: SourceAndDelegatedGrants = {
+  const generatedGrants: SourceAndDelegatedGrants = {
     source: [],
     delegated: [],
   }
@@ -518,7 +550,7 @@ async function generateDataGrantsWithPeers(
     if (!role) throw new Error(`role not found: ${data.dataOwner}`)
     for (const member of role.members) {
       if (member === data.grantedBy) {
-        const sourceGrants = await generateSourceDataGrants(
+        const sourceGrants = await generateSourceAccessGrants(
           data,
           registrySet,
           grantee,
@@ -526,9 +558,9 @@ async function generateDataGrantsWithPeers(
           transport,
           endpoints
         )
-        dataGrantData.source.push(...sourceGrants)
+        generatedGrants.source.push(...sourceGrants)
       } else {
-        const delegatedGrants = await generateDelegatedDataGrants(
+        const delegatedGrants = await generateDelegatedAccessGrants(
           data,
           registrySet,
           peers,
@@ -537,10 +569,10 @@ async function generateDataGrantsWithPeers(
           transport,
           member
         )
-        dataGrantData.delegated.push(...delegatedGrants)
+        generatedGrants.delegated.push(...delegatedGrants)
       }
     }
-    return dataGrantData
+    return generatedGrants
   }
 
   /* Source grants are only created if Data Authorization is registred by the data owner.
@@ -548,10 +580,10 @@ async function generateDataGrantsWithPeers(
    * - All - there will be no dataOwner set
    * - AllFromAgent - dataOwner will equal grantedBy
    * - lower with same condition as previous
-   * Otherwise only delegated data grants are created
+   * Otherwise only delegated access grants are created
    */
   if (!data.dataOwner || data.dataOwner === data.grantedBy) {
-    dataGrantData.source = await generateSourceDataGrants(
+    generatedGrants.source = await generateSourceAccessGrants(
       data,
       registrySet,
       grantee,
@@ -561,16 +593,16 @@ async function generateDataGrantsWithPeers(
     )
   }
 
-  // do not create delegated data grants if granted by data owner, source grants will be created instead
+  // do not create delegated access grants if granted by data owner, source grants will be created instead
   /* Delegated grants are only created for data owned by others than agent granting the authorization
    * This can only happen with scopes:
    * - All - there will be no dataOwner set
    * - All From Agent - dataOwner will be different than grantedBy
    * - lower with same condition as previous
-   * Otherwise only source data grants are created
+   * Otherwise only source access grants are created
    */
   if (!data.dataOwner || data.dataOwner !== data.grantedBy) {
-    dataGrantData.delegated = await generateDelegatedDataGrants(
+    generatedGrants.delegated = await generateDelegatedAccessGrants(
       data,
       registrySet,
       peers,
@@ -581,11 +613,11 @@ async function generateDataGrantsWithPeers(
     )
   }
 
-  return dataGrantData
+  return generatedGrants
 }
 
 /**
- * Generate source and delegated data grants for a list of data authorizations.
+ * Generate source and delegated access grants for a list of data authorizations.
  *
  * Inherited-scope data authorizations are skipped (they are handled by their
  * parent via hasInheritingAuthorization). An empty list means the grantee is
@@ -609,7 +641,7 @@ export async function generateGrantsForAuthorization(
     if (dataAuthorization.scopeOfAuthorization === INTEROP.Inherited) {
       continue
     }
-    const grants = await generateDataGrantsWithPeers(
+    const grants = await generateAccessGrantsWithPeers(
       dataAuthorization,
       peers,
       registrySet,

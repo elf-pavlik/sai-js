@@ -1,9 +1,16 @@
-import type { DataAuthorizationData, RegistrySetData } from '@janeirodigital/interop-data-model'
+import {
+  type DataAuthorizationData,
+  type RegistrySetData,
+  grantAccessModes,
+  grantGrantee,
+} from '@janeirodigital/interop-data-model'
 import {
   ACCESS_ACTIONS,
   FlatIdentifierStrategy,
   INTEROP,
   LDP,
+  LWS,
+  ODRL,
   RDF,
 } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
@@ -13,7 +20,7 @@ import { MirrorIncompleteError, generateGrantsForAuthorization } from '../src/gr
 import type { SparqlTransport } from '../src/sparql.js'
 import type { DataModelDependencies } from '../src/types.js'
 
-const { namedNode, quad } = DataFactory
+const { blankNode, namedNode, quad } = DataFactory
 
 // ──────────────────────────
 // Fixtures: acme (us / grantor) delegates data owned by the peer alice to kim.
@@ -138,24 +145,44 @@ const grantGraph = (
     storage: string
     accessMode?: string[]
     scopeOfGrant?: string
+    hasDataInstance?: string[]
   }
-): Quad[] => [
-  quad(namedNode(id), namedNode(RDF.type), namedNode(INTEROP.DataGrant)),
-  quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(fields.shapeTree)),
-  quad(namedNode(id), namedNode(INTEROP.hasDataRegistration), namedNode(fields.dataRegistration)),
-  quad(namedNode(id), namedNode(INTEROP.hasStorage), namedNode(fields.storage)),
-  quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(ALICE)),
-  quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode(ALICE)),
-  quad(namedNode(id), namedNode(INTEROP.grantee), namedNode(ACME)),
-  quad(
-    namedNode(id),
-    namedNode(INTEROP.scopeOfGrant),
-    namedNode(fields.scopeOfGrant ?? INTEROP.AllFromRegistry)
-  ),
-  ...(fields.accessMode ?? [ACCESS_ACTIONS.read]).map((mode) =>
-    quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(mode))
-  ),
-]
+): Quad[] => {
+  const scopeOfGrant = fields.scopeOfGrant ?? INTEROP.AllFromRegistry
+  const targetType =
+    scopeOfGrant === INTEROP.SelectedFromRegistry
+      ? LWS.DataResource
+      : scopeOfGrant === INTEROP.AllFromAgent
+        ? LWS.StorageResource
+        : LWS.Container
+  const targetValues =
+    scopeOfGrant === INTEROP.SelectedFromRegistry
+      ? (fields.hasDataInstance ?? [])
+      : scopeOfGrant === INTEROP.AllFromAgent
+        ? [fields.storage]
+        : [fields.dataRegistration]
+  const policy = blankNode()
+  const target = blankNode()
+  return [
+    quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
+    quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
+    quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(fields.shapeTree)),
+    quad(namedNode(id), namedNode(INTEROP.hasDataRegistration), namedNode(fields.dataRegistration)),
+    quad(namedNode(id), namedNode(LWS.storage), namedNode(fields.storage)),
+    quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(ALICE)),
+    quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode(ALICE)),
+    quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(scopeOfGrant)),
+    quad(namedNode(id), namedNode(LWS.access), policy),
+    quad(policy, namedNode(RDF.type), namedNode(LWS.AccessPolicy)),
+    quad(policy, namedNode(ODRL.assignee), namedNode(ACME)),
+    ...(fields.accessMode ?? [ACCESS_ACTIONS.read]).map((mode) =>
+      quad(policy, namedNode(ODRL.action), namedNode(mode))
+    ),
+    quad(policy, namedNode(ODRL.target), target),
+    quad(target, namedNode(RDF.type), namedNode(targetType)),
+    ...targetValues.map((value) => quad(target, namedNode(LWS.value), namedNode(value))),
+  ]
+}
 
 /**
  * The mirrored peer side: alice's registration of us + the grants it links.
@@ -325,8 +352,8 @@ describe('delegated-grant generation — mirror only', () => {
         dataOwner: ALICE,
         registeredShapeTree: PROJECT_TREE,
         hasDataRegistration: PROJECT_REGISTRATION,
-        hasStorage: PROJECT_STORAGE,
-      })
+        storage: PROJECT_STORAGE,
+      } as Record<string, unknown>)
     }
     // …and the peer side was read ONCE, not once per authorization
     expect(transport.queries.filter((query) => query.includes('lws#contains'))).toHaveLength(1)
@@ -356,16 +383,17 @@ describe('delegated-grant generation — mirror only', () => {
     expect(generated.delegatedGrants).toHaveLength(1)
     const [grant] = generated.delegatedGrants
     expect(grant).toMatchObject({
-      grantee: KIM,
       grantedBy: ACME,
       dataOwner: ALICE,
       registeredShapeTree: PROJECT_TREE,
       hasDataRegistration: PROJECT_REGISTRATION,
-      hasStorage: PROJECT_STORAGE,
+      storage: PROJECT_STORAGE,
       scopeOfGrant: INTEROP.AllFromRegistry,
-      // the source allows Read+Write, the authorization asks for Read only
-      accessMode: [ACCESS_ACTIONS.read],
     })
+    expect(grantGrantee(grant)).toBe(KIM)
+    expect(grant.type).toEqual([LWS.AccessGrant])
+    // the source allows Read+Write, the authorization asks for Read only
+    expect(grantAccessModes(grant)).toEqual([ACCESS_ACTIONS.read])
   })
 
   test('matches by shape tree — only the Task grant delegates', async () => {

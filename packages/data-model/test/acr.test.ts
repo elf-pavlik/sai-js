@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 import {
   acrContext,
   agentRegistrationAcrJsonLd,
-  dataGrantAcrJsonLd,
+  accessGrantAcrJsonLd,
   rewriteFullAdminAccess,
 } from '../src'
 
@@ -53,13 +53,13 @@ describe('agentRegistrationAcrJsonLd', () => {
   })
 })
 
-describe('dataGrantAcrJsonLd', () => {
+describe('accessGrantAcrJsonLd', () => {
   test('adds grantor and peer/client matchers when present', async () => {
     const id = 'https://auth.alice.example/grant.acr'
     const grantor = { agent: 'https://grantor.example/#id', client: 'https://grantor.example/app' }
 
     const nquads = await toNQuads(
-      dataGrantAcrJsonLd({
+      accessGrantAcrJsonLd({
         id,
         resource: 'https://auth.alice.example/grant',
         owner,

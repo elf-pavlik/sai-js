@@ -67,7 +67,7 @@ export interface AgentWithAccess {
  * A role whose authorization covers a resource. `members` is the EXPANDED
  * bearer set (the grantee role's members): role membership is read at read
  * time, so it changes without the authorization being rewritten — the same
- * expansion `generateDataGrants` does when it writes one grant per member.
+ * expansion `generateAccessGrants` does when it writes one grant per member.
  */
 export interface RoleWithAccess {
   role: string
@@ -144,7 +144,7 @@ export type DataInstanceFacts = Pick<DataInstanceData, 'id' | 'shapeTreeIri' | '
  * - `AllFromRole`: the authorization covers the data of every member of the
  *   `dataOwner` role, so it covers `ownerWebId`'s resource only when
  *   `ownerWebId` is a member of that role (the same set
- *   `generateDataGrants` iterates to decide source vs delegated grants).
+ *   `generateAccessGrants` iterates to decide source vs delegated grants).
  * - `Inherited`: a child authorization covers exactly what its parent
  *   (`inheritsFromAuthorization`) covers; the parent is resolved from the
  *   registry snapshot the caller loaded.
@@ -475,7 +475,7 @@ export async function generateAuthorization(
     // start with reusing all existing data authorizations
     dataAuthorizationsToReuse.push(...existingDataAuthorizations.map((da) => da.id!))
 
-    // TODO: case when new doesn't have inheriting but matching had inheriting data grant, create additional data authorization instead of replacing
+    // TODO: case when new doesn't have inheriting but matching had inheriting access grant, create additional data authorization instead of replacing
     // check if some of existing data authorizations overlap for a registry
     for (const existingDataAuthorization of existingDataAuthorizations) {
       const matchingDataAuthorization = authorization.dataAuthorizations.find(

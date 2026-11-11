@@ -1,6 +1,6 @@
 import { buildSessionManager } from '@elfpavlik/sai-components'
 import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
-import { Grant } from '@janeirodigital/interop-data-model'
+import { Grant, grantGrantee } from '@janeirodigital/interop-data-model'
 const loadGrant = loader(Grant.fromJsonLd)
 
 import {
@@ -320,7 +320,7 @@ async function adminGrantIris(webId: string, grantee: string): Promise<string[]>
   const adminGrants: string[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)
-    if (grant.type.includes(INTEROP.AdminGrant) && grant.grantee === grantee) {
+    if (grant.type.includes(INTEROP.AdminGrant) && grantGrantee(grant) === grantee) {
       adminGrants.push(iri)
     }
   }

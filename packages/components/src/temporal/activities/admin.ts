@@ -8,15 +8,18 @@ import type {
 import {
   AdminAuthorization,
   Grant,
-  dataGrantAcrJsonLd,
-  dataModelContext,
+  accessGrantAcrJsonLd,
+  grantContext,
+  grantGrantee,
   rewriteFullAdminAccess,
+  type LwsAccessPolicy,
 } from '@janeirodigital/interop-data-model'
 const loadGrant = loader(Grant.fromJsonLd)
 
 import {
   ACCESS_ACTIONS,
   INTEROP,
+  LWS,
   discoverAccessResource,
   discoverAuthorizationAgent,
   fetchJsonLd,
@@ -37,12 +40,23 @@ import { buildSessionManager } from '../../builders/sessionManager.js'
 export type AdminGrantData = {
   id?: string
   type: string[]
-  grantee: string
+  storage: string
+  access: LwsAccessPolicy[]
   grantedBy: string
   dataOwner: string
   scopeOfAdminGrant: string
-  hasStorage?: string
-  accessMode?: string[]
+}
+
+/** Admin grants are read-only StorageResource-scoped policies. */
+function adminAccess(assignee: string, storage: string): LwsAccessPolicy[] {
+  return [
+    {
+      type: [LWS.AccessPolicy],
+      assignee,
+      action: [ACCESS_ACTIONS.read],
+      target: { type: LWS.StorageResource, value: [storage] },
+    },
+  ]
 }
 
 export interface AdminActivityInput {
@@ -125,10 +139,12 @@ export async function buildAdminGrants(payload: {
   const session = await manager.getSession(payload.webId.id)
   const registry = session.registrySet.hasGrantRegistry
 
+  const registryStorage = session.registrySet.id
   const registrySetGrant: AdminGrantData = {
     id: await session.mintIdentifier(registry.id),
-    type: [INTEROP.AdminGrant],
-    grantee: payload.admin.id,
+    type: [INTEROP.AdminGrant, LWS.AccessGrant],
+    storage: registryStorage,
+    access: adminAccess(payload.admin.id, registryStorage),
     grantedBy: payload.webId.id,
     dataOwner: payload.webId.id,
     scopeOfAdminGrant: INTEROP.RegistrySet,
@@ -138,13 +154,12 @@ export async function buildAdminGrants(payload: {
   for (const dataRegistry of session.registrySet.hasDataRegistry) {
     dataRegistryGrants.push({
       id: await session.mintIdentifier(registry.id),
-      type: [INTEROP.AdminGrant],
-      grantee: payload.admin.id,
+      type: [INTEROP.AdminGrant, LWS.AccessGrant],
+      storage: dataRegistry.id,
+      access: adminAccess(payload.admin.id, dataRegistry.id),
       grantedBy: payload.webId.id,
       dataOwner: payload.webId.id,
       scopeOfAdminGrant: INTEROP.DataRegistry,
-      hasStorage: dataRegistry.id,
-      accessMode: [ACCESS_ACTIONS.read],
     })
   }
   return { registrySetGrant, dataRegistryGrants }
@@ -158,19 +173,20 @@ export async function storeAdminGrant(grant: AdminGrantData): Promise<void> {
     session.registrySet.hasGrantRegistry.id,
     grant.id!,
     false,
-    withContext(dataModelContext, grant)
+    withContext(grantContext, grant)
   )
 }
 
 /**
  * ACR for an AdminGrant: org fullOwnerAccess (org + its UAS) + peerReadAccess
- * (the admin + their UAS) — same shape as the data-grant ACRs.
+ * (the admin + their UAS) — same shape as the access-grant ACRs.
  */
 export async function createAdminGrantAcr(payload: { grant: AdminGrantData }): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.grant.dataOwner)
-  const uasId = await discoverAuthorizationAgent(payload.grant.grantee, fetch)
-  if (!uasId) throw new Error(`no authorization agent for admin: ${payload.grant.grantee}`)
+  const grantee = grantGrantee(payload.grant) ?? ''
+  const uasId = await discoverAuthorizationAgent(grantee, fetch)
+  if (!uasId) throw new Error(`no authorization agent for admin: ${grantee}`)
 
   const headResponse = await session.fetch(payload.grant.id!, {
     method: 'HEAD',
@@ -181,7 +197,7 @@ export async function createAdminGrantAcr(payload: { grant: AdminGrantData }): P
   await putJsonLd(
     acrId,
     session.fetch,
-    dataGrantAcrJsonLd({
+    accessGrantAcrJsonLd({
       id: acrId,
       resource: payload.grant.id!,
       owner: {
@@ -189,7 +205,7 @@ export async function createAdminGrantAcr(payload: { grant: AdminGrantData }): P
         client: session.agentId,
       },
       peer: {
-        agent: payload.grant.grantee,
+        agent: grantee,
         client: uasId,
       },
     })
@@ -223,7 +239,7 @@ export async function findAdminGrants(payload: {
   const adminGrants: { id: string; type: string[] }[] = []
   for (const iri of iris) {
     const grant = await loadGrant(iri, session.fetch)
-    if (grant.type.includes(INTEROP.AdminGrant) && grant.grantee === payload.admin.id) {
+    if (grant.type.includes(INTEROP.AdminGrant) && grantGrantee(grant) === payload.admin.id) {
       adminGrants.push({ id: iri, type: grant.type })
     }
   }

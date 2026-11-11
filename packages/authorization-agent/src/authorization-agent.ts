@@ -22,7 +22,8 @@ import {
   WebIdProfile,
   type WebIdProfileData,
   dataModelContext,
-  getDataGrantIris,
+  getAccessGrantIris,
+  grantGrantee,
 } from '@janeirodigital/interop-data-model'
 // re-export so package consumers (components services, tests) keep importing
 // it from '@janeirodigital/interop-authorization-agent'
@@ -47,7 +48,7 @@ import {
   withContext,
 } from '@janeirodigital/interop-utils'
 
-import { replaceDataGrants } from './agent-registration.ts'
+import { replaceAccessGrants } from './agent-registration.ts'
 import { findRegistration as findRegistrationInAgentRegistry } from './agent-registry.ts'
 import {
   type AccessAuthorizationStructure,
@@ -191,7 +192,7 @@ export async function revokeGrantsClosure(
       iri: grant.id,
       dataOwner: grant.dataOwner,
       grantedBy: grant.grantedBy,
-      grantee: grant.grantee,
+      grantee: grantGrantee(grant) ?? '',
     })
   }
   return [...closure.values()]
@@ -659,15 +660,15 @@ export class AuthorizationAgent {
     )
     if (!registration) return // nothing to clear — the projection is already empty
     const revoked = new Set(grants)
-    const current = getDataGrantIris(registration)
-    await replaceDataGrants(
+    const current = getAccessGrantIris(registration)
+    await replaceAccessGrants(
       registration,
       this.fetch,
       current.filter((iri) => !revoked.has(iri))
     )
   }
 
-  public async generateDataGrants(
+  public async generateAccessGrants(
     dataAuthorizationIris: string[],
     grantee: string
   ): Promise<GeneratedGrants> {
@@ -874,7 +875,7 @@ export class AuthorizationAgent {
    * Every bearer of existing access to a resource: direct agent grantees the
    * context holds a registration for AND the expanded members of granted
    * roles. Role membership counts because a role grant is materialized as one
-   * grant per member (`generateDataGrants`), so re-sharing with such a member
+   * grant per member (`generateAccessGrants`), so re-sharing with such a member
    * would duplicate the access.
    */
   private async agentsWithAccessTo(

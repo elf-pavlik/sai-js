@@ -1,10 +1,10 @@
-import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import { isAccessRequestMessage, isAccessRevocationMessage } from '../src/messages.js'
 
 const grant = {
-  type: [INTEROP.DataGrant],
+  type: [LWS.AccessGrant],
   grantee: 'https://id/bob',
   grantedBy: 'https://id/acme',
   dataOwner: 'https://id/acme',

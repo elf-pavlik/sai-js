@@ -1,5 +1,9 @@
-import type { GrantData } from '@janeirodigital/interop-data-model'
-import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
+import {
+  type GrantData,
+  type GrantTargetInput,
+  grantAccess,
+} from '@janeirodigital/interop-data-model'
+import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -9,7 +13,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 // fails closed (the whole tree never matches). Source trees pair with existing
 // trees we own; delegated trees pair with the issuer-side replica.
 //
-// `getDataGrant` is mocked at the package boundary so these cases stay about
+// `getAccessGrant` is mocked at the package boundary so these cases stay about
 // the tree loader and pairing, not SPARQL framing (covered in the AA package).
 // ──────────────────────────
 
@@ -25,7 +29,7 @@ const h = vi.hoisted(() => {
     transport,
     fetch,
     localSparqlTransport: vi.fn(() => transport),
-    getDataGrant: vi.fn(async (_transport: unknown, iri: string) => {
+    getAccessGrant: vi.fn(async (_transport: unknown, iri: string) => {
       const grant = bodies.get(iri)
       if (!grant) throw new Error(`no local graph for ${iri}`)
       return grant
@@ -44,7 +48,7 @@ vi.mock('../src/builders/sessionManager.js', () => ({
 vi.mock('@janeirodigital/interop-authorization-agent', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@janeirodigital/interop-authorization-agent')>()),
   localSparqlTransport: h.localSparqlTransport,
-  getDataGrant: h.getDataGrant,
+  getAccessGrant: h.getAccessGrant,
 }))
 
 import { checkEquivalence } from '../src/temporal/activities/grants.js'
@@ -59,28 +63,59 @@ const PROJECT_REGISTRATION = 'https://data/acme/registrations/projects/'
 const TASK_REGISTRATION = 'https://data/acme/registrations/tasks/'
 const STORAGE = 'https://data/acme/'
 
-const base = {
-  type: [INTEROP.DataGrant],
-  grantee: 'https://id/alice',
-  grantedBy: 'https://id/acme',
-  dataOwner: 'https://id/acme',
-  registeredShapeTree: PROJECT_TREE,
-  hasDataRegistration: PROJECT_REGISTRATION,
-  hasStorage: STORAGE,
-  scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [ACCESS_ACTIONS.read],
+interface GrantOverrides extends Partial<GrantData> {
+  /** legacy-named fixture fields — derived into the canonical access policy */
+  grantee?: string
+  accessMode?: string[]
+  hasStorage?: string
 }
 
-const parent = (id: string, children: string[] = []): GrantData =>
-  ({
-    ...base,
+const DEFAULT_ACTIONS = [ACCESS_ACTIONS.read]
+
+function makeGrant(overrides: GrantOverrides = {}): GrantData {
+  const {
+    grantee = 'https://id/alice',
+    accessMode = DEFAULT_ACTIONS,
+    hasStorage = STORAGE,
+    ...rest
+  } = overrides
+  const storage = rest.storage ?? hasStorage
+  const hasDataRegistration = rest.hasDataRegistration ?? PROJECT_REGISTRATION
+  const scopeOfGrant = rest.scopeOfGrant ?? INTEROP.AllFromRegistry
+  const target: GrantTargetInput = {
+    scopeOfGrant,
+    storage,
+    hasDataRegistration,
+    hasDataInstance: rest.hasDataInstance,
+  }
+  return {
+    type: [LWS.AccessGrant],
+    storage,
+    access:
+      rest.access ??
+      grantAccess({
+        ...target,
+        assignee: grantee,
+        actions: accessMode,
+      }),
+    grantedBy: 'https://id/acme',
+    dataOwner: 'https://id/acme',
+    registeredShapeTree: PROJECT_TREE,
+    hasDataRegistration,
+    scopeOfGrant,
+    ...rest,
+  } as GrantData
+}
+
+const parent = (id: string, children: string[] = [], overrides: GrantOverrides = {}): GrantData =>
+  makeGrant({
+    ...overrides,
     id,
     ...(children.length ? { hasInheritingGrant: children } : {}),
-  }) as GrantData
+  })
 
-const child = (id: string, parentId: string, overrides: Partial<GrantData> = {}): GrantData =>
-  ({
-    ...base,
+const child = (id: string, parentId: string, overrides: GrantOverrides = {}): GrantData =>
+  makeGrant({
     id,
     inheritsFromGrant: parentId,
     registeredShapeTree: TASK_TREE,
@@ -88,31 +123,25 @@ const child = (id: string, parentId: string, overrides: Partial<GrantData> = {})
     scopeOfGrant: INTEROP.Inherited,
     accessMode: [ACCESS_ACTIONS.create, ACCESS_ACTIONS.read],
     ...overrides,
-  }) as GrantData
-
-const delegatedBase = { ...base, dataOwner: 'https://id/alice' }
+  })
 
 /** An existing delegated grant body (the peer is the dataOwner). */
 const delegatedParent = (
   id: string,
   children: string[] = [],
-  overrides: Partial<GrantData> = {}
+  overrides: GrantOverrides = {}
 ): GrantData =>
-  ({
-    ...delegatedBase,
+  makeGrant({
+    dataOwner: 'https://id/alice',
+    ...overrides,
     id,
     ...(children.length ? { hasInheritingGrant: children } : {}),
-    ...overrides,
-  }) as GrantData
+  })
 
 /** An existing delegated child body (Inherited scope). */
-const delegatedChild = (
-  id: string,
-  parentId: string,
-  overrides: Partial<GrantData> = {}
-): GrantData =>
-  ({
-    ...delegatedBase,
+const delegatedChild = (id: string, parentId: string, overrides: GrantOverrides = {}): GrantData =>
+  makeGrant({
+    dataOwner: 'https://id/alice',
     id,
     inheritsFromGrant: parentId,
     registeredShapeTree: TASK_TREE,
@@ -120,27 +149,27 @@ const delegatedChild = (
     scopeOfGrant: INTEROP.Inherited,
     accessMode: [ACCESS_ACTIONS.create, ACCESS_ACTIONS.read],
     ...overrides,
-  }) as GrantData
+  })
 
 /** A generated delegated grant: no id, children ride as embedded objects. */
-const generatedDelegated = (overrides: Partial<GrantData> = {}, withChild = true): GrantData =>
-  ({
-    ...delegatedBase,
+const generatedDelegated = (overrides: GrantOverrides = {}, withChild = true): GrantData =>
+  makeGrant({
+    dataOwner: 'https://id/alice',
     ...overrides,
     ...(withChild
       ? {
           hasInheritingGrant: [
-            {
-              ...delegatedBase,
+            makeGrant({
+              dataOwner: 'https://id/alice',
               registeredShapeTree: TASK_TREE,
               hasDataRegistration: TASK_REGISTRATION,
               scopeOfGrant: INTEROP.Inherited,
               accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.create],
-            },
+            }),
           ] as unknown as string[],
         }
       : {}),
-  }) as GrantData
+  })
 
 const ref = (grant: GrantData) => ({ id: grant.id!, type: grant.type })
 
@@ -173,8 +202,8 @@ describe('checkEquivalence — source-grant reuse', () => {
     expect(result.reusedDelegatedIndexes).toEqual([])
     // local plane only: the session's own endpoint, never `session.fetch`
     expect(h.localSparqlTransport).toHaveBeenCalledWith(ENDPOINT)
-    expect(h.getDataGrant).toHaveBeenCalledWith(h.transport, eParent.id)
-    expect(h.getDataGrant).toHaveBeenCalledWith(h.transport, eChild.id)
+    expect(h.getAccessGrant).toHaveBeenCalledWith(h.transport, eParent.id)
+    expect(h.getAccessGrant).toHaveBeenCalledWith(h.transport, eChild.id)
     expect(h.fetch).not.toHaveBeenCalled()
   })
 
@@ -231,7 +260,7 @@ describe('checkEquivalence — source-grant reuse', () => {
       webId,
       grantee,
       generated: { sourceGrants: [g1, g2], delegatedGrants: [] },
-      existing: [ref(e1), { id: 'https://registry/acme/stale', type: [INTEROP.DataGrant] }],
+      existing: [ref(e1), { id: 'https://registry/acme/stale', type: [LWS.AccessGrant] }],
     })
 
     expect(result.reusedSourceIds).toEqual([g1.id])

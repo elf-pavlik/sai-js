@@ -2,6 +2,7 @@ import type { DatasetCore, Quad } from '@rdfjs/types'
 import { Store } from 'n3'
 
 import { jsonld } from './jsonld-lib.ts'
+import { lwsV1Context } from './lws-v1-context.ts'
 
 // Local type for the document loader result compatible with jsonld's RemoteDocument
 interface RemoteDocument {
@@ -48,6 +49,7 @@ export async function localDocumentLoader(url: string): Promise<RemoteDocument> 
 type LocalContext = Record<string, unknown> & { '@context'?: unknown }
 
 const localContexts: Record<string, LocalContext> = {
+  'https://www.w3.org/ns/lws/v1': lwsV1Context,
   'https://www.w3.org/ns/solid/oidc-context.jsonld': {
     '@context': {
       '@version': 1.1,

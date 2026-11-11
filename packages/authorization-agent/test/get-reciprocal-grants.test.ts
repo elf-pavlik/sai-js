@@ -1,10 +1,10 @@
-import { ACCESS_ACTIONS, INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LDP, LWS, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
 import { describe, expect, test } from 'vitest'
 
 import { type SparqlTransport, getReciprocalGrants } from '../src/sparql.js'
 
-const { namedNode, quad } = DataFactory
+const { blankNode, namedNode, quad } = DataFactory
 
 const RECIPROCAL = 'https://registry/alice/r-acme'
 const G1 = 'https://registry/alice/g1'
@@ -17,21 +17,30 @@ const registrationGraph = (links: string[]): Quad[] =>
     quad(namedNode(RECIPROCAL), namedNode(INTEROP.hasDataGrant), namedNode(grant))
   )
 
-const grantGraph = (id: string, over: { tree?: string; owner?: string } = {}): Quad[] => [
-  quad(namedNode(id), namedNode(RDF.type), namedNode(INTEROP.DataGrant)),
-  quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(over.tree ?? TREE)),
-  quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(over.owner ?? 'https://id/alice')),
-  quad(namedNode(id), namedNode(INTEROP.grantee), namedNode('https://id/acme')),
-  quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode('https://id/alice')),
-  quad(
-    namedNode(id),
-    namedNode(INTEROP.hasDataRegistration),
-    namedNode('https://data/alice/registrations/p')
-  ),
-  quad(namedNode(id), namedNode(INTEROP.hasStorage), namedNode('https://data/alice/')),
-  quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(INTEROP.AllFromRegistry)),
-  quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(ACCESS_ACTIONS.read)),
-]
+const grantGraph = (id: string, over: { tree?: string; owner?: string } = {}): Quad[] => {
+  const policy = blankNode()
+  const target = blankNode()
+  return [
+    quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
+    quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(over.tree ?? TREE)),
+    quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(over.owner ?? 'https://id/alice')),
+    quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode('https://id/alice')),
+    quad(
+      namedNode(id),
+      namedNode(INTEROP.hasDataRegistration),
+      namedNode('https://data/alice/registrations/p')
+    ),
+    quad(namedNode(id), namedNode(LWS.storage), namedNode('https://data/alice/')),
+    quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(INTEROP.AllFromRegistry)),
+    quad(namedNode(id), namedNode(LWS.access), policy),
+    quad(policy, namedNode(RDF.type), namedNode(LWS.AccessPolicy)),
+    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/assignee'), namedNode('https://id/acme')),
+    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/action'), namedNode(ACCESS_ACTIONS.read)),
+    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/target'), target),
+    quad(target, namedNode(RDF.type), namedNode(LWS.Container)),
+    quad(target, namedNode(LWS.value), namedNode('https://data/alice/registrations/p')),
+  ]
+}
 
 /**
  * A transport that serves named graphs from a map and records the queries, so
@@ -87,6 +96,8 @@ describe('getReciprocalGrants — batched grantee-side read', () => {
 
     expect(grants.map((grant) => grant.id)).toEqual([G1, G2])
     expect(grants[1].registeredShapeTree).toBe('https://data/shapetrees/trees/Task')
+    expect(grants[0].type).toEqual([LWS.AccessGrant])
+    expect(grants[0].storage).toBe('https://data/alice/')
     expect(transport.queries).toHaveLength(2)
     expect(transport.queries[0]).toContain(`GRAPH <meta:${RECIPROCAL}>`)
   })

@@ -92,7 +92,7 @@ export function agentsWithAccessMatching(
  * context, role grantees with their members expanded. Reads via SPARQL
  * (`queries/org.ts`) — personal context via the session's internal endpoint,
  * org context over `/sparql-admin` (`sparqlTransportFor`); the admin session
- * HTTP-derefs no peer document and holds no data grants.
+ * HTTP-derefs no peer document and holds no access grants.
  */
 async function orgWhoHasAccess(
   ctx: ResolvedContext,

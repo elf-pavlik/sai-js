@@ -20,7 +20,7 @@ import {
 
 /**
  * Lazily load the peer's reciprocal registration — only consumers that need its
- * data (data grants) call this. The leaf read
+ * data (access grants) call this. The leaf read
  * (`loadSocialAgentRegistration`) no longer recurses into the reciprocal.
  */
 export async function loadReciprocalRegistration(

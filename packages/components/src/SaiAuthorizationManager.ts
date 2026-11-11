@@ -1,4 +1,4 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { LWS } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import { NotFoundHttpError, arrayifyStream } from '@solid/community-server'
 import type { IdentifierStrategy, PodStore, StorageLocationStrategy } from '@solid/community-server'
@@ -70,7 +70,7 @@ export class SaiAuthorizationManager implements AuthorizationManager {
         endpoint,
         `
         SELECT * WHERE {
-          GRAPH ?g {?s <${INTEROP.hasStorage}> <${storage.path}> }
+          GRAPH ?g {?s <${LWS.storage}> <${storage.path}> }
         }
       `
       )
@@ -82,18 +82,21 @@ export class SaiAuthorizationManager implements AuthorizationManager {
         const grantsStream = await this.fetcher.fetchTriples(
           endpoint,
           `
-            CONSTRUCT { <${grant}> ?p ?o } WHERE {
-              GRAPH ?g { <${grant}> ?p ?o }
+            CONSTRUCT { ?s ?p ?o } WHERE {
+              GRAPH ?g {
+                <${grant}> <${LWS.storage}> ?storage .
+                ?s ?p ?o
+              }
             }
           `
         )
         const grantQuads = await arrayifyStream<Quad>(grantsStream)
         data = data.concat(grantQuads)
       }
-      // AdminGrants carry `hasStorage` too (the Read-only DataRegistry-scoped
+      // AdminGrants carry `storage` too (the Read-only DataRegistry-scoped
       // ones) — they ride along in the same dataset and the engine's admin
       // branch (SaiPermissionsEngine.findAdminModes, step 2.8 of
-      // org-admin-feature.md) consumes them by type/grantee/scope.
+      // org-admin-feature.md) consumes them by type/policy assignee/scope.
       return data
     } catch (err) {
       if (NotFoundHttpError.isInstance(err)) {

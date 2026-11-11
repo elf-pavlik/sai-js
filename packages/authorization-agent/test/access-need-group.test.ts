@@ -54,3 +54,23 @@ describe('descriptions', () => {
     expect([...languages].toSorted()).toStrictEqual(['en', 'pl'])
   })
 })
+
+describe('LWS reads', () => {
+  test('reads the group document with the LWS JSON-LD profile', async () => {
+    const accepts: string[] = []
+    const recordingFetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const accept = (init?.headers as Record<string, string> | undefined)?.Accept
+      if (accept) accepts.push(accept)
+      return fetch(url, init)
+    }) as unknown as typeof fetch
+
+    const needGroup = await accessNeedGroup(snippetIri, recordingFetch)
+    const description = await AccessNeedGroup.getDescription(needGroup, 'en', recordingFetch)
+    expect(description).toBeDefined()
+
+    expect(accepts.length).toBeGreaterThan(0)
+    for (const accept of accepts) {
+      expect(accept).toContain('profile="https://www.w3.org/ns/lws/v1"')
+    }
+  })
+})

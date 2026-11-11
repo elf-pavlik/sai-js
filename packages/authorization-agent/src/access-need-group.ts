@@ -5,7 +5,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 const loadAccessNeedGroup = loader(AccessNeedGroup.fromJsonLd)
 
-import { type WhatwgFetch, loader, parseJsonld } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, loader, parseJsonld } from '@janeirodigital/interop-utils'
 
 import { findInLanguage, loadDescriptions } from './access-description-set.ts'
 import {
@@ -38,10 +38,11 @@ export async function getDescription(
   lang: string,
   fetch: WhatwgFetch
 ): Promise<AccessNeedGroupDescriptionData | undefined> {
-  const response = await fetch(group.id, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await response.json()
+  // the need group's document lives on a data pod — read it through
+  // `fetchJsonLd` (LWS JSON-LD profile, plain-`ld+json` fallback for servers
+  // without it); a bare `Accept: application/ld+json` is not the supported
+  // storage Accept
+  const doc = await fetchJsonLd(group.id, fetch)
   const dataset = await parseJsonld(JSON.stringify(doc), group.id)
   const descriptionSetIri = findInLanguage(dataset, lang)
   if (!descriptionSetIri) return undefined

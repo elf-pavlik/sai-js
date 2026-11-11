@@ -7,7 +7,7 @@ import {
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 const loadAccessNeed = loader(AccessNeed.fromJsonLd)
 
-import { type WhatwgFetch, loader, parseJsonld } from '@janeirodigital/interop-utils'
+import { type WhatwgFetch, fetchJsonLd, loader, parseJsonld } from '@janeirodigital/interop-utils'
 
 import { findInLanguage, loadDescriptions } from './access-description-set.ts'
 
@@ -39,10 +39,10 @@ export async function getDescription(
   lang: string,
   fetch: WhatwgFetch
 ): Promise<AccessNeedDescriptionData | undefined> {
-  const response = await fetch(need.id, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await response.json()
+  // the need's document lives on a data pod — read it through `fetchJsonLd`
+  // (LWS JSON-LD profile, plain-`ld+json` fallback); a bare
+  // `Accept: application/ld+json` is not the supported storage Accept
+  const doc = await fetchJsonLd(need.id, fetch)
   const dataset = await parseJsonld(JSON.stringify(doc), need.id)
   const descriptionSetIri = findInLanguage(dataset, lang)
   if (!descriptionSetIri) return undefined

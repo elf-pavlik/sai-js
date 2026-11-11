@@ -75,3 +75,26 @@ describe('descriptions', () => {
     expect([...languages].toSorted()).toStrictEqual(['en', 'pl'])
   })
 })
+
+describe('LWS reads', () => {
+  test('every data-pod document read asks for the LWS JSON-LD profile', async () => {
+    const accepts: string[] = []
+    const recordingFetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const accept = (init?.headers as Record<string, string> | undefined)?.Accept
+      if (accept) accepts.push(accept)
+      return fetch(url, init)
+    }) as unknown as typeof fetch
+
+    const need = await accessNeed(snippetIri, recordingFetch)
+    const description = await AccessNeed.getDescription(need, 'en', recordingFetch)
+    expect(description).toBeDefined()
+
+    // the need's own document, the description set and each description go
+    // through `fetchJsonLd` — plain `application/ld+json` is only its 406/415
+    // fallback, never the first request
+    expect(accepts.length).toBeGreaterThan(0)
+    for (const accept of accepts) {
+      expect(accept).toContain('profile="https://www.w3.org/ns/lws/v1"')
+    }
+  })
+})

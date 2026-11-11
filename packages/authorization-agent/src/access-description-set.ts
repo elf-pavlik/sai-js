@@ -11,6 +11,7 @@ import {
   INTEROP,
   type WhatwgFetch,
   XSD,
+  fetchJsonLd,
   getAllMatchingQuads,
   getOneMatchingQuad,
   loader,
@@ -83,10 +84,10 @@ export async function loadDescriptions(
   accessNeedDescriptions: AccessNeedDescriptionData[]
   accessNeedGroupDescriptions: AccessNeedGroupDescriptionData[]
 }> {
-  const response = await fetch(set.id, {
-    headers: { Accept: 'application/ld+json' },
-  })
-  const doc = await response.json()
+  // the description set's dataset lives on a data pod — read it through
+  // `fetchJsonLd` (LWS JSON-LD profile, plain-`ld+json` fallback); a bare
+  // `Accept: application/ld+json` is not the supported storage Accept
+  const doc = await fetchJsonLd(set.id, fetch)
   const dataset = await parseJsonld(JSON.stringify(doc), set.id)
   const [accessNeedDescriptions, accessNeedGroupDescriptions] = await Promise.all([
     Promise.all(forAccessNeed(dataset, set.id).map((iri) => loadAccessNeedDescription(iri, fetch))),

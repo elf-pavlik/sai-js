@@ -123,17 +123,36 @@ executor).
       `ResourceStore_Converting` `inPreferences: internal/quads` in
       `config/storage/flat-sparql.json` (mirrors CSS `sparql-flat.json`);
       without it RDF writes 415 (“Only Quad data is supported”).
-- [ ] Any direct `fetch(..., { headers: { Accept: 'application/ld+json' } })`
-      outside `fetchJsonLd` must use the profile or `application/lws+json`
-      (audit `fetchPeerResource`, `Notifications`, examples).
+- [x] Accept audit (all direct `fetch` calls in `packages/*/src`):
+      **three real findings**, all data-pod document reads with a bare
+      `Accept: application/ld+json` — `access-need.ts` `getDescription`,
+      `access-need-group.ts` `getDescription` and
+      `access-description-set.ts` `loadDescriptions` — now read through
+      `fetchJsonLd` (profile Accept + the 406/415 plain fallback). Unit tests
+      assert every recorded Accept carries the LWS profile
+      (`access-need.test.ts`, `access-need-group.test.ts`). Documented
+      remaining plain-`ld+json` Accepts, all **endpoints rather than
+      storages**: `services/peerProxy.ts` (`/proxy-admin`, already answers
+      JSON-LD), `services/queries/org.ts` (`/sparql-admin` `QUERY`), and
+      `utils/notifications.ts` (subscription POST to the notification
+      service). `fetchJsonLd` itself is the reference (profile → plain), and
+      `fetchContainerRdf` deliberately keeps `Accept: text/turtle` **without**
+      the profile (the profile returns the LWS page listing). Discovery HEADs
+      use the concrete `AUXILIARY_DISCOVERY_ACCEPT` /
+      `LWS_STORAGE_DESCRIPTION_ACCEPT`. `services/id` does its own content
+      negotiation for a non-LWS demo service — out of scope.
 - [x] `fetchPeerResource` (org-context proxy) reads through `fetchJsonLd`
       instead of pinning `Accept: application/ld+json`: a peer registration
       container answers the LWS JSON page listing, which `fetchJsonLd`
       re-fetches as RDF, so the proxy returns frameable expanded JSON-LD.
       `ProxyAdminHandler` maps `HttpStatusError` (404 → NotFound, else 403) and
       drops the `isJsonLdContentType` passthrough gate.
-- [ ] Do not switch RDF documents to `application/lws+json`; the data model
-      expects JSON-LD (the profile is the supported path).
+- [x] Decision: keep RDF documents as JSON-LD; the LWS JSON-LD profile is
+      the supported read path, and `application/lws+json` is only the
+      container-page/listing output type (`ContainerToLwsJsonConverter`). The
+      data model (`dataModelContext`, framing) parses JSON-LD, so switching
+      documents to `application/lws+json` would buy nothing and break every
+      read. `application/lws+cid` stays the storage-description type.
 
 ## 4. Containment and data model
 

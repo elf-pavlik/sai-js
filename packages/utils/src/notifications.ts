@@ -96,6 +96,9 @@ export async function subscribeToNotificationChannel(
     topic,
     ...(sendTo ? { sendTo } : {}),
   }
+  // the notification SERVICE endpoint, not a storage: its wire format is plain
+  // JSON-LD (the LWS profile applies to storage representations; Accept audit,
+  // TODO §3)
   const response = await fetch(service.id, {
     method: 'POST',
     headers: {

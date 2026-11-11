@@ -77,6 +77,9 @@ export async function fetchPeerDocument(
   const orgSegment = Buffer.from(orgWebId).toString('base64url')
   const url = `${base}/.sai/proxy-admin/${orgSegment}?iri=${encodeURIComponent(targetId)}`
 
+  // the proxy endpoint, not a storage: it always answers JSON-LD (it has
+  // already read the peer document through `fetchJsonLd` server-side), so the
+  // LWS profile would be meaningless here (Accept audit, TODO §3)
   const response = await adminSession.fetch(url, {
     headers: { Accept: 'application/ld+json' },
   })

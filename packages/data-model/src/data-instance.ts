@@ -28,6 +28,13 @@ export type ChildInfo = {
 /** Plain JSON representation of a data instance. */
 export type DataInstanceData = {
   id: string
+  /**
+   * The instance's parent container (flat LWS: its data registration), from
+   * the storage's `lws:partOf` — supplied by the caller when known, otherwise
+   * resolved by `loadDataInstance` from the `up` link relation on the
+   * instance's own response. Undefined only when neither is available.
+   */
+  partOf?: string
   shapeTreeIri?: string
   label?: string
   isBlob: boolean

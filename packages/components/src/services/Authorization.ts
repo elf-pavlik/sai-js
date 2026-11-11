@@ -60,10 +60,39 @@ import {
 } from './queries/org.js'
 import { listSocialAgentRegistrations } from './SocialAgentRegistry.js'
 
+/**
+ * Shape-tree labels for display fields (`DataRegistration.label`,
+ * `AccessNeed.shapeTree.label`, `RecordedDataAuthorization.shapeTreeLabel`).
+ * Strongly preferred over any IRI/path guess: flat LWS IRIs carry no meaning.
+ * One `ShapeTree.getDescription` read per distinct tree, language-picked,
+ * memoized for the request. A tree or description that fails to load falls
+ * back to the tree IRI — a label must never fail a read.
+ */
+function shapeTreeLabel(fetch: WhatwgFetch, lang: string) {
+  const labels = new Map<string, Promise<string>>()
+  return (shapeTreeIri: string): Promise<string> => {
+    let label = labels.get(shapeTreeIri)
+    if (!label) {
+      label = (async (): Promise<string> => {
+        try {
+          const shapeTree = await loadShapeTree(shapeTreeIri, fetch)
+          const description = await ShapeTree.getDescription(shapeTree, lang, fetch)
+          return pickLanguage(description?.label, lang) ?? shapeTreeIri
+        } catch {
+          return shapeTreeIri
+        }
+      })()
+      labels.set(shapeTreeIri, label)
+    }
+    return label
+  }
+}
+
 const formatAccessNeed = async (
   accessNeed: AccessNeedData,
   descriptionsLang: string,
-  fetch: WhatwgFetch
+  fetch: WhatwgFetch,
+  shapeTreeLabelFor: (shapeTreeIri: string) => Promise<string>
 ): Promise<S.Schema.Type<typeof AccessNeed>> => {
   // tolerant — an embedded request's needs carry urn:uuid ids with NO
   // description documents (descriptions are the follow-up); the shape trees
@@ -73,8 +102,6 @@ const formatAccessNeed = async (
     descriptionsLang,
     fetch
   ).catch((): undefined => undefined)
-  const shapeTree = await loadShapeTree(accessNeed.registeredShapeTree, fetch)
-  const shapeTreeDescription = await ShapeTree.getDescription(shapeTree, descriptionsLang, fetch)
 
   return AccessNeed.make({
     id: IRI.make(accessNeed.id),
@@ -85,12 +112,14 @@ const formatAccessNeed = async (
     access: accessNeed.accessMode.map((mode) => IRI.make(mode)),
     shapeTree: {
       id: IRI.make(accessNeed.registeredShapeTree),
-      label: pickLanguage(shapeTreeDescription.label, descriptionsLang) ?? '',
+      label: await shapeTreeLabelFor(accessNeed.registeredShapeTree),
     },
     parent: accessNeed.inheritsFromNeed ? IRI.make(accessNeed.inheritsFromNeed) : undefined,
     children: accessNeed.children
       ? await Promise.all(
-          accessNeed.children.map((child) => formatAccessNeed(child, descriptionsLang, fetch))
+          accessNeed.children.map((child) =>
+            formatAccessNeed(child, descriptionsLang, fetch, shapeTreeLabelFor)
+          )
         )
       : undefined,
   })
@@ -98,7 +127,8 @@ const formatAccessNeed = async (
 
 async function findUserDataRegistrations(
   ctx: ResolvedContext,
-  accessNeedGroup: AccessNeedGroupData
+  accessNeedGroup: AccessNeedGroupData,
+  shapeTreeLabelFor: (shapeTreeIri: string) => Promise<string>
 ) {
   const dataRegistrations = []
   // only the shape trees the access need group asks for — the SPARQL read
@@ -122,7 +152,9 @@ async function findUserDataRegistrations(
         dataRegistrations.push({
           id: IRI.make(dataRegistration.id),
           dataRegistry: IRI.make(podUrl),
-          label: `${dataRegistration.id.split('/').slice(0, 4).join('/')}/`, // TODO get proper label,
+          // the registration's display label is its shape tree's label (a flat
+          // LWS IRI says nothing about what the registration holds)
+          label: await shapeTreeLabelFor(dataRegistration.registeredShapeTree),
           shapeTree: accessNeed.registeredShapeTree,
           count: dataRegistration.contains.length,
         })
@@ -136,7 +168,8 @@ async function findUserDataRegistrations(
 async function findSocialAgentDataRegistrations(
   dataGrants: GrantData[],
   accessNeedGroup: AccessNeedGroupData,
-  ctx: ResolvedContext
+  ctx: ResolvedContext,
+  shapeTreeLabelFor: (shapeTreeIri: string) => Promise<string>
 ) {
   const dataRegistrations = []
   for (const dataGrant of dataGrants) {
@@ -147,7 +180,9 @@ async function findSocialAgentDataRegistrations(
       ) {
         dataRegistrations.push({
           id: IRI.make(dataGrant.hasDataRegistration),
-          label: `${dataGrant.hasDataRegistration.split('/').slice(0, 4).join('/')}/`, // TODO get proper label
+          // the registration's display label is its shape tree's label (a flat
+          // LWS IRI says nothing about what the registration holds)
+          label: await shapeTreeLabelFor(accessNeed.registeredShapeTree),
           shapeTree: accessNeed.registeredShapeTree,
           // scopeOfGrant is the discriminator — `hasDataInstance` is only
           // set on SelectedFromRegistry grants (empty [] otherwise, which is
@@ -237,6 +272,24 @@ export const getDescriptions = async (
       )
     : await resolveAccessNeedGroup(accessNeedGroupIriResolved, ctx.session.fetch, preferredLang)
 
+  // description language + the shape-tree label lookup used by the
+  // registration and need display fields (one read per distinct tree for this
+  // response; flat LWS IRIs are never used as labels)
+  const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
+    accessNeedGroup,
+    ctx.session.fetch
+  )
+  const descriptionLanguages = [...reliableDescriptionLanguages]
+  const descriptionsLang = fromRequest
+    ? // the embedded group has no description sets — the screen renders with
+      // the shape-tree labels only (descriptions follow-up); the requested
+      // language still drives those lookups
+      preferredLang
+    : reliableDescriptionLanguages.has(preferredLang)
+      ? preferredLang
+      : descriptionLanguages[0]
+  const shapeTreeLabelFor = shapeTreeLabel(ctx.session.fetch, descriptionsLang)
+
   const dataOwners: {
     id: string & Brand<'IRI'>
     label: string
@@ -251,7 +304,7 @@ export const getDescriptions = async (
     {
       id: IRI.make(ctx.webId),
       label: ctx.webId, // TODO get from user's webid document
-      dataRegistrations: await findUserDataRegistrations(ctx, accessNeedGroup),
+      dataRegistrations: await findUserDataRegistrations(ctx, accessNeedGroup, shapeTreeLabelFor),
     },
   ]
 
@@ -266,7 +319,8 @@ export const getDescriptions = async (
       const dataRegistrations = await findSocialAgentDataRegistrations(
         dataGrants,
         accessNeedGroup,
-        ctx
+        ctx,
+        shapeTreeLabelFor
       )
       if (dataRegistrations.length) {
         dataOwners.push({
@@ -278,24 +332,6 @@ export const getDescriptions = async (
       }
     }
   }
-  const descriptionLanguages = [
-    ...(await AccessNeedGroupModule.reliableDescriptionLanguages(
-      accessNeedGroup,
-      ctx.session.fetch
-    )),
-  ]
-  const reliableDescriptionLanguages = await AccessNeedGroupModule.reliableDescriptionLanguages(
-    accessNeedGroup,
-    ctx.session.fetch
-  )
-  const descriptionsLang = fromRequest
-    ? // the embedded group has no description sets — the screen renders with
-      // the shape-tree labels only (descriptions follow-up); the requested
-      // language still drives those lookups
-      preferredLang
-    : reliableDescriptionLanguages.has(preferredLang)
-      ? preferredLang
-      : descriptionLanguages[0]
   const descriptions = fromRequest
     ? undefined
     : await AccessNeedGroupModule.getDescription(
@@ -314,7 +350,7 @@ export const getDescriptions = async (
       description: pickLanguage(descriptions?.definition, preferredLang),
       needs: await Promise.all(
         accessNeedGroup.accessNeeds.map((need) =>
-          formatAccessNeed(need, descriptionsLang, ctx.session.fetch)
+          formatAccessNeed(need, descriptionsLang, ctx.session.fetch, shapeTreeLabelFor)
         )
       ),
       descriptionLanguages,
@@ -347,6 +383,7 @@ export const listAuthorizations = async (
     grantee
   )
 
+  const shapeTreeLabelFor = shapeTreeLabel(ctx.session.fetch, lang)
   const labels = new Map<string, string>()
   await Promise.all(
     [
@@ -354,13 +391,7 @@ export const listAuthorizations = async (
         dataAuthorizations.map((dataAuthorization) => dataAuthorization.registeredShapeTree)
       ),
     ].map(async (shapeTreeIri) => {
-      try {
-        const shapeTree = await loadShapeTree(shapeTreeIri, ctx.session.fetch)
-        const description = await ShapeTree.getDescription(shapeTree, lang, ctx.session.fetch)
-        labels.set(shapeTreeIri, pickLanguage(description?.label, lang) ?? shapeTreeIri)
-      } catch {
-        labels.set(shapeTreeIri, shapeTreeIri)
-      }
+      labels.set(shapeTreeIri, await shapeTreeLabelFor(shapeTreeIri))
     })
   )
 

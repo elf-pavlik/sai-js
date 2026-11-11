@@ -163,8 +163,12 @@ async function orgContextDataInstance(
 }
 
 export const getResource = async (ctx: ResolvedContext, id: string, lang: string) => {
+  // personal: the single-server session reads the resource directly and its
+  // own response carries the parent (`Link: rel="up"`, LWS §Containment)
+  // org: the admin's session holds no grants on the org's data pods — the
+  // context plane resolves the registration and the proxy fetches the content
   const resource = await (ctx.webId === ctx.userWebId
-    ? loadDataInstance(id, ctx.session.fetch, undefined, lang, await containingContainer(ctx, id))
+    ? loadDataInstance(id, ctx.session.fetch, undefined, lang)
     : orgContextDataInstance(ctx, id, lang))
   if (!resource) throw new Error(`Resource not found: ${id}`)
   const shapeTree = await loadShapeTree(resource.shapeTreeIri!, ctx.session.fetch)

@@ -11,6 +11,7 @@ import {
   discoverWebPushService,
   lwsStorageRoot,
   requireLwsStorageRoot,
+  upContainer,
 } from '../src'
 
 const aliceId = 'https://id/alice'
@@ -208,5 +209,59 @@ describe('discoverDescriptionResource', () => {
       method: 'HEAD',
       headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
     })
+  })
+})
+
+describe('upContainer', () => {
+  test('reads the `up` link relation from a HEAD response (LWS §Containment)', async () => {
+    const instance = 'https://data/yoyo-na/q7p2lm'
+    const parent = 'https://data/yoyo-na/k9m4wx'
+    const fetch = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          headers: new Headers({
+            link: `<${parent}>; rel="up", <https://data/yoyo-na/>; rel="https://www.w3.org/ns/lws#storage"`,
+          }),
+        }) as unknown as Response
+    ) as unknown as WhatwgFetch
+
+    expect(await upContainer(instance, fetch)).toBe(parent)
+    // a wildcard-capable Accept keeps blob instances discoverable too
+    expect(fetch).toHaveBeenCalledWith(instance, {
+      method: 'HEAD',
+      headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+    })
+  })
+
+  test('resolves a relative `up` reference against the request IRI', async () => {
+    const fetch = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          headers: new Headers({ link: '<k9m4wx>; rel="up"' }),
+        }) as unknown as Response
+    ) as unknown as WhatwgFetch
+    expect(await upContainer('https://data/yoyo-na/q7p2lm', fetch)).toBe(
+      'https://data/yoyo-na/k9m4wx'
+    )
+  })
+
+  test('undefined for a storage root (no `up`) or a failed HEAD — never a throw', async () => {
+    const root = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          headers: new Headers({
+            link: '<https://data/yoyo-na/>; rel="https://www.w3.org/ns/lws#storage"',
+          }),
+        }) as unknown as Response
+    ) as unknown as WhatwgFetch
+    expect(await upContainer('https://data/yoyo-na/', root)).toBeUndefined()
+
+    const denied = vi.fn(
+      async () => ({ ok: false, status: 403, headers: new Headers() }) as unknown as Response
+    ) as unknown as WhatwgFetch
+    expect(await upContainer('https://data/yoyo-na/q7p2lm', denied)).toBeUndefined()
   })
 })

@@ -12,10 +12,10 @@ implemented. The client auth migration (§1) and the Dagger integration suite
 - **`dagger call test` is green** — all 22 files, CI mode, on the CSS fork
   branch `lws-sai` at `99c208447` (installed from `package-lock.json` by
   `devbox run fork-css`). Package tests, typecheck, lint and the components
-  build pass. Last run (2026-11-10) includes the new org-context share check
-  and the `?pod=` data-plane fix (§6). **Not yet run**: the org-context
-  listing + `AuthorizeApp` checks and the `listDataInstances` org-branch fix
-  (§7) — rebuild components and re-run `dagger call test`.
+  build pass. Last run (2026-11-10) includes the org-context share / listing /
+  `AuthorizeApp` checks, the `?pod=` data-plane fix and the `listDataInstances`
+  org-branch fix (§6), the shape-tree registration labels (§6) and the
+  `rel="up"` instance-parent change (§4).
 - The data and registry services run **LWS-only flat storage**; the SAI access
   layer uses `lws:contains` for containment and `lws:partOf` for the parent;
   the fixture and the account bootstrap template carry both. Storage discovery
@@ -152,8 +152,35 @@ executor).
 - [x] `findDataRegistration` queries the **data pod's** dataset
       (`resolveEndpoint(dataRegistryIri)`), not the session's registry-pod
       dataset.
-- [ ] `DataInstanceData` still has no `partOf` (the instance document does not
-      carry it — it is in the pod's `meta:` graph); callers use SPARQL.
+- [x] `DataInstanceData.partOf`: the instance document never carries the parent
+      (it lives in the pod's `meta:` graph), so callers passed the registration
+      or queried SPARQL, and `loadDataInstance` fell back to guessing the
+      parent from the IRI path. It now comes from the response itself —
+      `Link: rel="up"` (LWS §Containment). The fork's `LwsLinkMetadataWriter`
+      emits the **stored** `lws:partOf` and only falls back to the path when
+      the metadata has none, and `data.json`/`registry.json` both import
+      `css:config/ldp/metadata-writer/lws.json`, so every data instance
+      response (GET **and** HEAD) carries it. New: `getUp()`
+      (`packages/utils/src/link-header.ts`) + `upContainer(iri, fetch)`
+      (`discovery.ts`, HEAD with the auxiliary-discovery Accept so blob
+      instances work too, relative refs resolved, `undefined` on
+      root/auxiliary/failure — never a throw). `loadDataInstance` sets
+      `partOf`, resolves the registration from it, and **no longer has a path
+      fallback** (no `up`, no passed registration → a clear error); callers
+      that know the registration keep passing it and save the HEAD. The AA's
+      private loader no longer needs a transport (`getContainingContainer`
+      dropped) and `ShareResource.getResource`'s personal branch drops its
+      `containingContainer` call. Unit tests:
+      `packages/utils/test/link-header.test.ts` (`getUp`, incl. the
+      `updatesViaStreamingHttp2023` near-miss),
+      `packages/utils/test/discovery.test.ts` (`upContainer`: HEAD + Accept,
+      relative refs, root/failed HEAD → undefined) and
+      `packages/authorization-agent/test/data-instance.test.ts` (flat instance
+      via `up`: HEAD → registration → shape tree, `partOf` set; missing `up` →
+      clear error, no path request). **Confirmed live**: the full
+      `dagger call test` run is green on it (the personal share /
+      `GetResource` / `who has access` paths all resolve the parent through the
+      header now).
 - [x] `data/shapetrees` LWS metadata added: `meta:` root typed
       `interop:DataRegistry`/`ldp:Resource`/`space:Storage` with `lws:contains
       trees/`, `trees/` as an `ldp:Container` registration (`lws:contains` the
@@ -278,8 +305,26 @@ executor).
       is the hierarchical data-pod fallback used by
       `SaiPermissionsEngine.getRegistrationId`; registry-side parent resolution
       uses `lws:partOf` only.
-- [ ] Labels in `Authorization.ts` still split `hasDataRegistration` by `/`;
-      use the shape-tree label or `hasStorage`.
+- [ ] Replace the last path-based parent resolution:
+      `SaiAuthorizationManager.getParent` still derives the parent with
+      `identifierStrategy.getParentContainer`, which under flat storage returns
+      the **pod root**, not the actual parent. The parent is available as the
+      stored `lws:partOf` (exactly what the `Link: rel="up"` header carries —
+      see `upContainer`, §4); resolve it from the data pod's dataset when the
+      engine asks (it becomes async) so `SaiPermissionsEngine.getRegistrationId`
+      sees the real registration instead of the storage root.
+- [x] Labels in `Authorization.ts` used to split the registration IRI by `/`
+      (`findUserDataRegistrations` / `findSocialAgentDataRegistrations`) —
+      meaningless under flat storage. Both now use the **shape-tree label**
+      through a shared, request-memoized `shapeTreeLabel(fetch, lang)` helper
+      (one `ShapeTree.getDescription` read per distinct tree; a tree or
+      description that fails to load falls back to the tree IRI, so a label
+      never fails a read). The same helper now also feeds
+      `formatAccessNeed`'s `shapeTree.label` and `listAuthorizations`'
+      `shapeTreeLabel` (the inline duplicate was removed). Live assertion:
+      `test/authorization.test.ts` `GetAuthorizationData` expects
+      `label: 'Projects'` on the alice-work / alice-home / acme-rnd
+      registrations — **green** in the full `dagger call test` run.
 
 ## 7. Tests / docs
 
@@ -301,8 +346,8 @@ executor).
       `access-request`, `delegation-endpoint`, `personal-admin`, `admin-events`,
       `check-equivalence`, `reconciliation`, `agent-discovery`, `authorization`,
       `authorizations`, `agents` — all green per file and in the 10-file group
-      run. The full-suite run on this machine still flakes on the registry-401
-      cold start (§ “Open”), not on any of these assertions.
+      run. (The earlier registry-401 cold-start flake in full-suite runs no
+      longer reproduces — see “Resolved: registry storage reads 401”.)
 - [x] New unit tests: `packages/authorization-agent/test/share-build.test.ts`
       (facts path — no session reads, child registrations from the map, the
       context owner as grantor/data owner, a missing child registration fails
@@ -341,7 +386,7 @@ executor).
       `GetResource` makes. Unit tests in
       `packages/components/test/data-registry.test.ts` (org branch: SPARQL +
       proxy, never a direct pod deref; personal branch unchanged).
-      **Not run yet** — `dagger call test --testFile="org-context.test.ts"`.
+      **Green** in the full `dagger call test` run.
 - [x] Org-context `AuthorizeApp` — the other DataAuthorization producer:
       `test/org-context.test.ts` (“authorizing an agent over the org’s data”)
       — the pending ack (`activityId` + 2 pre-minted ids), the materialized
@@ -349,7 +394,7 @@ executor).
       authorization registry (`grantedBy` = the org, registration from the
       request payload), and the source grant in the org's grant registry with
       `dataOwner`/`grantedBy` = the org, behind the `awaitGrantCompletion`
-      barrier. **Not run yet** — same dagger run.
+      barrier. **Green** in the full `dagger call test` run.
 - [x] New unit tests: `packages/utils/test/lws-auth.test.ts` (challenge
       parsing, AS discovery, exchange + DPoP proof, cache/retry/tokenSource).
 - [x] New live checks: `packages/components/test/lws-live.test.ts` (skipped
@@ -509,10 +554,10 @@ Per-file notes worth keeping (regression map):
 | `authorization-revocation`                                               | revocation RPC + `containedCount` on the flat grant registry                                                   |
 | `delegation-endpoint`                                                    | issuance/revocation; direct grant DELETE carries the LWS token (ACR 403); aux-member filter keeps counts exact |
 | `admin-events` / `personal-admin`                                        | admin marker + ACR rewrite (`syncAdminAcr` storage-root ACL discovery)                                         |
-| `org-context`                                                            | registry set, roles, admin gating, peer proxy (`GetResource` via `peerRegistrationOfInstance`)                 |
+| `org-context`                                                            | registry set, roles, admin gating, peer proxy (`GetResource` via `peerRegistrationOfInstance`), org data plane (share + listing + `AuthorizeApp` as the org owner, `?pod=` reads) |
 | `policy-engine`                                                          | engine matrix over HTTP: `buildLwsFetch` client/agent pairs, flat create flow, 204s                            |
 | `reciprocal-webhook`                                                     | webhook delivery + `delegatedGrantsUpdated` events; stream opened with the LWS fetch                           |
-| `invitation` / `federation-mirror` / `share` / `roles` / `authorization` | notification-dependent chains (`awaitGrantCompletion` with `session.fetch`)                                    |
+| `invitation` / `federation-mirror` / `share` / `roles` / `authorization` | notification-dependent chains (`awaitGrantCompletion` with `session.fetch`); `authorization` also pins the shape-tree registration labels (`label: 'Projects'`) |
 
 - [ ] `docs/website/public/likec4-webcomponent.js` is generated and was skipped
       by the IRI rewrite; regenerate the docs bundle if the site should show
@@ -566,7 +611,17 @@ Per-file notes worth keeping (regression map):
       `DataResource`, `StorageResource`); `LDP.Container` / `BasicContainer`.
 - [x] `lwsContains` / `lwsPartOf` terms in `dataModelContext`.
 - [x] `dataRegistryIri` uses `hasStorage`.
-- [ ] Legacy grants without `hasStorage` are unsupported; the fixture has it.
+- [x] Legacy grants without `hasStorage`: **nothing to fix in the fixture —
+      none exist**. All 17 seeded `interop:DataGrant` graphs in
+      `environments/data/registry.trig` carry `interop:hasStorage` (the only
+      other `hasStorage` triples are the two yoyo `interop:AdminGrant`s), so no
+      `/test` file — and no runtime path — ever exercises a grant without it:
+      the source/delegated generators always set it (`requireLwsStorageRoot` /
+      `sourceGrant.hasStorage`) and the child grants inherit it. "Legacy" means
+      a grant written by a **pre-LWS** SAI into an existing deployment; such a
+      grant fails closed (no data registry → no grant coverage), and the fix is
+      a data migration, not code. No action unless a pre-LWS deployment is
+      migrated.
 
 ## Useful commands
 
@@ -638,6 +693,13 @@ curl -s -u admin:sai -H 'Accept: application/sparql-results+json' \
   `resource_metadata` too. `parseLwsChallenge` handles both.
 - A sender-constrained subject token (`cnf.jkt`) needs a `DPoP` proof at the
   token endpoint on the fork HEAD; `01ad3376` ignores it.
+- The parent of a stored resource comes from the response, **never from the
+  IRI path**: LWS §Containment requires `Link: <parent>; rel="up"` on every
+  non-root resource, and the fork's `LwsLinkMetadataWriter` fills it from the
+  **stored** `lws:partOf` (path only when the metadata has none). Use
+  `upContainer(iri, fetch)` / `getUp(linkHeader)`; `loadDataInstance` already
+  does, and has no path fallback left. A HEAD is enough (the writer serves GET
+  and HEAD alike), and the auxiliary-discovery `Accept` keeps blobs working.
 - Creation POSTs carry `Content-Type: application/ld+json`; without a body the
   strategy sends `[]`. Data instances are created empty — PUT the
   representation afterwards.

@@ -5,6 +5,7 @@ import {
   getDescriptionResource,
   getLwsStorage,
   getStorageDescription,
+  getUp,
 } from './link-header.ts'
 import { INTEROP, NOTIFY } from './namespaces.ts'
 import type { WhatwgFetch } from './whatwg-fetch.ts'
@@ -82,6 +83,38 @@ export async function discoverAgentRegistration(
  * low-quality wildcard keeps non-RDF resources discoverable.
  */
 export const AUXILIARY_DISCOVERY_ACCEPT = 'text/turtle, application/ld+json;q=0.9, */*;q=0.1'
+
+/**
+ * The parent container of `resourceIri`, from the LWS `up` link relation on a
+ * HEAD response (LWS, §Containment; the storage's stored `lws:partOf`).
+ *
+ * This is what flat LWS storage requires: the parent is NOT derivable from the
+ * IRI path (members are allocated directly under the storage root as UUIDs).
+ * Returns `undefined` when the response has no `up` link (a storage root, an
+ * auxiliary resource, or a server that does not implement LWS §Containment) —
+ * the caller decides what that means.
+ *
+ * The wildcard-`Accept` warning in TODO §Gotchas applies to storage ROOTS
+ * (they answer with the public storage description, which has no `up` link);
+ * a data resource answers its own metadata, and the low-quality wildcard
+ * keeps non-RDF (blob) instances discoverable too.
+ */
+export async function upContainer(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  const response = await fetch(resourceIri, {
+    method: 'HEAD',
+    headers: { Accept: AUXILIARY_DISCOVERY_ACCEPT },
+  })
+  if (!response.ok) return undefined
+  const linkHeader = response.headers.get('Link')
+  if (!linkHeader) return undefined
+  const up = getUp(linkHeader)
+  // the header is absolute in practice; resolve defensively so a relative
+  // reference can never leak out as a bogus identifier
+  return up ? new URL(up, resourceIri).toString() : undefined
+}
 
 export async function discoverDescriptionResource(
   resourceIri: string,

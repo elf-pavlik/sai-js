@@ -17,6 +17,7 @@ import {
   discoverDescriptionResource,
   loader,
   pickLanguage,
+  upContainer,
 } from '@janeirodigital/interop-utils'
 
 /** Count the children of the data instance for each referenced shape tree. */
@@ -43,13 +44,14 @@ export async function computeChildren(
 /**
  * Fetch and load a data instance as a DataInstanceData POJO — the composed
  * read formerly `ApplicationFactory.dataInstance`: resolves the instance's
- * data registration, its shape tree, and (with `descriptionLang`) the
- * instance's label and children.
+ * parent container / data registration, its shape tree, and (with
+ * `descriptionLang`) the instance's label and children.
  *
  * `registrationIri` is the instance's containing data registration. Flat LWS
- * storage does not encode it in the instance URI, so callers that know it
- * (or can read `lws:partOf` from the pod) should pass it; otherwise the
- * hierarchical parent container is used as a fallback.
+ * storage does not encode it in the instance URI, so the parent comes from the
+ * storage's **stored** `lws:partOf` via the `up` link relation on the
+ * instance's own response (LWS, §Containment) — never from the IRI path.
+ * Callers that already know the registration pass it and save the HEAD.
  */
 export async function loadDataInstance(
   id: string,
@@ -60,15 +62,22 @@ export async function loadDataInstance(
 ): Promise<DataInstanceData> {
   let dataRegistration: DataRegistrationData | undefined
   let resolvedShapeTreeIri = shapeTreeIri
+  let partOf = registrationIri
   if (!resolvedShapeTreeIri) {
-    const dataRegistrationIri = registrationIri ?? `${id.split('/').slice(0, -1).join('/')}/`
-    dataRegistration = await loadDataRegistration(dataRegistrationIri, fetch)
+    partOf = registrationIri ?? (await upContainer(id, fetch))
+    if (!partOf) {
+      throw new Error(
+        `cannot resolve the parent container of ${id}: no \`up\` link relation on its response`
+      )
+    }
+    dataRegistration = await loadDataRegistration(partOf, fetch)
     resolvedShapeTreeIri = dataRegistration.registeredShapeTree
   }
   const shapeTree = await loadShapeTree(resolvedShapeTreeIri, fetch)
   const blob = isBlob(shapeTree)
   const data: DataInstanceData = {
     id: id,
+    ...(partOf ? { partOf } : {}),
     shapeTreeIri: resolvedShapeTreeIri,
     isBlob: blob,
     children: [],

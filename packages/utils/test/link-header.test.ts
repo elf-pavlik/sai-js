@@ -5,6 +5,7 @@ import {
   getDescriptionResource,
   getRegistrySetIri,
   getStorageDescription,
+  getUp,
   targetDataRegistrationLink,
 } from '../src'
 
@@ -70,5 +71,27 @@ describe('targetDataRegistrationLink', () => {
     expect(targetDataRegistrationLink(dataRegistrationIri)).toBe(
       `<${dataRegistrationIri}>; rel="http://www.w3.org/ns/solid/interop#targetDataRegistration"`
     )
+  })
+})
+
+describe('getUp', () => {
+  test('should match the LWS `up` link (the stored parent container)', () => {
+    const reference = 'https://data/yoyo-na/k9m4wx'
+    const linkHeaderText = `<${reference}>; rel="up", <${reference}>; rel="https://www.w3.org/ns/lws#storage"`
+    expect(getUp(linkHeaderText)).toBe(reference)
+  })
+
+  test('should be undefined when the response has no `up` link (e.g. a storage root)', () => {
+    expect(
+      getUp('<https://data/yoyo-na/>; rel="https://www.w3.org/ns/lws#storage"')
+    ).toBeUndefined()
+  })
+
+  test('must not be confused with the streaming-channel relation', () => {
+    expect(
+      getUp(
+        '<https://registry/.notifications/StreamingHTTPChannel2023/b0>; rel="http://www.w3.org/ns/solid/terms#updatesViaStreamingHttp2023"'
+      )
+    ).toBeUndefined()
   })
 })

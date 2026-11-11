@@ -33,3 +33,71 @@ describe('build', () => {
     expect(dataInstance.children[0].count).toBe(1)
   })
 })
+
+describe('loadDataInstance — flat LWS parent resolution (`up` link)', () => {
+  const instance = 'https://data.yoyo.example/3f2a9c1e-uuid'
+  // NOT the path parent of the instance: flat storage allocates members as
+  // UUIDs directly under the storage root
+  const registration = 'https://data.yoyo.example/k9m4wx'
+  const tree = 'https://shapetrees.example/trees/Project'
+
+  const jsonResponse = (body: unknown): Response =>
+    ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/ld+json' }),
+      json: async () => body,
+    }) as unknown as Response
+
+  const docs: Record<string, unknown> = {
+    [registration]: {
+      '@id': registration,
+      'http://www.w3.org/ns/solid/interop#registeredShapeTree': [{ '@id': tree }],
+      'http://www.w3.org/ns/ldp#contains': [],
+    },
+    [tree]: { '@id': tree, 'http://www.w3.org/ns/shapetrees#references': [] },
+  }
+
+  test('the instance response `Link: rel="up"` supplies partOf + the registration', async () => {
+    const calls: string[] = []
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      if (url === instance && init?.method === 'HEAD') {
+        // LWS, §Containment: the stored `lws:partOf`, not a path guess
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            link: `<${registration}>; rel="up", <https://data.yoyo.example/>; rel="https://www.w3.org/ns/lws#storage"`,
+          }),
+          json: async () => ({}),
+        } as unknown as Response
+      }
+      if (docs[url]) return jsonResponse(docs[url])
+      throw new Error(`unexpected request: ${init?.method ?? 'GET'} ${url}`)
+    }) as unknown as Parameters<typeof loadDataInstance>[1]
+
+    const dataInstance = await loadDataInstance(instance, fakeFetch)
+
+    expect(dataInstance.partOf).toBe(registration)
+    expect(dataInstance.dataRegistration?.id).toBe(registration)
+    expect(dataInstance.shapeTreeIri).toBe(tree)
+    expect(dataInstance.isBlob).toBe(false)
+    // one HEAD for the parent, then the registration + shape tree — never a
+    // request for the guessed path parent
+    expect(calls).toEqual([`HEAD ${instance}`, `GET ${registration}`, `GET ${tree}`])
+  })
+
+  test('no `up` link and no known registration is a clear error — no path fallback', async () => {
+    const fakeFetch = (async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({}),
+    })) as unknown as Parameters<typeof loadDataInstance>[1]
+
+    await expect(loadDataInstance(instance, fakeFetch)).rejects.toThrow(
+      `cannot resolve the parent container of ${instance}: no \`up\` link relation on its response`
+    )
+  })
+})

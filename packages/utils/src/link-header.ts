@@ -26,6 +26,17 @@ export function getAcl(linkHeaderText: string): string | undefined {
   return links.find((link) => link.rel === 'acl')?.uri
 }
 
+/**
+ * LWS, §Containment: every response to a GET/HEAD on a non-root resource
+ * carries a `Link` with relation `up` pointing at its parent container — the
+ * storage's **stored** `lws:partOf`, not a path guess. This is the flat-LWS
+ * replacement for deriving the parent from the resource IRI.
+ */
+export function getUp(linkHeaderText: string): string | undefined {
+  const links = LinkHeader.parse(linkHeaderText).refs
+  return links.find((link) => link.rel === 'up')?.uri
+}
+
 export function getStorageDescription(linkHeaderText: string): string | undefined {
   const links = LinkHeader.parse(linkHeaderText).refs
   return links.find((link) => link.rel === SOLID.storageDescription)?.uri

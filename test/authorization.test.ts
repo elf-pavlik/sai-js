@@ -322,12 +322,16 @@ describe('approve a need-based access request', () => {
             expect.objectContaining({
               id: 'https://data/alice-work/sx86hi',
               dataRegistry: 'https://data/alice-work/',
+              // the registration label is its shape tree's label — never a
+              // slice of the (flat) registration IRI
+              label: 'Projects',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 1,
             }),
             expect.objectContaining({
               id: 'https://data/alice-home/x1n3cm',
               dataRegistry: 'https://data/alice-home/',
+              label: 'Projects',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 3,
             }),
@@ -338,6 +342,7 @@ describe('approve a need-based access request', () => {
           dataRegistrations: [
             expect.objectContaining({
               id: 'https://data/acme-rnd/reb39k',
+              label: 'Projects',
               shapeTree: 'https://data/shapetrees/trees/Project',
               count: 1,
             }),

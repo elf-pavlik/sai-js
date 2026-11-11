@@ -78,7 +78,6 @@ import {
   getSocialAgentRegistration as getRegistrationFromSparql,
   getRole as getRoleFromSparql,
   listContained,
-  getContainingContainer,
   localSparqlTransport,
 } from './sparql.ts'
 import type { SparqlTransport } from './sparql.ts'
@@ -419,17 +418,13 @@ export class AuthorizationAgent {
   }
 
   /**
-   * Loads a data instance, resolving its containing registration from the
-   * pod's `lws:partOf` metadata when the instance URI does not reveal it
-   * (flat LWS storage). Falls back to the path-based parent when the instance
-   * is not under any of the session's pods.
+   * Loads a data instance. The containing registration comes from the
+   * instance's own response — `Link: rel="up"` (LWS, §Containment; the
+   * storage's stored `lws:partOf`), not from a transport and not from the IRI
+   * path: flat storage allocates members as UUIDs under the storage root.
    */
   private async loadDataInstance(id: string, descriptionLang?: string): Promise<DataInstanceData> {
-    const endpoint = this.resolveEndpoint(id)
-    const registrationIri = endpoint
-      ? await getContainingContainer(localSparqlTransport(endpoint), id)
-      : undefined
-    return loadDataInstance(id, this.fetch, undefined, descriptionLang, registrationIri)
+    return loadDataInstance(id, this.fetch, undefined, descriptionLang)
   }
 
   private async bootstrap(): Promise<void> {

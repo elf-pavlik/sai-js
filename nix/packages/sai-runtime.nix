@@ -43,7 +43,7 @@ pkgs.buildNpmPackage {
   # builds `dist/`, and `dist/` is not committed. `npm ci` here runs with
   # `--ignore-scripts`, so the fork installs without `dist/` and the build
   # below fails. Image builds need one of:
-  #   - a prebuilt CSS tarball (`file:vendor/...tgz`, see lws/fork-setup.md §10)
+  #   - a prebuilt CSS tarball (`file:vendor/...tgz`, see lws/TODO.md)
   #   - a separate `buildNpmPackage` for the CSS fork, copied into
   #     `node_modules/@solid/community-server/dist` in `preBuild`
 

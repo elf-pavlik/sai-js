@@ -128,7 +128,6 @@ export const dataModelContext: JsonLdContext = {
 
   // interop — multi-value node references
   accessMode: iriTermDef(INTEROP, 'accessMode', { set: true }),
-  creatorAccessMode: iriTermDef(INTEROP, 'creatorAccessMode', { set: true }),
   hasDataInstance: iriTermDef(INTEROP, 'hasDataInstance', { set: true }),
 
   // interop — reverse relationships (resolved by the framing algorithm)

@@ -15,7 +15,7 @@ import {
 const loadGrant = loader(Grant.fromJsonLd)
 
 import {
-  ACL,
+  ACCESS_ACTIONS,
   INTEROP,
   discoverAccessResource,
   discoverAuthorizationAgent,
@@ -144,7 +144,7 @@ export async function buildAdminGrants(payload: {
       dataOwner: payload.webId.id,
       scopeOfAdminGrant: INTEROP.DataRegistry,
       hasStorage: dataRegistry.id,
-      accessMode: [ACL.Read],
+      accessMode: [ACCESS_ACTIONS.read],
     })
   }
   return { registrySetGrant, dataRegistryGrants }

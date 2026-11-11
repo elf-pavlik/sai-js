@@ -17,6 +17,7 @@ PREFIX solidshapes: <https://data/shapetrees/shapes/>
 PREFIX ma: <http://www.w3.org/ns/ma-ont#>
 
 PREFIX lws: <https://www.w3.org/ns/lws#>
+PREFIX odrl: <http://www.w3.org/ns/odrl/2/>
 
 GRAPH <meta:https://registry/acme/> {
   <https://registry/acme/>
@@ -55,7 +56,7 @@ GRAPH <https://registry/acme/k9m4vp> {
     interop:scopeOfAuthorization interop:SelectedFromRegistry;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:hasDataInstance <https://data/acme-rnd/pbh2yw>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/acme/r5j8tw>
     interop:inheritsFromAuthorization <https://registry/acme/k9m4vp>.
 }
@@ -74,7 +75,7 @@ GRAPH <https://registry/acme/r5j8tw> {
     interop:scopeOfAuthorization interop:Inherited;
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:inheritsFromAuthorization <https://registry/acme/k9m4vp>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/acme/r5j8tw> {
@@ -90,7 +91,7 @@ GRAPH <https://registry/acme/p3j7mq> {
     interop:dataOwner <https://id/acme>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:AllFromAgent;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/acme/m9k4wr>
     interop:inheritsFromAuthorization <https://registry/acme/p3j7mq>.
 }
@@ -108,7 +109,7 @@ GRAPH <https://registry/acme/m9k4wr> {
     interop:registeredShapeTree shapetrees:Task;
     interop:scopeOfAuthorization interop:Inherited;
     interop:inheritsFromAuthorization <https://registry/acme/p3j7mq>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/acme/m9k4wr> {
@@ -279,7 +280,7 @@ GRAPH <https://registry/acme/p9m2vr> {
     interop:hasStorage <https://data/acme-rnd/>;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/acme/hdaymz>
     interop:inheritsFromGrant <https://registry/acme/p9m2vr>.
 }
@@ -299,7 +300,7 @@ GRAPH <https://registry/acme/hdaymz> {
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/p9m2vr>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/acme/hdaymz> {
@@ -316,7 +317,7 @@ GRAPH <https://registry/acme/x4j8lm> {
     interop:hasStorage <https://data/acme-hr/>;
     interop:hasDataRegistration <https://data/acme-hr/p7t9km>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/acme/q2v9pt>
     interop:inheritsFromGrant <https://registry/acme/x4j8lm>.
 }
@@ -336,7 +337,7 @@ GRAPH <https://registry/acme/q2v9pt> {
     interop:hasDataRegistration <https://data/acme-hr/v4n2qx>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/x4j8lm>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/acme/q2v9pt> {
@@ -354,7 +355,7 @@ GRAPH <https://registry/acme/g4yhtm> {
     interop:scopeOfGrant interop:SelectedFromRegistry;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:hasDataInstance <https://data/acme-rnd/pbh2yw>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/acme/wpqyds>
     interop:inheritsFromGrant <https://registry/acme/g4yhtm>.
 }
@@ -374,7 +375,7 @@ GRAPH <https://registry/acme/wpqyds> {
     interop:scopeOfGrant interop:Inherited;
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:inheritsFromGrant <https://registry/acme/g4yhtm>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/acme/wpqyds> {
@@ -392,7 +393,7 @@ GRAPH <https://registry/acme/wwp4j6> {
     interop:scopeOfGrant interop:SelectedFromRegistry;
     interop:hasDataRegistration <https://data/acme-rnd/reb39k>;
     interop:hasDataInstance <https://data/acme-rnd/pbh2yw>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
   <https://registry/acme/qwvbcu>
     interop:inheritsFromGrant <https://registry/acme/wwp4j6>.
 }
@@ -412,7 +413,7 @@ GRAPH <https://registry/acme/qwvbcu> {
     interop:hasDataRegistration <https://data/acme-rnd/x0md9s>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/acme/wwp4j6>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/acme/qwvbcu> {
@@ -429,7 +430,7 @@ GRAPH <https://registry/acme/vled83> {
     interop:hasStorage <https://data/shapetrees/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/shapetrees/trees/>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/acme/vled83> {
@@ -450,7 +451,7 @@ GRAPH <https://registry/acme/wegvwe> {
     interop:hasStorage <https://data/test-client/>;
     interop:scopeOfGrant interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/test-client/public/>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/acme/wegvwe> {
@@ -513,7 +514,7 @@ GRAPH <https://registry/alice/w329t6> {
     interop:grantedBy <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:All;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/alice/w329t6> {
@@ -530,7 +531,7 @@ GRAPH <https://registry/alice/p7n4qw> {
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/alice-home/x1n3cm>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/alice/t5m8kr>
     interop:inheritsFromAuthorization <https://registry/alice/p7n4qw>.
 }
@@ -549,7 +550,7 @@ GRAPH <https://registry/alice/t5m8kr> {
     interop:scopeOfAuthorization interop:Inherited;
     interop:hasDataRegistration <https://data/alice-home/pm1oxz>;
     interop:inheritsFromAuthorization <https://registry/alice/p7n4qw>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/alice/t5m8kr> {
@@ -565,7 +566,7 @@ GRAPH <https://registry/alice/g08qqa> {
     interop:dataOwner <https://id/alice>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:AllFromAgent;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/alice/g08qqa> {
@@ -817,7 +818,7 @@ GRAPH <https://registry/alice/p3m8kr> {
     interop:hasStorage <https://data/alice-home/>;
     interop:hasDataRegistration <https://data/alice-home/x1n3cm>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/alice/t7k5nw>
     interop:inheritsFromGrant <https://registry/alice/p3m8kr>.
 }
@@ -837,7 +838,7 @@ GRAPH <https://registry/alice/t7k5nw> {
     interop:hasDataRegistration <https://data/alice-home/pm1oxz>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/alice/p3m8kr>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/alice/t7k5nw> {
@@ -907,7 +908,7 @@ GRAPH <https://registry/alice/afiooi> {
     interop:hasStorage <https://data/alice-work/>;
     interop:hasDataRegistration <https://data/alice-work/sx86hi>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/alice/azgyc5>
     interop:inheritsFromGrant <https://registry/alice/afiooi>.
 }
@@ -927,7 +928,7 @@ GRAPH <https://registry/alice/azgyc5> {
     interop:hasDataRegistration <https://data/alice-work/btze4a>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/alice/afiooi>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/alice/azgyc5> {
@@ -992,7 +993,7 @@ GRAPH <https://registry/bob/t2v9cd> {
     interop:hasStorage <https://data/bob/>;
     interop:hasDataRegistration <https://data/bob/avn9hv>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/bob/t2v9cd> {
@@ -1013,7 +1014,7 @@ GRAPH <https://registry/bob/t1u13z> {
     interop:dataOwner <https://registry/bob/t6nwde>;
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:AllFromRole;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/bob/t1u13z> {
@@ -1420,7 +1421,7 @@ GRAPH <https://registry/yoyo/k2m5qp> {
     interop:registeredShapeTree shapetrees:Project;
     interop:scopeOfAuthorization interop:AllFromRegistry;
     interop:hasDataRegistration <https://data/yoyo-eu/w4n9kx>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/yoyo/t8p3wr>
     interop:inheritsFromAuthorization <https://registry/yoyo/k2m5qp>.
 }
@@ -1439,7 +1440,7 @@ GRAPH <https://registry/yoyo/t8p3wr> {
     interop:scopeOfAuthorization interop:Inherited;
     interop:hasDataRegistration <https://data/yoyo-eu/m7p3qt>;
     interop:inheritsFromAuthorization <https://registry/yoyo/k2m5qp>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/yoyo/t8p3wr> {
@@ -1660,7 +1661,7 @@ GRAPH <https://registry/yoyo/p7n2vx> {
     interop:hasStorage <https://data/yoyo-eu/>;
     interop:hasDataRegistration <https://data/yoyo-eu/w4n9kx>;
     interop:scopeOfGrant interop:AllFromRegistry;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
   <https://registry/yoyo/t5m8qr>
     interop:inheritsFromGrant <https://registry/yoyo/p7n2vx>.
 }
@@ -1680,7 +1681,7 @@ GRAPH <https://registry/yoyo/t5m8qr> {
     interop:hasDataRegistration <https://data/yoyo-eu/m7p3qt>;
     interop:scopeOfGrant interop:Inherited;
     interop:inheritsFromGrant <https://registry/yoyo/p7n2vx>;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete.
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete.
 }
 
 GRAPH <meta:https://registry/yoyo/t5m8qr> {
@@ -1745,7 +1746,7 @@ GRAPH <https://registry/yoyo/ds0emv> {
     interop:dataOwner <https://id/yoyo>;
     interop:scopeOfAdminGrant interop:DataRegistry;
     interop:hasStorage <https://data/yoyo-eu/>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/yoyo/ds0emv> {
@@ -1797,7 +1798,7 @@ GRAPH <https://registry/yoyo/f76tbp> {
     interop:dataOwner <https://id/yoyo>;
     interop:scopeOfAdminGrant interop:DataRegistry;
     interop:hasStorage <https://data/yoyo-na/>;
-    interop:accessMode acl:Read.
+    interop:accessMode odrl:read.
 }
 
 GRAPH <meta:https://registry/yoyo/f76tbp> {
@@ -3484,27 +3485,27 @@ GRAPH <https://data/test-client/public/access-needs> {
     a interop:AccessNeed ;
     interop:registeredShapeTree shapetrees:Project ;
     interop:accessNecessity interop:AccessRequired ;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete .
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete .
 
   <https://data/test-client/public/access-needs#need-task>
     a interop:AccessNeed ;
     interop:registeredShapeTree shapetrees:Task ;
     interop:accessNecessity interop:AccessRequired ;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete ;
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete ;
     interop:inheritsFromNeed <https://data/test-client/public/access-needs#need-project> .
 
   <https://data/test-client/public/access-needs#need-image>
     a interop:AccessNeed ;
     interop:registeredShapeTree shapetrees:Image ;
     interop:accessNecessity interop:AccessOptional ;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete ;
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete ;
     interop:inheritsFromNeed <https://data/test-client/public/access-needs#need-project> .
 
   <https://data/test-client/public/access-needs#need-file>
     a interop:AccessNeed ;
     interop:registeredShapeTree shapetrees:File ;
     interop:accessNecessity interop:AccessOptional ;
-    interop:accessMode acl:Read, acl:Create, acl:Update, acl:Delete ;
+    interop:accessMode odrl:read, lws:create, odrl:modify, odrl:delete ;
     interop:inheritsFromNeed <https://data/test-client/public/access-needs#need-project> .
 
   <https://data/test-client/public/descriptions-en>

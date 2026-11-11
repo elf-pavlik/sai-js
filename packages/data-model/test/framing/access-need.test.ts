@@ -1,4 +1,4 @@
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 
 import { AccessNeed } from '../../src'
@@ -28,7 +28,12 @@ describe('AccessNeed framing', () => {
         'https://data/test-client/public/access-needs#need-image',
         'https://data/test-client/public/access-needs#need-task',
       ],
-      accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
+      accessMode: [
+        ACCESS_ACTIONS.read,
+        ACCESS_ACTIONS.create,
+        ACCESS_ACTIONS.modify,
+        ACCESS_ACTIONS.delete,
+      ],
       required: true,
       children: [],
       descriptionLanguages: ['en', 'es'],

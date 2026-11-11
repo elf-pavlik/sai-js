@@ -4,6 +4,7 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import { createStatefulFetch } from '@janeirodigital/interop-test-utils'
 import {
+  ACCESS_ACTIONS,
   INTEROP,
   type SparqlBindingTerm,
   type SparqlTransport,
@@ -41,7 +42,7 @@ const dataAuthorizations = [
     registeredShapeTree: 'https://shapetrees.hackers4peace.net/trees/Project',
     scopeOfAuthorization: INTEROP.AllFromAgent,
     dataOwner: GRANTED_BY,
-    accessMode: [INTEROP.Read],
+    accessMode: [ACCESS_ACTIONS.read],
     hasInheritingAuthorization: [],
   },
   {
@@ -52,7 +53,7 @@ const dataAuthorizations = [
     registeredShapeTree: 'https://shapetrees.hackers4peace.net/trees/Task',
     scopeOfAuthorization: INTEROP.Inherited,
     dataOwner: GRANTED_BY,
-    accessMode: [INTEROP.Read],
+    accessMode: [ACCESS_ACTIONS.read],
     inheritsFromAuthorization: PARENT,
   },
 ]

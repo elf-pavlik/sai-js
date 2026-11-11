@@ -15,7 +15,6 @@ import { INTEROP } from '@janeirodigital/interop-utils'
  *   up.hasStorage === down.hasStorage
  *   up.scopeOfGrant covers down.scopeOfGrant
  *   up.accessMode ⊇ down.accessMode
- *   up.creatorAccessMode ⊇ down.creatorAccessMode
  *   (for down SelectedFromRegistry) up.hasDataInstance ⊇ down.hasDataInstance
  *   ∧ up itself valid
  *
@@ -92,17 +91,6 @@ export function accessModesCover(
   return required.every((mode) => available.has(mode))
 }
 
-/** `creatorAccessMode` must not be expanded by delegation (absent = empty). */
-export function creatorModesCover(
-  upstream: readonly string[] | undefined,
-  downstream: readonly string[] | undefined
-): boolean {
-  const required = downstream ?? []
-  if (required.length === 0) return true
-  const available = new Set(upstream ?? [])
-  return required.every((mode) => available.has(mode))
-}
-
 /** For a selected downstream scope, the upstream must include the instances. */
 export function instancesCover(upstream: GrantData, downstream: GrantData): boolean {
   if (downstream.scopeOfGrant !== INTEROP.SelectedFromRegistry) return true
@@ -133,7 +121,6 @@ export function grantCovers(upstream: GrantData, downstream: GrantData): boolean
     upstream.hasStorage === downstream.hasStorage &&
     scopeCovers(upstream.scopeOfGrant, downstream.scopeOfGrant) &&
     accessModesCover(upstream.accessMode, downstream.accessMode) &&
-    creatorModesCover(upstream.creatorAccessMode, downstream.creatorAccessMode) &&
     instancesCover(upstream, downstream)
   )
 }

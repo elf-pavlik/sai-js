@@ -1,4 +1,4 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -75,7 +75,7 @@ const sourceGrant = (suffix: string, overrides: Record<string, unknown> = {}) =>
   hasDataRegistration: 'https://data/acme/registrations/projects/',
   hasStorage: 'https://data/acme/',
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [INTEROP.Read],
+  accessMode: [ACCESS_ACTIONS.read],
   ...overrides,
 })
 
@@ -89,7 +89,7 @@ const delegatedGrant = (overrides: Record<string, unknown> = {}) => ({
   hasDataRegistration: 'https://data/alice/registrations/projects/',
   hasStorage: 'https://data/alice/',
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [INTEROP.Read],
+  accessMode: [ACCESS_ACTIONS.read],
   ...overrides,
 })
 

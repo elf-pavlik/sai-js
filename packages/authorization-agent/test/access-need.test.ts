@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { AccessNeed, accessNeed } from '@janeirodigital/interop-authorization-agent'
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 
 import { expect } from './expect'
@@ -22,7 +22,12 @@ test('getters', async () => {
   expect(need.inheritsFromNeed).toBeUndefined()
   expect(need.hasInheritingNeed).toEqual(expect.arrayContaining([childIri]))
   expect(need.accessMode).toEqual(
-    expect.arrayContaining([ACL.Read, ACL.Create, ACL.Update, ACL.Delete])
+    expect.arrayContaining([
+      ACCESS_ACTIONS.read,
+      ACCESS_ACTIONS.create,
+      ACCESS_ACTIONS.modify,
+      ACCESS_ACTIONS.delete,
+    ])
   )
   expect(need.required).toBe(true)
 })

@@ -307,7 +307,7 @@ describe('groupAuthorizationDataAuthorizations', () => {
     registeredShapeTree: 'https://data/shapetrees/trees/Project',
     scopeOfAuthorization: INTEROP.SelectedFromRegistry,
     dataOwner: 'https://id/alice',
-    accessMode: ['http://www.w3.org/ns/auth/acl#Read'],
+    accessMode: ['http://www.w3.org/ns/odrl/2/read'],
   })
 
   test('groups embedded DAs by grantee — a parent + its child stay together', () => {

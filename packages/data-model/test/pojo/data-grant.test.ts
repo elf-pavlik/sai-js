@@ -1,4 +1,4 @@
-import { ACL, INTEROP, RDF, toStore } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, RDF, toStore } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
 
@@ -11,7 +11,7 @@ const commonData = {
   dataOwner: 'https://alice.example/#id',
   registeredShapeTree: 'https://solidshapes.example/tree/Project',
   hasDataRegistration: 'https://pro.alice.example/123',
-  accessMode: [ACL.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 }
 const commonQuads = [
   DataFactory.quad(DataFactory.namedNode(snippetIri), RDF.terms.type, INTEROP.terms.DataGrant),
@@ -33,7 +33,7 @@ const commonQuads = [
   DataFactory.quad(
     DataFactory.namedNode(snippetIri),
     INTEROP.terms.accessMode,
-    DataFactory.namedNode(ACL.Read)
+    DataFactory.namedNode(ACCESS_ACTIONS.read)
   ),
 ]
 
@@ -110,28 +110,5 @@ describe('toJsonLd', () => {
     ]
 
     await toJsonLdAndCheck(inheritedData, inheritedQuads)
-  })
-
-  test('should set dataset with creatorAccessMode', async () => {
-    const allFromRegistryData = {
-      scopeOfGrant: INTEROP.AllFromRegistry,
-      creatorAccessMode: [ACL.Update],
-      ...commonData,
-    }
-    const allFromRegistryQuads = [
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.scopeOfGrant,
-        INTEROP.terms.AllFromRegistry
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.creatorAccessMode,
-        ACL.terms.Update
-      ),
-      ...commonQuads,
-    ]
-
-    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 })

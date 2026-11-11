@@ -315,10 +315,10 @@ const SCOPE_KEYS: Record<string, string> = {
 }
 
 const MODE_KEYS: Record<string, string> = {
-  Read: 'mode-Read',
-  Update: 'mode-Update',
-  Create: 'mode-Create',
-  Delete: 'mode-Delete',
+  read: 'mode-Read',
+  modify: 'mode-Update',
+  create: 'mode-Create',
+  delete: 'mode-Delete',
 }
 
 function scopeLabel(scope: string): string {
@@ -334,7 +334,7 @@ function modeLabel(mode: string): string {
 }
 
 function chooseIcon(access: readonly string[]): string {
-  return access.some((mode) => tail(mode) === 'Update' || tail(mode) === 'Create')
+  return access.some((mode) => tail(mode) === 'modify' || tail(mode) === 'create')
     ? 'mdi-square-edit-outline'
     : 'mdi-eye-outline'
 }

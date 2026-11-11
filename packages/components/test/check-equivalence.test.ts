@@ -14,9 +14,9 @@ import {
 // Pure helpers only — no session, no I/O. Callers (step 3) load the bodies.
 // ──────────────────────────
 
-const READ = 'http://www.w3.org/ns/auth/acl#Read'
-const WRITE = 'http://www.w3.org/ns/auth/acl#Write'
-const CREATE = 'http://www.w3.org/ns/auth/acl#Create'
+const READ = 'http://www.w3.org/ns/odrl/2/read'
+const MODIFY = 'http://www.w3.org/ns/odrl/2/modify'
+const CREATE = 'https://www.w3.org/ns/lws#create'
 
 const PARENT = 'https://registry/acme/parent'
 const CHILD = 'https://registry/acme/child'
@@ -73,20 +73,17 @@ describe('grantFieldsEqual', () => {
 
   test('compares set-valued fields as sets', () => {
     const a = grant({
-      accessMode: [READ, WRITE],
-      creatorAccessMode: [READ],
+      accessMode: [READ, MODIFY],
       hasDataInstance: ['i1', 'i2'],
     })
     const b = grant({
-      accessMode: [WRITE, READ],
-      creatorAccessMode: [READ, READ],
+      accessMode: [MODIFY, READ],
       hasDataInstance: ['i2', 'i1'],
     })
     expect(grantFieldsEqual(a, b)).toBe(true)
   })
 
   test('treats an absent optional set as an empty one', () => {
-    expect(grantFieldsEqual(grant({ creatorAccessMode: [] }), grant())).toBe(true)
     expect(grantFieldsEqual(grant({ hasDataInstance: [] }), grant())).toBe(true)
   })
 
@@ -117,11 +114,7 @@ describe('grantFieldsEqual', () => {
   }
 
   test('differs on accessMode', () => {
-    expect(grantFieldsEqual(grant(), grant({ accessMode: [READ, WRITE] }))).toBe(false)
-  })
-
-  test('differs on creatorAccessMode', () => {
-    expect(grantFieldsEqual(grant(), grant({ creatorAccessMode: [READ] }))).toBe(false)
+    expect(grantFieldsEqual(grant(), grant({ accessMode: [READ, MODIFY] }))).toBe(false)
   })
 
   test('differs on hasDataInstance', () => {
@@ -256,7 +249,7 @@ describe('treesEqual', () => {
   test('differs when a child field changes', () => {
     const existing = grantTrees([
       grant({ id: 'e-parent', hasInheritingGrant: ['e-project', 'e-task'] }),
-      child({ id: 'e-project', inheritsFromGrant: 'e-parent', accessMode: [READ, WRITE] }),
+      child({ id: 'e-project', inheritsFromGrant: 'e-parent', accessMode: [READ, MODIFY] }),
       child({
         id: 'e-task',
         inheritsFromGrant: 'e-parent',
@@ -280,7 +273,7 @@ describe('treesEqual', () => {
     const existing = grantTrees([
       grant({
         id: 'e-parent',
-        accessMode: [READ, WRITE],
+        accessMode: [READ, MODIFY],
         hasInheritingGrant: ['e-project', 'e-task'],
       }),
       child({ id: 'e-project', inheritsFromGrant: 'e-parent' }),
@@ -311,7 +304,7 @@ describe('pairTrees', () => {
 
   test('skips non-equivalent existing trees', () => {
     const generated = grantTrees([grant({ id: 'g1' })])
-    const existing = grantTrees([grant({ id: 'e1', accessMode: [WRITE] }), grant({ id: 'e2' })])
+    const existing = grantTrees([grant({ id: 'e1', accessMode: [MODIFY] }), grant({ id: 'e2' })])
     const [pair] = pairTrees(generated, existing)
     expect(pair.existing.grant.id).toBe('e2')
   })

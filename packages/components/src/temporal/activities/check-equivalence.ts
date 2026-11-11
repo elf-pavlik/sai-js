@@ -26,7 +26,7 @@ const SCALAR_FIELDS = [
   'scopeOfGrant',
 ] as const
 
-const SET_FIELDS = ['accessMode', 'creatorAccessMode', 'hasDataInstance'] as const
+const SET_FIELDS = ['accessMode', 'hasDataInstance'] as const
 
 /** A grant plus its descendants (one level in generation today, recursive for future n-depth). */
 export interface GrantTree {

@@ -1,5 +1,5 @@
 import type { DataRegistrationData, RegistrySetData } from '@janeirodigital/interop-data-model'
-import { ACL, INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, type WhatwgFetch } from '@janeirodigital/interop-utils'
 import { describe, expect, test, vi } from 'vitest'
 
 import {
@@ -40,8 +40,8 @@ const registrySet = {
 const details: ShareDataInstanceStructure = {
   applicationId: 'https://app.example/',
   resource: RESOURCE,
-  accessMode: [ACL.Read],
-  children: [{ shapeTree: TASK_TREE, accessMode: [ACL.Read] }],
+  accessMode: [ACCESS_ACTIONS.read],
+  children: [{ shapeTree: TASK_TREE, accessMode: [ACCESS_ACTIONS.read] }],
   // the owner is excluded by the rule, DAN already holds access
   agents: [OWNER, KIM, DAN],
 }
@@ -140,7 +140,7 @@ describe('buildShareDataAuthorizations — context facts', () => {
       scopeOfAuthorization: INTEROP.Inherited,
       dataOwner: OWNER,
       hasDataRegistration: CHILD_REGISTRATION,
-      accessMode: [ACL.Read],
+      accessMode: [ACCESS_ACTIONS.read],
     }
     expect(recorded).toEqual([
       {
@@ -151,7 +151,7 @@ describe('buildShareDataAuthorizations — context facts', () => {
         scopeOfAuthorization: INTEROP.SelectedFromRegistry,
         dataOwner: OWNER,
         hasDataRegistration: REGISTRATION,
-        accessMode: [ACL.Read],
+        accessMode: [ACCESS_ACTIONS.read],
         hasDataInstance: [RESOURCE],
         children: [nestedChild],
         id: `${AUTH_REGISTRY}1`,

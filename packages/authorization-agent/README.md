@@ -115,7 +115,6 @@ type DataAuthorizationData = {
   dataOwner?: string // webid
   hasDataRegistration?: string
   inheritsFromAuthorization?: string
-  creatorAccessMode?: string[]
   hasDataInstance?: string[]
 }
 ```

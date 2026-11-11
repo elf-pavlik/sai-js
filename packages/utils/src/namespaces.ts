@@ -36,7 +36,6 @@ export const INTEROP = createVocabulary(
   'AuthorizationRevoked',
   'AuthorizationStructure',
   'createdAt',
-  'creatorAccessMode',
   'DataAuthorization',
   'DataGrant',
   'dataOwner',
@@ -84,7 +83,6 @@ export const INTEROP = createVocabulary(
   'NeedBasedAccessRequestReceived',
   'NeedBasedAccessRequestSent',
   'pushService',
-  'Read',
   'reciprocalRegistration',
   'registeredAgent',
   'registeredAt',
@@ -149,13 +147,64 @@ export const LDP = createVocabulary(
  */
 export const LWS = createVocabulary(
   'https://www.w3.org/ns/lws#',
+  'access',
+  'AccessGrant',
+  'AccessGrantService',
+  'AccessPolicy',
+  'AccessProfile',
+  'AccessRequest',
+  'AccessRequestService',
   'contains',
+  'create',
   'partOf',
   'storage',
   'Container',
   'DataResource',
   'StorageResource'
 )
+
+/**
+ * ODRL 2 terms used by LWS access policies (action vocabulary + policy shape).
+ * The canonical SAI access actions reuse these IRIs — see `ACCESS_ACTIONS`.
+ */
+export const ODRL = createVocabulary(
+  'http://www.w3.org/ns/odrl/2/',
+  'action',
+  'assignee',
+  'constraint',
+  'dateTime',
+  'delete',
+  'eq',
+  'gt',
+  'gteq',
+  'isAllOf',
+  'isAnyOf',
+  'isNoneOf',
+  'leftOperand',
+  'lt',
+  'lteq',
+  'modify',
+  'neq',
+  'operator',
+  'purpose',
+  'read',
+  'rightOperand',
+  'target'
+)
+
+/**
+ * The canonical SAI access actions (LWS Access Profile vocabulary):
+ * `odrl:read`, `odrl:modify`, `lws:create`, `odrl:delete`.
+ *
+ * These are the only values allowed in `interop:accessMode` — ACL terms are
+ * kept for ACR/ACP metadata only.
+ */
+export const ACCESS_ACTIONS = {
+  read: ODRL.read,
+  modify: ODRL.modify,
+  create: LWS.create,
+  delete: ODRL.delete,
+} as const
 
 export const ACL = createVocabulary(
   'http://www.w3.org/ns/auth/acl#',

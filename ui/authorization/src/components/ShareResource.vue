@@ -169,9 +169,9 @@ function chooseAccessMode(value: string): string[] {
     case 'view':
       return [AccessModes.Read]
     case 'edit':
-      return [AccessModes.Read, AccessModes.Update]
+      return [AccessModes.Read, AccessModes.Modify]
     case 'add':
-      return [AccessModes.Read, AccessModes.Update, AccessModes.Create]
+      return [AccessModes.Read, AccessModes.Modify, AccessModes.Create]
     default:
       return []
   }

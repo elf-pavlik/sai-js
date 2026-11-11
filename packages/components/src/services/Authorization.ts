@@ -413,9 +413,6 @@ export const listAuthorizations = async (
         ? { inheritsFromAuthorization: IRI.make(dataAuthorization.inheritsFromAuthorization) }
         : {}),
       accessMode: dataAuthorization.accessMode.map((mode) => IRI.make(mode)),
-      ...(dataAuthorization.creatorAccessMode
-        ? { creatorAccessMode: dataAuthorization.creatorAccessMode.map((mode) => IRI.make(mode)) }
-        : {}),
       ...(dataAuthorization.hasDataInstance
         ? {
             hasDataInstance: dataAuthorization.hasDataInstance.map((instance) =>

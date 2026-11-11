@@ -1,5 +1,5 @@
 import type { GrantData } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -68,7 +68,7 @@ const base = {
   hasDataRegistration: PROJECT_REGISTRATION,
   hasStorage: STORAGE,
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [INTEROP.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 }
 
 const parent = (id: string, children: string[] = []): GrantData =>
@@ -86,7 +86,7 @@ const child = (id: string, parentId: string, overrides: Partial<GrantData> = {})
     registeredShapeTree: TASK_TREE,
     hasDataRegistration: TASK_REGISTRATION,
     scopeOfGrant: INTEROP.Inherited,
-    accessMode: [INTEROP.Create, INTEROP.Read],
+    accessMode: [ACCESS_ACTIONS.create, ACCESS_ACTIONS.read],
     ...overrides,
   }) as GrantData
 
@@ -118,7 +118,7 @@ const delegatedChild = (
     registeredShapeTree: TASK_TREE,
     hasDataRegistration: TASK_REGISTRATION,
     scopeOfGrant: INTEROP.Inherited,
-    accessMode: [INTEROP.Create, INTEROP.Read],
+    accessMode: [ACCESS_ACTIONS.create, ACCESS_ACTIONS.read],
     ...overrides,
   }) as GrantData
 
@@ -135,7 +135,7 @@ const generatedDelegated = (overrides: Partial<GrantData> = {}, withChild = true
               registeredShapeTree: TASK_TREE,
               hasDataRegistration: TASK_REGISTRATION,
               scopeOfGrant: INTEROP.Inherited,
-              accessMode: [INTEROP.Read, INTEROP.Create],
+              accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.create],
             },
           ] as unknown as string[],
         }
@@ -203,7 +203,7 @@ describe('checkEquivalence — source-grant reuse', () => {
   test('replaces the whole subtree when a child field differs', async () => {
     const eParent = parent('https://registry/acme/e-parent', ['https://registry/acme/e-child'])
     const eChild = child('https://registry/acme/e-child', eParent.id!, {
-      accessMode: [INTEROP.Read], // generated child additionally has Create
+      accessMode: [ACCESS_ACTIONS.read], // generated child additionally has Create
     })
     const gParent = parent('https://registry/acme/g-parent', ['https://registry/acme/g-child'])
     const gChild = child('https://registry/acme/g-child', gParent.id!)

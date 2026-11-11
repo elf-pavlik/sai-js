@@ -238,7 +238,6 @@ const grantData = (scopeOfGrant: string, extra: Partial<GrantData> = {}): GrantD
   hasStorage: 'https://peer.example/data/',
   scopeOfGrant,
   accessMode: [],
-  creatorAccessMode: [],
   hasDataInstance: [],
   ...extra,
 })

@@ -1,4 +1,10 @@
-import { INTEROP, LDP, LWS, type SparqlTransport } from '@janeirodigital/interop-utils'
+import {
+  ACCESS_ACTIONS,
+  INTEROP,
+  LDP,
+  LWS,
+  type SparqlTransport,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, Store, type Quad } from 'n3'
 import { describe, expect, test } from 'vitest'
 
@@ -33,7 +39,7 @@ function dataAuthorizationGraph(id: string): Quad[] {
       namedNode('https://shapetrees.example/Project')
     ),
     quad(namedNode(id), namedNode(INTEROP.scopeOfAuthorization), namedNode(INTEROP.AllFromAgent)),
-    quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(INTEROP.Read)),
+    quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(ACCESS_ACTIONS.read)),
   ]
 }
 

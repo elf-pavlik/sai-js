@@ -3,7 +3,7 @@ import type {
   DataInstanceData,
   RoleData,
 } from '@janeirodigital/interop-data-model'
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import { accessForResource, matchesScope, scopeFacts } from '../src/authorization.js'
@@ -51,7 +51,7 @@ function authorization(
     scopeOfAuthorization: INTEROP.AllFromRegistry,
     dataOwner: BOB,
     hasDataRegistration: REGISTRATION,
-    accessMode: [ACL.Read],
+    accessMode: [ACCESS_ACTIONS.read],
     ...overrides,
   } as DataAuthorizationData
 }
@@ -121,7 +121,7 @@ describe('matchesScope', () => {
       scopeOfAuthorization: INTEROP.Inherited,
       inheritsFromAuthorization: 'parent',
       grantee: DAN,
-      accessMode: [ACL.Read, ACL.Update],
+      accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
     })
 
     test('covers what its parent covers', () => {
@@ -165,7 +165,7 @@ describe('accessForResource', () => {
     const direct = authorization({ id: 'direct' })
     const access = accessForResource([direct], resource, BOB, factsFor([direct]))
     expect(access.agents).toEqual([
-      { agent: KIM, dataAuthorization: 'direct', accessMode: [ACL.Read] },
+      { agent: KIM, dataAuthorization: 'direct', accessMode: [ACCESS_ACTIONS.read] },
     ])
     expect(access.roles).toEqual([])
   })
@@ -185,7 +185,7 @@ describe('accessForResource', () => {
         label: { '@none': 'Whiz' },
         members: [DAN],
         dataAuthorization: 'role',
-        accessMode: [ACL.Read],
+        accessMode: [ACCESS_ACTIONS.read],
       },
     ])
   })
@@ -228,7 +228,7 @@ describe('accessForResource', () => {
     expect(access.agents.map(({ agent }) => agent)).toEqual([KIM])
     expect(access.roles.map(({ role }) => role)).toEqual([WHIZ])
     expect(access.roles[0].members).toEqual([KIM, DAN])
-    expect(access.agents[0].accessMode).toEqual([ACL.Read])
+    expect(access.agents[0].accessMode).toEqual([ACCESS_ACTIONS.read])
   })
 
   test('an Inherited child reports its own grantee once the parent covers', () => {
@@ -238,7 +238,7 @@ describe('accessForResource', () => {
       scopeOfAuthorization: INTEROP.Inherited,
       inheritsFromAuthorization: 'parent',
       grantee: DAN,
-      accessMode: [ACL.Read, ACL.Update],
+      accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
     })
     const access = accessForResource([parent, child], resource, BOB, factsFor([parent, child]))
     expect(access.agents.map(({ agent }) => agent).toSorted()).toEqual([DAN, KIM].toSorted())
@@ -253,10 +253,15 @@ describe('accessForResource', () => {
   })
 
   test('dedupes per grantee and unions the access modes', () => {
-    const read = authorization({ id: 'read', accessMode: [ACL.Read] })
-    const write = authorization({ id: 'write', accessMode: [ACL.Read, ACL.Update] })
+    const read = authorization({ id: 'read', accessMode: [ACCESS_ACTIONS.read] })
+    const write = authorization({
+      id: 'write',
+      accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
+    })
     const access = accessForResource([read, write], resource, BOB, factsFor([read, write]))
     expect(access.agents).toHaveLength(1)
-    expect(access.agents[0].accessMode.toSorted()).toEqual([ACL.Read, ACL.Update].toSorted())
+    expect(access.agents[0].accessMode.toSorted()).toEqual(
+      [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify].toSorted()
+    )
   })
 })

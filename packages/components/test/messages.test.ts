@@ -1,4 +1,4 @@
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import { isAccessRequestMessage, isAccessRevocationMessage } from '../src/messages.js'
@@ -12,7 +12,7 @@ const grant = {
   hasDataRegistration: 'https://data/acme-rnd/reb39k',
   hasStorage: 'https://data/acme-rnd/',
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [ACL.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 }
 
 describe('AccessRequest message', () => {

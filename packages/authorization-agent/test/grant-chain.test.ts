@@ -27,9 +27,9 @@ const TASK_TREE = 'https://data/shapetrees/trees/Task'
 const PROJECT_REG = 'https://data/acme/registrations/projects'
 const TASK_REG = 'https://data/acme/registrations/tasks'
 const STORAGE = 'https://data/acme/'
-const READ = 'http://www.w3.org/ns/auth/acl#Read'
-const UPDATE = 'http://www.w3.org/ns/auth/acl#Update'
-const CREATE = 'http://www.w3.org/ns/auth/acl#Create'
+const READ = 'http://www.w3.org/ns/odrl/2/read'
+const UPDATE = 'http://www.w3.org/ns/odrl/2/modify'
+const CREATE = 'https://www.w3.org/ns/lws#create'
 
 function grant(id: string, overrides: Partial<GrantData> = {}): GrantData {
   return {

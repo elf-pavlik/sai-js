@@ -15,7 +15,7 @@ describe('share resource', () => {
   const applicationId = 'https://data/test-client/public/id'
   const resource = 'https://data/alice-home/n8k3wp'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
-  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+  const readMode = 'http://www.w3.org/ns/odrl/2/read'
 
   test('shares a data instance with a social agent', async () => {
     const manager = buildSessionManager()

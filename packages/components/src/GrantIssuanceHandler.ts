@@ -239,7 +239,6 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       hasStorage: childData.hasStorage,
       scopeOfGrant: childData.scopeOfGrant,
       accessMode: childData.accessMode,
-      creatorAccessMode: childData.creatorAccessMode,
       hasDataInstance: childData.hasDataInstance,
       id: await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id),
       inheritsFromGrant,

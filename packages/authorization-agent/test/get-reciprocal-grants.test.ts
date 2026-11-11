@@ -1,4 +1,4 @@
-import { INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
 import { describe, expect, test } from 'vitest'
 
@@ -30,7 +30,7 @@ const grantGraph = (id: string, over: { tree?: string; owner?: string } = {}): Q
   ),
   quad(namedNode(id), namedNode(INTEROP.hasStorage), namedNode('https://data/alice/')),
   quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(INTEROP.AllFromRegistry)),
-  quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(INTEROP.Read)),
+  quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(ACCESS_ACTIONS.read)),
 ]
 
 /**

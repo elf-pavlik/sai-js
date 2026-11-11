@@ -1,4 +1,4 @@
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 
 import { DataAuthorization } from '../../src'
@@ -26,7 +26,12 @@ describe('DataAuthorization framing', () => {
       hasDataRegistration: 'https://data/acme-rnd/reb39k',
       satisfiesAccessNeed: undefined,
       inheritsFromAuthorization: undefined,
-      accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
+      accessMode: [
+        ACCESS_ACTIONS.read,
+        ACCESS_ACTIONS.create,
+        ACCESS_ACTIONS.modify,
+        ACCESS_ACTIONS.delete,
+      ],
       hasDataInstance: ['https://data/acme-rnd/pbh2yw'],
       hasInheritingAuthorization: ['https://registry/acme/r5j8tw'],
     })

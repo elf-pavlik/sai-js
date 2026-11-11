@@ -2,8 +2,13 @@ import { QueryEngine } from '@comunica/query-sparql-rdfjs'
 import { ShapeTree } from '@janeirodigital/interop-data-model'
 const loadShapeTree = loader(ShapeTree.fromJsonLd)
 
-import { discoverAuthorizationAgent, loader } from '@janeirodigital/interop-utils'
-import { ACL, INTEROP, LWS } from '@janeirodigital/interop-utils'
+import {
+  ACCESS_ACTIONS,
+  INTEROP,
+  LWS,
+  discoverAuthorizationAgent,
+  loader,
+} from '@janeirodigital/interop-utils'
 import type { Quad } from '@rdfjs/types'
 import { arrayifyStream } from '@solid/community-server'
 import type { StorageLocationStrategy } from '@solid/community-server'
@@ -135,12 +140,12 @@ export class SaiPermissionsEngine implements PolicyEngine {
         throw new Error(`unexpected IRI: ${target}`)
     }
     return {
-      [PERMISSIONS.Create]: modes.includes(ACL.Create),
+      [PERMISSIONS.Create]: modes.includes(ACCESS_ACTIONS.create),
       // TODO: figure out why it is requested on Create
-      [PERMISSIONS.Append]: modes.includes(ACL.Create),
-      [PERMISSIONS.Read]: modes.includes(ACL.Read),
-      [PERMISSIONS.Modify]: modes.includes(ACL.Update),
-      [PERMISSIONS.Delete]: modes.includes(ACL.Delete),
+      [PERMISSIONS.Append]: modes.includes(ACCESS_ACTIONS.create),
+      [PERMISSIONS.Read]: modes.includes(ACCESS_ACTIONS.read),
+      [PERMISSIONS.Modify]: modes.includes(ACCESS_ACTIONS.modify),
+      [PERMISSIONS.Delete]: modes.includes(ACCESS_ACTIONS.delete),
     }
   }
 

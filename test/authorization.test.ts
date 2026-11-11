@@ -1,5 +1,5 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
 
@@ -99,10 +99,10 @@ describe('get authorization data', () => {
             'Access to Projects is essential for Projectron to perform its core function of Project Management.',
           required: true,
           access: expect.arrayContaining([
-            'http://www.w3.org/ns/auth/acl#Read',
-            'http://www.w3.org/ns/auth/acl#Create',
-            'http://www.w3.org/ns/auth/acl#Update',
-            'http://www.w3.org/ns/auth/acl#Delete',
+            'http://www.w3.org/ns/odrl/2/read',
+            'https://www.w3.org/ns/lws#create',
+            'http://www.w3.org/ns/odrl/2/modify',
+            'http://www.w3.org/ns/odrl/2/delete',
           ]),
           shapeTree: { id: 'https://data/shapetrees/trees/Project', label: 'Projects' },
           children: expect.arrayContaining([
@@ -204,7 +204,6 @@ describe('approve a need-based access request', () => {
   const aliceCookie = 'css-account=8187358a-2072-4dce-9c76-24caffcc84a4'
   const bobId = 'https://id/bob'
   const INTEROP = 'http://www.w3.org/ns/solid/interop#'
-  const ACL = 'http://www.w3.org/ns/auth/acl#'
 
   const accessNeedGroup = {
     id: 'urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b',
@@ -215,14 +214,24 @@ describe('approve a need-based access request', () => {
         type: [`${INTEROP}AccessNeed`],
         registeredShapeTree: 'https://data/shapetrees/trees/Project',
         required: `${INTEROP}AccessRequired`,
-        accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
+        accessMode: [
+          ACCESS_ACTIONS.read,
+          ACCESS_ACTIONS.create,
+          ACCESS_ACTIONS.modify,
+          ACCESS_ACTIONS.delete,
+        ],
         hasInheritingNeed: [
           {
             id: 'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b',
             type: [`${INTEROP}AccessNeed`],
             registeredShapeTree: 'https://data/shapetrees/trees/Task',
             required: `${INTEROP}AccessRequired`,
-            accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
+            accessMode: [
+              ACCESS_ACTIONS.read,
+              ACCESS_ACTIONS.create,
+              ACCESS_ACTIONS.modify,
+              ACCESS_ACTIONS.delete,
+            ],
           },
         ],
       },
@@ -291,10 +300,10 @@ describe('approve a need-based access request', () => {
               id: accessNeedGroup.hasAccessNeed[0].id,
               required: true,
               access: expect.arrayContaining([
-                `${ACL}Read`,
-                `${ACL}Create`,
-                `${ACL}Update`,
-                `${ACL}Delete`,
+                ACCESS_ACTIONS.read,
+                ACCESS_ACTIONS.create,
+                ACCESS_ACTIONS.modify,
+                ACCESS_ACTIONS.delete,
               ]),
               shapeTree: expect.objectContaining({
                 id: 'https://data/shapetrees/trees/Project',

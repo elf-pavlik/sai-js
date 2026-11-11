@@ -1,4 +1,4 @@
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 
 import { Grant } from '../../src'
@@ -24,7 +24,12 @@ describe('Grant framing', () => {
       hasDataRegistration: 'https://data/acme-rnd/reb39k',
       hasStorage: 'https://data/acme-rnd/',
       scopeOfGrant: INTEROP.AllFromRegistry,
-      accessMode: [ACL.Read, ACL.Create, ACL.Update, ACL.Delete],
+      accessMode: [
+        ACCESS_ACTIONS.read,
+        ACCESS_ACTIONS.create,
+        ACCESS_ACTIONS.modify,
+        ACCESS_ACTIONS.delete,
+      ],
       inheritsFromGrant: undefined,
       hasInheritingGrant: ['https://registry/acme/hdaymz'],
     })

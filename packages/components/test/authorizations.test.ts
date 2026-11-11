@@ -47,8 +47,8 @@ const CHILD = 'https://registry/acme/child'
 const REGISTRATION = 'https://data/acme/rnd/'
 const AUTHZ_REGISTRY = 'https://registry/acme/authorization/'
 const ROLE_REGISTRY = 'https://registry/acme/role/'
-const READ = 'http://www.w3.org/ns/auth/acl#Read'
-const UPDATE = 'http://www.w3.org/ns/auth/acl#Update'
+const READ = 'http://www.w3.org/ns/odrl/2/read'
+const UPDATE = 'http://www.w3.org/ns/odrl/2/modify'
 
 const parentAuthorization = {
   id: PARENT,

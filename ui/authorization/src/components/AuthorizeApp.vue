@@ -653,7 +653,7 @@ function isSelected(needId: string, childId?: string): boolean {
 }
 
 function chooseIcon(access: readonly S.Schema.Type<typeof IRI>[]): string {
-  if (access.includes(IRI.make(AccessModes.Update))) {
+  if (access.includes(IRI.make(AccessModes.Modify))) {
     return 'mdi-square-edit-outline'
   }
   return 'mdi-euey-outline'

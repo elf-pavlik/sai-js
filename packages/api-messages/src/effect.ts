@@ -19,11 +19,18 @@ export const Scopes = {
 
 export type Scopes = (typeof Scopes)[keyof typeof Scopes]
 
+/**
+ * The canonical SAI access actions (LWS Access Profile): `odrl:read`,
+ * `odrl:modify`, `lws:create`, `odrl:delete`.
+ *
+ * UI-facing keys stay action names; `Update` was renamed to `Modify` with the
+ * action-IRI migration.
+ */
 export const AccessModes = {
-  Read: 'http://www.w3.org/ns/auth/acl#Read',
-  Update: 'http://www.w3.org/ns/auth/acl#Update',
-  Create: 'http://www.w3.org/ns/auth/acl#Create',
-  Delete: 'http://www.w3.org/ns/auth/acl#Delete',
+  Read: 'http://www.w3.org/ns/odrl/2/read',
+  Modify: 'http://www.w3.org/ns/odrl/2/modify',
+  Create: 'https://www.w3.org/ns/lws#create',
+  Delete: 'http://www.w3.org/ns/odrl/2/delete',
 } as const
 
 export const WebPushSubscription = S.Struct({
@@ -557,7 +564,6 @@ export const EmbeddedDataAuthorization = S.Struct({
   satisfiesAccessNeed: S.optional(S.String),
   inheritsFromAuthorization: S.optional(S.String),
   accessMode: S.Array(S.String),
-  creatorAccessMode: S.optional(S.Array(S.String)),
   hasDataInstance: S.optional(S.Array(S.String)),
   hasInheritingAuthorization: S.optional(S.Array(S.String)),
 })
@@ -777,7 +783,6 @@ export const RecordedDataAuthorization = S.Struct({
   satisfiesAccessNeed: S.optional(IRI),
   inheritsFromAuthorization: S.optional(IRI),
   accessMode: S.Array(IRI),
-  creatorAccessMode: S.optional(S.Array(IRI)),
   hasDataInstance: S.optional(S.Array(IRI)),
   hasInheritingAuthorization: S.optional(S.Array(IRI)),
   /** resolved from the shape tree description in the requested language; falls

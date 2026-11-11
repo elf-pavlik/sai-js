@@ -16,7 +16,6 @@ export type GrantData = GrantId & {
   hasStorage: string
   scopeOfGrant: string
   accessMode: string[]
-  creatorAccessMode?: string[]
   hasDataInstance?: string[]
   inheritsFromGrant?: string // parent grant IRI (Inherited scope)
   hasInheritingGrant?: string[] // child grant IRIs
@@ -39,7 +38,6 @@ const GRANT_TERMS = [
   'hasStorage',
   'scopeOfGrant',
   'accessMode',
-  'creatorAccessMode',
   'hasDataInstance',
   'inheritsFromGrant',
   'hasInheritingGrant',

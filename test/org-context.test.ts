@@ -386,7 +386,7 @@ describe('org context — sharing the org’s own data (2.4 write path)', () => 
   const taskRegistration = 'https://data/yoyo-na/p3n7vz'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
   const taskShapeTree = 'https://data/shapetrees/trees/Task'
-  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+  const readMode = 'http://www.w3.org/ns/odrl/2/read'
 
   test('an admin shares an org instance; the authorization and grants belong to the org', async () => {
     // previous tests in this file leave workflow tails behind (their markers
@@ -571,7 +571,7 @@ describe('org context — authorizing an agent over the org’s data (2.4 write 
   const accessNeedGroup = 'https://data/test-client/public/access-needs#need-group-pm'
   const projectNeed = 'https://data/test-client/public/access-needs#need-project'
   const taskNeed = 'https://data/test-client/public/access-needs#need-task'
-  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+  const readMode = 'http://www.w3.org/ns/odrl/2/read'
 
   test('the authorization and the grants belong to the org', async () => {
     await waitForQuiescence([yoyoId, bobId])

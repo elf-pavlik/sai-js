@@ -17,7 +17,6 @@ export type DataAuthorizationData = DataAuthorizationId & {
   satisfiesAccessNeed?: string
   inheritsFromAuthorization?: string // parent data authorization IRI (Inherited scope)
   accessMode: string[]
-  creatorAccessMode?: string[]
   hasDataInstance?: string[]
   // Children discovered via inverse quads in the dataset (lazily resolved)
   hasInheritingAuthorization?: string[] // child data authorization IRIs
@@ -37,7 +36,6 @@ const DATA_AUTHORIZATION_TERMS = [
   'satisfiesAccessNeed',
   'inheritsFromAuthorization',
   'accessMode',
-  'creatorAccessMode',
   'hasDataInstance',
   'hasInheritingAuthorization',
 ]

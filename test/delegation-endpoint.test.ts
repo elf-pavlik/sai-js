@@ -1,6 +1,6 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
 import type { IncomingGrantData } from '@janeirodigital/interop-data-model'
-import { ACL, INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { afterEach, describe, expect, test } from 'vitest'
 
 import { containedCount, waitForQuiescence } from './util'
@@ -28,14 +28,14 @@ const tasksGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-rnd/x0md9s',
-  accessMode: [ACL.Read, ACL.Update],
+  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.Inherited,
 }
 const projectsGrantData: IncomingGrantData = {
   ...commonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-rnd/reb39k',
-  accessMode: [ACL.Read, ACL.Update],
+  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [tasksGrantData],
 }
@@ -48,14 +48,14 @@ const hrTasksGrantData: IncomingGrantData = {
   ...hrCommonGrantData,
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-hr/v4n2qx',
-  accessMode: [ACL.Read, ACL.Update],
+  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.Inherited,
 }
 const hrProjectsGrantData: IncomingGrantData = {
   ...hrCommonGrantData,
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-hr/p7t9km',
-  accessMode: [ACL.Read, ACL.Update],
+  accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [hrTasksGrantData],
 }
@@ -233,7 +233,7 @@ describe('DelegationRevocationEndpoint', () => {
             grantee,
             registeredShapeTree: SOLIDTREES.Project,
             hasDataRegistration: 'https://data/acme-rnd/reb39k',
-            accessMode: [ACL.Read, ACL.Update],
+            accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
             scopeOfGrant: INTEROP.AllFromRegistry,
           },
         ]),

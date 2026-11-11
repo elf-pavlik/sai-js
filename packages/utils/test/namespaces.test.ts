@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { ACL, AS, INTEROP, RDF } from '../src/namespaces'
+import { ACCESS_ACTIONS, ACL, AS, INTEROP, LWS, ODRL, RDF } from '../src/namespaces'
 
 describe('vocabularies', () => {
   test('members are full IRIs as strings', () => {
@@ -22,6 +22,15 @@ describe('vocabularies', () => {
     expect(term.termType).toBe('NamedNode')
     expect(term.value).toBe('http://www.w3.org/ns/solid/interop#hasDataRegistration')
     expect(ACL.terms.Read.value).toBe('http://www.w3.org/ns/auth/acl#Read')
+  })
+
+  test('access actions are the LWS/ODRL canonical IRIs', () => {
+    expect(ACCESS_ACTIONS.read).toBe('http://www.w3.org/ns/odrl/2/read')
+    expect(ACCESS_ACTIONS.modify).toBe('http://www.w3.org/ns/odrl/2/modify')
+    expect(ACCESS_ACTIONS.create).toBe('https://www.w3.org/ns/lws#create')
+    expect(ACCESS_ACTIONS.delete).toBe('http://www.w3.org/ns/odrl/2/delete')
+    expect(ODRL.namespace).toBe('http://www.w3.org/ns/odrl/2/')
+    expect(LWS.AccessGrant).toBe('https://www.w3.org/ns/lws#AccessGrant')
   })
 
   test('AS is the ActivityStreams vocab with the as:actor term', () => {

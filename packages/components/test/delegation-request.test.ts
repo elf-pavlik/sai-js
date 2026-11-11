@@ -1,4 +1,4 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
@@ -59,7 +59,7 @@ const grant = (dataOwner = 'https://id/alice') => ({
   hasDataRegistration: 'https://data/alice/registrations/p',
   hasStorage: 'https://data/alice/',
   scopeOfGrant: INTEROP.AllFromRegistry,
-  accessMode: [INTEROP.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 })
 
 /** One echoed finalised grant (the issuance response is now the grant bodies). */

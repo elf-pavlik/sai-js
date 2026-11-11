@@ -1,5 +1,11 @@
 import type { DataAuthorizationData, RegistrySetData } from '@janeirodigital/interop-data-model'
-import { ACL, FlatIdentifierStrategy, INTEROP, LDP, RDF } from '@janeirodigital/interop-utils'
+import {
+  ACCESS_ACTIONS,
+  FlatIdentifierStrategy,
+  INTEROP,
+  LDP,
+  RDF,
+} from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -146,7 +152,7 @@ const grantGraph = (
     namedNode(INTEROP.scopeOfGrant),
     namedNode(fields.scopeOfGrant ?? INTEROP.AllFromRegistry)
   ),
-  ...(fields.accessMode ?? [INTEROP.Read]).map((mode) =>
+  ...(fields.accessMode ?? [ACCESS_ACTIONS.read]).map((mode) =>
     quad(namedNode(id), namedNode(INTEROP.accessMode), namedNode(mode))
   ),
 ]
@@ -174,7 +180,12 @@ function mirroredPeerGraphs(options: { withInheriting?: boolean } = {}): Map<str
     shapeTree: PROJECT_TREE,
     dataRegistration: PROJECT_REGISTRATION,
     storage: PROJECT_STORAGE,
-    accessMode: [INTEROP.Read, ACL.Write],
+    accessMode: [
+      ACCESS_ACTIONS.read,
+      ACCESS_ACTIONS.modify,
+      ACCESS_ACTIONS.create,
+      ACCESS_ACTIONS.delete,
+    ],
   })
   if (options.withInheriting) {
     // reverse edge: the child declares the parent (see the fixture note above)
@@ -239,7 +250,11 @@ const childAuthorizationGraph = (): Quad[] => [
     namedNode(INTEROP.scopeOfAuthorization),
     namedNode(INTEROP.Inherited)
   ),
-  quad(namedNode(CHILD_AUTHORIZATION), namedNode(INTEROP.accessMode), namedNode(INTEROP.Read)),
+  quad(
+    namedNode(CHILD_AUTHORIZATION),
+    namedNode(INTEROP.accessMode),
+    namedNode(ACCESS_ACTIONS.read)
+  ),
   quad(
     namedNode(CHILD_AUTHORIZATION),
     namedNode(INTEROP.inheritsFromAuthorization),
@@ -286,7 +301,7 @@ const authorization = (suffix: string, over: Partial<DataAuthorizationData> = {}
     dataOwner: ALICE,
     registeredShapeTree: PROJECT_TREE,
     scopeOfAuthorization: INTEROP.AllFromAgent,
-    accessMode: [INTEROP.Read],
+    accessMode: [ACCESS_ACTIONS.read],
     ...over,
   }) as DataAuthorizationData
 
@@ -349,7 +364,7 @@ describe('delegated-grant generation — mirror only', () => {
       hasStorage: PROJECT_STORAGE,
       scopeOfGrant: INTEROP.AllFromRegistry,
       // the source allows Read+Write, the authorization asks for Read only
-      accessMode: [INTEROP.Read],
+      accessMode: [ACCESS_ACTIONS.read],
     })
   })
 
@@ -358,7 +373,7 @@ describe('delegated-grant generation — mirror only', () => {
     const { deps: dataModelDeps } = deps()
 
     const generated = await generateGrantsForAuthorization(
-      [authorization('a1', { registeredShapeTree: TASK_TREE, accessMode: [INTEROP.Read] })],
+      [authorization('a1', { registeredShapeTree: TASK_TREE, accessMode: [ACCESS_ACTIONS.read] })],
       registrySet,
       KIM,
       dataModelDeps,

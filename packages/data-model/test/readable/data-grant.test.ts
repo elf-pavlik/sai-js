@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL, loader } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, loader } from '@janeirodigital/interop-utils'
 import { test } from 'vitest'
 
 import { Grant } from '../../src'
@@ -24,8 +24,12 @@ test('should set the type', async () => {
 
 test('should set the accessMode', async () => {
   const dataGrant = await loadGrant(dataGrantIri, deps.fetch)
-  expect(dataGrant.accessMode).toContain(ACL.Read)
-  expect(dataGrant.accessMode).toContain(ACL.Write)
+  expect(dataGrant.accessMode).toEqual([
+    ACCESS_ACTIONS.read,
+    ACCESS_ACTIONS.modify,
+    ACCESS_ACTIONS.create,
+    ACCESS_ACTIONS.delete,
+  ])
 })
 
 test('should set the hasDataRegistration', async () => {

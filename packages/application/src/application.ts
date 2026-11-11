@@ -7,7 +7,7 @@ const loadApplicationRegistration = loader(ApplicationRegistration.fromJsonLd)
 
 import { INTEROP } from '@janeirodigital/interop-utils'
 import {
-  ACL,
+  ACCESS_ACTIONS,
   CachingIdentifierStrategyResolver,
   type IdentifierStrategyResolver,
   type WhatwgFetch,
@@ -206,26 +206,26 @@ export class Application {
 
   public async canCreate(resourceServer: string, scope: string): Promise<boolean> {
     const grant = await this.findGrant(resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create) ?? false
+    return grant?.accessMode.includes(ACCESS_ACTIONS.create) ?? false
   }
 
   public async canCreateChild(parentId: string, scope: string): Promise<boolean> {
     const parentInfo = this.parentMap.get(parentId)
     if (!parentInfo) throw new Error(`no parent info for ${parentId}`)
     const grant = await this.findGrant(parentInfo.resourceServer, scope)
-    return grant?.accessMode.includes(ACL.Create) ?? false
+    return grant?.accessMode.includes(ACCESS_ACTIONS.create) ?? false
   }
 
   public async canUpdate(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Update) ?? false
+    return grant?.accessMode.includes(ACCESS_ACTIONS.modify) ?? false
   }
 
   public async canDelete(id: string): Promise<boolean> {
     const info = this.getInfo(id)
     const grant = await this.findGrant(info.resourceServer, info.scope)
-    return grant?.accessMode.includes(ACL.Delete) ?? false
+    return grant?.accessMode.includes(ACCESS_ACTIONS.delete) ?? false
   }
 
   // TODO: rename to idForNew

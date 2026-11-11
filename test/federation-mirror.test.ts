@@ -25,7 +25,7 @@ describe('reciprocal mirror replication', () => {
   const applicationId = 'https://data/test-client/public/id'
   const resource = 'https://data/alice-home/n8k3wp'
   const projectShapeTree = 'https://data/shapetrees/trees/Project'
-  const readMode = 'http://www.w3.org/ns/auth/acl#Read'
+  const readMode = 'http://www.w3.org/ns/odrl/2/read'
 
   test('a seeded pair starts with a complete replica of the peer registration', async () => {
     const manager = buildSessionManager()

@@ -4,8 +4,7 @@ import type {
   DataRegistrationData,
   RoleData,
 } from '@janeirodigital/interop-authorization-agent'
-import { INTEROP } from '@janeirodigital/interop-utils'
-import { ACL } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // The org context's data plane: every read goes through `queries/org`
@@ -59,8 +58,8 @@ const ROLE_IRI = 'https://registry/org/role/whiz'
 const structure = {
   applicationId: 'https://app.example/',
   resource: RESOURCE,
-  accessMode: [ACL.Read],
-  children: [{ shapeTree: TASK_TREE, accessMode: [ACL.Read] }],
+  accessMode: [ACCESS_ACTIONS.read],
+  children: [{ shapeTree: TASK_TREE, accessMode: [ACCESS_ACTIONS.read] }],
   agents: [KIM],
 }
 
@@ -85,7 +84,7 @@ const kimAuthorization = {
   scopeOfAuthorization: INTEROP.AllFromRegistry,
   dataOwner: OWNER,
   hasDataRegistration: REGISTRATION,
-  accessMode: [ACL.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 } as unknown as DataAuthorizationData
 
 /** Role grant over the org's registration: the role is the grantee, so its members bear the access. */
@@ -98,7 +97,7 @@ const roleAuthorization = {
   scopeOfAuthorization: INTEROP.AllFromRegistry,
   dataOwner: OWNER,
   hasDataRegistration: REGISTRATION,
-  accessMode: [ACL.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 } as unknown as DataAuthorizationData
 
 const whiz: RoleData = {

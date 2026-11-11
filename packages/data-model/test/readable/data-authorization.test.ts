@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { fetch } from '@janeirodigital/interop-test-utils'
-import { ACL, INTEROP, loader } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, loader } from '@janeirodigital/interop-utils'
 import { describe, test } from 'vitest'
 
 import { DataAuthorization, type FinalDataAuthorizationData } from '../../src'
@@ -56,7 +56,12 @@ describe('getters', () => {
   test('should provide accessMode', async () => {
     const dataAuthorizationIri = 'https://auth.alice.example/e2765d6c-848a-4fc0-9092-556903730263'
     const dataAuthorization = await loadDataAuthorization(dataAuthorizationIri, deps.fetch)
-    expect(dataAuthorization.accessMode).toEqual([ACL.Read, ACL.Write])
+    expect(dataAuthorization.accessMode).toEqual([
+      ACCESS_ACTIONS.read,
+      ACCESS_ACTIONS.modify,
+      ACCESS_ACTIONS.create,
+      ACCESS_ACTIONS.delete,
+    ])
   })
 
   test('should provide type', async () => {
@@ -76,7 +81,12 @@ describe('round-trip', () => {
     scopeOfAuthorization: INTEROP.AllFromRegistry,
     dataOwner: 'https://alice.example/#id',
     hasDataRegistration: 'https://pro.alice.example/123',
-    accessMode: [ACL.Read, ACL.Write],
+    accessMode: [
+      ACCESS_ACTIONS.read,
+      ACCESS_ACTIONS.modify,
+      ACCESS_ACTIONS.create,
+      ACCESS_ACTIONS.delete,
+    ],
   }
 
   test('toJsonLd + fromJsonLd', async () => {

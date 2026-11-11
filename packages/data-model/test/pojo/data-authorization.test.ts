@@ -1,4 +1,4 @@
-import { ACL, INTEROP, RDF, toStore } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, RDF, toStore } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
 import { describe, test } from 'vitest'
 
@@ -13,7 +13,7 @@ const commonData = {
   grantedBy: webId,
   registeredShapeTree: 'https://solidshapes.example/tree/Project',
   hasDataRegistration: 'https://pro.alice.example/123',
-  accessMode: [ACL.Read],
+  accessMode: [ACCESS_ACTIONS.read],
 }
 const commonQuads = [
   DataFactory.quad(
@@ -41,7 +41,11 @@ const commonQuads = [
     INTEROP.terms.hasDataRegistration,
     DataFactory.namedNode(commonData.hasDataRegistration)
   ),
-  DataFactory.quad(DataFactory.namedNode(snippetIri), INTEROP.terms.accessMode, ACL.terms.Read),
+  DataFactory.quad(
+    DataFactory.namedNode(snippetIri),
+    INTEROP.terms.accessMode,
+    ACCESS_ACTIONS.read
+  ),
 ]
 
 async function toJsonLdAndCheck(
@@ -138,35 +142,6 @@ describe('toJsonLd', () => {
     ]
 
     await toJsonLdAndCheck(inheritedData, inheritedQuads)
-  })
-
-  test('should set dataset with creatorAccessMode', async () => {
-    const allFromRegistryData = {
-      dataOwner: 'https://alice.example/#id',
-      scopeOfAuthorization: INTEROP.AllFromRegistry,
-      creatorAccessMode: [ACL.Update],
-      ...commonData,
-    }
-    const allFromRegistryQuads = [
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.dataOwner,
-        DataFactory.namedNode(allFromRegistryData.dataOwner)
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.scopeOfAuthorization,
-        INTEROP.terms.AllFromRegistry
-      ),
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.creatorAccessMode,
-        ACL.terms.Update
-      ),
-      ...commonQuads,
-    ]
-
-    await toJsonLdAndCheck(allFromRegistryData, allFromRegistryQuads)
   })
 
   test('links back to children', async () => {

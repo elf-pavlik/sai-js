@@ -6,7 +6,7 @@ import {
 import { AccessRequest, type NeedBasedAccessRequestSent } from '@janeirodigital/interop-data-model'
 const loadNeedBasedAccessRequest = loader(AccessRequest.fromJsonLd)
 
-import { loader } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, loader } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -21,8 +21,6 @@ const rpcEndpoint = 'https://auth/.sai/api'
 const aliceId = 'https://id/alice'
 const bobId = 'https://id/bob'
 const bobCookie = 'css-account=339642f3-f3ee-42e5-85b9-4b1ab6b27ddc'
-
-const ACL = 'http://www.w3.org/ns/auth/acl#'
 
 /**
  * The embedded access need group — Bob requests access from Alice with
@@ -39,14 +37,24 @@ const accessNeedGroup = {
       type: ['http://www.w3.org/ns/solid/interop#AccessNeed'],
       registeredShapeTree: 'https://data/shapetrees/trees/Project',
       required: 'http://www.w3.org/ns/solid/interop#AccessRequired',
-      accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
+      accessMode: [
+        ACCESS_ACTIONS.read,
+        ACCESS_ACTIONS.create,
+        ACCESS_ACTIONS.modify,
+        ACCESS_ACTIONS.delete,
+      ],
       hasInheritingNeed: [
         {
           id: 'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b',
           type: ['http://www.w3.org/ns/solid/interop#AccessNeed'],
           registeredShapeTree: 'https://data/shapetrees/trees/Task',
           required: 'http://www.w3.org/ns/solid/interop#AccessRequired',
-          accessMode: [`${ACL}Read`, `${ACL}Create`, `${ACL}Update`, `${ACL}Delete`],
+          accessMode: [
+            ACCESS_ACTIONS.read,
+            ACCESS_ACTIONS.create,
+            ACCESS_ACTIONS.modify,
+            ACCESS_ACTIONS.delete,
+          ],
         },
       ],
     },

@@ -12,7 +12,7 @@ import {
 } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch, statelessFetch } from '@janeirodigital/interop-test-utils'
 import {
-  ACL,
+  ACCESS_ACTIONS,
   INTEROP,
   asyncIterableToArray,
   discoverAgentRegistration,
@@ -104,7 +104,7 @@ describe.skip('authorization agent', () => {
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       dataOwner: 'https://omni.example/#corp',
-      accessMode: [ACL.Read],
+      accessMode: [ACCESS_ACTIONS.read],
       scopeOfAuthorization: INTEROP.AllFromAgent,
       children: [
         {
@@ -113,7 +113,7 @@ describe.skip('authorization agent', () => {
           grantedBy: webId,
           registeredShapeTree: 'https://solidshapes.example/tree/Task',
           dataOwner: 'https://omni.example/#corp',
-          accessMode: [ACL.Read],
+          accessMode: [ACCESS_ACTIONS.read],
           scopeOfAuthorization: INTEROP.Inherited,
         },
       ],
@@ -124,7 +124,7 @@ describe.skip('authorization agent', () => {
       grantedBy: webId,
       registeredShapeTree: 'https://solidshapes.example/tree/Project',
       dataOwner: 'https://acme.example/#corp',
-      accessMode: [ACL.Read],
+      accessMode: [ACCESS_ACTIONS.read],
       scopeOfAuthorization: INTEROP.AllFromAgent,
     }
 
@@ -194,7 +194,7 @@ describe.skip('authorization agent', () => {
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
         dataOwner: 'https://omni.example/#corp',
-        accessMode: [ACL.Read],
+        accessMode: [ACCESS_ACTIONS.read],
         scopeOfAuthorization: INTEROP.SelectedFromRegistry,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
         hasDataInstance: ['https://home.alice.example/06c7ac17-2825-411b-ad55-31bb46aa75cd'],
@@ -275,7 +275,7 @@ describe.skip('authorization agent', () => {
         grantedBy: webId,
         registeredShapeTree: 'https://solidshapes.example/tree/Project',
         dataOwner: 'https://omni.example/#corp',
-        accessMode: [ACL.Read],
+        accessMode: [ACCESS_ACTIONS.read],
         scopeOfAuthorization: INTEROP.AllFromRegistry,
         hasDataRegistration: 'https://home.alice.example/some-registration/',
       }
@@ -379,7 +379,7 @@ describe.skip('authorization agent', () => {
     const authorization = {
       grantee: 'https://omni.example/#corp',
       registeredShapeTree: 'https://shapetrees.example/tree/Project',
-      accessMode: [ACL.Read],
+      accessMode: [ACCESS_ACTIONS.read],
     }
     const dataInstance = {
       iri: 'https://home.alice.example/some-registration/some-resource',
@@ -545,11 +545,11 @@ describe.skip('authorization agent', () => {
       const details: ShareDataInstanceStructure = {
         applicationId: 'https://projectron.example/',
         resource: 'https://home.alice.example/some-registration/some-resource',
-        accessMode: [INTEROP.Read],
+        accessMode: [ACCESS_ACTIONS.read],
         children: [
           {
             shapeTree: 'https://shapetrees.example/tree/Task',
-            accessMode: [INTEROP.Read],
+            accessMode: [ACCESS_ACTIONS.read],
           },
         ],
         agents: ['https://bob.example/#id'],
@@ -1125,21 +1125,21 @@ describe('revokeGrants core (C1)', () => {
     hasDataRegistration: PROJECT_REG,
     hasStorage: STORAGE,
     scopeOfGrant: INTEROP.AllFromRegistry,
-    accessMode: [ACL.Read, ACL.Update],
+    accessMode: [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify],
     ...overrides,
   })
 
   // source D→A; delegated A→B; delegated B→C; the source child D→A for the
   // Task shape and the delegated child A→B inheriting from A→B Project
   const root = grantFixture(ROOT)
-  const ab = grantFixture(AB, { grantedBy: BOB, grantee: KIM, accessMode: [ACL.Read] })
-  const bc = grantFixture(BC, { grantedBy: KIM, grantee: DAN, accessMode: [ACL.Read] })
+  const ab = grantFixture(AB, { grantedBy: BOB, grantee: KIM, accessMode: [ACCESS_ACTIONS.read] })
+  const bc = grantFixture(BC, { grantedBy: KIM, grantee: DAN, accessMode: [ACCESS_ACTIONS.read] })
   const childSource = grantFixture(CHILD_SOURCE, {
     registeredShapeTree: TASK_TREE,
     hasDataRegistration: TASK_REG,
     scopeOfGrant: INTEROP.Inherited,
     inheritsFromGrant: ROOT,
-    accessMode: [ACL.Read],
+    accessMode: [ACCESS_ACTIONS.read],
   })
   const child = grantFixture(CHILD, {
     grantedBy: BOB,
@@ -1148,7 +1148,7 @@ describe('revokeGrants core (C1)', () => {
     hasDataRegistration: TASK_REG,
     scopeOfGrant: INTEROP.Inherited,
     inheritsFromGrant: AB,
-    accessMode: [ACL.Read],
+    accessMode: [ACCESS_ACTIONS.read],
   })
   const baseGrants = [root, ab, bc, childSource, child]
   const foreignGrant = grantFixture('https://auth.kim.example/foreign', {
@@ -1370,7 +1370,7 @@ describe('dataInstanceIrisForGrant (Phase 4)', () => {
         hasDataRegistration: REGISTRATION,
         hasStorage: 'https://storage/',
         scopeOfGrant: INTEROP.AllFromRegistry,
-        accessMode: [ACL.Read],
+        accessMode: [ACCESS_ACTIONS.read],
       },
       localSparqlTransport('http://example.test/sparql'),
       statelessFetch

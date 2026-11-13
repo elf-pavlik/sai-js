@@ -10,6 +10,7 @@ import {
   type ReadableDataRegistration,
   ReadableWebIdProfile,
   grantAccess,
+  grantAccessModes,
   grantGrantee,
 } from '@janeirodigital/interop-data-model'
 import { createStatefulFetch, statelessFetch } from '@janeirodigital/interop-test-utils'
@@ -1148,6 +1149,9 @@ describe('revokeGrants core (C1)', () => {
         storage,
         hasDataRegistration,
         hasDataInstance: overrides.hasDataInstance,
+        registeredShapeTree: overrides.registeredShapeTree ?? PROJECT_TREE,
+        assigner: overrides.dataOwner ?? ALICE,
+        requester: overrides.grantedBy ?? ALICE,
         assignee: grantee,
         actions,
       }),
@@ -1192,53 +1196,109 @@ describe('revokeGrants core (C1)', () => {
 
   const grantQuads = (grant: GrantData) => {
     const node = DataFactory.namedNode(grant.id!)
+    const policy = DataFactory.namedNode(`urn:uuid:${grant.id}-policy`)
+    const permission = DataFactory.namedNode(`urn:uuid:${grant.id}-permission`)
+    const permissionNode = grant.access[0].permission[0]
+    const target = DataFactory.namedNode(permissionNode.target.id!)
     const q = (predicate: string, object: string) =>
       DataFactory.quad(node, DataFactory.namedNode(predicate), DataFactory.namedNode(object))
-    const policy = DataFactory.blankNode()
-    const target = DataFactory.blankNode()
-    const targetType =
-      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
-        ? LWS.DataResource
-        : grant.scopeOfGrant === INTEROP.AllFromAgent
-          ? LWS.StorageResource
-          : LWS.Container
-    const targetValues =
-      grant.scopeOfGrant === INTEROP.SelectedFromRegistry
-        ? (grant.hasDataInstance ?? [])
-        : grant.scopeOfGrant === INTEROP.AllFromAgent
-          ? [grant.storage]
-          : [grant.hasDataRegistration]
+    const targetQuads = (
+      targetId: string,
+      targetValue: { type: string[]; source: string[]; storage?: string; partOf?: string[] }
+    ) => {
+      const targetNode = DataFactory.namedNode(targetId)
+      const quads = [
+        DataFactory.quad(permission, DataFactory.namedNode(ODRL.target), targetNode),
+        DataFactory.quad(targetNode, DataFactory.namedNode(ODRL.uid), targetNode),
+      ]
+      for (const type of targetValue.type) {
+        quads.push(
+          DataFactory.quad(targetNode, DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(type))
+        )
+      }
+      for (const source of targetValue.source) {
+        quads.push(
+          DataFactory.quad(
+            targetNode,
+            DataFactory.namedNode(ODRL.source),
+            DataFactory.namedNode(source)
+          )
+        )
+      }
+      if (targetValue.storage) {
+        quads.push(
+          DataFactory.quad(
+            targetNode,
+            DataFactory.namedNode(LWS.storage),
+            DataFactory.namedNode(targetValue.storage)
+          )
+        )
+      }
+      for (const part of targetValue.partOf ?? []) {
+        quads.push(
+          DataFactory.quad(
+            targetNode,
+            DataFactory.namedNode(ODRL.partOf),
+            DataFactory.namedNode(part)
+          )
+        )
+      }
+      return quads
+    }
     const quads = [
       q(RDF_TYPE, LWS.AccessGrant),
-      q(RDF_TYPE, LWS.AccessGrant),
-      q(INTEROP.grantedBy, grant.grantedBy),
-      q(INTEROP.dataOwner, grant.dataOwner),
-      q(INTEROP.registeredShapeTree, grant.registeredShapeTree),
-      q(INTEROP.hasDataRegistration, grant.hasDataRegistration),
-      q(LWS.storage, grant.storage),
       q(INTEROP.scopeOfGrant, grant.scopeOfGrant),
       DataFactory.quad(node, DataFactory.namedNode(LWS.access), policy),
       DataFactory.quad(
         policy,
         DataFactory.namedNode(RDF_TYPE),
-        DataFactory.namedNode(LWS.AccessPolicy)
+        DataFactory.namedNode(ODRL.Agreement)
+      ),
+      DataFactory.quad(policy, DataFactory.namedNode(ODRL.uid), policy),
+      DataFactory.quad(
+        policy,
+        DataFactory.namedNode(ODRL.profile),
+        DataFactory.namedNode(INTEROP.AccessProfile)
       ),
       DataFactory.quad(
         policy,
+        DataFactory.namedNode(INTEROP.registeredShapeTree),
+        DataFactory.namedNode(grant.registeredShapeTree)
+      ),
+      DataFactory.quad(
+        policy,
+        DataFactory.namedNode(INTEROP.scopeOfGrant),
+        DataFactory.namedNode(grant.scopeOfGrant)
+      ),
+      DataFactory.quad(policy, DataFactory.namedNode(ODRL.permission), permission),
+      DataFactory.quad(permission, DataFactory.namedNode(ODRL.uid), permission),
+      DataFactory.quad(
+        permission,
+        DataFactory.namedNode(ODRL.assigner),
+        DataFactory.namedNode(grant.dataOwner)
+      ),
+      DataFactory.quad(
+        permission,
+        DataFactory.namedNode(INTEROP.requester),
+        DataFactory.namedNode(grant.grantedBy)
+      ),
+      DataFactory.quad(
+        permission,
         DataFactory.namedNode(ODRL.assignee),
         DataFactory.namedNode(grantGrantee(grant) ?? '')
       ),
-      ...grant.access.flatMap((p) =>
-        p.action.map((mode) =>
-          DataFactory.quad(policy, DataFactory.namedNode(ODRL.action), DataFactory.namedNode(mode))
+      ...grantAccessModes(grant).map((mode) =>
+        DataFactory.quad(
+          permission,
+          DataFactory.namedNode(ODRL.action),
+          DataFactory.namedNode(mode)
         )
       ),
-      DataFactory.quad(policy, DataFactory.namedNode(ODRL.target), target),
-      DataFactory.quad(target, DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(targetType)),
-      ...targetValues.map((value) =>
-        DataFactory.quad(target, DataFactory.namedNode(LWS.value), DataFactory.namedNode(value))
-      ),
     ]
+    for (const [index, p] of grant.access.flatMap((policy) => policy.permission).entries()) {
+      const targetId = index === 0 ? target.value : `${target.value}-${index}`
+      quads.push(...targetQuads(targetId, p.target))
+    }
     if (grant.inheritsFromGrant) quads.push(q(INTEROP.inheritsFromGrant, grant.inheritsFromGrant))
     return quads
   }

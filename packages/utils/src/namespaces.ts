@@ -12,8 +12,10 @@ export const INTEROP = createVocabulary(
   'AccessRequestGranted',
   'AccessRequestRegistry',
   'AccessOptional',
+  'AccessProfile',
   'AccessRequired',
   'AccessRevocation',
+  'AccessRevocationRequest',
   'accessNecessity',
   'Activity',
   'ActivityCompleted',
@@ -41,9 +43,11 @@ export const INTEROP = createVocabulary(
   'DataRegistration',
   'DataRegistry',
   'DelegatedGrantsUpdated',
+  'DelegationRequest',
   'delegationOfGrant',
   'grantedBy',
   'grantee',
+  'grants',
   'GrantRegistry',
   'hasAccessAuthorization',
   'hasAccessDescriptionSet',
@@ -88,6 +92,7 @@ export const INTEROP = createVocabulary(
   'registeredBy',
   'registeredShapeTree',
   'registeredWith',
+  'requester',
   'RegistrySet',
   'Role',
   'RoleDeleted',
@@ -160,6 +165,7 @@ export const LWS = createVocabulary(
   'value',
   'Container',
   'DataResource',
+  'Storage',
   'StorageResource'
 )
 
@@ -170,7 +176,11 @@ export const LWS = createVocabulary(
 export const ODRL = createVocabulary(
   'http://www.w3.org/ns/odrl/2/',
   'action',
+  'Agreement',
+  'Asset',
+  'AssetCollection',
   'assignee',
+  'assigner',
   'constraint',
   'dateTime',
   'delete',
@@ -186,10 +196,16 @@ export const ODRL = createVocabulary(
   'modify',
   'neq',
   'operator',
+  'partOf',
+  'permission',
+  'profile',
   'purpose',
   'read',
+  'Request',
   'rightOperand',
-  'target'
+  'source',
+  'target',
+  'uid'
 )
 
 /**

@@ -16,8 +16,6 @@ import {
   storeDataAuthorizations,
 } from '@janeirodigital/interop-authorization-agent'
 import {
-  type AccessRequestMessage,
-  type AccessRevocationMessage,
   type ActivityCompleted,
   type ActivityData,
   type AgentId,
@@ -32,7 +30,6 @@ import {
   type GeneratedGrants,
   type GrantData,
   type GrantId,
-  type IncomingGrantData,
   Role,
   type RoleData,
   type RoleId,
@@ -524,14 +521,18 @@ export async function requestRevocations(payload: {
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
   const endpoint = await discoverDelegationIssuanceEndpoint(payload.dataOwner, session.fetch)
-  const message: AccessRevocationMessage = {
-    type: [INTEROP.AccessRevocation],
-    grants: payload.grants.map((grant) => grant.id!),
-  }
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/ld+json' },
-    body: JSON.stringify(message),
+    body: JSON.stringify({
+      '@context': [
+        'https://www.w3.org/ns/lws/v1',
+        'http://www.w3.org/ns/odrl.jsonld',
+        'https://www.w3.org/ns/solid/interop-context/v1',
+      ],
+      type: ['AccessRequest', 'AccessRevocationRequest'],
+      grants: payload.grants.map((grant) => grant.id!),
+    }),
   })
   if (!response.ok) {
     throw new Error(
@@ -799,20 +800,35 @@ export async function requestDelegations(payload: RequestDelegationsInput): Prom
   const session = await manager.getSession(payload.webId.id)
 
   const endpoint = await discoverDelegationIssuanceEndpoint(dataOwner, session.fetch)
-  // the delegation endpoint takes an interop:AccessRequest envelope (§3)
-  const message: AccessRequestMessage = {
-    type: [INTEROP.AccessRequest],
-    grants: payload.grants as unknown as IncomingGrantData[],
-  }
-  // the whole delegation endpoint now requires application/ld+json
-  // (authorization-granting.md §6.2) — the AccessRequest envelope is
-  // JSON-LD-shaped, so the header is the gate, not the body
+  const wireContext = [
+    'https://www.w3.org/ns/lws/v1',
+    'http://www.w3.org/ns/odrl.jsonld',
+    'https://www.w3.org/ns/solid/interop-context/v1',
+  ]
+  const envelopes = payload.grants.map((parent) => {
+    const parentPolicies = parent.access
+    const parentPolicyId = parentPolicies[0]?.uid ?? parentPolicies[0]?.id
+    const children = Array.isArray(parent.hasInheritingGrant) ? parent.hasInheritingGrant : []
+    const childPolicies = children.flatMap((child) => {
+      if (typeof child !== 'object' || child === null) return []
+      const embedded = child as unknown as GrantData
+      return embedded.access.map((policy) => ({
+        ...policy,
+        ...(parentPolicyId ? { inheritsFromGrant: parentPolicyId } : {}),
+      }))
+    })
+    return {
+      '@context': wireContext,
+      type: ['AccessRequest', 'DelegationRequest'],
+      access: [...parentPolicies, ...childPolicies],
+    }
+  })
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/ld+json',
     },
-    body: JSON.stringify(message),
+    body: JSON.stringify(envelopes),
   })
   if (!response.ok) {
     throw new Error(

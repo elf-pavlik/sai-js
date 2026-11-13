@@ -11,10 +11,14 @@
  * - `odrl:target` gets a scoped context defining `value` as `lws:value`
  *   (`@type: @id`, `@container: @set`); the upstream context drops the target
  *   value array entirely during JSON-LD expansion.
+ * - `storage` is defined at the top level (the upstream context only scopes it
+ *   inside `AccessRequest`/`AccessGrant`); permission targets need the
+ *   top-level term.
+ * - the top-level `@protected` is removed so the LWS, ODRL, and SAI contexts
+ *   can be composed in one document; nested scoped contexts stay protected.
  */
 export const lwsV1Context = {
   '@context': {
-    '@protected': true,
     id: '@id',
     type: '@type',
     StorageResource: 'https://www.w3.org/ns/lws#StorageResource',
@@ -224,6 +228,10 @@ export const lwsV1Context = {
       },
     },
     AccessRequestService: 'https://www.w3.org/ns/lws#AccessRequestService',
+    storage: {
+      '@id': 'https://www.w3.org/ns/lws#storage',
+      '@type': '@id',
+    },
     Create: 'https://www.w3.org/ns/activitystreams#Create',
     Update: 'https://www.w3.org/ns/activitystreams#Update',
     Delete: 'https://www.w3.org/ns/activitystreams#Delete',

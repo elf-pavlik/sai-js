@@ -12,7 +12,7 @@ import {
   grantContext,
   grantGrantee,
   rewriteFullAdminAccess,
-  type LwsAccessPolicy,
+  type OdrlPolicy,
 } from '@janeirodigital/interop-data-model'
 const loadGrant = loader(Grant.fromJsonLd)
 
@@ -41,20 +41,40 @@ export type AdminGrantData = {
   id?: string
   type: string[]
   storage: string
-  access: LwsAccessPolicy[]
+  access: OdrlPolicy[]
   grantedBy: string
   dataOwner: string
   scopeOfAdminGrant: string
 }
 
-/** Admin grants are read-only StorageResource-scoped policies. */
-function adminAccess(assignee: string, storage: string): LwsAccessPolicy[] {
+/** Admin grants are read-only Storage-scoped ODRL agreements. */
+function adminAccess(assignee: string, storage: string, owner: string): OdrlPolicy[] {
+  const policyId = `urn:uuid:${crypto.randomUUID()}`
+  const permissionId = `urn:uuid:${crypto.randomUUID()}`
+  const targetId = `urn:uuid:${crypto.randomUUID()}`
   return [
     {
-      type: [LWS.AccessPolicy],
-      assignee,
-      action: [ACCESS_ACTIONS.read],
-      target: { type: LWS.StorageResource, value: [storage] },
+      id: policyId,
+      uid: policyId,
+      type: ['http://www.w3.org/ns/odrl/2/Agreement'],
+      profile: INTEROP.AccessProfile,
+      permission: [
+        {
+          id: permissionId,
+          uid: permissionId,
+          assigner: owner,
+          requester: owner,
+          assignee,
+          action: [ACCESS_ACTIONS.read],
+          target: {
+            id: targetId,
+            uid: targetId,
+            storage,
+            type: ['http://www.w3.org/ns/odrl/2/AssetCollection', LWS.Storage],
+            source: [storage],
+          },
+        },
+      ],
     },
   ]
 }
@@ -144,7 +164,7 @@ export async function buildAdminGrants(payload: {
     id: await session.mintIdentifier(registry.id),
     type: [INTEROP.AdminGrant, LWS.AccessGrant],
     storage: registryStorage,
-    access: adminAccess(payload.admin.id, registryStorage),
+    access: adminAccess(payload.admin.id, registryStorage, payload.webId.id),
     grantedBy: payload.webId.id,
     dataOwner: payload.webId.id,
     scopeOfAdminGrant: INTEROP.RegistrySet,
@@ -156,7 +176,7 @@ export async function buildAdminGrants(payload: {
       id: await session.mintIdentifier(registry.id),
       type: [INTEROP.AdminGrant, LWS.AccessGrant],
       storage: dataRegistry.id,
-      access: adminAccess(payload.admin.id, dataRegistry.id),
+      access: adminAccess(payload.admin.id, dataRegistry.id, payload.webId.id),
       grantedBy: payload.webId.id,
       dataOwner: payload.webId.id,
       scopeOfAdminGrant: INTEROP.DataRegistry,
@@ -173,7 +193,12 @@ export async function storeAdminGrant(grant: AdminGrantData): Promise<void> {
     session.registrySet.hasGrantRegistry.id,
     grant.id!,
     false,
-    withContext(grantContext, grant)
+    withContext(grantContext, {
+      id: grant.id,
+      type: grant.type,
+      scopeOfAdminGrant: grant.scopeOfAdminGrant,
+      access: grant.access,
+    })
   )
 }
 

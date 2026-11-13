@@ -1,7 +1,7 @@
 import {
   type GrantData,
   type GrantTargetInput,
-  type LwsAccessPolicy,
+  type OdrlPolicy,
   grantAccess,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, LWS } from '@janeirodigital/interop-utils'
@@ -56,7 +56,11 @@ function target(
 function withAssignee(grant: GrantData, assignee: string): GrantData {
   return {
     ...grant,
-    access: grant.access.map((policy) => ({ ...policy, assignee })),
+    access: grant.access.map((policy) => ({
+      ...policy,
+      assignee,
+      permission: policy.permission.map((permission) => ({ ...permission, assignee })),
+    })),
   }
 }
 
@@ -73,9 +77,12 @@ function grant(overrides: GrantOverrides = {}): GrantData {
       rest.access ??
       (grantAccess({
         ...target(scopeOfGrant, hasDataRegistration, rest.hasDataInstance, storage),
+        registeredShapeTree: PROJECT_TREE,
+        assigner: ALICE,
+        requester: ACME,
         assignee: grantee,
         actions: accessMode,
-      }) as LwsAccessPolicy[]),
+      }) as OdrlPolicy[]),
     grantedBy: ACME,
     dataOwner: ALICE,
     registeredShapeTree: PROJECT_TREE,

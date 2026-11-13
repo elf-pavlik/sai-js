@@ -5,7 +5,8 @@ import type {
   GrantData,
   RoleData,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP, LWS } from '@janeirodigital/interop-utils'
+import { grantAccess } from '@janeirodigital/interop-data-model'
+import { ACCESS_ACTIONS, INTEROP, LWS, ODRL } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
 import type { ResolvedContext } from '../src/services/Context.js'
@@ -227,20 +228,34 @@ describe('dataRegistrationContains', () => {
 // peerInstanceIris
 // ──────────────────────────
 
-const grantData = (scopeOfGrant: string, extra: Partial<GrantData> = {}): GrantData => ({
-  id: 'https://peer.example/grants/1',
-  type: [LWS.AccessGrant],
-  grantee: YOYO_WEBID,
-  grantedBy: 'https://peer.example/profile/card#me',
-  dataOwner: 'https://peer.example/profile/card#me',
-  registeredShapeTree: 'https://shapetrees.example/Child',
-  hasDataRegistration: PEER_REGISTRATION,
-  hasStorage: 'https://peer.example/data/',
-  scopeOfGrant,
-  accessMode: [],
-  hasDataInstance: [],
-  ...extra,
-})
+const grantData = (scopeOfGrant: string, extra: Partial<GrantData> = {}): GrantData => {
+  const storage = 'https://peer.example/data/'
+  const registeredShapeTree = extra.registeredShapeTree ?? 'https://shapetrees.example/Child'
+  const hasDataInstance = extra.hasDataInstance ?? []
+  return {
+    id: 'https://peer.example/grants/1',
+    type: [LWS.AccessGrant],
+    storage,
+    access: grantAccess({
+      scopeOfGrant,
+      storage,
+      hasDataRegistration: PEER_REGISTRATION,
+      hasDataInstance,
+      registeredShapeTree,
+      assigner: 'https://peer.example/profile/card#me',
+      requester: 'https://peer.example/profile/card#me',
+      assignee: YOYO_WEBID,
+      actions: [ACCESS_ACTIONS.read],
+    }),
+    grantedBy: 'https://peer.example/profile/card#me',
+    dataOwner: 'https://peer.example/profile/card#me',
+    registeredShapeTree,
+    hasDataRegistration: PEER_REGISTRATION,
+    scopeOfGrant,
+    ...(hasDataInstance.length ? { hasDataInstance } : {}),
+    ...extra,
+  }
+}
 
 /** Fetch dispatcher keyed on the *decoded proxy target* (plus the profile). */
 function proxyDispatcher(byIri: Record<string, unknown>) {
@@ -296,9 +311,36 @@ describe('peerInstanceIris', () => {
 
     const parentGrantDoc = {
       '@id': parentGrantIri,
-      'http://www.w3.org/ns/solid/interop#scopeOfGrant': { '@id': INTEROP.AllFromRegistry },
-      'http://www.w3.org/ns/solid/interop#registeredShapeTree': { '@id': parentShapeTreeIri },
-      'http://www.w3.org/ns/solid/interop#hasDataRegistration': { '@id': parentRegistrationIri },
+      '@type': [LWS.AccessGrant],
+      [INTEROP.scopeOfGrant]: [{ '@id': INTEROP.AllFromRegistry }],
+      [LWS.access]: [
+        {
+          '@id': `${parentGrantIri}#policy`,
+          '@type': [ODRL.Agreement],
+          [ODRL.uid]: [{ '@id': `${parentGrantIri}#policy` }],
+          [ODRL.profile]: [{ '@id': INTEROP.AccessProfile }],
+          [INTEROP.registeredShapeTree]: [{ '@id': parentShapeTreeIri }],
+          [ODRL.permission]: [
+            {
+              '@id': `${parentGrantIri}#permission`,
+              [ODRL.uid]: [{ '@id': `${parentGrantIri}#permission` }],
+              [ODRL.assigner]: [{ '@id': 'https://peer.example/profile/card#me' }],
+              [INTEROP.requester]: [{ '@id': 'https://peer.example/profile/card#me' }],
+              [ODRL.assignee]: [{ '@id': YOYO_WEBID }],
+              [ODRL.action]: [{ '@id': ACCESS_ACTIONS.read }],
+              [ODRL.target]: [
+                {
+                  '@id': `${parentGrantIri}#target`,
+                  [ODRL.uid]: [{ '@id': `${parentGrantIri}#target` }],
+                  '@type': [ODRL.AssetCollection, INTEROP.DataRegistration],
+                  [ODRL.source]: [{ '@id': parentRegistrationIri }],
+                  [LWS.storage]: [{ '@id': 'https://peer.example/data/' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     }
     const parentRegistrationDoc = {
       '@id': parentRegistrationIri,

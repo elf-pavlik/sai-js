@@ -1,3 +1,4 @@
+import { grantAccess } from '@janeirodigital/interop-data-model'
 import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -50,26 +51,29 @@ const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
 const ENDPOINT = 'https://registry/acme/sparql'
 const webId = { id: 'https://id/acme', type: [SOCIAL_AGENT_TYPE] }
 
-const grant = (dataOwner = 'https://id/alice') => ({
-  type: [LWS.AccessGrant],
-  storage: 'https://data/alice/',
-  access: [
-    {
-      type: [LWS.AccessPolicy],
+const grant = (dataOwner = 'https://id/alice') => {
+  const storage = 'https://data/alice/'
+  const hasDataRegistration = 'https://data/alice/registrations/p'
+  return {
+    type: [LWS.AccessGrant],
+    storage,
+    access: grantAccess({
+      scopeOfGrant: INTEROP.AllFromRegistry,
+      storage,
+      hasDataRegistration,
+      registeredShapeTree: 'https://data/shapetrees/trees/Project',
+      assigner: dataOwner,
+      requester: 'https://id/acme',
       assignee: 'https://id/kim',
-      action: [ACCESS_ACTIONS.read],
-      target: {
-        type: LWS.Container,
-        value: ['https://data/alice/registrations/p'],
-      },
-    },
-  ],
-  grantedBy: 'https://id/acme',
-  dataOwner,
-  registeredShapeTree: 'https://data/shapetrees/trees/Project',
-  hasDataRegistration: 'https://data/alice/registrations/p',
-  scopeOfGrant: INTEROP.AllFromRegistry,
-})
+      actions: [ACCESS_ACTIONS.read],
+    }),
+    grantedBy: 'https://id/acme',
+    dataOwner,
+    registeredShapeTree: 'https://data/shapetrees/trees/Project',
+    hasDataRegistration,
+    scopeOfGrant: INTEROP.AllFromRegistry,
+  }
+}
 
 /** One echoed finalised grant (the issuance response is now the grant bodies). */
 const issuedGrant = (id: string, overrides: Record<string, unknown> = {}) => ({
@@ -120,8 +124,9 @@ describe('requestDelegations — one request per data owner (T7)', () => {
     expect(endpoint).toBe('https://data/alice.example/.sai/delegation')
     expect(init.method).toBe('POST')
     const message = JSON.parse(init.body)
-    expect(message.type).toEqual([INTEROP.AccessRequest])
-    expect(message.grants).toHaveLength(2)
+    expect(message).toHaveLength(2)
+    expect(message[0].type).toEqual(['AccessRequest', 'DelegationRequest'])
+    expect(message[0].access).toHaveLength(1)
 
     // one replica write for the whole response, one named graph per grant and
     // the parent's reverse child edge (so `graphDoc(parent)` frames children)

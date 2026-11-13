@@ -12,6 +12,9 @@ import {
   SKOS,
   SOLID,
   createVocabulary,
+  lwsV1Context,
+  odrlContext,
+  saiContext,
 } from '@janeirodigital/interop-utils'
 
 const NFO = createVocabulary(
@@ -182,72 +185,39 @@ export const dataModelContext: JsonLdContext = {
   fileName: { '@id': NFO.fileName },
 }
 
-/**
- * The LWS `odrl:target` value object context. `value` is a local LWS-context
- * fix pending upstream: without it JSON-LD expansion drops the target value
- * array entirely (the target node keeps only its `rdf:type`).
- */
-const lwsTargetContext: JsonLdContext = {
-  id: '@id',
-  type: { '@id': '@type' },
-  value: { '@id': LWS.value, '@type': '@id', '@container': '@set' },
-}
+const lwsTerms = lwsV1Context['@context']
+const odrlTerms = odrlContext['@context']
+const saiTerms = saiContext['@context']
 
-/** The LWS `AccessPolicy` node context (scoped under `access`). */
-const lwsAccessPolicyContext: JsonLdContext = {
-  id: '@id',
+/**
+ * JSON-LD context for access requests and grants (read + write).
+ *
+ * It composes the bundled LWS, ODRL, and SAI contexts. The local ODRL context
+ * maps `uid` to `odrl:uid`, so every ODRL node can carry both `id` (@id) and
+ * `uid` (odrl:uid).
+ */
+export const accessContext: JsonLdContext = {
+  ...lwsTerms,
+  ...odrlTerms,
+  ...saiTerms,
+  '@version': 1.1,
   type: { '@id': '@type', '@container': '@set' },
-  assignee: iriTermDef(ODRL, 'assignee'),
+  access: { '@id': LWS.access, '@container': '@set' },
+  permission: { '@id': ODRL.permission, '@container': '@set' },
   action: { '@id': ODRL.action, '@type': '@vocab', '@container': '@set' },
-  target: { '@id': ODRL.target, '@context': lwsTargetContext },
+  target: { '@id': ODRL.target },
+  source: { '@id': ODRL.source, '@type': '@id', '@container': '@set' },
+  assigner: { '@id': ODRL.assigner, '@type': '@id' },
+  assignee: { '@id': ODRL.assignee, '@type': '@id' },
+  uid: { '@id': ODRL.uid, '@type': '@id' },
+  profile: { '@id': ODRL.profile, '@type': '@id' },
+  requester: { '@id': INTEROP.requester, '@type': '@id' },
+  storage: { '@id': LWS.storage, '@type': '@id' },
 }
 
-/**
- * JSON-LD context for the canonical grant resource (read + write).
- *
- * The graph carries the LWS truth (`storage`, `access[].assignee`, `action`,
- * `target`) plus SAI extension fields; the legacy flat fields are gone. Types
- * stay full IRIs here so the internal model compares the `lws:AccessGrant`
- * type and the action IRIs directly. `lwsGrantContext` adds the compact LWS terms for
- * the public grant view.
- *
- * `target` is redefined inside the scoped `access` context so the policy's
- * `odrl:target` does not collide with the shared `as:target` term used by
- * activities.
- */
-export const grantContext: JsonLdContext = {
-  ...dataModelContext,
-  storage: iriTermDef(LWS, 'storage'),
-  access: { '@id': LWS.access, '@container': '@set', '@context': lwsAccessPolicyContext },
-}
-
-/**
- * Context for the compact LWS grant view (`AccessGrant` / `AccessPolicy` /
- * `DataResource` / `Container` / `StorageResource` as bare terms). Used by the
- * grant endpoint's JSON-LD framing; the internal read model uses
- * `grantContext` (full IRIs).
- */
-export const lwsGrantContext: JsonLdContext = {
-  ...grantContext,
-  AccessGrant: { '@id': LWS.AccessGrant },
-  access: {
-    '@id': LWS.access,
-    '@container': '@set',
-    '@context': {
-      ...lwsAccessPolicyContext,
-      AccessPolicy: { '@id': LWS.AccessPolicy },
-      target: {
-        '@id': ODRL.target,
-        '@context': {
-          ...lwsTargetContext,
-          DataResource: { '@id': LWS.DataResource },
-          Container: { '@id': LWS.Container },
-          StorageResource: { '@id': LWS.StorageResource },
-        },
-      },
-    },
-  },
-}
+/** Backward-compatible aliases for the old grant context names. */
+export const grantContext = accessContext
+export const lwsGrantContext = accessContext
 
 /**
  * JSON-LD context for Access Control Resources (ACP). ACRs are JSON-LD now

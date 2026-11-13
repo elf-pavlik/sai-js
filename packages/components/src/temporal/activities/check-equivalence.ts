@@ -60,12 +60,13 @@ function sameSet(a: readonly string[] | undefined, b: readonly string[] | undefi
  */
 function accessShape(grant: GrantData): string[] {
   return grant.access
-    .map((policy) =>
+    .flatMap((policy) => policy.permission)
+    .map((permission) =>
       [
-        policy.assignee,
-        [...new Set(policy.action)].toSorted().join(','),
-        policy.target.type,
-        [...new Set(policy.target.value)].toSorted().join(','),
+        permission.assignee,
+        [...new Set(permission.action)].toSorted().join(','),
+        [...new Set(permission.target.type)].toSorted().join(','),
+        [...new Set(permission.target.source)].toSorted().join(','),
       ].join('\u0000')
     )
     .toSorted()

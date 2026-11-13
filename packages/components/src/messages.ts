@@ -33,7 +33,9 @@ export function isAccessRevocationMessage(payload: unknown): payload is AccessRe
   const { grants, type } = payload as AccessRevocationMessage
   const types = Array.isArray(type) ? type : [type]
   return (
-    types.includes(INTEROP.AccessRevocation) &&
+    (types.includes(INTEROP.AccessRevocation) ||
+      types.includes(INTEROP.AccessRevocationRequest) ||
+      types.includes('AccessRevocationRequest')) &&
     Array.isArray(grants) &&
     grants.every((grant) => typeof grant === 'string')
   )

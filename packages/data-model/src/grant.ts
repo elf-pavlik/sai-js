@@ -1,48 +1,77 @@
-import { INTEROP, LWS, frameNode, selectNode, withContext } from '@janeirodigital/interop-utils'
+import {
+  INTEROP,
+  LWS,
+  ODRL,
+  SHAPETREES,
+  expandedJsonLd,
+  frameNode,
+  withContext,
+} from '@janeirodigital/interop-utils'
 
-import { grantContext } from './context.ts'
+import { accessContext } from './context.ts'
 
 export type GrantId = {
   id?: string
   type: string[]
 }
 
-/** The LWS `access[].target` value object. */
-export interface LwsTarget {
-  type: string
-  value: string[]
+/** ODRL target object. */
+export interface OdrlTarget {
+  id?: string
+  uid?: string
+  storage?: string
+  type: string[]
+  source: string[]
+  partOf?: string[]
 }
 
-/** The LWS `access[]` policy node. */
-export interface LwsAccessPolicy {
-  type: string[]
+/** ODRL permission. */
+export interface OdrlPermission {
+  id?: string
+  uid?: string
+  assigner: string
+  requester: string
   assignee: string
   action: string[]
-  target: LwsTarget
+  target: OdrlTarget
+}
+
+/** ODRL policy (`Request` in requests, `Agreement` in grants). */
+export interface OdrlPolicy {
+  id?: string
+  uid?: string
+  type: string[]
+  profile: string
+  permission: OdrlPermission[]
+  scopeOfGrant?: string
+  inheritsFromGrant?: string
+  registeredShapeTree?: string
+  /** Derived from the first permission (compatibility convenience). */
+  assignee?: string
+  action?: string[]
+  target?: OdrlTarget
 }
 
 /**
- * The canonical grant read model: the LWS `AccessGrant` truth (`storage`,
- * `access`) plus the SAI extension fields. The resource type is
- * `lws:AccessGrant`; the legacy flat fields are gone.
+ * The canonical access-grant read model. The wire truth is the ODRL
+ * policy/permission/target graph; the flat fields below are derived
+ * convenience values for existing consumers and are never serialized.
  */
 export type GrantData = GrantId & {
-  /** `lws:storage` — the data storage the grant is scoped to. */
+  access: OdrlPolicy[]
+  scopeOfGrant: string
+  inheritsFromGrant?: string
+  hasInheritingGrant?: string[]
+
+  // Derived convenience fields (not serialized).
   storage: string
-  /** `lws:access` — assignee/action/target policies. */
-  access: LwsAccessPolicy[]
-  /** SAI extension fields. */
   grantedBy: string
   dataOwner: string
   registeredShapeTree: string
   hasDataRegistration: string
-  scopeOfGrant: string
   hasDataInstance?: string[]
-  inheritsFromGrant?: string // parent grant IRI (Inherited scope)
-  hasInheritingGrant?: string[] // child grant IRIs
 }
 
-/** A grant that has been assigned its storage IRI. */
 export type FinalGrantData = GrantData & Required<Pick<GrantData, 'id'>>
 
 export interface GeneratedGrants {
@@ -50,131 +79,325 @@ export interface GeneratedGrants {
   delegatedGrants: GrantData[]
 }
 
-const GRANT_TERMS = [
-  'storage',
-  'access',
-  'grantedBy',
-  'dataOwner',
-  'registeredShapeTree',
-  'hasDataRegistration',
-  'scopeOfGrant',
-  'hasDataInstance',
-  'inheritsFromGrant',
-  'hasInheritingGrant',
-] as const
-
-export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
-  return selectNode(
-    await frameNode(doc, grantContext, id, { access: { '@embed': '@always' } }),
-    GRANT_TERMS
-  ) as unknown as GrantData
-}
-
-/** The concrete grantee (`access[].assignee`). SAI writes one policy per grant. */
-export function grantGrantee(grant: Pick<GrantData, 'access'>): string | undefined {
-  return grant.access[0]?.assignee
-}
-
-/** Every action across the grant's access policies (deduped). */
-export function grantAccessModes(grant: Pick<GrantData, 'access'>): string[] {
-  return [...new Set(grant.access.flatMap((policy) => policy.action))]
-}
-
-/** Every target across the grant's access policies. */
-export function grantTargets(grant: Pick<GrantData, 'access'>): LwsTarget[] {
-  return grant.access.map((policy) => policy.target)
-}
-
 export interface GrantTargetInput {
   scopeOfGrant: string
   storage: string
   hasDataRegistration: string
   hasDataInstance?: string[]
+  registeredShapeTree?: string
+  /** `AllFromAgent` target party. */
+  agent?: string
 }
 
-/**
- * The closest LWS target for a grant's SAI scope (plan §2.4):
- *
- * - `SelectedFromRegistry` → `lws:DataResource` values from `hasDataInstance`
- * - `AllFromRegistry` → `lws:Container` value `hasDataRegistration`
- * - `AllFromAgent` → `lws:StorageResource` value `storage`
- * - `Inherited` → the child registration as a `lws:Container`. The parent's
- *   target is carried by the `interop:inheritsFromGrant` link; copying the
- *   parent target would require the parent body at write time (the child is
- *   stored as its own graph), and SAI clients use the extension fields for
- *   scope. Documented divergence from the plan's target table.
- */
-export function grantTarget(input: GrantTargetInput): LwsTarget {
+export interface GrantPermissionInput extends GrantTargetInput {
+  assigner: string
+  requester: string
+  assignee: string
+  actions: readonly string[]
+}
+
+const urn = (): string => `urn:uuid:${crypto.randomUUID()}`
+
+const asArray = <T>(value: T | T[] | undefined): T[] =>
+  value === undefined ? [] : Array.isArray(value) ? value : [value]
+
+const PREFIX_IRI: Record<string, string> = {
+  interop: 'http://www.w3.org/ns/solid/interop#',
+  st: 'http://www.w3.org/ns/shapetrees#',
+  odrl: 'http://www.w3.org/ns/odrl/2/',
+  lws: 'https://www.w3.org/ns/lws#',
+}
+
+function resolveIri(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined
+  if (Array.isArray(value)) return resolveIri(value[0])
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return resolveIri(record['@id'] ?? record.id ?? record.value)
+  }
+  if (typeof value !== 'string') return undefined
+  if (/^(https?:|urn:)/.test(value)) return value
+  const [prefix, ...rest] = value.split(':')
+  if (rest.length && PREFIX_IRI[prefix]) return PREFIX_IRI[prefix] + rest.join(':')
+  const term = (accessContext as Record<string, unknown>)[value]
+  if (typeof term === 'string') return term === value ? value : resolveIri(term)
+  if (term && typeof term === 'object') {
+    const id = (term as Record<string, unknown>)['@id']
+    if (typeof id === 'string') return id
+  }
+  return value
+}
+
+function normalizeTarget(node: Record<string, unknown>): OdrlTarget {
+  return {
+    id: node.id as string | undefined,
+    uid: node.uid as string | undefined,
+    storage: resolveIri(node.storage as string | undefined),
+    type: asArray(node.type as string | string[] | undefined).map((value) => resolveIri(value)!),
+    source: asArray(node.source as string | string[] | undefined).map((value) =>
+      resolveIri(value)!
+    ),
+    ...(node.partOf
+      ? {
+          partOf: asArray(node.partOf as string | string[] | undefined).map((value) =>
+            resolveIri(value)!
+          ),
+        }
+      : {}),
+  }
+}
+
+function normalizePermission(node: Record<string, unknown>): OdrlPermission {
+  return {
+    id: node.id as string | undefined,
+    uid: node.uid as string | undefined,
+    assigner: resolveIri(node.assigner as string)!,
+    requester: resolveIri(node.requester as string)!,
+    assignee: resolveIri(node.assignee as string)!,
+    action: asArray(node.action as string | string[] | undefined).map((value) =>
+      resolveIri(value)!
+    ),
+    target: normalizeTarget((node.target as Record<string, unknown>) ?? {}),
+  }
+}
+
+function normalizePolicy(node: Record<string, unknown>): OdrlPolicy {
+  const permission = asArray(node.permission as Record<string, unknown>[] | undefined).map(
+    normalizePermission
+  )
+  const first = permission[0]
+  return {
+    id: node.id as string | undefined,
+    uid: node.uid as string | undefined,
+    type: asArray(node.type as string | string[] | undefined).map((value) => resolveIri(value)!),
+    profile: resolveIri(node.profile as string)!,
+    permission,
+    scopeOfGrant: resolveIri(node.scopeOfGrant as string | undefined),
+    inheritsFromGrant: resolveIri(node.inheritsFromGrant as string | undefined),
+    registeredShapeTree: resolveIri(node.registeredShapeTree as string | undefined),
+    ...(first?.assignee ? { assignee: first.assignee } : {}),
+    ...(first?.action.length ? { action: [...first.action] } : {}),
+    ...(first?.target ? { target: first.target } : {}),
+  }
+}
+
+function shapeTreeFromTarget(target: OdrlTarget | undefined): string {
+  if (!target) return ''
+  if (target.type.includes(SHAPETREES.ShapeTree)) return target.source[0] ?? ''
+  return ''
+}
+
+function deriveFields(
+  node: Record<string, unknown>,
+  access: OdrlPolicy[]
+): Pick<
+  GrantData,
+  | 'storage'
+  | 'grantedBy'
+  | 'dataOwner'
+  | 'registeredShapeTree'
+  | 'hasDataRegistration'
+  | 'hasDataInstance'
+> {
+  const permissions = access.flatMap((policy) => policy.permission)
+  const first = permissions[0]
+  const target = first?.target
+  const registrationTarget = permissions
+    .map((permission) => permission.target)
+    .find((candidate) => candidate.type.includes(INTEROP.DataRegistration))
+  const assetTargets = permissions
+    .map((permission) => permission.target)
+    .filter(
+      (candidate) =>
+        candidate.type.includes(ODRL.Asset) && !candidate.type.includes(INTEROP.DataRegistration)
+    )
+  return {
+    storage: target?.storage ?? (node.storage as string | undefined) ?? '',
+    grantedBy: first?.requester ?? (node.grantedBy as string | undefined) ?? '',
+    dataOwner: first?.assigner ?? (node.dataOwner as string | undefined) ?? '',
+    registeredShapeTree: access[0]?.registeredShapeTree || shapeTreeFromTarget(target) || '',
+    hasDataRegistration:
+      registrationTarget?.source[0] ??
+      permissions.map((permission) => permission.target.partOf?.[0]).find(Boolean) ??
+      '',
+    ...(assetTargets.length
+      ? { hasDataInstance: assetTargets.map((candidate) => candidate.source[0]).filter(Boolean) }
+      : {}),
+  }
+}
+
+export async function fromJsonLd(doc: unknown, id: string): Promise<GrantData> {
+  const expanded = await expandedJsonLd(doc as Record<string, unknown>)
+  const node = (await frameNode(expanded, accessContext, id, {
+    access: { '@embed': '@always' },
+  })) as Record<string, unknown>
+  const access = asArray(node.access as Record<string, unknown>[] | undefined)
+    .filter(Boolean)
+    .map(normalizePolicy)
+  return {
+    id,
+    type: asArray(node.type as string | string[] | undefined).map((value) => resolveIri(value)!),
+    access,
+    scopeOfGrant:
+      resolveIri(node.scopeOfGrant as string | undefined) ?? access[0]?.scopeOfGrant ?? '',
+    ...(node.inheritsFromGrant
+      ? { inheritsFromGrant: resolveIri(node.inheritsFromGrant as string)! }
+      : {}),
+    ...(node.hasInheritingGrant
+      ? { hasInheritingGrant: asArray(node.hasInheritingGrant as string | string[]) }
+      : {}),
+    ...deriveFields(node, access),
+  }
+}
+
+/** The concrete grantee of the first permission. */
+export function grantGrantee(grant: Pick<GrantData, 'access'>): string | undefined {
+  return grant.access[0]?.permission[0]?.assignee
+}
+
+/** Every action across the grant's permissions (deduped). */
+export function grantAccessModes(grant: Pick<GrantData, 'access'>): string[] {
+  return [...new Set(grant.access.flatMap((policy) => policy.permission.flatMap((p) => p.action)))]
+}
+
+/** Every target across the grant's permissions. */
+export function grantTargets(grant: Pick<GrantData, 'access'>): OdrlTarget[] {
+  return grant.access.flatMap((policy) => policy.permission.map((permission) => permission.target))
+}
+
+/** The grant's data storage (first target). */
+export function grantStorage(grant: Pick<GrantData, 'access'>): string {
+  return grant.access[0]?.permission[0]?.target.storage ?? ''
+}
+
+/** The grant's data owner (first permission assigner). */
+export function grantDataOwner(grant: Pick<GrantData, 'access'>): string {
+  return grant.access[0]?.permission[0]?.assigner ?? ''
+}
+
+/** The grant's requester (first permission requester). */
+export function grantRequester(grant: Pick<GrantData, 'access'>): string {
+  return grant.access[0]?.permission[0]?.requester ?? ''
+}
+
+function targetFor(input: GrantTargetInput, instance?: string): OdrlTarget {
+  const id = urn()
   switch (input.scopeOfGrant) {
     case INTEROP.SelectedFromRegistry:
-      return { type: LWS.DataResource, value: [...(input.hasDataInstance ?? [])] }
-    case INTEROP.AllFromAgent:
-      return { type: LWS.StorageResource, value: [input.storage] }
+      return {
+        id,
+        uid: id,
+        storage: input.storage,
+        type: [ODRL.Asset],
+        source: instance ? [instance] : [...(input.hasDataInstance ?? [])],
+        ...(input.hasDataRegistration ? { partOf: [input.hasDataRegistration] } : {}),
+      }
     case INTEROP.AllFromRegistry:
     case INTEROP.Inherited:
-      return { type: LWS.Container, value: [input.hasDataRegistration] }
+      return {
+        id,
+        uid: id,
+        storage: input.storage,
+        type: [ODRL.AssetCollection, INTEROP.DataRegistration],
+        source: [input.hasDataRegistration],
+      }
+    case INTEROP.AllFromAgent:
+      return {
+        id,
+        uid: id,
+        type: [INTEROP.SocialAgent],
+        source: [input.agent ?? ''],
+      }
     default:
       throw new Error(`Unknown scope: ${input.scopeOfGrant}`)
   }
 }
 
-/** Build the LWS access policy list for a grant. */
-export function grantAccess(
-  input: GrantTargetInput & { assignee: string; actions: readonly string[] }
-): LwsAccessPolicy[] {
-  return [
-    {
-      type: [LWS.AccessPolicy],
+/** Build one ODRL `Agreement` policy (one permission per selected resource). */
+export function grantAccess(input: GrantPermissionInput): OdrlPolicy[] {
+  const policyId = urn()
+  const permissions: OdrlPermission[] = []
+  if (input.scopeOfGrant === INTEROP.SelectedFromRegistry) {
+    for (const instance of input.hasDataInstance ?? []) {
+      const permissionId = urn()
+      permissions.push({
+        id: permissionId,
+        uid: permissionId,
+        assigner: input.assigner,
+        requester: input.requester,
+        assignee: input.assignee,
+        action: [...input.actions],
+        target: targetFor(input, instance),
+      })
+    }
+  } else {
+    const permissionId = urn()
+    permissions.push({
+      id: permissionId,
+      uid: permissionId,
+      assigner: input.assigner,
+      requester: input.requester,
       assignee: input.assignee,
       action: [...input.actions],
-      target: grantTarget(input),
+      target: targetFor(input),
+    })
+  }
+  return [
+    {
+      id: policyId,
+      uid: policyId,
+      type: [ODRL.Agreement],
+      profile: INTEROP.AccessProfile,
+      permission: permissions,
+      scopeOfGrant: input.scopeOfGrant,
+      ...(input.registeredShapeTree ? { registeredShapeTree: input.registeredShapeTree } : {}),
+      ...(permissions[0]
+        ? {
+            assignee: permissions[0].assignee,
+            action: [...permissions[0].action],
+            target: permissions[0].target,
+          }
+        : {}),
     },
   ]
 }
 
-/**
- * Write a grant as an LWS `AccessGrant` RDF resource. Only the canonical
- * fields are written: `storage`, `access`, the SAI extension fields, and the
- * `lws:AccessGrant` type. The legacy flat fields are never emitted.
- */
+/** Write a grant as the frozen ODRL/LWS/SAI shape. */
 export function toJsonLd(grant: FinalGrantData): Record<string, unknown> {
-  const {
-    id,
-    type,
-    storage,
-    access,
-    grantedBy,
-    dataOwner,
-    registeredShapeTree,
-    hasDataRegistration,
-    scopeOfGrant,
-    hasDataInstance,
-    inheritsFromGrant,
-    hasInheritingGrant,
-  } = grant
-  return withContext(grantContext, {
-    id,
-    type: [...new Set([LWS.AccessGrant, ...(type ?? [])])],
-    storage,
-    access: access.map((policy) => ({
-      type: policy.type,
-      assignee: policy.assignee,
-      action: policy.action,
-      target: policy.target,
+  return withContext(accessContext, {
+    id: grant.id,
+    type: [...new Set([LWS.AccessGrant, ...(grant.type ?? [])])],
+    scopeOfGrant: grant.scopeOfGrant,
+    access: grant.access.map((policy) => ({
+      id: policy.id,
+      uid: policy.uid ?? policy.id,
+      type: [...new Set(policy.type)],
+      profile: policy.profile,
+      ...(policy.scopeOfGrant ? { scopeOfGrant: policy.scopeOfGrant } : {}),
+      permission: policy.permission.map((permission) => ({
+        id: permission.id,
+        uid: permission.uid ?? permission.id,
+        assigner: permission.assigner,
+        requester: permission.requester,
+        assignee: permission.assignee,
+        action: permission.action,
+        target: {
+          id: permission.target.id,
+          uid: permission.target.uid ?? permission.target.id,
+          ...(permission.target.storage ? { storage: permission.target.storage } : {}),
+          type: permission.target.type,
+          source: permission.target.source,
+          ...(permission.target.partOf ? { partOf: permission.target.partOf } : {}),
+        },
+      })),
+      ...(policy.inheritsFromGrant ? { inheritsFromGrant: policy.inheritsFromGrant } : {}),
+      ...(policy.registeredShapeTree ? { registeredShapeTree: policy.registeredShapeTree } : {}),
     })),
-    grantedBy,
-    dataOwner,
-    registeredShapeTree,
-    hasDataRegistration,
-    scopeOfGrant,
-    ...(hasDataInstance ? { hasDataInstance } : {}),
-    ...(inheritsFromGrant ? { inheritsFromGrant } : {}),
-    ...(hasInheritingGrant ? { hasInheritingGrant } : {}),
+    ...(grant.inheritsFromGrant ? { inheritsFromGrant: grant.inheritsFromGrant } : {}),
+    ...(grant.hasInheritingGrant ? { hasInheritingGrant: grant.hasInheritingGrant } : {}),
   })
 }
 
 export function dataRegistryIri(grant: GrantData): string {
-  // `storage` is the data registry (pod) IRI and does not depend on the
-  // registration's URI path — flat identifiers are directly under the pod.
-  return grant.storage
+  return grantStorage(grant)
 }

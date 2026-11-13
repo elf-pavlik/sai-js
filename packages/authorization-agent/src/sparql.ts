@@ -431,7 +431,11 @@ export async function getLinkedGrantOwners(
   { GRAPH <${registrationIri}> { <${registrationIri}> <${INTEROP.hasDataGrant}> ?grant } }
   UNION
   { GRAPH <meta:${registrationIri}> { <${registrationIri}> <${INTEROP.hasDataGrant}> ?grant } }
-  GRAPH ?graph { ?grant <${INTEROP.dataOwner}> ?owner }
+  GRAPH ?graph {
+    ?grant <${LWS.access}> ?policy .
+    ?policy <${ODRL.permission}> ?permission .
+    ?permission <${ODRL.assigner}> ?owner .
+  }
 }`
   )
   return [...new Set(bindings.map((binding) => binding.owner.value))]
@@ -707,11 +711,12 @@ export async function getGrantsAuthority(
   const bindings = await transport.fetchBindings(
     `SELECT ?grant ?dataOwner ?grantedBy ?grantee WHERE {
     GRAPH ?g {
-      ?grant
-        <${INTEROP.dataOwner}> ?dataOwner;
-        <${INTEROP.grantedBy}> ?grantedBy;
-        <${LWS.access}> ?policy .
-      ?policy <${ODRL.assignee}> ?grantee .
+      ?grant <${LWS.access}> ?policy .
+      ?policy <${ODRL.permission}> ?permission .
+      ?permission
+        <${ODRL.assigner}> ?dataOwner;
+        <${INTEROP.requester}> ?grantedBy;
+        <${ODRL.assignee}> ?grantee .
     }
     VALUES ?grant { ${values} }
   }`
@@ -852,10 +857,12 @@ export async function getAccessGrantsForGrantee(
 SELECT DISTINCT ?grant ?grantedBy ?shapeTree WHERE {
   GRAPH ?g {
     ?grant a <${LWS.AccessGrant}> ;
-           <${INTEROP.grantedBy}> ?grantedBy ;
-           <${INTEROP.registeredShapeTree}> ?shapeTree ;
            <${LWS.access}> ?policy .
-    ?policy <${ODRL.assignee}> <${webId}> .
+    ?policy <${INTEROP.registeredShapeTree}> ?shapeTree ;
+           <${ODRL.permission}> ?permission .
+    ?permission
+      <${ODRL.assigner}> ?grantedBy ;
+      <${ODRL.assignee}> <${webId}> .
   }
 }`
   const bindings = await transport.fetchBindings(query)

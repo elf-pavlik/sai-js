@@ -1,4 +1,4 @@
-import { LWS } from '@janeirodigital/interop-utils'
+import { LWS, ODRL } from '@janeirodigital/interop-utils'
 import type { DatasetCore, Quad } from '@rdfjs/types'
 import { NotFoundHttpError, arrayifyStream } from '@solid/community-server'
 import type { IdentifierStrategy, PodStore, StorageLocationStrategy } from '@solid/community-server'
@@ -69,13 +69,18 @@ export class SaiAuthorizationManager implements AuthorizationManager {
       const bindingsStream = await this.fetcher.fetchBindings(
         endpoint,
         `
-        SELECT * WHERE {
-          GRAPH ?g {?s <${LWS.storage}> <${storage.path}> }
+        SELECT DISTINCT ?g WHERE {
+          GRAPH ?g {
+            ?grant <${LWS.access}> ?policy .
+            ?policy <${ODRL.permission}> ?permission .
+            ?permission <${ODRL.target}> ?target .
+            ?target <${LWS.storage}> <${storage.path}> .
+          }
         }
       `
       )
       const results = await arrayifyStream<IBindings>(bindingsStream)
-      const grants = results.map((b) => b['s'].value)
+      const grants = results.map((b) => b.g.value)
 
       let data: Quad[] = []
       for (const grant of grants) {
@@ -83,10 +88,7 @@ export class SaiAuthorizationManager implements AuthorizationManager {
           endpoint,
           `
             CONSTRUCT { ?s ?p ?o } WHERE {
-              GRAPH ?g {
-                <${grant}> <${LWS.storage}> ?storage .
-                ?s ?p ?o
-              }
+              GRAPH <${grant}> { ?s ?p ?o }
             }
           `
         )

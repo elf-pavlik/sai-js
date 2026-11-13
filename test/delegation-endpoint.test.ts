@@ -1,5 +1,5 @@
 import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
-import { type IncomingGrantData, grantAccess } from '@janeirodigital/interop-data-model'
+import { type GrantData, grantAccess } from '@janeirodigital/interop-data-model'
 import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { afterEach, describe, expect, test } from 'vitest'
 
@@ -28,10 +28,10 @@ interface IncomingGrantFields {
   dataOwner?: string
   actions?: string[]
   hasDataInstance?: string[]
-  hasInheritingGrant?: IncomingGrantData[]
+  hasInheritingGrant?: GrantData[]
 }
 
-function incomingGrant(fields: IncomingGrantFields): IncomingGrantData {
+function incomingGrant(fields: IncomingGrantFields): GrantData {
   const storage = fields.storage ?? 'https://data/acme-rnd/'
   const actions = fields.actions ?? [ACCESS_ACTIONS.read, ACCESS_ACTIONS.modify]
   return {
@@ -42,6 +42,9 @@ function incomingGrant(fields: IncomingGrantFields): IncomingGrantData {
       storage,
       hasDataRegistration: fields.hasDataRegistration,
       hasDataInstance: fields.hasDataInstance,
+      registeredShapeTree: fields.registeredShapeTree,
+      assigner: fields.dataOwner ?? acmeId,
+      requester: fields.grantedBy ?? bobId,
       assignee: fields.assignee ?? testClient,
       actions,
     }),
@@ -55,25 +58,25 @@ function incomingGrant(fields: IncomingGrantFields): IncomingGrantData {
   }
 }
 
-const tasksGrantData: IncomingGrantData = incomingGrant({
+const tasksGrantData: GrantData = incomingGrant({
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-rnd/x0md9s',
   scopeOfGrant: INTEROP.Inherited,
 })
-const projectsGrantData: IncomingGrantData = incomingGrant({
+const projectsGrantData: GrantData = incomingGrant({
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-rnd/reb39k',
   scopeOfGrant: INTEROP.AllFromRegistry,
   hasInheritingGrant: [tasksGrantData],
 })
 // second delegable chain from the seed: acme-hr project → inherited task
-const hrTasksGrantData: IncomingGrantData = incomingGrant({
+const hrTasksGrantData: GrantData = incomingGrant({
   storage: 'https://data/acme-hr/',
   registeredShapeTree: SOLIDTREES.Task,
   hasDataRegistration: 'https://data/acme-hr/v4n2qx',
   scopeOfGrant: INTEROP.Inherited,
 })
-const hrProjectsGrantData: IncomingGrantData = incomingGrant({
+const hrProjectsGrantData: GrantData = incomingGrant({
   storage: 'https://data/acme-hr/',
   registeredShapeTree: SOLIDTREES.Project,
   hasDataRegistration: 'https://data/acme-hr/p7t9km',
@@ -81,8 +84,30 @@ const hrProjectsGrantData: IncomingGrantData = incomingGrant({
   hasInheritingGrant: [hrTasksGrantData],
 })
 
-const issuancePayload = (grants: IncomingGrantData[]): string =>
-  JSON.stringify({ type: [INTEROP.AccessRequest], grants })
+const wireContext = [
+  'https://www.w3.org/ns/lws/v1',
+  'http://www.w3.org/ns/odrl.jsonld',
+  'https://www.w3.org/ns/solid/interop-context/v1',
+]
+
+const issuancePayload = (grants: GrantData[]): string =>
+  JSON.stringify(
+    grants.map((top) => {
+      const parentPolicyId = top.access[0]?.uid
+      const children = (top.hasInheritingGrant ?? []) as unknown as GrantData[]
+      const childPolicies = children.flatMap((child) =>
+        child.access.map((policy) => ({
+          ...policy,
+          ...(parentPolicyId ? { inheritsFromGrant: parentPolicyId } : {}),
+        }))
+      )
+      return {
+        '@context': wireContext,
+        type: ['AccessRequest', 'DelegationRequest'],
+        access: [...top.access, ...childPolicies],
+      }
+    })
+  )
 
 async function countGrants(): Promise<number> {
   // flat registry: members are listed with `lws:contains`, and the registry
@@ -92,7 +117,11 @@ async function countGrants(): Promise<number> {
 }
 
 const revocationPayload = (grants: string[]): string =>
-  JSON.stringify({ type: [INTEROP.AccessRevocation], grants })
+  JSON.stringify({
+    '@context': wireContext,
+    type: ['AccessRequest', 'AccessRevocationRequest'],
+    grants,
+  })
 
 async function issueProjectsGrant(): Promise<string[]> {
   const session = await buildOidcSession(bobId)
@@ -336,7 +365,14 @@ describe('DelegationIssuanceEndpoint', () => {
       const response = await session.authFetch(issuanceUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
-        body: issuancePayload([{ ...projectsGrantData, grantedBy: 'https://id/kim' }]),
+        body: issuancePayload([
+          incomingGrant({
+            grantedBy: 'https://id/kim',
+            registeredShapeTree: SOLIDTREES.Project,
+            hasDataRegistration: 'https://data/acme-rnd/reb39k',
+            scopeOfGrant: INTEROP.AllFromRegistry,
+          }),
+        ]),
       })
       expect(response.status).toBe(400)
       expect(await countGrants()).toBe(seededGrantCount)
@@ -347,11 +383,11 @@ describe('DelegationIssuanceEndpoint', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
-          {
-            ...projectsGrantData,
+          incomingGrant({
+            registeredShapeTree: SOLIDTREES.Project,
             hasDataRegistration: 'https://data/acme-rnd/does-not-exist/',
-            hasInheritingGrant: undefined,
-          },
+            scopeOfGrant: INTEROP.AllFromRegistry,
+          }),
         ]),
       })
       expect(response.status).toBe(400)
@@ -363,7 +399,12 @@ describe('DelegationIssuanceEndpoint', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
-          { ...projectsGrantData, dataOwner: 'https://id/kim' },
+          incomingGrant({
+            dataOwner: 'https://id/kim',
+            registeredShapeTree: SOLIDTREES.Project,
+            hasDataRegistration: 'https://data/acme-rnd/reb39k',
+            scopeOfGrant: INTEROP.AllFromRegistry,
+          }),
           projectsGrantData,
         ]),
       })

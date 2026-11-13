@@ -1,46 +1,32 @@
-import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
-import { describe, test } from 'vitest'
+import { INTEROP, LWS, ODRL } from '@janeirodigital/interop-utils'
+import { describe, expect, test } from 'vitest'
 
 import { Grant } from '../../src'
-import { expect } from '../expect'
 import { docFromGraphs } from './helpers'
 
 const GRANT_IRI = 'https://registry/acme/p9m2vr'
 
-// Graph <https://registry/acme/p9m2vr> in registry.trig:
-// AllFromRegistry AccessGrant, plus the child grant hdaymz pointing
-// inheritsFromGrant at it (frames to hasInheritingGrant via @reverse).
 describe('Grant framing', () => {
-  test('frames the grant graph into the canonical LWS shape', async () => {
+  test('frames the ODRL grant graph', async () => {
     const doc = await docFromGraphs([GRANT_IRI])
     const grant = await Grant.fromJsonLd(doc, GRANT_IRI)
-    expect(grant).toEqual({
-      id: GRANT_IRI,
-      type: [LWS.AccessGrant],
-      storage: 'https://data/acme-rnd/',
-      access: [
-        {
-          type: [LWS.AccessPolicy],
-          assignee: 'https://id/bob',
-          action: [
-            ACCESS_ACTIONS.read,
-            ACCESS_ACTIONS.create,
-            ACCESS_ACTIONS.modify,
-            ACCESS_ACTIONS.delete,
-          ],
-          target: {
-            type: LWS.Container,
-            value: ['https://data/acme-rnd/reb39k'],
-          },
-        },
-      ],
-      grantedBy: 'https://id/acme',
-      dataOwner: 'https://id/acme',
-      registeredShapeTree: 'https://data/shapetrees/trees/Project',
-      hasDataRegistration: 'https://data/acme-rnd/reb39k',
-      scopeOfGrant: INTEROP.AllFromRegistry,
-      inheritsFromGrant: undefined,
-      hasInheritingGrant: ['https://registry/acme/hdaymz'],
-    })
+    expect(grant.id).toBe(GRANT_IRI)
+    expect(grant.type).toContain(LWS.AccessGrant)
+    expect(grant.scopeOfGrant).toBe(INTEROP.AllFromRegistry)
+    expect(grant.storage).toBe('https://data/acme-rnd/')
+    expect(grant.hasDataRegistration).toBe('https://data/acme-rnd/reb39k')
+    expect(grant.registeredShapeTree).toBe('https://data/shapetrees/trees/Project')
+    expect(grant.hasInheritingGrant).toEqual(['https://registry/acme/hdaymz'])
+
+    const policy = grant.access[0]
+    expect(policy.type).toContain(ODRL.Agreement)
+    const permission = policy.permission[0]
+    expect(permission.assigner).toBe('https://id/acme')
+    expect(permission.requester).toBe('https://id/acme')
+    expect(permission.assignee).toBe('https://id/bob')
+    expect(permission.target.type).toContain(ODRL.AssetCollection)
+    expect(permission.target.type).toContain(INTEROP.DataRegistration)
+    expect(permission.target.source).toEqual(['https://data/acme-rnd/reb39k'])
+    expect(permission.target.storage).toBe('https://data/acme-rnd/')
   })
 })

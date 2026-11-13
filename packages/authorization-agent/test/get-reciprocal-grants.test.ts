@@ -1,10 +1,10 @@
-import { ACCESS_ACTIONS, INTEROP, LDP, LWS, RDF } from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LDP, ODRL, LWS, RDF } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad, Store } from 'n3'
 import { describe, expect, test } from 'vitest'
 
 import { type SparqlTransport, getReciprocalGrants } from '../src/sparql.js'
 
-const { blankNode, namedNode, quad } = DataFactory
+const { namedNode, quad } = DataFactory
 
 const RECIPROCAL = 'https://registry/alice/r-acme'
 const G1 = 'https://registry/alice/g1'
@@ -18,27 +18,30 @@ const registrationGraph = (links: string[]): Quad[] =>
   )
 
 const grantGraph = (id: string, over: { tree?: string; owner?: string } = {}): Quad[] => {
-  const policy = blankNode()
-  const target = blankNode()
+  const policy = namedNode(`urn:uuid:${id}-policy`)
+  const permission = namedNode(`urn:uuid:${id}-permission`)
+  const target = namedNode(`urn:uuid:${id}-target`)
   return [
     quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
-    quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(over.tree ?? TREE)),
-    quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(over.owner ?? 'https://id/alice')),
-    quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode('https://id/alice')),
-    quad(
-      namedNode(id),
-      namedNode(INTEROP.hasDataRegistration),
-      namedNode('https://data/alice/registrations/p')
-    ),
-    quad(namedNode(id), namedNode(LWS.storage), namedNode('https://data/alice/')),
     quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(INTEROP.AllFromRegistry)),
     quad(namedNode(id), namedNode(LWS.access), policy),
-    quad(policy, namedNode(RDF.type), namedNode(LWS.AccessPolicy)),
-    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/assignee'), namedNode('https://id/acme')),
-    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/action'), namedNode(ACCESS_ACTIONS.read)),
-    quad(policy, namedNode('http://www.w3.org/ns/odrl/2/target'), target),
-    quad(target, namedNode(RDF.type), namedNode(LWS.Container)),
-    quad(target, namedNode(LWS.value), namedNode('https://data/alice/registrations/p')),
+    quad(policy, namedNode(RDF.type), namedNode(ODRL.Agreement)),
+    quad(policy, namedNode(ODRL.uid), policy),
+    quad(policy, namedNode(ODRL.profile), namedNode(INTEROP.AccessProfile)),
+    quad(policy, namedNode(INTEROP.registeredShapeTree), namedNode(over.tree ?? TREE)),
+    quad(policy, namedNode(INTEROP.scopeOfGrant), namedNode(INTEROP.AllFromRegistry)),
+    quad(policy, namedNode(ODRL.permission), permission),
+    quad(permission, namedNode(ODRL.uid), permission),
+    quad(permission, namedNode(ODRL.assigner), namedNode(over.owner ?? 'https://id/alice')),
+    quad(permission, namedNode(INTEROP.requester), namedNode('https://id/alice')),
+    quad(permission, namedNode(ODRL.assignee), namedNode('https://id/acme')),
+    quad(permission, namedNode(ODRL.action), namedNode(ACCESS_ACTIONS.read)),
+    quad(permission, namedNode(ODRL.target), target),
+    quad(target, namedNode(ODRL.uid), target),
+    quad(target, namedNode(RDF.type), namedNode(ODRL.AssetCollection)),
+    quad(target, namedNode(RDF.type), namedNode(INTEROP.DataRegistration)),
+    quad(target, namedNode(ODRL.source), namedNode('https://data/alice/registrations/p')),
+    quad(target, namedNode(LWS.storage), namedNode('https://data/alice/')),
   ]
 }
 

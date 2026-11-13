@@ -20,7 +20,7 @@ import { MirrorIncompleteError, generateGrantsForAuthorization } from '../src/gr
 import type { SparqlTransport } from '../src/sparql.js'
 import type { DataModelDependencies } from '../src/types.js'
 
-const { blankNode, namedNode, quad } = DataFactory
+const { namedNode, quad } = DataFactory
 
 // ──────────────────────────
 // Fixtures: acme (us / grantor) delegates data owned by the peer alice to kim.
@@ -149,39 +149,58 @@ const grantGraph = (
   }
 ): Quad[] => {
   const scopeOfGrant = fields.scopeOfGrant ?? INTEROP.AllFromRegistry
-  const targetType =
+  const policy = namedNode(`urn:uuid:${id}-policy`)
+  const permission = namedNode(`urn:uuid:${id}-permission`)
+  const targets =
     scopeOfGrant === INTEROP.SelectedFromRegistry
-      ? LWS.DataResource
-      : scopeOfGrant === INTEROP.AllFromAgent
-        ? LWS.StorageResource
-        : LWS.Container
-  const targetValues =
-    scopeOfGrant === INTEROP.SelectedFromRegistry
-      ? (fields.hasDataInstance ?? [])
-      : scopeOfGrant === INTEROP.AllFromAgent
-        ? [fields.storage]
-        : [fields.dataRegistration]
-  const policy = blankNode()
-  const target = blankNode()
-  return [
+      ? (fields.hasDataInstance ?? []).map((instance, index) => ({
+          id: namedNode(`urn:uuid:${id}-target-${index}`),
+          types: [ODRL.Asset],
+          sources: [instance],
+        }))
+      : [
+          {
+            id: namedNode(`urn:uuid:${id}-target`),
+            types:
+              scopeOfGrant === INTEROP.AllFromAgent
+                ? [INTEROP.SocialAgent]
+                : [ODRL.AssetCollection, INTEROP.DataRegistration],
+            sources:
+              scopeOfGrant === INTEROP.AllFromAgent ? [fields.storage] : [fields.dataRegistration],
+          },
+        ]
+  const quads: Quad[] = [
     quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
-    quad(namedNode(id), namedNode(RDF.type), namedNode(LWS.AccessGrant)),
-    quad(namedNode(id), namedNode(INTEROP.registeredShapeTree), namedNode(fields.shapeTree)),
-    quad(namedNode(id), namedNode(INTEROP.hasDataRegistration), namedNode(fields.dataRegistration)),
-    quad(namedNode(id), namedNode(LWS.storage), namedNode(fields.storage)),
-    quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(ALICE)),
-    quad(namedNode(id), namedNode(INTEROP.grantedBy), namedNode(ALICE)),
     quad(namedNode(id), namedNode(INTEROP.scopeOfGrant), namedNode(scopeOfGrant)),
     quad(namedNode(id), namedNode(LWS.access), policy),
-    quad(policy, namedNode(RDF.type), namedNode(LWS.AccessPolicy)),
-    quad(policy, namedNode(ODRL.assignee), namedNode(ACME)),
+    quad(policy, namedNode(RDF.type), namedNode(ODRL.Agreement)),
+    quad(policy, namedNode(ODRL.uid), policy),
+    quad(policy, namedNode(ODRL.profile), namedNode(INTEROP.AccessProfile)),
+    quad(policy, namedNode(INTEROP.registeredShapeTree), namedNode(fields.shapeTree)),
+    quad(policy, namedNode(INTEROP.scopeOfGrant), namedNode(scopeOfGrant)),
+    quad(policy, namedNode(ODRL.permission), permission),
+    quad(permission, namedNode(ODRL.uid), permission),
+    quad(permission, namedNode(ODRL.assigner), namedNode(ALICE)),
+    quad(permission, namedNode(INTEROP.requester), namedNode(ALICE)),
+    quad(permission, namedNode(ODRL.assignee), namedNode(ACME)),
     ...(fields.accessMode ?? [ACCESS_ACTIONS.read]).map((mode) =>
-      quad(policy, namedNode(ODRL.action), namedNode(mode))
+      quad(permission, namedNode(ODRL.action), namedNode(mode))
     ),
-    quad(policy, namedNode(ODRL.target), target),
-    quad(target, namedNode(RDF.type), namedNode(targetType)),
-    ...targetValues.map((value) => quad(target, namedNode(LWS.value), namedNode(value))),
   ]
+  for (const target of targets) {
+    quads.push(quad(permission, namedNode(ODRL.target), target.id))
+    quads.push(quad(target.id, namedNode(ODRL.uid), target.id))
+    for (const type of target.types)
+      quads.push(quad(target.id, namedNode(RDF.type), namedNode(type)))
+    for (const source of target.sources) {
+      quads.push(quad(target.id, namedNode(ODRL.source), namedNode(source)))
+    }
+    quads.push(quad(target.id, namedNode(LWS.storage), namedNode(fields.storage)))
+    if (scopeOfGrant === INTEROP.SelectedFromRegistry) {
+      quads.push(quad(target.id, namedNode(ODRL.partOf), namedNode(fields.dataRegistration)))
+    }
+  }
+  return quads
 }
 
 /**

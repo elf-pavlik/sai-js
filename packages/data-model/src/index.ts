@@ -62,16 +62,21 @@ export type {
   GrantId,
   FinalGrantData,
   GeneratedGrants,
-  LwsAccessPolicy,
   GrantTargetInput,
-  LwsTarget,
+  GrantPermissionInput,
+  OdrlPolicy,
+  OdrlPermission,
+  OdrlTarget,
 } from './grant.ts'
 export * as Grant from './grant.ts'
 export {
+  dataRegistryIri,
   grantAccess,
   grantAccessModes,
+  grantDataOwner,
   grantGrantee,
-  grantTarget,
+  grantRequester,
+  grantStorage,
   grantTargets,
   toJsonLd,
 } from './grant.ts'

@@ -40,17 +40,58 @@ export async function forwardNeedBasedAccessRequest(
   const manager = buildSessionManager()
   const session = await manager.getSession(input.requester.id)
   const endpoint = issuanceUrl(input.request.dataOwner)
+  const wireContext = [
+    'https://www.w3.org/ns/lws/v1',
+    'http://www.w3.org/ns/odrl.jsonld',
+    'https://www.w3.org/ns/solid/interop-context/v1',
+  ]
+  const policies: Record<string, unknown>[] = []
+  const addNeed = (need: Record<string, unknown>, parentId?: string) => {
+    const permissionId = `urn:uuid:${crypto.randomUUID()}`
+    const targetId = `urn:uuid:${crypto.randomUUID()}`
+    const needId = need.id as string
+    policies.push({
+      type: [
+        'Request',
+        'AccessNeed',
+        need.required === INTEROP.AccessOptional ? 'AccessOptional' : 'AccessRequired',
+      ],
+      uid: needId,
+      profile: 'AccessProfile',
+      accessNeedGroup: input.request.hasAccessNeedGroup.id,
+      registeredShapeTree: need.registeredShapeTree,
+      ...(parentId ? { inheritsFromNeed: parentId } : {}),
+      permission: [
+        {
+          uid: permissionId,
+          assigner: input.request.dataOwner,
+          requester: input.request.grantedBy,
+          assignee: input.request.grantee,
+          action: (need.accessMode as string[]) ?? [],
+          target: {
+            type: ['AssetCollection', 'st:ShapeTree'],
+            uid: targetId,
+            source: [need.registeredShapeTree],
+          },
+        },
+      ],
+    })
+    for (const child of (need.hasInheritingNeed as Record<string, unknown>[] | undefined) ?? []) {
+      addNeed(child, needId)
+    }
+  }
+  for (const need of input.request.hasAccessNeedGroup.hasAccessNeed as Record<string, unknown>[]) {
+    addNeed(need)
+  }
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/ld+json',
     },
     body: JSON.stringify({
-      type: [INTEROP.NeedBasedAccessRequest],
-      grantee: input.request.grantee,
-      grantedBy: input.request.grantedBy,
-      dataOwner: input.request.dataOwner,
-      hasAccessNeedGroup: input.request.hasAccessNeedGroup,
+      '@context': wireContext,
+      type: ['AccessRequest', 'NeedBasedAccessRequest'],
+      access: policies,
     }),
   })
   if (response.status !== 202) {

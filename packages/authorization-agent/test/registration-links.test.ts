@@ -1,4 +1,4 @@
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, LWS, ODRL } from '@janeirodigital/interop-utils'
 import { DataFactory, type Quad } from 'n3'
 import { describe, expect, test } from 'vitest'
 
@@ -23,17 +23,24 @@ function graphTransport(graphs: Map<string, Quad[]>): SparqlTransport & { querie
     queries,
     async fetchBindings(query: string) {
       queries.push(query)
-      if (query.includes(INTEROP.dataOwner)) {
-        // link set joined with each grant's dataOwner — emulate it directly
+      if (query.includes(ODRL.assigner)) {
         const owners = new Set<string>()
         for (const name of [RECIPROCAL, `meta:${RECIPROCAL}`]) {
           const grantIris = (graphs.get(name) ?? [])
             .filter((q) => q.predicate.value === INTEROP.hasDataGrant)
             .map((q) => q.object.value)
-          for (const grant of grantIris) {
-            for (const q of graphs.get(grant) ?? []) {
-              if (q.predicate.value === INTEROP.dataOwner) owners.add(q.object.value)
-            }
+          for (const grantIri of grantIris) {
+            const grantQuads = graphs.get(grantIri) ?? []
+            const policy = grantQuads.find((q) => q.predicate.value === LWS.access)?.object.value
+            if (!policy) continue
+            const permission = grantQuads.find(
+              (q) => q.predicate.value === ODRL.permission && q.subject.value === policy
+            )?.object.value
+            if (!permission) continue
+            const owner = grantQuads.find(
+              (q) => q.predicate.value === ODRL.assigner && q.subject.value === permission
+            )?.object.value
+            if (owner) owners.add(owner)
           }
         }
         return [...owners].map((owner) => ({ owner: { termType: 'NamedNode', value: owner } }))
@@ -59,9 +66,15 @@ function graphTransport(graphs: Map<string, Quad[]>): SparqlTransport & { querie
 const link = (predicate: string, target: string): Quad =>
   quad(namedNode(RECIPROCAL), namedNode(predicate), namedNode(target))
 
-const grant = (id: string, owner: string): Quad[] => [
-  quad(namedNode(id), namedNode(INTEROP.dataOwner), namedNode(owner)),
-]
+const grant = (id: string, owner: string): Quad[] => {
+  const policy = `${id}#policy`
+  const permission = `${id}#permission`
+  return [
+    quad(namedNode(id), namedNode(LWS.access), namedNode(policy)),
+    quad(namedNode(policy), namedNode(ODRL.permission), namedNode(permission)),
+    quad(namedNode(permission), namedNode(ODRL.assigner), namedNode(owner)),
+  ]
+}
 
 describe('getRegistrationLinks — link presence without framing', () => {
   test('reads hasAdminGrant from the resource graph and its meta twin', async () => {

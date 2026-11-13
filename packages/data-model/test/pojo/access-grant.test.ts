@@ -1,24 +1,8 @@
-import {
-  ACCESS_ACTIONS,
-  INTEROP,
-  LWS,
-  ODRL,
-  RDF,
-  frameNode,
-  toStore,
-} from '@janeirodigital/interop-utils'
+import { ACCESS_ACTIONS, INTEROP, LWS, ODRL, RDF, toStore } from '@janeirodigital/interop-utils'
 import { DataFactory } from 'n3'
-import { describe, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
-import {
-  type FinalGrantData,
-  Grant,
-  type GrantTargetInput,
-  grantAccess,
-  grantContext,
-  lwsGrantContext,
-} from '../../src'
-import { expect } from '../expect'
+import { type FinalGrantData, Grant, type GrantTargetInput, grantAccess } from '../../src'
 
 const snippetIri = 'https://some.iri/'
 const GRANTEE = 'https://id/bob'
@@ -35,6 +19,7 @@ function targetInput(
     scopeOfGrant,
     storage: STORAGE,
     hasDataRegistration: REGISTRATION,
+    registeredShapeTree: SHAPE_TREE,
     ...extra,
   }
 }
@@ -50,6 +35,8 @@ function grantData(
     storage: STORAGE,
     access: grantAccess({
       ...targetInput(scopeOfGrant, targetExtra),
+      assigner: DATA_OWNER,
+      requester: DATA_OWNER,
       assignee: GRANTEE,
       actions: [ACCESS_ACTIONS.read],
     }),
@@ -62,203 +49,93 @@ function grantData(
   }
 }
 
-const commonQuads = [
-  DataFactory.quad(DataFactory.namedNode(snippetIri), RDF.terms.type, LWS.terms.AccessGrant),
-  DataFactory.quad(
-    DataFactory.namedNode(snippetIri),
-    INTEROP.terms.dataOwner,
-    DataFactory.namedNode(DATA_OWNER)
-  ),
-  DataFactory.quad(
-    DataFactory.namedNode(snippetIri),
-    INTEROP.terms.registeredShapeTree,
-    DataFactory.namedNode(SHAPE_TREE)
-  ),
-  DataFactory.quad(
-    DataFactory.namedNode(snippetIri),
-    INTEROP.terms.hasDataRegistration,
-    DataFactory.namedNode(REGISTRATION)
-  ),
-]
-
-async function toJsonLdAndCheck(data: FinalGrantData, expectedQuads: any[]) {
-  const dataset = await toStore(Grant.toJsonLd(data), snippetIri)
-  expect(dataset).toBeRdfDatasetContaining(...expectedQuads)
-}
-
 describe('toJsonLd', () => {
-  test('should set dataset for AllFromRegistry scope', async () => {
+  test('writes the ODRL grant shape', async () => {
     const grant = grantData(INTEROP.AllFromRegistry)
-    const expected = [
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.scopeOfGrant,
-        INTEROP.terms.AllFromRegistry
-      ),
-      ...commonQuads,
-    ]
-    await toJsonLdAndCheck(grant, expected)
+    const store = await toStore(Grant.toJsonLd(grant), snippetIri)
+    const subject = DataFactory.namedNode(snippetIri)
+
+    expect(store.getQuads(subject, RDF.terms.type, LWS.terms.AccessGrant, null)).toHaveLength(1)
+    expect(store.getQuads(subject, INTEROP.terms.scopeOfGrant, null, null)[0].object.value).toBe(
+      INTEROP.AllFromRegistry
+    )
+    expect(store.getQuads(subject, LWS.terms.storage, null, null)).toHaveLength(0)
+
+    const policy = store.getQuads(subject, LWS.terms.access, null, null)[0].object
+    expect(store.getQuads(policy, RDF.terms.type, ODRL.terms.Agreement, null)).toHaveLength(1)
+    expect(store.getQuads(policy, ODRL.terms.profile, null, null)[0].object.value).toBe(
+      INTEROP.AccessProfile
+    )
+
+    const permission = store.getQuads(policy, ODRL.terms.permission, null, null)[0].object
+    expect(store.getQuads(permission, ODRL.terms.assigner, null, null)[0].object.value).toBe(
+      DATA_OWNER
+    )
+    expect(store.getQuads(permission, INTEROP.terms.requester, null, null)[0].object.value).toBe(
+      DATA_OWNER
+    )
+    expect(store.getQuads(permission, ODRL.terms.assignee, null, null)[0].object.value).toBe(
+      GRANTEE
+    )
+    expect(store.getQuads(permission, ODRL.terms.action, null, null)[0].object.value).toBe(
+      ACCESS_ACTIONS.read
+    )
+
+    const target = store.getQuads(permission, ODRL.terms.target, null, null)[0].object
+    expect(store.getQuads(target, RDF.terms.type, ODRL.terms.AssetCollection, null)).toHaveLength(1)
+    expect(
+      store.getQuads(target, RDF.terms.type, INTEROP.terms.DataRegistration, null)
+    ).toHaveLength(1)
+    expect(store.getQuads(target, ODRL.terms.source, null, null)[0].object.value).toBe(REGISTRATION)
+    expect(store.getQuads(target, LWS.terms.storage, null, null)[0].object.value).toBe(STORAGE)
   })
 
-  test('should set dataset for SelectedFromRegistry scope', async () => {
+  test('uses one permission per selected resource', async () => {
     const instances = ['https://some.iri/a', 'https://some.iri/b']
     const grant = grantData(
       INTEROP.SelectedFromRegistry,
       { hasDataInstance: instances },
       { hasDataInstance: instances }
     )
-    const expected = [
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.scopeOfGrant,
-        INTEROP.terms.SelectedFromRegistry
-      ),
-      ...instances.map((instance) =>
-        DataFactory.quad(
-          DataFactory.namedNode(snippetIri),
-          INTEROP.terms.hasDataInstance,
-          DataFactory.namedNode(instance)
-        )
-      ),
-      ...commonQuads,
-    ]
-    await toJsonLdAndCheck(grant, expected)
+    const store = await toStore(Grant.toJsonLd(grant), snippetIri)
+    const policy = store.getQuads(
+      DataFactory.namedNode(snippetIri),
+      LWS.terms.access,
+      null,
+      null
+    )[0].object
+    const permissions = store.getQuads(policy, ODRL.terms.permission, null, null)
+    expect(permissions).toHaveLength(2)
+    const sources = permissions
+      .map(
+        (permission) => store.getQuads(permission.object, ODRL.terms.target, null, null)[0].object
+      )
+      .map((target) => store.getQuads(target, ODRL.terms.source, null, null)[0].object.value)
+      .toSorted()
+    expect(sources).toEqual([...instances].toSorted())
   })
 
-  test('should set dataset for Inherited scope', async () => {
+  test('keeps the inherited link', async () => {
     const parent = 'https://some.iri/gr'
     const grant = grantData(INTEROP.Inherited, { inheritsFromGrant: parent })
-    const expected = [
-      DataFactory.quad(
-        DataFactory.namedNode(snippetIri),
-        INTEROP.terms.scopeOfGrant,
-        INTEROP.terms.Inherited
-      ),
-      DataFactory.quad(
+    const store = await toStore(Grant.toJsonLd(grant), snippetIri)
+    expect(
+      store.getQuads(
         DataFactory.namedNode(snippetIri),
         INTEROP.terms.inheritsFromGrant,
-        DataFactory.namedNode(parent)
-      ),
-      ...commonQuads,
-    ]
-    await toJsonLdAndCheck(grant, expected)
-  })
-})
-
-describe('LWS AccessGrant shape (step 3)', () => {
-  test('writes only the canonical LWS shape plus SAI extensions', async () => {
-    const grant = grantData(INTEROP.AllFromRegistry)
-    const store = await toStore(Grant.toJsonLd(grant), snippetIri)
-    const subject = DataFactory.namedNode(snippetIri)
-
-    expect(store.getQuads(subject, RDF.terms.type, LWS.terms.AccessGrant, null)).toHaveLength(1)
-    // legacy flat fields are gone
-    expect(store.getQuads(subject, INTEROP.terms.grantee, null, null)).toHaveLength(0)
-    expect(store.getQuads(subject, INTEROP.terms.accessMode, null, null)).toHaveLength(0)
-    expect(store.getQuads(subject, INTEROP.terms.hasStorage, null, null)).toHaveLength(0)
-
-    expect(store.getQuads(subject, LWS.terms.storage, null, null)[0].object.value).toBe(STORAGE)
-    const policy = store.getQuads(subject, LWS.terms.access, null, null)[0].object
-    expect(store.getQuads(policy, RDF.terms.type, LWS.terms.AccessPolicy, null)).toHaveLength(1)
-    expect(store.getQuads(policy, ODRL.terms.assignee, null, null)[0].object).toEqual(
-      DataFactory.namedNode(GRANTEE)
-    )
-    expect(store.getQuads(policy, ODRL.terms.action, null, null)[0].object.value).toBe(
-      ACCESS_ACTIONS.read
-    )
-    const target = store.getQuads(policy, ODRL.terms.target, null, null)[0].object
-    expect(store.getQuads(target, RDF.terms.type, LWS.terms.Container, null)).toHaveLength(1)
-    expect(store.getQuads(target, LWS.terms.value, null, null)[0].object.value).toBe(REGISTRATION)
-  })
-
-  test('maps every SAI scope to the closest LWS target', async () => {
-    const cases = [
-      {
-        scope: INTEROP.AllFromAgent,
-        extra: {},
-        targetExtra: {},
-        type: LWS.StorageResource,
-        values: [STORAGE],
-      },
-      {
-        scope: INTEROP.AllFromRegistry,
-        extra: {},
-        targetExtra: {},
-        type: LWS.Container,
-        values: [REGISTRATION],
-      },
-      {
-        scope: INTEROP.SelectedFromRegistry,
-        extra: { hasDataInstance: ['https://pro.alice.example/p1'] },
-        targetExtra: { hasDataInstance: ['https://pro.alice.example/p1'] },
-        type: LWS.DataResource,
-        values: ['https://pro.alice.example/p1'],
-      },
-      {
-        scope: INTEROP.Inherited,
-        extra: { inheritsFromGrant: 'https://some.iri/parent' },
-        targetExtra: {},
-        type: LWS.Container,
-        values: [REGISTRATION],
-      },
-    ]
-    for (const item of cases) {
-      const grant = grantData(item.scope, item.extra, item.targetExtra)
-      const store = await toStore(Grant.toJsonLd(grant), snippetIri)
-      const policy = store.getQuads(
-        DataFactory.namedNode(snippetIri),
-        LWS.terms.access,
         null,
         null
-      )[0].object
-      const target = store.getQuads(policy, ODRL.terms.target, null, null)[0].object
-      expect(store.getQuads(target, RDF.terms.type, item.type, null)).toHaveLength(1)
-      expect(
-        store
-          .getQuads(target, LWS.terms.value, null, null)
-          .map((quad) => quad.object.value)
-          .toSorted()
-      ).toEqual([...item.values].toSorted())
-    }
+      )[0].object.value
+    ).toBe(parent)
   })
 
   test('frames back through the canonical reader', async () => {
     const grant = grantData(INTEROP.AllFromRegistry)
     const roundTripped = await Grant.fromJsonLd(Grant.toJsonLd(grant), snippetIri)
-    expect(roundTripped.access).toEqual(grant.access)
     expect(roundTripped.storage).toBe(STORAGE)
-    expect(roundTripped.type).toEqual([LWS.AccessGrant])
-  })
-
-  test('frames back to the compact LWS grant shape', async () => {
-    const grant = grantData(INTEROP.AllFromRegistry)
-    const framed = await frameNode(Grant.toJsonLd(grant), lwsGrantContext, snippetIri, {
-      access: { '@embed': '@always' },
-    })
-    expect(framed.type).toEqual(['AccessGrant'])
-    expect(framed.storage).toBe(STORAGE)
-    expect(framed.access).toEqual([
-      {
-        type: ['AccessPolicy'],
-        assignee: GRANTEE,
-        action: [ACCESS_ACTIONS.read],
-        target: { type: 'Container', value: [REGISTRATION] },
-      },
-    ])
-  })
-
-  test('the internal context keeps full IRIs (no compact actions/types)', async () => {
-    const grant = grantData(INTEROP.AllFromRegistry)
-    const framed = await frameNode(Grant.toJsonLd(grant), grantContext, snippetIri, {
-      access: { '@embed': '@always' },
-    })
-    expect(framed.access).toEqual([
-      {
-        type: [LWS.AccessPolicy],
-        assignee: GRANTEE,
-        action: [ACCESS_ACTIONS.read],
-        target: { type: LWS.Container, value: [REGISTRATION] },
-      },
-    ])
+    expect(roundTripped.dataOwner).toBe(DATA_OWNER)
+    expect(roundTripped.hasDataRegistration).toBe(REGISTRATION)
+    expect(roundTripped.registeredShapeTree).toBe(SHAPE_TREE)
+    expect(roundTripped.access[0].permission[0].action).toEqual([ACCESS_ACTIONS.read])
   })
 })

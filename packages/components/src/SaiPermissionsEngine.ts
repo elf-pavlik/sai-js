@@ -162,9 +162,9 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const store = new Store([...data])
     const modesQuery = `
     SELECT ?action WHERE {
-      <${grantId}>
-        <${LWS.access}> ?policy .
-      ?policy <${ODRL.action}> ?action .
+      <${grantId}> <${LWS.access}> ?policy .
+      ?policy <${ODRL.permission}> ?permission .
+      ?permission <${ODRL.action}> ?action .
     }
   `
     const modesBindingsStream = await this.queryEngine.queryBindings(modesQuery, {
@@ -196,7 +196,8 @@ export class SaiPermissionsEngine implements PolicyEngine {
           a <${INTEROP.AdminGrant}> ;
           <${INTEROP.scopeOfAdminGrant}> <${INTEROP.DataRegistry}> ;
           <${LWS.access}> ?policy .
-        ?policy <${ODRL.assignee}> <${agent}> .
+        ?policy <${ODRL.permission}> ?permission .
+        ?permission <${ODRL.assignee}> <${agent}> .
       }
     `
     const bindingsStream = await this.queryEngine.queryBindings(adminGrantQuery, {
@@ -230,16 +231,23 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const grantQuery = `
       SELECT * WHERE {
         ?s
-          <${LWS.access}> ?policy ;
-          <${INTEROP.hasDataRegistration}> <${registrationId}> ;
-          <${INTEROP.scopeOfGrant}> <${scope}> .
-        ${selected ? `?s <${INTEROP.hasDataInstance}> <${id}> .` : ''}
+          <${LWS.access}> ?policy .
+        ?policy
+          <${INTEROP.scopeOfGrant}> <${scope}> ;
+          <${ODRL.permission}> ?permission .
+        ?permission <${ODRL.target}> ?target .
+        ${
+          selected
+            ? `?target <${ODRL.source}> <${id}> .
+               ?target <${ODRL.partOf}> <${registrationId}> .`
+            : `?target <${ODRL.source}> <${registrationId}> .`
+        }
         ${
           uas
-            ? `?policy <${ODRL.assignee}> <${agent}> .`
+            ? `?permission <${ODRL.assignee}> <${agent}> .`
             : `
-            ?s <${INTEROP.grantedBy}> <${agent}> .
-            ?policy <${ODRL.assignee}> <${client}> .
+            ?permission <${INTEROP.requester}> <${agent}> .
+            ?permission <${ODRL.assignee}> <${client}> .
           `
         }
       }
@@ -324,6 +332,49 @@ export class SaiPermissionsEngine implements PolicyEngine {
     return bindings[0].get('o')?.value
   }
 
+  async findPolicyObject(
+    data: Quad[],
+    grantId: string,
+    predicate: string
+  ): Promise<string | undefined> {
+    const query = `
+      SELECT * WHERE {
+        <${grantId}> <${LWS.access}> ?policy .
+        ?policy <${predicate}> ?o .
+      }
+    `
+    const store = new Store([...data])
+    const bindingsStream = await this.queryEngine.queryBindings(query, {
+      sources: [store],
+    })
+    const bindings = await bindingsStream.toArray()
+    return bindings[0]?.get('o')?.value
+  }
+
+  async findGrantTarget(
+    data: Quad[],
+    grantId: string
+  ): Promise<{ source?: string; partOf?: string }> {
+    const query = `
+      SELECT ?source ?partOf WHERE {
+        <${grantId}> <${LWS.access}> ?policy .
+        ?policy <${ODRL.permission}> ?permission .
+        ?permission <${ODRL.target}> ?target .
+        OPTIONAL { ?target <${ODRL.source}> ?source }
+        OPTIONAL { ?target <${ODRL.partOf}> ?partOf }
+      }
+    `
+    const store = new Store([...data])
+    const bindingsStream = await this.queryEngine.queryBindings(query, {
+      sources: [store],
+    })
+    const bindings = await bindingsStream.toArray()
+    return {
+      source: bindings[0]?.get('source')?.value,
+      partOf: bindings[0]?.get('partOf')?.value,
+    }
+  }
+
   async findParentResource(
     data: Quad[],
     childGrantId: string,
@@ -331,13 +382,17 @@ export class SaiPermissionsEngine implements PolicyEngine {
     resourceId: string
   ): Promise<string> {
     // find predicate
-    const parentShapeTreeId = await this.findObject(
+    const parentShapeTreeId = await this.findPolicyObject(
       data,
       parentGrantId,
       INTEROP.registeredShapeTree
     )
     if (!parentShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${parentGrantId}`)
-    const childShapeTreeId = await this.findObject(data, childGrantId, INTEROP.registeredShapeTree)
+    const childShapeTreeId = await this.findPolicyObject(
+      data,
+      childGrantId,
+      INTEROP.registeredShapeTree
+    )
     if (!childShapeTreeId) throw new Error(`invalid grant, missing shapeTree: ${childGrantId}`)
     const shapeTree = await loadShapeTree(parentShapeTreeId, fetch)
     const shapeTreeReference = shapeTree.references.find(
@@ -360,11 +415,8 @@ export class SaiPermissionsEngine implements PolicyEngine {
     const parentId = results[0]?.['s'].value
     if (!parentId) return
     // check if in parent registration
-    const parentRegistrationId = await this.findObject(
-      data,
-      parentGrantId,
-      INTEROP.hasDataRegistration
-    )
+    const parentTarget = await this.findGrantTarget(data, parentGrantId)
+    const parentRegistrationId = parentTarget.source ?? parentTarget.partOf
     // TODO: not needed if query only in proper registration
     const actualParent = await this.getRegistrationId(parentId)
     if (actualParent !== parentRegistrationId)

@@ -61,8 +61,11 @@ function grant(id: string, overrides: GrantOverrides = {}): GrantData {
       storage,
       hasDataRegistration,
       hasDataInstance,
+      assigner: overrides.dataOwner ?? OWNER,
+      requester: overrides.grantedBy ?? A,
       assignee: grantee,
       actions,
+      registeredShapeTree: overrides.registeredShapeTree ?? PROJECT_TREE,
     }),
     grantedBy: overrides.grantedBy ?? A,
     dataOwner: overrides.dataOwner ?? OWNER,
@@ -77,7 +80,11 @@ function grant(id: string, overrides: GrantOverrides = {}): GrantData {
 function withAssignee(grant: GrantData, assignee: string): GrantData {
   return {
     ...grant,
-    access: grant.access.map((policy) => ({ ...policy, assignee })),
+    access: grant.access.map((policy) => ({
+      ...policy,
+      assignee,
+      permission: policy.permission.map((permission) => ({ ...permission, assignee })),
+    })),
   }
 }
 

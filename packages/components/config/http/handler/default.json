@@ -49,6 +49,7 @@
         "handlers": [
           { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" },
           { "@id": "urn:sai:default:EventsRouter" },
+          { "@id": "urn:sai:default:AccessRequestRouter" },
           { "@id": "urn:sai:default:GrantIssuanceRouter" },
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
@@ -145,6 +146,21 @@
         "@id": "urn:sai:default:InvitationHandler",
         "comment": "Handles request from another agent accepting an invitation.",
         "@type": "InvitationHandler",
+        "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
+      }
+    },
+    {
+      "comment": "Owner-scoped access request endpoint: needs POST plus GET/HEAD registry facade.",
+      "@id": "urn:sai:default:AccessRequestRouter",
+      "@type": "OperationRouterHandler",
+      "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
+      "allowedPathNames": ["^/.sai/access-requests/.*"],
+      "allowedMethods": ["POST", "GET", "HEAD"],
+      "handler": {
+        "@id": "urn:sai:default:AccessRequestHandler",
+        "comment": "Accepts the frozen ODRL needs request and exposes the owner's AccessRequestRegistry.",
+        "@type": "AccessRequestHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }

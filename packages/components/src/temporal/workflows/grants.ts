@@ -631,7 +631,7 @@ export async function reconcileActivities(payload: { webId: SocialAgentId }): Pr
     } else if (isActivityClass(activity, 'NeedBasedAccessRequestSent')) {
       // the requester-side access-request leg (authorization-granting.md
       // §6.4) — same routing as the webhook handler: the workflow forwards
-      // the request to the data owner's (reused) issuance endpoint (expects
+      // the request to the data owner's access request endpoint (expects
       // 202), then completes (self-completing; the outer markActivitiesDone
       // is the accepted duplicate for a reconcile re-run)
       const sent = activity as NeedBasedAccessRequestSent

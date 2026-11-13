@@ -45,6 +45,87 @@ export function rpcPayload(request: unknown) {
   ]
 }
 
+const WIRE_CONTEXT = [
+  'https://www.w3.org/ns/lws/v1',
+  'http://www.w3.org/ns/odrl.jsonld',
+  'https://www.w3.org/ns/solid/interop-context/v1',
+]
+
+/** The compact action terms the frozen needs payload uses. */
+const COMPACT_ACTIONS: Record<string, string> = {
+  'http://www.w3.org/ns/odrl/2/read': 'read',
+  'http://www.w3.org/ns/odrl/2/modify': 'modify',
+  'https://www.w3.org/ns/lws#create': 'create',
+  'http://www.w3.org/ns/odrl/2/delete': 'delete',
+}
+
+/**
+ * Build the frozen ODRL needs request payload (`access-request.test.ts` and
+ * the approval sequence) from the embedded access need group used by the RPC.
+ */
+export function needBasedAccessRequestPayload({
+  dataOwner,
+  grantedBy,
+  grantee,
+  group,
+}: {
+  dataOwner: string
+  grantedBy: string
+  grantee: string
+  group: {
+    id: string
+    hasAccessNeed: Array<Record<string, any>>
+  }
+}): string {
+  const policies: Array<Record<string, unknown>> = []
+  const addNeed = (need: Record<string, any>, parentId?: string): void => {
+    const permissionId = `urn:uuid:${crypto.randomUUID()}`
+    const targetId = `urn:uuid:${crypto.randomUUID()}`
+    const needId = need.id as string
+    policies.push({
+      type: [
+        'Request',
+        'AccessNeed',
+        need.required === 'http://www.w3.org/ns/solid/interop#AccessOptional'
+          ? 'AccessOptional'
+          : 'AccessRequired',
+      ],
+      id: needId,
+      uid: needId,
+      profile: 'AccessProfile',
+      accessNeedGroup: group.id,
+      ...(parentId ? { inheritsFromNeed: parentId } : {}),
+      permission: [
+        {
+          id: permissionId,
+          uid: permissionId,
+          assigner: dataOwner,
+          requester: grantedBy,
+          assignee: grantee,
+          action: ((need.accessMode as string[] | undefined) ?? []).map(
+            (action) => COMPACT_ACTIONS[action] ?? action
+          ),
+          target: {
+            type: ['AssetCollection', 'st:ShapeTree'],
+            id: targetId,
+            uid: targetId,
+            source: [need.registeredShapeTree],
+          },
+        },
+      ],
+    })
+    for (const child of (need.hasInheritingNeed as Array<Record<string, any>> | undefined) ?? []) {
+      addNeed(child, needId)
+    }
+  }
+  for (const need of group.hasAccessNeed) addNeed(need)
+  return JSON.stringify({
+    '@context': WIRE_CONTEXT,
+    type: ['AccessRequest', 'NeedBasedAccessRequest'],
+    access: policies,
+  })
+}
+
 const RPC_ENDPOINT = 'https://auth/.sai/api'
 
 /**
@@ -440,7 +521,7 @@ export async function waitForNeedBasedAccessRequestReceivedCompletion(
 /**
  * The request-sent tail (activity-first, authorization-granting.md §6.4):
  * the requester-side workflow forwarded the request to the data owner's
- * (reused) issuance endpoint (expects 202) and marked the
+ * owner-scoped access request endpoint (expects 202) and marked the
  * `needBasedAccessRequestSent` activity done — a completion referencing it
  * exists in the session's Activity Registry. The `done` means "forwarded",
  * not "granted" (the grant outcome arrives later via webhook, §6.8).

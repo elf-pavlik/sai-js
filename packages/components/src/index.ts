@@ -29,6 +29,7 @@ export * from './RoutedS3DataAccessor.js'
 export * from './S3DataAccessor.js'
 export * from './GarageAdminClient.js'
 export * from './GrantIssuanceHandler.js'
+export * from './AccessRequestHandler.js'
 export * from './GrantRevocationHandler.js'
 
 export * from './util/uriTemplates.js'

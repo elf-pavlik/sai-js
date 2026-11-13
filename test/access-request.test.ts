@@ -1,4 +1,4 @@
-import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
+import { accessRequestsUrl, buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
 import {
   ActivityRegistry,
   type AuthorizationAgent,
@@ -11,6 +11,7 @@ import { describe, expect, test } from 'vitest'
 
 import {
   containedIris,
+  needBasedAccessRequestPayload,
   rpcPayload,
   waitForNeedBasedAccessRequestReceivedCompletion,
   waitForNeedBasedAccessRequestSentCompletion,
@@ -88,6 +89,17 @@ function expectRequestShape(
   expect(group.hasAccessNeed.length).toBe(1)
   expect(group.hasAccessNeed[0].id).toBe('urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b')
   expect(group.hasAccessNeed[0].registeredShapeTree).toBe('https://data/shapetrees/trees/Project')
+  // the frozen payload uses compact action terms; the stored request carries
+  // the canonical ODRL/LWS IRIs
+  expect(group.hasAccessNeed[0].accessMode).toEqual(
+    expect.arrayContaining([
+      ACCESS_ACTIONS.read,
+      ACCESS_ACTIONS.create,
+      ACCESS_ACTIONS.modify,
+      ACCESS_ACTIONS.delete,
+    ])
+  )
+  expect(group.hasAccessNeed[0].accessMode).toHaveLength(4)
   expect(group.hasAccessNeed[0].hasInheritingNeed.length).toBe(1)
   expect(group.hasAccessNeed[0].hasInheritingNeed[0].id).toBe(
     'urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b'
@@ -152,21 +164,21 @@ describe('request access (sent side)', () => {
 
 describe('request access (receive side)', () => {
   test('leg A — the data owner endpoint receives and stores the request', async () => {
-    // Bob's UAS POSTs DIRECTLY to Alice's (reused) issuance endpoint —
-    // no RPC, no requester activity
+    // Bob's UAS POSTs DIRECTLY to Alice's owner-scoped access request
+    // endpoint — no RPC, no requester activity
     const session = await buildOidcSession(bobId)
-    const response = await session.authFetch(issuanceUrl(aliceId), {
+    const response = await session.authFetch(accessRequestsUrl(aliceId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
-      body: JSON.stringify({
-        type: ['http://www.w3.org/ns/solid/interop#NeedBasedAccessRequest'],
-        grantee: bobId,
-        grantedBy: bobId,
+      body: needBasedAccessRequestPayload({
         dataOwner: aliceId,
-        hasAccessNeedGroup: accessNeedGroup,
+        grantedBy: bobId,
+        grantee: bobId,
+        group: accessNeedGroup,
       }),
     })
     expect(response.status).toBe(202)
+    expect(response.headers.get('location')).toBeNull()
     expect(await response.text()).toBe('')
 
     // the owner-side workflow materialized the immutable AccessRequest
@@ -176,6 +188,55 @@ describe('request access (receive side)', () => {
     const stored = await storedAccessRequests(aliceSession)
     expect(stored.length).toBe(1)
     expectRequestShape(stored[0], { grantee: bobId, grantedBy: bobId, dataOwner: aliceId })
+  })
+
+  test('owner reads the request registry through the access request facade', async () => {
+    const bob = await buildOidcSession(bobId)
+    const response = await bob.authFetch(accessRequestsUrl(aliceId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
+      body: needBasedAccessRequestPayload({
+        dataOwner: aliceId,
+        grantedBy: bobId,
+        grantee: bobId,
+        group: accessNeedGroup,
+      }),
+    })
+    expect(response.status).toBe(202)
+
+    const manager = buildSessionManager()
+    const aliceSession: AuthorizationAgent = await manager.getSession(aliceId)
+    await waitForNeedBasedAccessRequestReceivedCompletion(aliceSession)
+    const [requestIri] = await containedIris(
+      aliceSession,
+      aliceSession.registrySet.hasAccessRequestRegistry!.id
+    )
+    expect(requestIri).toBeDefined()
+
+    const alice = await buildOidcSession(aliceId)
+    const container = await alice.authFetch(accessRequestsUrl(aliceId), {
+      headers: { Accept: 'application/ld+json' },
+    })
+    expect(container.status).toBe(200)
+    expect(await container.text()).toContain(requestIri)
+
+    const head = await alice.authFetch(accessRequestsUrl(aliceId), { method: 'HEAD' })
+    expect(head.status).toBe(200)
+
+    // member reads use the owner-registry-relative member path
+    const memberPath = requestIri.slice(aliceSession.registrySet.id.length)
+    const member = await alice.authFetch(`${accessRequestsUrl(aliceId)}/${memberPath}`, {
+      headers: { Accept: 'application/ld+json' },
+    })
+    expect(member.status).toBe(200)
+    expect(await member.text()).toContain('NeedBasedAccessRequest')
+
+    const forbidden = await bob.authFetch(accessRequestsUrl(aliceId), { method: 'HEAD' })
+    expect(forbidden.status).toBe(403)
+    const unauthenticated = await fetch(accessRequestsUrl(aliceId), {
+      headers: { Accept: 'application/ld+json' },
+    })
+    expect(unauthenticated.status).toBe(401)
   })
 
   test('full sequence — the RPC leg converges on the stored request', async () => {

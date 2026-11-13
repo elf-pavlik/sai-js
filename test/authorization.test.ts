@@ -1,4 +1,4 @@
-import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
+import { accessRequestsUrl, buildOidcSession, buildSessionManager } from '@elfpavlik/sai-components'
 import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
 import { Client, Connection } from '@temporalio/client'
 import { describe, expect, test } from 'vitest'
@@ -7,6 +7,7 @@ import {
   awaitGrantCompletion,
   containedIris,
   accessGrants,
+  needBasedAccessRequestPayload,
   waitForActivityCompletion,
   waitForNeedBasedAccessRequestReceivedCompletion,
 } from './util'
@@ -242,18 +243,17 @@ describe('approve a need-based access request', () => {
     const manager = buildSessionManager()
     const aliceSession = await manager.getSession(aliceId)
 
-    // setup: Bob requests access from Alice via her (reused) issuance
-    // endpoint — the request is stored in Alice's AccessRequestRegistry
+    // setup: Bob requests access from Alice via her owner-scoped access
+    // request endpoint — the request is stored in Alice's AccessRequestRegistry
     const bob = await buildOidcSession(bobId)
-    const sent = await bob.authFetch(issuanceUrl(aliceId), {
+    const sent = await bob.authFetch(accessRequestsUrl(aliceId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
-      body: JSON.stringify({
-        type: [`${INTEROP}NeedBasedAccessRequest`],
-        grantee: bobId,
-        grantedBy: bobId,
+      body: needBasedAccessRequestPayload({
         dataOwner: aliceId,
-        hasAccessNeedGroup: accessNeedGroup,
+        grantedBy: bobId,
+        grantee: bobId,
+        group: accessNeedGroup,
       }),
     })
     expect(sent.status).toBe(202)

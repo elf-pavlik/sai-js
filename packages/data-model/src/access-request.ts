@@ -35,7 +35,7 @@ export type NeedBasedAccessRequestGroup = {
 
 /**
  * `interop:NeedBasedAccessRequest` — the need-based access request delivered
- * to the data owner's (reused) delegation endpoint
+ * to the data owner's access request endpoint
  * (authorization-granting.md §6.1). **Distinct from** the delegation
  * `AccessRequest` (`grants`) / `AccessRevocation` — this one carries
  * `grantee`/`grantedBy`/`dataOwner` + the embedded access need group.

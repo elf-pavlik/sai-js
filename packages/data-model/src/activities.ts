@@ -117,8 +117,8 @@ export type InvitationAcceptedId = {
  * leg of authorization-granting.md §6.4). `target` dropped: the object is a
  * self-contained urn:uuid snapshot (the requester has NO AccessRequestRegistry —
  * the REAL id is minted owner-side by the data owner's endpoint); the
- * requester-side workflow forwards the request to the owner's (reused)
- * issuance endpoint and completes. The `NeedBasedAccessRequestReceived`
+ * requester-side workflow forwards the request to the owner's access request
+ * endpoint and completes. The `NeedBasedAccessRequestReceived`
  * counterpart is written owner-side in the next phase.
  */
 export type NeedBasedAccessRequestSent = Omit<ActivityBase, 'target'> & {

@@ -15,7 +15,7 @@ import {
 import { INTEROP, withContext } from '@janeirodigital/interop-utils'
 
 import { buildSessionManager } from '../../builders/sessionManager.js'
-import { issuanceUrl } from '../../util/uriTemplates.js'
+import { accessRequestsUrl } from '../../util/uriTemplates.js'
 
 export interface ForwardNeedBasedAccessRequestInput {
   requester: SocialAgentId
@@ -28,18 +28,17 @@ export interface ForwardNeedBasedAccessRequestInput {
 /**
  * The requester-side leg of a need-based access request
  * (authorization-granting.md §6.5): POST the request to the data owner's
- * REUSED grant-issuance endpoint (`issuanceUrl(dataOwner)`) AS the requester
- * (`getSession(requester)` — client = the requester's UAS), expecting **202
- * Accepted (empty body)**. The owner side only VALIDATES in the current
- * phase — the mint + `NeedBasedAccessRequestReceived` activity + the
- * owner-side materialization workflow land in the receive-side phase.
+ * owner-scoped access request endpoint (`accessRequestsUrl(dataOwner)`) AS the
+ * requester (`getSession(requester)` — client = the requester's UAS), expecting
+ * **202 Accepted (empty body, no Location)**. Delegation and revocation still
+ * use the legacy `.sai/grants` route during Phase 2.
  */
 export async function forwardNeedBasedAccessRequest(
   input: ForwardNeedBasedAccessRequestInput
 ): Promise<void> {
   const manager = buildSessionManager()
   const session = await manager.getSession(input.requester.id)
-  const endpoint = issuanceUrl(input.request.dataOwner)
+  const endpoint = accessRequestsUrl(input.request.dataOwner)
   const wireContext = [
     'https://www.w3.org/ns/lws/v1',
     'http://www.w3.org/ns/odrl.jsonld',

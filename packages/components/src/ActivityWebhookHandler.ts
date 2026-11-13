@@ -214,7 +214,7 @@ export class ActivityWebhookHandler extends OperationHttpHandler {
       // the requester-side access-request leg (authorization-granting.md
       // §6.4): the RPC wrote the activity (object = the request snapshot,
       // urn:uuid id — the requester has no AccessRequestRegistry); the
-      // workflow forwards the request to the data owner's (reused) issuance
+      // workflow forwards the request to the data owner's access request
       // endpoint, expects 202, then completes. Not a webhook/push type — no
       // accountId pass-through.
       const decoded = S.decodeUnknownSync(NeedBasedAccessRequestSent)(activity)

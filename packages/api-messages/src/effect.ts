@@ -419,8 +419,8 @@ export const EmbeddedNeedBasedAccessRequest = S.Struct({
 /** Access request sent via RPC (activity-first — the requesting-authorization
  * leg, authorization-granting.md §6.4). `target` dropped: the request
  * snapshot (urn:uuid id — the requester has no AccessRequestRegistry) rides
- * `object`; the requester-side workflow forwards it to the owner's (reused)
- * issuance endpoint. */
+ * `object`; the requester-side workflow forwards it to the owner's access
+ * request endpoint. */
 export const NeedBasedAccessRequestSent = S.Struct({
   id: S.String,
   /** no `target` — the request snapshot (urn:uuid id) rides `object` */

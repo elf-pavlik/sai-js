@@ -19,7 +19,15 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         builders, and handlers to the ODRL shape; land the SAI + local ODRL
         contexts and expansion/framing tests (green-to-green, current protocol).
         Package suite and full Dagger integration suite are green.
-  - [ ] Step 1: owner-scoped `/.sai/access-requests/<owner>` (needs only).
+  - [x] Step 1: owner-scoped `/.sai/access-requests/<owner>` (needs only).
+        POST accepts the frozen ODRL needs payload, returns `202` with no
+        `Location`/body, and validates the URL owner against the payload's
+        `assigner`; the old request-shape fallback is retained temporarily.
+        GET/HEAD are an owner-only facade over the owner's
+        `AccessRequestRegistry` container/member (registry-relative member
+        paths). Delegation and revocation remain on the legacy `.sai/grants`
+        route for Steps 2–3. Package suite and full Dagger integration suite
+        are green.
   - [ ] Step 2: move delegation issuance to the access request endpoint.
   - [ ] Step 3: move revocation to the access request endpoint.
   - [ ] Step 4: `/.sai/grants/<owner>` becomes the read-only grant view.

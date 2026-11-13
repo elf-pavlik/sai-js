@@ -32,7 +32,7 @@ const { markActivitiesDone } = proxyActivities<typeof grantsActivities>({
  * The requester-side access-request workflow (authorization-granting.md
  * §6.5): the RPC only wrote the `NeedBasedAccessRequestSent` activity
  * (object = the request snapshot, urn:uuid id); this workflow forwards the
- * request to the data owner's (reused) issuance endpoint as the requester
+ * request to the data owner's access request endpoint as the requester
  * (expects **202** — it awaits NOTHING beyond the acceptance), then marks the
  * activity done. The requester-side completion and the owner-side
  * materialization (next phase) run in parallel — any order; the `done` here

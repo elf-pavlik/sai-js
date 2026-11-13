@@ -1,5 +1,4 @@
 import {
-  ActivityRegistry,
   getRegistryGrants,
   grantChainValidity,
   localSparqlTransport,
@@ -7,13 +6,9 @@ import {
 import {
   Grant,
   type AccessRequestMessage,
-  type EmbeddedNeedBasedAccessRequest,
   type FinalGrantData,
   type GrantData,
   type IncomingGrantData,
-  type NeedBasedAccessRequestGroup,
-  type NeedBasedAccessRequestMessage,
-  type NeedBasedAccessRequestReceived,
   type OdrlPolicy,
 } from '@janeirodigital/interop-data-model'
 import { discoverAuthorizationAgent } from '@janeirodigital/interop-utils'
@@ -39,6 +34,11 @@ import {
   isAccessRevocationMessage,
   isNeedBasedAccessRequestMessage,
 } from './messages.js'
+import {
+  acceptNeedBasedAccessRequest,
+  isOdrlNeedBasedAccessRequest,
+  needBasedAccessRequestFromOdrl,
+} from './need-based-access-request.js'
 import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { SessionManager } from './SessionManager'
 import { Temporal } from './temporal/client.js'
@@ -46,21 +46,6 @@ import { storeGrant } from './temporal/workflows/grants.js'
 
 /** The JSON-LD media type the whole endpoint now requires (§6.2). */
 const LD_JSON_MEDIA_TYPE = 'application/ld+json'
-
-function isOdrlNeedBasedAccessRequest(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null) return false
-  const types = strings((value as Record<string, unknown>).type)
-  return (
-    (types.includes(INTEROP.NeedBasedAccessRequest) || types.includes('NeedBasedAccessRequest')) &&
-    Array.isArray((value as Record<string, unknown>).access)
-  )
-}
-
-function strings(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : []
-}
 
 function firstDataOwner(policy: OdrlPolicy): string {
   return policy.permission[0]?.assigner ?? ''
@@ -143,7 +128,11 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       return this.issueDelegation(message, credentials, operation)
     }
     if (isOdrlNeedBasedAccessRequest(message)) {
-      return this.acceptOdrlNeedBasedAccessRequest(message, credentials)
+      return acceptNeedBasedAccessRequest(
+        this.sessionManager,
+        needBasedAccessRequestFromOdrl(message, credentials.agent.webId),
+        credentials.agent.webId
+      )
     }
     if (isAccessRevocationMessage(message)) {
       return new GrantRevocationHandler(this.endpointStore, this.sessionManager).revoke(
@@ -153,7 +142,7 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
       )
     }
     if (isNeedBasedAccessRequestMessage(message)) {
-      return this.acceptNeedBasedAccessRequest(message, credentials)
+      return acceptNeedBasedAccessRequest(this.sessionManager, message, credentials.agent.webId)
     }
     if (!isAccessRequestMessage(message)) {
       throw new BadRequestHttpError('invalid delegation message')
@@ -227,122 +216,6 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
     const doc = JSON.stringify(finalGrants)
     const representation = new BasicRepresentation(doc, operation.target, APPLICATION_JSON)
     return new OkResponseDescription(representation.metadata, representation.data)
-  }
-
-  private async acceptOdrlNeedBasedAccessRequest(
-    message: Record<string, unknown>,
-    credentials: Awaited<ReturnType<CredentialsExtractor['handleSafe']>>
-  ): Promise<ResponseDescription> {
-    const policies = Array.isArray(message.access)
-      ? (message.access as Record<string, unknown>[])
-      : []
-    if (policies.length === 0)
-      throw new BadRequestHttpError('access request has no access policies')
-    const nodes = policies.map((policy) => {
-      const permission = (
-        Array.isArray(policy.permission) ? policy.permission[0] : policy.permission
-      ) as Record<string, unknown> | undefined
-      const target = (permission?.target as Record<string, unknown> | undefined) ?? {}
-      const types = strings(policy.type)
-      return {
-        id: (policy.uid ?? policy.id) as string,
-        type: types,
-        registeredShapeTree: (policy.registeredShapeTree ??
-          (Array.isArray(target.source) ? target.source[0] : target.source)) as string,
-        required: types.includes(INTEROP.AccessRequired) || types.includes('AccessRequired'),
-        accessMode: strings(permission?.action),
-        inheritsFromNeed: policy.inheritsFromNeed as string | undefined,
-        group: policy.accessNeedGroup as string | undefined,
-        assignee: permission?.assignee as string,
-        assigner: permission?.assigner as string,
-        requester: permission?.requester as string,
-      }
-    })
-    const first = nodes[0]
-    if (!first.requester || first.requester !== credentials.agent.webId) {
-      throw new BadRequestHttpError('invalid requester')
-    }
-    if (first.assignee !== first.requester) {
-      throw new BadRequestHttpError('invalid grantedBy/grantee')
-    }
-    const groupId = first.group ?? `urn:uuid:${crypto.randomUUID()}`
-    const childrenOf = (id: string) => nodes.filter((node) => node.inheritsFromNeed === id)
-    const toNeed = (node: (typeof nodes)[number]): Record<string, unknown> => ({
-      id: node.id,
-      type: [INTEROP.AccessNeed],
-      registeredShapeTree: node.registeredShapeTree,
-      required: node.required ? INTEROP.AccessRequired : INTEROP.AccessOptional,
-      accessMode: node.accessMode,
-      ...(childrenOf(node.id).length ? { hasInheritingNeed: childrenOf(node.id).map(toNeed) } : {}),
-    })
-    const group: NeedBasedAccessRequestGroup = {
-      id: groupId,
-      type: [INTEROP.AccessNeedGroup],
-      hasAccessNeed: nodes.filter((node) => !node.inheritsFromNeed).map(toNeed),
-    }
-    return this.acceptNeedBasedAccessRequest(
-      {
-        type: [INTEROP.NeedBasedAccessRequest],
-        grantee: first.assignee,
-        grantedBy: first.requester,
-        dataOwner: first.assigner,
-        hasAccessNeedGroup: group,
-      },
-      credentials
-    )
-  }
-
-  private async acceptNeedBasedAccessRequest(
-    message: NeedBasedAccessRequestMessage,
-    credentials: Awaited<ReturnType<CredentialsExtractor['handleSafe']>>
-  ): Promise<ResponseDescription> {
-    // the client-is-requester's-UAS check ran at the top of handle (403);
-    // self-requests only — grantee === grantedBy === the authenticated agent
-    if (message.grantedBy !== message.grantee || message.grantedBy !== credentials.agent.webId) {
-      throw new BadRequestHttpError('invalid grantedBy/grantee')
-    }
-    // the requester must be registered with the data owner (403)
-    const sai = await this.sessionManager.getSession(message.dataOwner)
-    const registration = await sai.findSocialAgentRegistration(credentials.agent.webId)
-    if (!registration) {
-      throw new ForbiddenHttpError('agent is not registered with the data owner')
-    }
-    // the received half (authorization-granting.md §6.2): pre-mint the
-    // request id in the OWNER's AccessRequestRegistry and write the
-    // `NeedBasedAccessRequestReceived` activity (real-id embedded projection
-    // at the minted id, `target` = the registry) — the owner-side workflow
-    // PUTs the AccessRequest resource there (find-first idempotent). The 202
-    // is sent IMMEDIATELY — it awaits nothing beyond the activity write.
-    const requestRegistry = sai.registrySet.hasAccessRequestRegistry
-    if (!requestRegistry) throw new Error('access-request registry not found in registry set')
-    const requestId = await sai.mintIdentifier(requestRegistry.id)
-    const activityRegistry = sai.registrySet.hasActivityRegistry
-    if (!activityRegistry) throw new Error('activity registry not found in registry set')
-    const object: EmbeddedNeedBasedAccessRequest = {
-      id: requestId,
-      type: [INTEROP.NeedBasedAccessRequest],
-      grantee: message.grantee,
-      grantedBy: message.grantedBy,
-      dataOwner: message.dataOwner,
-      hasAccessNeedGroup: message.hasAccessNeedGroup,
-    }
-    const activity: Omit<NeedBasedAccessRequestReceived, 'id'> = {
-      type: ['Activity', 'NeedBasedAccessRequestReceived'],
-      actor: sai.webId,
-      target: requestRegistry.id,
-      object,
-      createdAt: new Date().toISOString(),
-    }
-    await ActivityRegistry.createActivity(
-      activityRegistry,
-      {
-        fetch: sai.fetch,
-        randomUUID: sai.randomUUID,
-        identifierStrategies: sai.identifierStrategies,
-      },
-      activity
-    )
-    return new ResponseDescription(202)
   }
 
   private async issue(

@@ -349,7 +349,7 @@ export const shareResource = async (
  * authorization-granting.md §6.4) — the converged producer for BOTH RPC
  * variants. The requester mints NO real id (no AccessRequestRegistry) — the
  * object rides as a **urn:uuid snapshot**; the requester-side workflow
- * forwards the request to the data owner's (reused) issuance endpoint and
+ * forwards the request to the data owner's access request endpoint and
  * completes. The pending ack echoes the activity id (the uniform UI claim
  * anchor — the `InvitationAcceptedMessage` shape).
  */

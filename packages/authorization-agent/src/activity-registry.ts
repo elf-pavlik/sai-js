@@ -238,7 +238,9 @@ export async function loadActivity(id: string, fetch: WhatwgFetch): Promise<Acti
         },
       }
     case 'NeedBasedAccessRequestSent': {
-      // forwards it to the data owner's (reused) issuance endpoint // access need group) rides the object; the requester-side workflow // target dropped — the request snapshot (urn:uuid id, the embedded
+      // forwards it to the data owner's access request endpoint; the access
+      // need group rides the object — the request snapshot (urn:uuid id, the
+      // embedded
       const embedded = node.object as EmbeddedNeedBasedAccessRequest | undefined
       const group = embedded?.hasAccessNeedGroup
       return {

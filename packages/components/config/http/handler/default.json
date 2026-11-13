@@ -50,7 +50,7 @@
           { "@id": "urn:sai:default:AuthorizationAgentFrontendApi" },
           { "@id": "urn:sai:default:EventsRouter" },
           { "@id": "urn:sai:default:AccessRequestRouter" },
-          { "@id": "urn:sai:default:GrantIssuanceRouter" },
+          { "@id": "urn:sai:default:AccessGrantRouter" },
           { "@id": "urn:sai:default:ReciprocalWebhookRouter" },
           { "@id": "urn:sai:default:ActivityWebhookRouter" },
           { "@id": "urn:sai:default:LwsTokenRouter" },
@@ -178,16 +178,16 @@
       "ensureSlash": false
     },
     {
-      "comment": "Legacy POST route: revocation moved to the access request endpoint; only needs compatibility remains.",
-      "@id": "urn:sai:default:GrantIssuanceRouter",
+      "comment": "Read-only access grant view for the owner's grant registry.",
+      "@id": "urn:sai:default:AccessGrantRouter",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
-      "allowedPathNames": ["^/.sai/grants"],
-      "allowedMethods": ["POST"],
+      "allowedPathNames": ["^/.sai/grants/.*"],
+      "allowedMethods": ["*"],
       "handler": {
-        "@id": "urn:sai:default:GrantIssuanceHandler",
-        "comment": "Temporary legacy needs fallback.",
-        "@type": "GrantIssuanceHandler",
+        "@id": "urn:sai:default:AccessGrantHandler",
+        "comment": "Serves the assigner-registry grants visible to the authenticated user/client.",
+        "@type": "AccessGrantHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
         "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }

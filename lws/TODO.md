@@ -42,10 +42,17 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         `/.sai/access-requests/<owner>`; authority, all-or-nothing validation,
         C1 closure, automatic revocation, and owner-workflow deletes are
         unchanged. `requestRevocations` targets the new endpoint directly.
-        The legacy `.sai/grants` POST now rejects revocation (only the
-        temporary needs fallback remains). Package suite and full Dagger
-        integration suite are green.
-  - [ ] Step 4: `/.sai/grants/<owner>` becomes the read-only grant view.
+        The legacy `.sai/grants` POST route was removed in Step 4. Package
+        suite and full Dagger integration suite are green.
+  - [x] Step 4: `/.sai/grants/<owner>` becomes the read-only grant view.
+        Served by `AccessGrantHandler` over the assigner's grant registry.
+        UAS clients see the registry grants where the authenticated user is
+        the assignee or requester; other clients see only grants whose
+        assignee is that client and whose assigner is the authenticated user.
+        Mirrored peer grants are excluded, and the old `.sai/grants` POST
+        route is gone. TODO: showing delegated grants from other assigner
+        registries (and mirrored peer grants) is intentionally deferred.
+        Package suite and full Dagger integration suite are green.
   - [ ] Step 5: disable `.lws` access stores/readers; replace the CSS describer.
   - [ ] Step 6: CID/discovery (`application/cid`, access request/grant services).
   - [ ] Step 7: cleanup (`issuanceUrl`, old guards/routes/types, docs).

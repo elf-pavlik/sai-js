@@ -14,7 +14,7 @@ export type IncomingGrantData = Omit<GrantData, 'hasInheritingGrant'> & {
 
 /**
  * `interop:AccessRequest` — the delegation-issuance request body delivered to
- * the data owner's delegation endpoint. `grants` holds the top-level grant
+ * the data owner's access request endpoint. `grants` holds the top-level grant
  * objects, each embedding its `hasInheritingGrant` children.
  */
 export interface AccessRequestMessage {

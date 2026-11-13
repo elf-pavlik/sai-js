@@ -411,7 +411,7 @@ export async function updateDelegatedGrants(
 
 /**
  * Requester hop (grantor-side, §5 System 1): POST the AccessRevocation to the
- * data owner's delegation endpoint, then on success clear the grantor's
+ * data owner's access request endpoint, then on success clear the grantor's
  * registration projection (`hasDataGrant`) for the revoked grants, then mark
  * the triggering activity done. The data owner's handler removes the listed
  * grants plus their inheriting children; the response echo drives the link

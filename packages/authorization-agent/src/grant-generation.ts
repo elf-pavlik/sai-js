@@ -152,7 +152,7 @@ async function generateChildDelegatedGrantData(
     const scopeOfGrant = INTEROP.Inherited
     const sourceActions = grantAccessModes(childSourceGrant)
     const childData: GrantData = {
-      // no id — delegation endpoint assigns IRIs
+      // no id — the access request handler assigns IRIs
       type: [LWS.AccessGrant],
       storage,
       access: grantAccess({
@@ -357,10 +357,10 @@ async function generateDelegatedAccessGrants(
         ...(hasDataInstance ? { hasDataInstance } : {}),
       }
       if (childGrantData.length) {
-        // embed full child grant data for delegation endpoint to assign IRIs
+        // embed full child grant data for the access request handler to assign IRIs
         grant.hasInheritingGrant = childGrantData as unknown as string[]
       }
-      // only push parent — children are embedded in hasInheritingGrant and handled by GrantIssuanceHandler
+      // only push parent — children are embedded in hasInheritingGrant and handled by the access request handler
       result.push(grant)
     }
   }

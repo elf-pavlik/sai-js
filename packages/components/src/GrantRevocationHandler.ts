@@ -65,8 +65,8 @@ export function revocationFailureDescription(
 /**
  * Revocation of delegated grants at the data-owner boundary.
  *
- * Mirrors issuance on the same delegation endpoint (dispatched on message
- * `type`). All-or-nothing: the whole request is validated (every listed grant
+ * Dispatched by the owner-scoped access request endpoint on message `type`.
+ * All-or-nothing: the whole request is validated (every listed grant
  * is SPARQL-loaded and authority-checked) before anything is deleted. The C1
  * closure (listed grants + every grant invalidated by their removal + the
  * same-request inheriting children) is computed over the **owner's** grant
@@ -111,7 +111,7 @@ export class GrantRevocationHandler {
   }
 
   /**
-   * The delegation endpoint's core (the projection transport): resolve the
+   * The access request endpoint's core (the projection transport): resolve the
    * owner's endpoint from the grant IRIs, compute the C1 closure with the
    * owner-bound core, then delete the closure through Temporal with the owner's
    * session. There is no grant-level RPC (D18): the only in-app callers are

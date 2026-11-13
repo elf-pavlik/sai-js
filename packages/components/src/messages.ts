@@ -11,7 +11,7 @@ import { INTEROP } from '@janeirodigital/interop-utils'
 // Moved here from the data-model package (decision Q4): the message *types*
 // stay in data-model (`AccessRequestMessage`, `IncomingGrantData`,
 // `AccessRevocationMessage`); the guards are consumption-side validation and
-// only GrantIssuanceHandler (this package) uses them.
+// only AccessRequestHandler (this package) uses them.
 
 /**
  * Narrow an unknown payload to an `AccessRequestMessage`. `type` is

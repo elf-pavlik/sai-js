@@ -150,14 +150,14 @@ describe('DelegationRevocationEndpoint', () => {
     await waitForQuiescence([acmeId, bobId, aliceId, kimId])
   })
 
-  test('the legacy .sai/grants endpoint no longer accepts revocation', async (): Promise<void> => {
+  test('the read-only grant endpoint rejects revocation POSTs', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
     const response = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([p9m2vr]),
     })
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(405)
     expect(await countGrants()).toBe(seededGrantCount)
   })
 
@@ -331,14 +331,14 @@ describe('DelegationRevocationEndpoint', () => {
 })
 
 describe('DelegationIssuanceEndpoint', () => {
-  test('the legacy .sai/grants endpoint no longer accepts delegation', async (): Promise<void> => {
+  test('the read-only grant endpoint rejects delegation POSTs', async (): Promise<void> => {
     const session = await buildOidcSession(bobId)
     const response = await session.authFetch(issuanceUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: issuancePayload([projectsGrantData]),
     })
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(405)
     expect(await countGrants()).toBe(seededGrantCount)
   })
 

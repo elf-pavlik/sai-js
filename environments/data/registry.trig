@@ -3215,7 +3215,6 @@ _:n3-194 <http://www.w3.org/ns/solid/acp#anyOf> _:n3-195.
 }
 <https://id/dan> {
 <https://id/dan> <http://www.w3.org/ns/solid/terms#oidcIssuer> <https://auth/>;
-    <http://www.w3.org/ns/solid/interop#hasDelegationIssuanceEndpoint> <https://auth/.sai/grants/aHR0cHM6Ly9pZC9kYW4>;
     <http://www.w3.org/ns/solid/interop#hasAuthorizationAgent> <https://auth/.sai/agents/aHR0cHM6Ly9pZC9kYW4>;
     <https://www.w3.org/ns/did#service> _:sai-access-request-dan, _:sai-access-grant-dan .
 _:sai-access-request-dan a <https://www.w3.org/ns/lws#AccessRequestService>;

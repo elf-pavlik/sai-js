@@ -24,7 +24,7 @@ packages:
 Registered Components.js classes currently in the package (**keep**):
 ActivityEvents, ActivityWebhookHandler, ActivityWebhookStore,
 AdminPermissionReader, AdminSparqlHandler, AgentIdHandler, ApiHandler,
-CustomWebIdStore, EnvJwkGenerator, EventsHandler, GrantIssuanceHandler,
+CustomWebIdStore, EnvJwkGenerator, EventsHandler, AccessRequestHandler,
 GrantRevocationHandler, HybridDataAccessor, InvitationHandler, NdjsonNotification,
 PostgresKeyValueStorage, ProxyAdminHandler, ReciprocalWebhookHandler,
 ReciprocalWebhookStore, S3DataAccessor, SaiAuthorizationManager,
@@ -39,7 +39,7 @@ CompactedNotification, S3DataAccessorArgs, SparqlStoreEntry, ClientIdHandler) an
 Moving `temporal/*` out as-is creates a `components ↔ temporal-workflows` package
 cycle:
 
-- **components → temporal:** `ActivityWebhookHandler`, `GrantIssuanceHandler`,
+- **components → temporal:** `ActivityWebhookHandler`, `AccessRequestHandler`,
   `GrantRevocationHandler` import `temporal/client` + the workflow definitions to
   start workflows.
 - **temporal → components:** activities import `builders/*` — and

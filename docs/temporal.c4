@@ -6816,21 +6816,20 @@ views "Authorization" {
                     "type": ["AccessNeed"],
                     "registeredShapeTree": "https://data/shapetrees/trees/Project",
                     "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
-                    "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
+                    "accessMode": ["http://www.w3.org/ns/odrl/2/read", "https://www.w3.org/ns/lws#create", "http://www.w3.org/ns/odrl/2/modify", "http://www.w3.org/ns/odrl/2/delete"],
                     "hasInheritingNeed": [
                       {
                         "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
                         "type": ["AccessNeed"],
                         "registeredShapeTree": "https://data/shapetrees/trees/Task",
                         "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
-                        "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
+                        "accessMode": ["http://www.w3.org/ns/odrl/2/read", "https://www.w3.org/ns/lws#create", "http://www.w3.org/ns/odrl/2/modify", "http://www.w3.org/ns/odrl/2/delete"]
                       }
                     ]
                   }
                 ]
               }
-            },
-            "createdAt": "2024-01-01T10:00:00.000Z"
+            }
           }
           ```
           ---
@@ -6952,9 +6951,9 @@ views "Authorization" {
           >gRPC
         '''
     }
-    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
+    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (accessRequestsUrl(aliceId), as Bob)' {
         notes'''
-          #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
+          #### POST NeedBasedAccessRequest (accessRequestsUrl(aliceId), as Bob)
           >[!NOTE]
           >access-request.test.ts > leg B (RPC)
 
@@ -6962,46 +6961,46 @@ views "Authorization" {
           > Auth: Solid OIDC access token as `bob` (client = Bob's UAS)
 
           >[!TIP]
-          > THE single request to the reused grant-issuance endpoint — `issuanceUrl(aliceId)`; no new endpoint/term in the client-id document
+          > THE single request to the owner-scoped access request endpoint — `accessRequestsUrl(aliceId)`; discovery comes from the WebID CID
 
           >[!TIP]
           > validations (all-or-nothing): `Content-Type: application/ld+json` (415); `credentials.agent.webId` present (401 — `UnauthorizedHttpError`); client = requester's UAS (403); `grantedBy === grantee === credentials.agent.webId` (400); requester registered with the owner (403)
 
           ```http
-          POST https://auth/.sai/grants/aHR0cHM6Ly9pZC9hbGljZQ
+          POST https://auth/.sai/access-requests/aHR0cHM6Ly9pZC9hbGljZQ
           Content-Type: application/ld+json
           Authorization: DPoP eyJhbGciOiJFUzI1NiIs…
           ```
 
           ```json
           {
-            "@context": ["dataModelContext — interop terms compact to BARE keys (no interop: prefix)"],
-            "type": ["NeedBasedAccessRequest"],
-            "grantee": "https://id/bob",
-            "grantedBy": "https://id/bob",
-            "dataOwner": "https://id/alice",
-            "hasAccessNeedGroup": {
-              "id": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
-              "type": ["AccessNeedGroup"],
-              "hasAccessNeed": [
-                {
-                  "id": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
-                  "type": ["AccessNeed"],
-                  "registeredShapeTree": "https://data/shapetrees/trees/Project",
-                  "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
-                  "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"],
-                  "hasInheritingNeed": [
-                    {
-                      "id": "urn:uuid:8c3b5e40-6d7f-4f81-9a2b-3c4d5e6f7a8b",
-                      "type": ["AccessNeed"],
-                      "registeredShapeTree": "https://data/shapetrees/trees/Task",
-                      "required": "http://www.w3.org/ns/solid/interop#AccessRequired",
-                      "accessMode": ["acl:Read", "acl:Create", "acl:Update", "acl:Delete"]
-                    }
-                  ]
-                }
-              ]
-            }
+            "@context": ["https://www.w3.org/ns/lws/v1", "http://www.w3.org/ns/odrl.jsonld", "https://www.w3.org/ns/solid/interop-context/v1"],
+            "type": ["AccessRequest", "NeedBasedAccessRequest"],
+            "access": [
+              {
+                "type": ["Request", "AccessNeed", "AccessRequired"],
+                "accessNeedGroup": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                "permission": [{
+                  "assigner": "https://id/alice",
+                  "requester": "https://id/bob",
+                  "assignee": "https://id/bob",
+                  "action": ["read", "create", "modify", "delete"],
+                  "target": {"type": ["AssetCollection", "st:ShapeTree"], "source": ["https://data/shapetrees/trees/Project"]}
+                }]
+              },
+              {
+                "type": ["Request", "AccessNeed", "AccessRequired"],
+                "accessNeedGroup": "urn:uuid:6a1f3c2e-4b5d-4e6f-9a0b-1c2d3e4f5a6b",
+                "inheritsFromNeed": "urn:uuid:7b2a4d3f-5c6e-4f70-9a1b-2c3d4e5f6a7b",
+                "permission": [{
+                  "assigner": "https://id/alice",
+                  "requester": "https://id/bob",
+                  "assignee": "https://id/bob",
+                  "action": ["read", "create", "modify", "delete"],
+                  "target": {"type": ["AssetCollection", "st:ShapeTree"], "source": ["https://data/shapetrees/trees/Task"]}
+                }]
+              }
+            ]
           }
           ```
           ---
@@ -7936,15 +7935,15 @@ views "Authorization" {
       color: indigo
     }
 
-    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)' {
+    Bob.UAS.Temporal -> Alice.UAS.Discovery 'POST NeedBasedAccessRequest (accessRequestsUrl(aliceId), as Bob)' {
         navigateTo request-access
         notes'''
-          #### POST NeedBasedAccessRequest (issuanceUrl(aliceId), as Bob)
+          #### POST NeedBasedAccessRequest (accessRequestsUrl(aliceId), as Bob)
           >[!NOTE]
           >access-request.test.ts > leg B (RPC)
 
           >[!TIP]
-          > previously — the pending request in Alices AccessRequestRegistry, delivered via the reused grant-issuance endpoint; the full requester-side flow lives in its own view
+          > previously — the pending request in Alices AccessRequestRegistry, delivered via the owner-scoped access request endpoint; the full requester-side flow lives in its own view
 
           [request-access](../request-access/?dynamic=sequence)
         '''

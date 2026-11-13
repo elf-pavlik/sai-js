@@ -16,13 +16,9 @@ import {
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 
-import { issueDelegationRequest, issueLegacyDelegationRequest } from './delegation-request.js'
+import { issueDelegationRequest } from './delegation-request.js'
 import { GrantRevocationHandler } from './GrantRevocationHandler.js'
-import {
-  isAccessRequestMessage,
-  isAccessRevocationMessage,
-  isNeedBasedAccessRequestMessage,
-} from './messages.js'
+import { isAccessRevocationMessage } from './messages.js'
 import {
   acceptNeedBasedAccessRequest,
   isOdrlNeedBasedAccessRequest,
@@ -124,29 +120,10 @@ export class AccessRequestHandler extends OperationHttpHandler {
         operation,
       })
     }
-    if (isAccessRequestMessage(message)) {
-      return issueLegacyDelegationRequest({
-        sessionManager: this.sessionManager,
-        message,
-        requesterWebId: credentials.agent.webId,
-        expectedDataOwner: owner,
-        operation,
-      })
-    }
     if (isOdrlNeedBasedAccessRequest(message)) {
       return acceptNeedBasedAccessRequest(
         this.sessionManager,
         needBasedAccessRequestFromOdrl(message, credentials.agent.webId, owner),
-        credentials.agent.webId,
-        owner
-      )
-    }
-    // temporary compatibility: the old envelope-level needs shape still
-    // resolves to the same received activity while Phase 2 moves the protocol
-    if (isNeedBasedAccessRequestMessage(message)) {
-      return acceptNeedBasedAccessRequest(
-        this.sessionManager,
-        message,
         credentials.agent.webId,
         owner
       )

@@ -1,27 +1,6 @@
 import { frameNode, selectNode } from '@janeirodigital/interop-utils'
 
 import { dataModelContext } from './context.ts'
-import type { GrantData } from './grant.ts'
-
-/**
- * A grant as a grantor sends it inside an `AccessRequest`: the parent grant's
- * `hasInheritingGrant` carries **embedded child grant objects** (children are
- * created atomically in the same delegation request), not child IRIs.
- */
-export type IncomingGrantData = Omit<GrantData, 'hasInheritingGrant'> & {
-  hasInheritingGrant?: IncomingGrantData[]
-}
-
-/**
- * `interop:AccessRequest` — the delegation-issuance request body delivered to
- * the data owner's access request endpoint. `grants` holds the top-level grant
- * objects, each embedding its `hasInheritingGrant` children.
- */
-export interface AccessRequestMessage {
-  type: string[]
-  grants: IncomingGrantData[]
-}
-
 /** The embedded access need group of a need-based access request — the
  *  framed group node (Project + inherited needs; descriptions follow-up). The
  *  values are (expanded-form) IRIs — bare class names are NOT expanded by
@@ -34,13 +13,6 @@ export type NeedBasedAccessRequestGroup = {
 }
 
 /**
- * `interop:NeedBasedAccessRequest` — the need-based access request delivered
- * to the data owner's access request endpoint
- * (authorization-granting.md §6.1). **Distinct from** the delegation
- * `AccessRequest` (`grants`) / `AccessRevocation` — this one carries
- * `grantee`/`grantedBy`/`dataOwner` + the embedded access need group.
- */
-/**
  * The stored need-based access request — the immutable resource the
  * owner-side workflow materializes in the AccessRequestRegistry
  * (authorization-granting.md §6.3). `hasAccessNeedGroup` holds the embedded
@@ -49,14 +21,6 @@ export type NeedBasedAccessRequestGroup = {
  */
 export interface NeedBasedAccessRequestData {
   id: string
-  type: string[]
-  grantee: string
-  grantedBy: string
-  dataOwner: string
-  hasAccessNeedGroup: NeedBasedAccessRequestGroup
-}
-
-export interface NeedBasedAccessRequestMessage {
   type: string[]
   grantee: string
   grantedBy: string
@@ -108,5 +72,3 @@ export async function fromJsonLd(doc: unknown, id: string): Promise<NeedBasedAcc
       : { id: '', type: [], hasAccessNeed: [] },
   }
 }
-
-/** Load a stored AccessRequest from the owner's AccessRequestRegistry. */

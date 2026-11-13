@@ -31,7 +31,7 @@ debt (an admin's UAS cannot PATCH seeded closures; the org session can).
 | `packages/data-model` | data types (activities, registries, grants, authorizations, need groups), `dataModelContext` + JSON-LD framing | logic beyond framing |
 | `packages/authorization-agent` | **all SAI rules**: structure → `DataAuthorization` building (`buildNestedDataAuthorizations`), scope semantics (`matchesScope`), recording/generation (`generateAuthorization`, `recordAuthorizationFromStructure`), share formatting (`shareDataInstance`/`formatAuthorization`), grant generation (`grant-generation.ts`), registry CRUD | HTTP, webhooks, RPC, Temporal |
 | `components` **services** | RPC adapters (message ↔ structure mapping), reads (SPARQL `queries/org.ts`), validation reads, context gating, **activity writing** | mutation, SAI rules |
-| `components` **HTTP handlers** | protocol endpoints (`InvitationHandler`, `GrantIssuanceHandler`, `ReciprocalWebhookHandler`, events) — authenticate + write the activity | domain rules |
+| `components` **HTTP handlers** | protocol endpoints (`InvitationHandler`, `AccessRequestHandler`, `ReciprocalWebhookHandler`, events) — authenticate + write the activity | domain rules |
 | `components` **temporal** | orchestration only: per-class dispatch, mint sessions (`getSession(webId)`), call AA methods, completions (`markActivitiesDone`) | SAI rules beyond sequencing |
 
 **The "roll-up" test** — a code-level invariant:

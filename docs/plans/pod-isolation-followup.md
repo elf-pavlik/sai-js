@@ -51,8 +51,8 @@ mirrors and object storage, plus the end-to-end isolation tests.
 
 - Add the org's admin/SPARQL endpoint to the agent-id discovery surface:
   a third `Link` header (candidate rel `hasSparqlEndpoint`) or a field in the
-  agent-id document next to `hasDelegationIssuanceEndpoint` — **term/rel name is
-  open**.
+  agent-id document next to the access request/grant service entries —
+  **term/rel name is open**.
 - `AgentIdHandler` serves it admin-only; the admin's AA resolves and caches it
   like `getRegistrySet`; `ResolvedContext` carries it for org-context reads.
 - `/sparql-admin` stays the enforced gate; discovery only tells an external

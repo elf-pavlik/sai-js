@@ -27,8 +27,7 @@ export class AgentIdHandler extends OperationHttpHandler {
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
     private readonly sessionManager: SessionManager,
-    private readonly authorizationEndpoint: InteractionRoute,
-    private readonly delegationEndpoint: InteractionRoute
+    private readonly authorizationEndpoint: InteractionRoute
   ) {
     super()
   }
@@ -73,7 +72,6 @@ export class AgentIdHandler extends OperationHttpHandler {
       ],
       client_id: agentId,
       'interop:hasAuthorizationRedirectEndpoint': this.authorizationEndpoint.getPath(),
-      'interop:hasDelegationIssuanceEndpoint': this.delegationEndpoint.getPath(),
       'lws:AccessRequestService': accessRequests,
       'lws:AccessGrantService': accessGrants,
     }

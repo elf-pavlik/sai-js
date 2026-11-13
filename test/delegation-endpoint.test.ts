@@ -1,8 +1,8 @@
 import {
+  accessGrantsUrl,
   accessRequestsUrl,
   buildOidcSession,
   buildSessionManager,
-  issuanceUrl,
 } from '@elfpavlik/sai-components'
 import { type GrantData, grantAccess } from '@janeirodigital/interop-data-model'
 import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
@@ -152,7 +152,7 @@ describe('DelegationRevocationEndpoint', () => {
 
   test('the read-only grant endpoint rejects revocation POSTs', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessGrantsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([p9m2vr]),
@@ -333,7 +333,7 @@ describe('DelegationRevocationEndpoint', () => {
 describe('DelegationIssuanceEndpoint', () => {
   test('the read-only grant endpoint rejects delegation POSTs', async (): Promise<void> => {
     const session = await buildOidcSession(bobId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessGrantsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: issuancePayload([projectsGrantData]),

@@ -130,7 +130,7 @@ export class GrantRevocationHandler {
     requesterWebId: string | undefined
   ): Promise<RevokedGrant[]> {
     if (grants.length === 0) {
-      throw new BadRequestHttpError('AccessRevocation requires at least one grant')
+      throw new BadRequestHttpError('AccessRevocationRequest requires at least one grant')
     }
 
     // resolve every requested grant's registry pod up front; group by owner

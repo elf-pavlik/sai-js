@@ -52,7 +52,6 @@ function registryContent(handle: string, data: string[]): string {
   const id = `https://registry/${handle}/`
   const webId = `https://id/${handle}`
   const uas = `https://auth/.sai/agents/${b64(webId)}`
-  const issuance = `https://auth/.sai/grants/${b64(webId)}`
   const accessRequests = `https://auth/.sai/access-requests/${b64(webId)}`
   const accessGrants = `https://auth/.sai/grants/${b64(webId)}`
 
@@ -94,7 +93,6 @@ GRAPH <https://registry/${handle}/role/> {
       document: webId,
       issuer: 'https://auth/',
       uas,
-      issuance,
       accessRequests,
       accessGrants,
     })

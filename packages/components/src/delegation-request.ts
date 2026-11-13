@@ -5,10 +5,8 @@ import {
 } from '@janeirodigital/interop-authorization-agent'
 import {
   Grant,
-  type AccessRequestMessage,
   type FinalGrantData,
   type GrantData,
-  type IncomingGrantData,
   type OdrlPolicy,
 } from '@janeirodigital/interop-data-model'
 import { INTEROP, LWS } from '@janeirodigital/interop-utils'
@@ -132,92 +130,6 @@ export async function issueDelegationRequest({
   await validateDelegable(finalGrants, requesterWebId, sai)
   await storeFinalGrants(finalGrants)
   return grantResponse(finalGrants, operation)
-}
-
-export interface IssueLegacyDelegationRequestInput {
-  sessionManager: SessionManager
-  message: AccessRequestMessage
-  requesterWebId: string
-  /** owner encoded in `/.sai/access-requests/<owner>` */
-  expectedDataOwner?: string
-  operation: HandlerOperation
-}
-
-/**
- * Legacy delegation envelope (`AccessRequest` with embedded `grants`). Kept
- * as a temporary request-shape fallback on the new endpoint; no product client
- * emits it any more.
- */
-export async function issueLegacyDelegationRequest({
-  sessionManager,
-  message,
-  requesterWebId,
-  expectedDataOwner,
-  operation,
-}: IssueLegacyDelegationRequestInput): Promise<ResponseDescription> {
-  const { grants } = message
-  if (grants.length === 0) {
-    throw new BadRequestHttpError('AccessRequest requires at least one grant')
-  }
-  // all-or-nothing: the whole request must share one data owner
-  const dataOwners = new Set(grants.map((grant) => grant.dataOwner))
-  if (dataOwners.size !== 1) {
-    throw new BadRequestHttpError('all grants must have the same dataOwner')
-  }
-  const dataOwner = [...dataOwners][0]
-  if (expectedDataOwner && dataOwner !== expectedDataOwner) {
-    throw new BadRequestHttpError('invalid dataOwner')
-  }
-  const sai = await sessionManager.getSession(dataOwner)
-
-  // TODO: support recursive inheritance
-  // Incoming payload embeds child grant data (one level). Assign IRIs and
-  // build FinalGrantData for each parent and its inheriting children.
-  const finalGrants: FinalGrantData[] = []
-  for (const topGrant of grants) {
-    const grantId = await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id)
-    const inheritingGrants = await Promise.all(
-      (topGrant.hasInheritingGrant ?? []).map((childData) =>
-        buildInheritingGrant(sai, childData, grantId)
-      )
-    )
-    finalGrants.push(
-      {
-        ...topGrant,
-        type: topGrant.type ?? [LWS.AccessGrant],
-        id: grantId,
-        hasInheritingGrant: inheritingGrants.map((grant) => grant.id!),
-      },
-      ...inheritingGrants
-    )
-  }
-
-  // all-or-nothing: validate every grant before any is stored. The whole
-  // request is validated against the data owner's registry plus the request's
-  // own grants, using the same chain predicate as revocation closure.
-  await validateDelegable(finalGrants, requesterWebId, sai)
-  await storeFinalGrants(finalGrants)
-  return grantResponse(finalGrants, operation)
-}
-
-async function buildInheritingGrant(
-  sai: Awaited<ReturnType<SessionManager['getSession']>>,
-  childData: IncomingGrantData,
-  inheritsFromGrant: string
-): Promise<FinalGrantData> {
-  return {
-    type: childData.type ?? [LWS.AccessGrant],
-    storage: childData.storage,
-    access: childData.access,
-    grantedBy: childData.grantedBy,
-    dataOwner: childData.dataOwner,
-    registeredShapeTree: childData.registeredShapeTree,
-    hasDataRegistration: childData.hasDataRegistration,
-    scopeOfGrant: childData.scopeOfGrant,
-    hasDataInstance: childData.hasDataInstance,
-    id: await sai.mintIdentifier(sai.registrySet.hasGrantRegistry.id),
-    inheritsFromGrant,
-  }
 }
 
 async function storeFinalGrants(finalGrants: FinalGrantData[]): Promise<void> {

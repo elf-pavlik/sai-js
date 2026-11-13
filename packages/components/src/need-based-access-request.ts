@@ -2,7 +2,6 @@ import { ActivityRegistry } from '@janeirodigital/interop-authorization-agent'
 import type {
   EmbeddedNeedBasedAccessRequest,
   NeedBasedAccessRequestGroup,
-  NeedBasedAccessRequestMessage,
   NeedBasedAccessRequestReceived,
 } from '@janeirodigital/interop-data-model'
 import { ACCESS_ACTIONS, INTEROP } from '@janeirodigital/interop-utils'
@@ -13,6 +12,9 @@ import {
 } from '@solid/community-server'
 
 import type { SessionManager } from './SessionManager.js'
+
+/** The request-to-be, before the owner mints its real id. */
+export type NeedBasedAccessRequestInput = Omit<EmbeddedNeedBasedAccessRequest, 'id'>
 
 function strings(value: unknown): string[] {
   return Array.isArray(value)
@@ -53,13 +55,13 @@ export function isOdrlNeedBasedAccessRequest(value: unknown): value is Record<st
  * Map the frozen needs request policies back to the embedded need-group
  * representation the owner-side activity and workflow materialize. Need IDs,
  * shape trees, and inherited children ride the ODRL policies; the wire does
- * not repeat the legacy envelope-level `grantee`/`grantedBy`/`dataOwner`.
+ * not carry envelope-level `grantee`/`grantedBy`/`dataOwner`.
  */
 export function needBasedAccessRequestFromOdrl(
   message: Record<string, unknown>,
   requesterWebId: string,
   expectedDataOwner?: string
-): NeedBasedAccessRequestMessage {
+): NeedBasedAccessRequestInput {
   const policies = Array.isArray(message.access)
     ? (message.access as Record<string, unknown>[])
     : []
@@ -126,12 +128,11 @@ export function needBasedAccessRequestFromOdrl(
  * `AccessRequestRegistry`, write the `NeedBasedAccessRequestReceived`
  * activity, and return the empty `202` the frozen contract requires.
  *
- * `expectedDataOwner` is the owner encoded in the owner-scoped endpoint. The
- * legacy `.sai/grants` route has no owner segment and omits it.
+ * `expectedDataOwner` is the owner encoded in the owner-scoped endpoint.
  */
 export async function acceptNeedBasedAccessRequest(
   sessionManager: SessionManager,
-  message: NeedBasedAccessRequestMessage,
+  message: NeedBasedAccessRequestInput,
   requesterWebId: string,
   expectedDataOwner?: string
 ): Promise<ResponseDescription> {

@@ -80,13 +80,7 @@ export {
   grantTargets,
   toJsonLd,
 } from './grant.ts'
-export type {
-  AccessRequestMessage,
-  IncomingGrantData,
-  NeedBasedAccessRequestData,
-  NeedBasedAccessRequestGroup,
-  NeedBasedAccessRequestMessage,
-} from './access-request.ts'
+export type { NeedBasedAccessRequestData, NeedBasedAccessRequestGroup } from './access-request.ts'
 export * as AccessRequest from './access-request.ts'
 export { fromJsonLd as AccessRequestFromJsonLd } from './access-request.ts'
 export type { AccessRevocationMessage } from './access-revocation.ts'

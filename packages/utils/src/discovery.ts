@@ -112,22 +112,6 @@ export async function discoverAccessGrantService(
   return discoverCidService(webId, fetch, LWS.AccessGrantService)
 }
 
-/**
- * @deprecated use {@link discoverAccessRequestService}; retained until the
- * cleanup step removes the legacy `interop:hasDelegationIssuanceEndpoint`.
- */
-export async function discoverDelegationIssuanceEndpoint(
-  webId: string,
-  fetch: WhatwgFetch
-): Promise<string> {
-  const accessRequestService = await discoverAccessRequestService(webId, fetch)
-  if (accessRequestService) return accessRequestService
-  const uasId = await discoverAuthorizationAgent(webId, fetch)
-  if (!uasId) throw new Error(`cannot discover authorization agent for ${webId}`)
-  const doc = await fetchJsonLd(uasId, fetch)
-  return (await documentValues(doc, uasId, INTEROP.hasDelegationIssuanceEndpoint))[0]
-}
-
 export async function discoverAgentRegistration(
   authorizationAgentIri: string,
   fetch: WhatwgFetch

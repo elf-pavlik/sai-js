@@ -8,7 +8,6 @@ import {
   discoverAccessResource,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
-  discoverDelegationIssuanceEndpoint,
   discoverDescriptionResource,
   discoverWebPushService,
   lwsStorageRoot,
@@ -35,7 +34,6 @@ const uasDoc = [
   {
     '@id': aliceAgentId,
     [`${INTEROP}hasAuthorizationRedirectEndpoint`]: [{ '@id': 'https://ui.auth/authorize' }],
-    [`${INTEROP}hasDelegationIssuanceEndpoint`]: [{ '@id': 'https://auth/.sai/grants' }],
     [`${INTEROP}pushService`]: [{ '@id': 'https://auth/.sai/webpush' }],
     [`${NOTIFY}vapidPublicKey`]: [
       {
@@ -105,23 +103,6 @@ describe('discoverAccessRequestService / discoverAccessGrantService', () => {
     const mock = cidFetch({ '@context': 'https://www.w3.org/ns/cid/v1', id: aliceId, service: [] })
     expect(await discoverAccessRequestService(aliceId, mock)).toBeUndefined()
     expect(await discoverAccessGrantService(aliceId, mock)).toBeUndefined()
-  })
-})
-
-describe('discoverDelegationIssuanceEndpoint', () => {
-  test('uses the access request service from the CID document', async () => {
-    const mock = cidFetch()
-    const endpoint = await discoverDelegationIssuanceEndpoint(aliceId, mock)
-    expect(endpoint).toBe(accessRequests)
-    expect(mock.mock.calls).toHaveLength(1)
-  })
-
-  test('falls back to the legacy UAS document while the old predicate exists', async () => {
-    const mock = jsonldFetch({ [aliceId]: webIdDoc, [aliceAgentId]: uasDoc })
-    const endpoint = await discoverDelegationIssuanceEndpoint(aliceId, mock)
-    expect(endpoint).toBe('https://auth/.sai/grants')
-    expect(mock.mock.calls).toHaveLength(3)
-    expect(mock.mock.calls[2][0]).toBe(aliceAgentId)
   })
 })
 

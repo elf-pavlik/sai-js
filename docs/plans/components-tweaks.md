@@ -27,7 +27,7 @@ domain/spec logic still embedded in components**, in three buckets:
    admin-marker (`hasAdminGrant`) rule — implemented four times across
    components with different transports.
 2. **It mirrors already-moved AA logic** (new findings): the
-   delegation-endpoint inheritance completion in `GrantIssuanceHandler` and
+   delegation request inheritance completion in `AccessRequestHandler` and
    the AdminGrant **materialization** rule in `temporal/activities/admin.ts`
    mirror AA's `generateDataAuthorizations` / `generateGrantsForAuthorization`
    respectively.
@@ -84,9 +84,9 @@ admin" — is implemented independently in:
 logic with no AA session method. Plan §9 flags the `buildSocialAgentProfile`
 variant as deferred; the re-investigation found the other three.
 
-### 2.3 Delegation-endpoint inheritance completion — `GrantIssuanceHandler`
+### 2.3 Delegation-request inheritance completion — `AccessRequestHandler`
 
-`packages/components/src/GrantIssuanceHandler.ts` `issue`/`buildInheritingGrant`:
+`packages/components/src/delegation-request.ts` `issueDelegationRequest` (validation in `validateDelegable`):
 
 - assigns grant IRIs via `iriForContained(sai.registrySet.hasGrantRegistry, ...)`;
 - completes the child grants embedded by the requester (AA's
@@ -176,7 +176,7 @@ Move the IRI assignment + `hasInheritingGrant`/`inheritsFromGrant` wiring
 (2.3) into an AA session method, e.g. `finalizeIncomingGrants(grants)`:
 assigns IRIs in `registrySet.hasGrantRegistry`, completes embedded child
 grants, and validates each via `grantChainValidity`/`getRegistryGrants`.
-`GrantIssuanceHandler`
+`AccessRequestHandler`
 keeps the HTTP envelope (message dispatch, all-or-nothing dataOwner check is
 arguably part of it — decide when implementing), Temporal scheduling, and
 the response. Complements AA's `generateDelegatedDataGrants`.

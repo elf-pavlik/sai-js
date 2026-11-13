@@ -19,11 +19,6 @@ export function accessGrantsUrl(webId: string): string {
   return `${process.env.CSS_BASE_URL}.sai/grants/${Buffer.from(webId).toString('base64url')}`
 }
 
-/** Legacy WebID discovery/account-bootstrap name for the grant service URL. */
-export function issuanceUrl(webId: string): string {
-  return accessGrantsUrl(webId)
-}
-
 export function accessRequestsUrl(webId: string): string {
   return `${process.env.CSS_BASE_URL}.sai/access-requests/${Buffer.from(webId).toString('base64url')}`
 }

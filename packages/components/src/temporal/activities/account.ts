@@ -30,8 +30,6 @@ export interface BootstrapAccountInput {
   docId: string
   /** the WebID's SAI authorization agent (client-id document) */
   uas: string
-  /** legacy delegation-issuance endpoint, removed in the cleanup step */
-  issuance: string
   /** owner-scoped access request service */
   accessRequests: string
   /** owner-scoped access grant service */
@@ -247,7 +245,6 @@ export async function postBootstrapTriG(input: BootstrapAccountInput): Promise<v
       document: input.docId,
       issuer: input.issuer,
       uas: input.uas,
-      issuance: input.issuance,
       accessRequests: input.accessRequests,
       accessGrants: input.accessGrants,
     })

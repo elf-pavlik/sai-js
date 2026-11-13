@@ -108,7 +108,7 @@ export async function ensureActivityWebhookChannel(payload: EnsureActivityWebhoo
 
 `AccountService.bootstrapAccount`, after the registry-set trig POST (and the kv
 account write), **starts** the workflow fire-and-forget (same Temporal client
-pattern as `GrantIssuanceHandler`):
+pattern as `AccessRequestHandler`):
 
 ```ts
 const temporal = new Temporal()

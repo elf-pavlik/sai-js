@@ -5,8 +5,6 @@ interface WebIdData {
   document: string
   issuer: string
   uas: string
-  /** legacy delegation-issuance endpoint, removed in the cleanup step */
-  issuance: string
   accessRequests: string
   accessGrants: string
 }
@@ -16,7 +14,6 @@ export const webIdTemplate = ({
   document,
   issuer,
   uas,
-  issuance,
   accessRequests,
   accessGrants,
 }: WebIdData): string => `
@@ -28,7 +25,6 @@ export const webIdTemplate = ({
   GRAPH <${document}> {
     <${id}>
         solid:oidcIssuer <${issuer}>;
-        interop:hasDelegationIssuanceEndpoint <${issuance}>;
         interop:hasAuthorizationAgent <${uas}>;
         did:service [
           a lws:AccessRequestService;

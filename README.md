@@ -6,6 +6,19 @@
 
 Modules implementing [Solid Application Interoperability Specification](https://solid.github.io/data-interoperability-panel/specification/)
 
+## Access request and grant services
+
+The authorization agent exposes the owner-scoped LWS/SAI services:
+
+- `POST /.sai/access-requests/<base64url(owner)>` — needs, delegation, and
+  revocation access requests.
+- `GET|HEAD /.sai/grants/<base64url(owner)>` — read-only access grant view over
+  the owner's grant registry.
+
+The endpoints are advertised in the owner's WebID/ClientID CID documents and
+LWS storage descriptions. The old `.sai/grants` issuance POST route and
+`interop:hasDelegationIssuanceEndpoint` are not part of the current protocol.
+
 ## Intended dependents
 
 |                           | package                                                                                                                         |

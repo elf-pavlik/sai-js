@@ -25,7 +25,8 @@ landed design (tree equivalence, the issuer-side grant replica, the value-based
 workflow result) is in `openwiki/architecture/grant-reuse.md`, with the
 remaining replica-cleanup/backfill follow-ups in the OpenWiki revocation
 design (`openwiki/architecture/authorization-revocation.md`) and
-`pod-isolation-followup.md` A1.
+`pod-isolation-followup.md` A1. The completed LWS alignment phases are
+removed; their remaining follow-ups are in `lws-followup.md`.
 
 The former revocation follow-up file, `authorization-revoked.md`, and the
 closed workstream/detailed-design records were all **absorbed** into the
@@ -38,11 +39,11 @@ file was deleted. The post-workstream follow-ups are in
 | Status | Count | Plans |
 |---|---|---|
 | 🔶 in progress / design ready | 0 | — |
-| ⬜ not started / design only | 11 | `grants-replication-polish`, `webhook-subscription-bootstrap`, `registry-set-permissions`, `components-tweaks`, `specific-instance-access-requests`, `generic-auditing`, `extract-temporal-workflows`, `update-deployment`, `pod-isolation-followup`, `reconsider-n3-package`, `npm-publishing` |
+| ⬜ not started / design only | 12 | `grants-replication-polish`, `webhook-subscription-bootstrap`, `registry-set-permissions`, `components-tweaks`, `specific-instance-access-requests`, `generic-auditing`, `extract-temporal-workflows`, `update-deployment`, `pod-isolation-followup`, `reconsider-n3-package`, `npm-publishing`, `lws-followup` |
 | 🧭 umbrella | 1 | `org-admin-feature` |
 | 📝 design notes | 3 | `architecture`, `fixes`, `improve-fetch-json-ld` |
 
-**15 plan files** (+ `index.md` and `CONVENTIONS.md`).
+**16 plan files** (+ `index.md` and `CONVENTIONS.md`).
 
 ## Workstreams
 

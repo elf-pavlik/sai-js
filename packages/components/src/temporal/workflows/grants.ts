@@ -410,7 +410,7 @@ export async function updateDelegatedGrants(
 }
 
 /**
- * Requester hop (grantor-side, §5 System 1): POST the AccessRevocation to the
+ * Requester hop (grantor-side, §5 System 1): POST the AccessRevocationRequest to the
  * data owner's access request endpoint, then on success clear the grantor's
  * registration projection (`hasDataGrant`) for the revoked grants, then mark
  * the triggering activity done. The data owner's handler removes the listed
@@ -732,7 +732,7 @@ export async function reconcileActivities(payload: { webId: SocialAgentId }): Pr
  * trees are created (fail closed). "Existing" is the registration projection
  * union the own-registry orphan scan (recovery after a crash between delete
  * and PATCH). Removal is grouped by `dataOwner`: own registry → C1 closure
- * delete (`revokeGrantClosure`); peer-owned → the `AccessRevocation` boundary
+ * delete (`revokeGrantClosure`); peer-owned → the `AccessRevocationRequest` boundary
  * (`requestRevocations`, which also runs the owner's C1 closure). The removed
  * delegated trees' issuer-side replicas are dropped; the registration
  * projection is PATCHed last.

@@ -159,10 +159,11 @@
       "allowedMethods": ["POST", "GET", "HEAD"],
       "handler": {
         "@id": "urn:sai:default:AccessRequestHandler",
-        "comment": "Accepts the frozen ODRL needs request and exposes the owner's AccessRequestRegistry.",
+        "comment": "Accepts needs, delegation, and revocation access requests and exposes the owner's AccessRequestRegistry.",
         "@type": "AccessRequestHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
+        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
       }
     },
     {
@@ -177,7 +178,7 @@
       "ensureSlash": false
     },
     {
-      "comment": "Handles issuance of grants.",
+      "comment": "Legacy POST route: revocation moved to the access request endpoint; only needs compatibility remains.",
       "@id": "urn:sai:default:GrantIssuanceRouter",
       "@type": "OperationRouterHandler",
       "baseUrl": { "@id": "urn:solid-server:default:variable:baseUrl" },
@@ -185,11 +186,10 @@
       "allowedMethods": ["POST"],
       "handler": {
         "@id": "urn:sai:default:GrantIssuanceHandler",
-        "comment": "Handles request from another agent requesting grant delegation.",
+        "comment": "Temporary legacy needs fallback.",
         "@type": "GrantIssuanceHandler",
         "credentialsExtractor": { "@id": "urn:solid-server:default:CredentialsExtractor" },
-        "sessionManager": { "@id": "urn:sai:default:SessionManager" },
-        "endpointStore": { "@id": "urn:sai:default:PodEndpointStore" }
+        "sessionManager": { "@id": "urn:sai:default:SessionManager" }
       }
     },
     {

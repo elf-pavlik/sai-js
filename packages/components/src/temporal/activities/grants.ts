@@ -48,7 +48,6 @@ import {
   INTEROP,
   LWS,
   discoverAuthorizationAgent,
-  discoverDelegationIssuanceEndpoint,
   getAcl,
   loader,
   putJsonLd,
@@ -507,11 +506,11 @@ export async function revokeGrantClosure(payload: {
 }
 
 /**
- * Grantor-side revocation request at the data owner's delegation boundary
- * (C2/C3, the `requestDelegations` mirror): POST `AccessRevocation` with the
- * listed grant IRIs and return the owner's echo. The owner deletes the whole
- * C1 closure with its own session; the echo is the listed set (the requester
- * only cleans up its own projection/replicas for those).
+ * Grantor-side revocation request at the data owner's access request boundary
+ * (C2/C3, the `requestDelegations` mirror): POST `AccessRevocationRequest`
+ * with the listed grant IRIs and return the owner's echo. The owner deletes
+ * the whole C1 closure with its own session; the echo is the listed set (the
+ * requester only cleans up its own projection/replicas for those).
  */
 export async function requestRevocations(payload: {
   webId: SocialAgentId
@@ -521,7 +520,7 @@ export async function requestRevocations(payload: {
   if (payload.grants.length === 0) return []
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
-  const endpoint = await discoverDelegationIssuanceEndpoint(payload.dataOwner, session.fetch)
+  const endpoint = accessRequestsUrl(payload.dataOwner)
   const response = await session.fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/ld+json' },

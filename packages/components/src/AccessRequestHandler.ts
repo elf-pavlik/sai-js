@@ -17,12 +17,18 @@ import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/com
 import { getLoggerFor } from 'global-logger-factory'
 
 import { issueDelegationRequest, issueLegacyDelegationRequest } from './delegation-request.js'
-import { isAccessRequestMessage, isNeedBasedAccessRequestMessage } from './messages.js'
+import { GrantRevocationHandler } from './GrantRevocationHandler.js'
+import {
+  isAccessRequestMessage,
+  isAccessRevocationMessage,
+  isNeedBasedAccessRequestMessage,
+} from './messages.js'
 import {
   acceptNeedBasedAccessRequest,
   isOdrlNeedBasedAccessRequest,
   needBasedAccessRequestFromOdrl,
 } from './need-based-access-request.js'
+import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { SessionManager } from './SessionManager.js'
 
 /** The JSON-LD media type the access request endpoint requires. */
@@ -47,8 +53,9 @@ const FORWARDED_HEADERS = [
  * Owner-scoped access request endpoint:
  * `/.sai/access-requests/<base64url(owner)>`.
  *
- * `POST` accepts needs requests and the frozen top-level delegation array.
- * Revocation stays on the legacy `.sai/grants` route until its Phase 2 step.
+ * `POST` dispatches needs requests, the frozen top-level delegation array,
+ * and revocation requests (`AccessRequest` + `AccessRevocationRequest` with
+ * `grants`).
  *
  * `GET`/`HEAD` are a facade over the owner's `AccessRequestRegistry`: the
  * owner's credentials are checked, then the endpoint target is rewritten to
@@ -61,7 +68,8 @@ export class AccessRequestHandler extends OperationHttpHandler {
 
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
-    private readonly sessionManager: SessionManager
+    private readonly sessionManager: SessionManager,
+    private readonly endpointStore: PodEndpointStore
   ) {
     super()
   }
@@ -100,6 +108,13 @@ export class AccessRequestHandler extends OperationHttpHandler {
     }
 
     const message = await this.parseMessage(operation)
+    if (isAccessRevocationMessage(message)) {
+      return new GrantRevocationHandler(this.endpointStore, this.sessionManager).revoke(
+        message,
+        credentials,
+        operation
+      )
+    }
     if (Array.isArray(message)) {
       return issueDelegationRequest({
         sessionManager: this.sessionManager,

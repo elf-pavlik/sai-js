@@ -11,14 +11,12 @@ import {
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 
-import { GrantRevocationHandler } from './GrantRevocationHandler.js'
-import { isAccessRevocationMessage, isNeedBasedAccessRequestMessage } from './messages.js'
+import { isNeedBasedAccessRequestMessage } from './messages.js'
 import {
   acceptNeedBasedAccessRequest,
   isOdrlNeedBasedAccessRequest,
   needBasedAccessRequestFromOdrl,
 } from './need-based-access-request.js'
-import type { PodEndpointStore } from './PodEndpointStore.js'
 import type { SessionManager } from './SessionManager'
 
 /** The JSON-LD media type the legacy endpoint requires. */
@@ -27,16 +25,15 @@ const LD_JSON_MEDIA_TYPE = 'application/ld+json'
 /**
  * Legacy `.sai/grants` POST route.
  *
- * Delegation issuance now lives on the owner-scoped access request endpoint;
- * revocation remains here until its Phase 2 step. The old needs-request
- * branches are kept temporarily as request-shape compatibility.
+ * Delegation issuance and revocation now live on the owner-scoped access
+ * request endpoint. The old needs-request branches are kept temporarily as
+ * request-shape compatibility until the cleanup step.
  */
 export class GrantIssuanceHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
   public constructor(
     private readonly credentialsExtractor: CredentialsExtractor,
-    private readonly sessionManager: SessionManager,
-    private readonly endpointStore: PodEndpointStore
+    private readonly sessionManager: SessionManager
   ) {
     super()
   }
@@ -74,13 +71,6 @@ export class GrantIssuanceHandler extends OperationHttpHandler {
         this.sessionManager,
         needBasedAccessRequestFromOdrl(message, credentials.agent.webId),
         credentials.agent.webId
-      )
-    }
-    if (isAccessRevocationMessage(message)) {
-      return new GrantRevocationHandler(this.endpointStore, this.sessionManager).revoke(
-        message,
-        credentials,
-        operation
       )
     }
     if (isNeedBasedAccessRequestMessage(message)) {

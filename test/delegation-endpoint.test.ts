@@ -150,6 +150,17 @@ describe('DelegationRevocationEndpoint', () => {
     await waitForQuiescence([acmeId, bobId, aliceId, kimId])
   })
 
+  test('the legacy .sai/grants endpoint no longer accepts revocation', async (): Promise<void> => {
+    const session = await buildOidcSession(acmeId)
+    const response = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
+      body: revocationPayload([p9m2vr]),
+    })
+    expect(response.status).toBe(400)
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
   test('revokes a listed grant and its inheriting child', async (): Promise<void> => {
     const ids = await issueProjectsGrant()
     const [parentId, childId] = ids
@@ -162,7 +173,7 @@ describe('DelegationRevocationEndpoint', () => {
     expect(directDelete.status).toBe(403)
 
     const session = await buildOidcSession(bobId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
@@ -179,7 +190,7 @@ describe('DelegationRevocationEndpoint', () => {
     const [parentId] = ids
     const session = await buildOidcSession(bobId)
 
-    const first = await session.authFetch(issuanceUrl(acmeId), {
+    const first = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
@@ -187,7 +198,7 @@ describe('DelegationRevocationEndpoint', () => {
     expect(first.status).toBe(200)
     expect(await first.json()).toEqual([parentId])
 
-    const second = await session.authFetch(issuanceUrl(acmeId), {
+    const second = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
@@ -202,7 +213,7 @@ describe('DelegationRevocationEndpoint', () => {
     const [parentId] = ids
 
     const session = await buildOidcSession(bobId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId, 'https://registry/acme/does-not-exist']),
@@ -217,7 +228,7 @@ describe('DelegationRevocationEndpoint', () => {
     const [parentId] = ids
 
     const kimSession = await buildOidcSession(kimId)
-    const response = await kimSession.authFetch(issuanceUrl(acmeId), {
+    const response = await kimSession.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([parentId]),
@@ -230,7 +241,7 @@ describe('DelegationRevocationEndpoint', () => {
 
   test('a mixed-owner request fails as a whole on the requested set (B2)', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([p9m2vr, bobOwnGrant]),
@@ -246,7 +257,7 @@ describe('DelegationRevocationEndpoint', () => {
 
   test('revoking an existing grant owned by someone else is unauthorized', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([bobOwnGrant]),
@@ -263,7 +274,7 @@ describe('DelegationRevocationEndpoint', () => {
   test('a grant IRI from no known registry is a typed unknown refusal', async (): Promise<void> => {
     const session = await buildOidcSession(acmeId)
     const unknownGrant = 'https://unknown.example/registry/grant/x'
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([unknownGrant]),
@@ -307,7 +318,7 @@ describe('DelegationRevocationEndpoint', () => {
     expect(await countGrants()).toBe(seededGrantCount + 2)
 
     const session = await buildOidcSession(bobId)
-    const response = await session.authFetch(issuanceUrl(acmeId), {
+    const response = await session.authFetch(accessRequestsUrl(acmeId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/ld+json' },
       body: revocationPayload([entryPoint]),

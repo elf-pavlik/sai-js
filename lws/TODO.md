@@ -33,11 +33,18 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         `grants` fallback) now POST to
         `/.sai/access-requests/<owner>`; the URL owner must match the payload
         `assigner`. `requestDelegations` targets the new endpoint directly
-        while discovery/WebID still advertise the legacy route for revocation
-        until Steps 3/6. The old `.sai/grants` POST now rejects delegation;
+        while discovery/WebID still advertise the legacy route until
+        Step 6. The old `.sai/grants` POST now rejects delegation;
         chain validation and the synchronous issued-grants response are
         unchanged. Package suite and full Dagger integration suite are green.
-  - [ ] Step 3: move revocation to the access request endpoint.
+  - [x] Step 3: move revocation to the access request endpoint.
+        `AccessRequest` + `AccessRevocationRequest` payloads now POST to
+        `/.sai/access-requests/<owner>`; authority, all-or-nothing validation,
+        C1 closure, automatic revocation, and owner-workflow deletes are
+        unchanged. `requestRevocations` targets the new endpoint directly.
+        The legacy `.sai/grants` POST now rejects revocation (only the
+        temporary needs fallback remains). Package suite and full Dagger
+        integration suite are green.
   - [ ] Step 4: `/.sai/grants/<owner>` becomes the read-only grant view.
   - [ ] Step 5: disable `.lws` access stores/readers; replace the CSS describer.
   - [ ] Step 6: CID/discovery (`application/cid`, access request/grant services).

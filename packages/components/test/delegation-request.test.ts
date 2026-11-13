@@ -40,7 +40,7 @@ vi.mock('../src/builders/sessionManager.js', () => ({
   buildSessionManager: () => ({ getSession: async () => session }),
 }))
 
-import { requestDelegations } from '../src/temporal/activities/grants.js'
+import { requestDelegations, requestRevocations } from '../src/temporal/activities/grants.js'
 import { accessRequestsUrl } from '../src/util/uriTemplates.js'
 
 process.env.CSS_BASE_URL = 'https://auth/'
@@ -181,5 +181,48 @@ describe('requestDelegations — one request per data owner (T7)', () => {
       'invalid delegation response'
     )
     expect(sparql.fetchUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('requestRevocations — owner access request endpoint', () => {
+  const grants = [{ id: 'https://registry/alice/g1', type: [LWS.AccessGrant] }]
+
+  test('posts the grant IRIs to the owner-scoped access request endpoint', async () => {
+    h.fetch.mockResolvedValue(
+      new Response(JSON.stringify(['https://registry/alice/g1']), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    const removed = await requestRevocations({
+      webId,
+      dataOwner: 'https://id/alice',
+      grants,
+    })
+
+    expect(removed).toEqual(['https://registry/alice/g1'])
+    expect(h.fetch).toHaveBeenCalledTimes(1)
+    const [endpoint, init] = h.fetch.mock.calls[0] as [string, { body: string; method: string }]
+    expect(endpoint).toBe(accessRequestsUrl('https://id/alice'))
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toMatchObject({
+      type: ['AccessRequest', 'AccessRevocationRequest'],
+      grants: ['https://registry/alice/g1'],
+    })
+  })
+
+  test('does nothing for an empty revocation set', async () => {
+    expect(await requestRevocations({ webId, dataOwner: 'https://id/alice', grants: [] })).toEqual(
+      []
+    )
+    expect(h.fetch).not.toHaveBeenCalled()
+  })
+
+  test('surfaces a rejected revocation request', async () => {
+    h.fetch.mockResolvedValue(new Response('nope', { status: 403 }))
+    await expect(
+      requestRevocations({ webId, dataOwner: 'https://id/alice', grants })
+    ).rejects.toThrow('revocation request failed: 403')
   })
 })

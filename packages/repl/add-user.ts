@@ -53,6 +53,8 @@ function registryContent(handle: string, data: string[]): string {
   const webId = `https://id/${handle}`
   const uas = `https://auth/.sai/agents/${b64(webId)}`
   const issuance = `https://auth/.sai/grants/${b64(webId)}`
+  const accessRequests = `https://auth/.sai/access-requests/${b64(webId)}`
+  const accessGrants = `https://auth/.sai/grants/${b64(webId)}`
 
   let content = stripP(
     registrySetTemplate({
@@ -87,7 +89,15 @@ GRAPH <https://registry/${handle}/role/> {
 `
 
   content += stripP(
-    webIdTemplate({ id: webId, document: webId, issuer: 'https://auth/', uas, issuance })
+    webIdTemplate({
+      id: webId,
+      document: webId,
+      issuer: 'https://auth/',
+      uas,
+      issuance,
+      accessRequests,
+      accessGrants,
+    })
   )
 
   return content

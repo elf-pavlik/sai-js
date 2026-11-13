@@ -3,6 +3,8 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   AUXILIARY_DISCOVERY_ACCEPT,
   type WhatwgFetch,
+  discoverAccessGrantService,
+  discoverAccessRequestService,
   discoverAccessResource,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
@@ -18,6 +20,9 @@ const aliceId = 'https://id/alice'
 const aliceAgentId = 'https://auth/.sai/agents/aHR0cHM6Ly9pZC9hbGljZQ'
 const INTEROP = 'http://www.w3.org/ns/solid/interop#'
 const NOTIFY = 'http://www.w3.org/ns/solid/notifications#'
+const LWS = 'https://www.w3.org/ns/lws#'
+const accessRequests = `https://auth/.sai/access-requests/${Buffer.from(aliceId).toString('base64url')}`
+const accessGrants = `https://auth/.sai/grants/${Buffer.from(aliceId).toString('base64url')}`
 
 const webIdDoc = [
   {
@@ -66,14 +71,57 @@ describe('discoverAuthorizationAgent', () => {
   })
 })
 
+const cidDoc = {
+  '@context': 'https://www.w3.org/ns/cid/v1',
+  id: aliceId,
+  service: [
+    {
+      type: `${INTEROP}AuthorizationAgent`,
+      serviceEndpoint: aliceAgentId,
+    },
+    {
+      type: `${LWS}AccessRequestService`,
+      serviceEndpoint: accessRequests,
+    },
+    {
+      type: `${LWS}AccessGrantService`,
+      serviceEndpoint: accessGrants,
+    },
+  ],
+}
+
+function cidFetch(doc: unknown = cidDoc) {
+  return vi.fn(async () => ({ ok: true, json: async () => doc }) as unknown as Response)
+}
+
+describe('discoverAccessRequestService / discoverAccessGrantService', () => {
+  test('discovers both owner services from the WebID CID document', async () => {
+    const mock = cidFetch()
+    expect(await discoverAccessRequestService(aliceId, mock)).toBe(accessRequests)
+    expect(await discoverAccessGrantService(aliceId, mock)).toBe(accessGrants)
+  })
+
+  test('returns undefined when the service is absent', async () => {
+    const mock = cidFetch({ '@context': 'https://www.w3.org/ns/cid/v1', id: aliceId, service: [] })
+    expect(await discoverAccessRequestService(aliceId, mock)).toBeUndefined()
+    expect(await discoverAccessGrantService(aliceId, mock)).toBeUndefined()
+  })
+})
+
 describe('discoverDelegationIssuanceEndpoint', () => {
-  test('uses the injected fetch for both requests and returns the endpoint', async () => {
+  test('uses the access request service from the CID document', async () => {
+    const mock = cidFetch()
+    const endpoint = await discoverDelegationIssuanceEndpoint(aliceId, mock)
+    expect(endpoint).toBe(accessRequests)
+    expect(mock.mock.calls).toHaveLength(1)
+  })
+
+  test('falls back to the legacy UAS document while the old predicate exists', async () => {
     const mock = jsonldFetch({ [aliceId]: webIdDoc, [aliceAgentId]: uasDoc })
     const endpoint = await discoverDelegationIssuanceEndpoint(aliceId, mock)
     expect(endpoint).toBe('https://auth/.sai/grants')
-    // two requests: the WebID document and the Authorization Agent document
-    expect(mock.mock.calls).toHaveLength(2)
-    expect(mock.mock.calls[1][0]).toBe(aliceAgentId)
+    expect(mock.mock.calls).toHaveLength(3)
+    expect(mock.mock.calls[2][0]).toBe(aliceAgentId)
   })
 })
 

@@ -54,7 +54,12 @@ import type {
   BootstrapAccountInput,
   ObjectCredentials,
 } from '../src/temporal/activities/account.js'
-import { agentId, issuanceUrl } from '../src/util/uriTemplates.js'
+import {
+  accessGrantsUrl,
+  accessRequestsUrl,
+  agentId,
+  issuanceUrl,
+} from '../src/util/uriTemplates.js'
 
 process.env.CSS_BASE_URL = 'https://auth/'
 process.env.CSS_FUSEKI_BASE_URL = 'http://fuseki:3030'
@@ -69,6 +74,8 @@ const input: BootstrapAccountInput = {
   docId: 'https://id/alice',
   uas: agentId('https://alice.id'),
   issuance: issuanceUrl('https://alice.id'),
+  accessRequests: accessRequestsUrl('https://alice.id'),
+  accessGrants: accessGrantsUrl('https://alice.id'),
   issuer: 'https://auth/',
   registrySet: 'https://registry/alice/',
   dataRegistry: 'https://alice.data/',

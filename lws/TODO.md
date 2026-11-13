@@ -62,7 +62,16 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         and grant services in the storage description; `.lws/grants/` and
         `.lws/requests/` are no longer created or read. Package suite and full
         Dagger integration suite are green.
-  - [ ] Step 6: CID/discovery (`application/cid`, access request/grant services).
+  - [x] Step 6: CID/discovery (`application/cid`, access request/grant services).
+        Account bootstrap and the seeded WebID profiles now carry direct
+        `did:service` entries for `lws:AccessRequestService` and
+        `lws:AccessGrantService`; `services/id` preserves them in the CID
+        framing, and `AgentIdHandler` supports `application/cid` with the
+        owner's request/grant services. `discoverAccessRequestService` and
+        `discoverAccessGrantService` read those CID entries, and
+        `discoverDelegationIssuanceEndpoint` now prefers the access request
+        service (legacy fallback remains until cleanup). Package suite and full
+        Dagger integration suite are green.
   - [ ] Step 7: cleanup (`issuanceUrl`, old guards/routes/types, docs).
 
 ## Phase 1 follow-ups

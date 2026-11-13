@@ -2,7 +2,7 @@ import {
   type SocialAgentRegistrationData,
   getAdminGrantIris,
 } from '@janeirodigital/interop-data-model'
-import { INTEROP } from '@janeirodigital/interop-utils'
+import { INTEROP, LWS } from '@janeirodigital/interop-utils'
 import {
   BasicRepresentation,
   OkResponseDescription,
@@ -18,6 +18,9 @@ import type {
 import { getLoggerFor } from 'global-logger-factory'
 
 import type { SessionManager } from './SessionManager'
+import { accessGrantsUrl, accessRequestsUrl } from './util/uriTemplates.js'
+
+const CID_MEDIA_TYPE = 'application/cid'
 
 export class AgentIdHandler extends OperationHttpHandler {
   protected readonly logger = getLoggerFor(this)
@@ -35,24 +38,48 @@ export class AgentIdHandler extends OperationHttpHandler {
     response,
   }: OperationHttpHandlerInput): Promise<ResponseDescription> {
     const agentId = operation.target.path
+    const webId = Buffer.from(agentId.match(/[^/]+$/u)![0], 'base64url').toString('utf8')
+    const accessRequests = accessRequestsUrl(webId)
+    const accessGrants = accessGrantsUrl(webId)
+
+    const accept = request.headers.accept ?? ''
+    if (accept.includes(CID_MEDIA_TYPE)) {
+      addHeader(response, 'Vary', 'Accept')
+      const cid = {
+        '@context': 'https://www.w3.org/ns/cid/v1',
+        id: agentId,
+        service: [
+          { type: INTEROP.AuthorizationAgent, serviceEndpoint: agentId },
+          { type: LWS.AccessRequestService, serviceEndpoint: accessRequests },
+          { type: LWS.AccessGrantService, serviceEndpoint: accessGrants },
+        ],
+      }
+      const representation = new BasicRepresentation(
+        JSON.stringify(cid),
+        operation.target,
+        CID_MEDIA_TYPE
+      )
+      return new OkResponseDescription(representation.metadata, representation.data)
+    }
+
     const client = {
       '@context': [
         'https://www.w3.org/ns/solid/oidc-context.jsonld',
         'https://www.w3.org/ns/solid/notifications-context/v1',
         {
           interop: 'http://www.w3.org/ns/solid/interop#',
+          lws: 'https://www.w3.org/ns/lws#',
         },
       ],
       client_id: agentId,
       'interop:hasAuthorizationRedirectEndpoint': this.authorizationEndpoint.getPath(),
       'interop:hasDelegationIssuanceEndpoint': this.delegationEndpoint.getPath(),
+      'lws:AccessRequestService': accessRequests,
+      'lws:AccessGrantService': accessGrants,
     }
 
     const credentials = await this.credentialsExtractor.handleSafe(request)
     if (credentials.agent) {
-      const regex = /[^/]+$/
-      const webId = Buffer.from(agentId.match(regex)[0], 'base64url').toString('utf8')
-
       const sai = await this.sessionManager.getSession(webId)
       const isOwner = sai.webId === credentials.agent.webId
       const registration = isOwner

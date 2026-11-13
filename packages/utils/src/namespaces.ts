@@ -32,6 +32,7 @@ export const INTEROP = createVocabulary(
   'Application',
   'ApplicationRegistration',
   'ApplicationRegistry',
+  'AuthorizationAgent',
   'AuthorizationDenied',
   'AuthorizationGranted',
   'AuthorizationRegistry',

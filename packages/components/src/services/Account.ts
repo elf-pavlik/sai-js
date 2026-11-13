@@ -5,7 +5,7 @@ import postgres from 'postgres'
 import type { BootstrapAccountInput } from '../temporal/activities/account.js'
 import { Temporal } from '../temporal/client.js'
 import { bootstrapAccount } from '../temporal/workflows/account.js'
-import { agentId, issuanceUrl } from '../util/uriTemplates.js'
+import { accessGrantsUrl, accessRequestsUrl, agentId, issuanceUrl } from '../util/uriTemplates.js'
 
 /**
  * The auth server's account service. `checkHandle` is a synchronous lookup;
@@ -55,6 +55,8 @@ export class AccountService {
       docId: `https://${this.docOrigin}/${handle}`,
       uas: agentId(webId),
       issuance: issuanceUrl(webId),
+      accessRequests: accessRequestsUrl(webId),
+      accessGrants: accessGrantsUrl(webId),
       issuer: this.issuer,
       registrySet: `https://${this.regOrigin}/${handle}/`,
       dataRegistry: `https://${handle}.${this.dataOrigin}/`,

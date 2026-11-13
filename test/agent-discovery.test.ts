@@ -1,4 +1,9 @@
-import { agentId, buildOidcSession } from '@elfpavlik/sai-components'
+import {
+  accessGrantsUrl,
+  accessRequestsUrl,
+  agentId,
+  buildOidcSession,
+} from '@elfpavlik/sai-components'
 import { getAgentRegistrationIri } from '@janeirodigital/interop-utils'
 import { describe, expect, test } from 'vitest'
 
@@ -16,6 +21,33 @@ describe('AgentIdHandler', () => {
     expect(doc.client_id).toBe(aliceAgentId)
     expect(doc['interop:hasAuthorizationRedirectEndpoint']).toBe('https://ui.auth/authorize')
     expect(doc['interop:hasDelegationIssuanceEndpoint']).toBe('https://auth/.sai/grants')
+    expect(doc['lws:AccessRequestService']).toBe(accessRequestsUrl(aliceId))
+    expect(doc['lws:AccessGrantService']).toBe(accessGrantsUrl(aliceId))
+  })
+  test('cid', async () => {
+    const response = await fetch(aliceAgentId, {
+      headers: { Accept: 'application/cid' },
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/cid')
+    expect(await response.json()).toEqual({
+      '@context': 'https://www.w3.org/ns/cid/v1',
+      id: aliceAgentId,
+      service: [
+        {
+          type: 'http://www.w3.org/ns/solid/interop#AuthorizationAgent',
+          serviceEndpoint: aliceAgentId,
+        },
+        {
+          type: 'https://www.w3.org/ns/lws#AccessRequestService',
+          serviceEndpoint: accessRequestsUrl(aliceId),
+        },
+        {
+          type: 'https://www.w3.org/ns/lws#AccessGrantService',
+          serviceEndpoint: accessGrantsUrl(aliceId),
+        },
+      ],
+    })
   })
   for (const method of ['HEAD', 'GET']) {
     describe('responds with social agent registry in headers', (): void => {

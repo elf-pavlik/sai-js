@@ -144,6 +144,36 @@ describe('doc', () => {
               `https://${idOrigin}/.sai/agents/aHR0cHM6Ly9kb2MubmV0L3NvbWVoYW5kbGU`
             )
           ),
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('https://www.w3.org/ns/did#service'),
+            DataFactory.blankNode('sai-access-request')
+          ),
+          DataFactory.quad(
+            DataFactory.blankNode('sai-access-request'),
+            DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+            DataFactory.namedNode('https://www.w3.org/ns/lws#AccessRequestService')
+          ),
+          DataFactory.quad(
+            DataFactory.blankNode('sai-access-request'),
+            DataFactory.namedNode('https://www.w3.org/ns/did#serviceEndpoint'),
+            DataFactory.namedNode('https://auth/.sai/access-requests/somehandle')
+          ),
+          DataFactory.quad(
+            DataFactory.namedNode(`https://${docOrigin}/somehandle`),
+            DataFactory.namedNode('https://www.w3.org/ns/did#service'),
+            DataFactory.blankNode('sai-access-grant')
+          ),
+          DataFactory.quad(
+            DataFactory.blankNode('sai-access-grant'),
+            DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+            DataFactory.namedNode('https://www.w3.org/ns/lws#AccessGrantService')
+          ),
+          DataFactory.quad(
+            DataFactory.blankNode('sai-access-grant'),
+            DataFactory.namedNode('https://www.w3.org/ns/did#serviceEndpoint'),
+            DataFactory.namedNode('https://auth/.sai/grants/somehandle')
+          ),
         ]),
     })
     const res = await app.request('/somehandle', {
@@ -154,10 +184,11 @@ describe('doc', () => {
     })
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe('application/cid')
-    expect(await res.json()).toEqual({
+    const body = (await res.json()) as { service: unknown[] }
+    expect(body).toEqual({
       '@context': 'https://www.w3.org/ns/cid/v1',
       id: `https://${docOrigin}/somehandle`,
-      service: [
+      service: expect.arrayContaining([
         {
           type: 'https://www.w3.org/ns/lws#OpenIdProvider',
           serviceEndpoint: `https://${idOrigin}`,
@@ -166,8 +197,17 @@ describe('doc', () => {
           type: 'http://www.w3.org/ns/solid/interop#AuthorizationAgent',
           serviceEndpoint: `https://${idOrigin}/.sai/agents/aHR0cHM6Ly9kb2MubmV0L3NvbWVoYW5kbGU`,
         },
-      ],
+        {
+          type: 'https://www.w3.org/ns/lws#AccessRequestService',
+          serviceEndpoint: 'https://auth/.sai/access-requests/somehandle',
+        },
+        {
+          type: 'https://www.w3.org/ns/lws#AccessGrantService',
+          serviceEndpoint: 'https://auth/.sai/grants/somehandle',
+        },
+      ]),
     })
+    expect(body.service).toHaveLength(4)
   })
   test('request doc as cid when profile subject differs from resource url', async () => {
     // mirrors the docker setup: resource https://id.docker/alice serves a

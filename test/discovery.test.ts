@@ -1,7 +1,9 @@
-import { buildOidcSession } from '@elfpavlik/sai-components'
+import { accessGrantsUrl, accessRequestsUrl, buildOidcSession } from '@elfpavlik/sai-components'
 import {
   AgentRegistrationDiscoveryError,
   DescriptionResourceDiscoveryError,
+  discoverAccessGrantService,
+  discoverAccessRequestService,
   discoverAgentRegistration,
   discoverAuthorizationAgent,
   discoverAuthorizationRedirectEndpoint,
@@ -20,6 +22,16 @@ describe('discoverAuthorizationAgent', () => {
   test('should discover Authorization Agent from the WebID document', async () => {
     const iri = await discoverAuthorizationAgent(aliceId, fetch)
     expect(iri).toBe(aliceAgentId)
+  })
+})
+
+describe('discover access services from the WebID CID', () => {
+  test('discovers the owner access request service', async () => {
+    expect(await discoverAccessRequestService(aliceId, fetch)).toBe(accessRequestsUrl(aliceId))
+  })
+
+  test('discovers the owner access grant service', async () => {
+    expect(await discoverAccessGrantService(aliceId, fetch)).toBe(accessGrantsUrl(aliceId))
   })
 })
 

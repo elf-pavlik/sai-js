@@ -7,7 +7,7 @@ import {
   getStorageDescription,
   getUp,
 } from './link-header.ts'
-import { INTEROP, NOTIFY } from './namespaces.ts'
+import { INTEROP, LWS, NOTIFY } from './namespaces.ts'
 import type { WhatwgFetch } from './whatwg-fetch.ts'
 
 export class RequestError extends Error {
@@ -51,10 +51,77 @@ export async function discoverAuthorizationAgent(
   return (await documentValues(doc, webId, INTEROP.hasAuthorizationAgent))[0]
 }
 
+type CidService = {
+  type?: string | string[]
+  serviceEndpoint?: string
+}
+
+/** CID media type for WebID/ClientID service documents. */
+export const CID_ACCEPT = 'application/cid'
+
+function serviceTypeMatches(type: unknown, expected: string): boolean {
+  return type === expected || type === expected.split('#').pop()
+}
+
+async function fetchCidServices(
+  resourceIri: string,
+  fetch: WhatwgFetch
+): Promise<Record<string, unknown>[]> {
+  const response = await fetch(resourceIri, { headers: { Accept: CID_ACCEPT } })
+  if (!response.ok) return []
+  let doc: unknown
+  try {
+    doc = await response.json()
+  } catch {
+    return []
+  }
+  if (!doc || typeof doc !== 'object') return []
+  const raw = (doc as { service?: unknown }).service
+  const services = Array.isArray(raw) ? raw : raw ? [raw] : []
+  return services.filter(
+    (service): service is Record<string, unknown> => Boolean(service) && typeof service === 'object'
+  )
+}
+
+/** Find a service endpoint in a WebID/ClientID CID document. */
+export async function discoverCidService(
+  resourceIri: string,
+  fetch: WhatwgFetch,
+  serviceType: string
+): Promise<string | undefined> {
+  const services = await fetchCidServices(resourceIri, fetch)
+  for (const service of services as CidService[]) {
+    const types = Array.isArray(service.type) ? service.type : [service.type]
+    if (!types.some((type) => serviceTypeMatches(type, serviceType))) continue
+    if (typeof service.serviceEndpoint === 'string') return service.serviceEndpoint
+  }
+  return undefined
+}
+
+export async function discoverAccessRequestService(
+  webId: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  return discoverCidService(webId, fetch, LWS.AccessRequestService)
+}
+
+export async function discoverAccessGrantService(
+  webId: string,
+  fetch: WhatwgFetch
+): Promise<string | undefined> {
+  return discoverCidService(webId, fetch, LWS.AccessGrantService)
+}
+
+/**
+ * @deprecated use {@link discoverAccessRequestService}; retained until the
+ * cleanup step removes the legacy `interop:hasDelegationIssuanceEndpoint`.
+ */
 export async function discoverDelegationIssuanceEndpoint(
   webId: string,
   fetch: WhatwgFetch
 ): Promise<string> {
+  const accessRequestService = await discoverAccessRequestService(webId, fetch)
+  if (accessRequestService) return accessRequestService
   const uasId = await discoverAuthorizationAgent(webId, fetch)
   if (!uasId) throw new Error(`cannot discover authorization agent for ${webId}`)
   const doc = await fetchJsonLd(uasId, fetch)

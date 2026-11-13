@@ -13,7 +13,9 @@ export const CID_CONTEXT = 'https://www.w3.org/ns/cid/v1'
  * Reasoning rules turning the WebID profile graph into a CID document.
  * Currently: a `solid:oidcIssuer` is exposed as an `lws:OpenIdProvider`
  * service, and `interop:hasAuthorizationAgent` as an `interop:AuthorizationAgent`
- * service (both via w3c `did:service` / `did:serviceEndpoint`).  Add more
+ * service (both via w3c `did:service` / `did:serviceEndpoint`). Direct
+ * `did:service` entries already present in the profile — including the owner
+ * access request/grant services — pass through framing unchanged. Add more
  * rules here as the CID document grows (verification methods, Multikeys, …).
  */
 const rules = `

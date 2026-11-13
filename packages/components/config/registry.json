@@ -21,7 +21,7 @@
     "css:config/identity/pod/static.json",
     "css:config/ldp/authentication/lws.json",
     "css:config/ldp/authorization/acp.json",
-    "css:config/ldp/handler/lws.json",
+    "sai:config/ldp/handler/lws.json",
     "css:config/ldp/metadata-parser/lws.json",
     "css:config/ldp/metadata-writer/lws.json",
     "css:config/ldp/modes/lws.json",

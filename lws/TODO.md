@@ -53,7 +53,15 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         route is gone. TODO: showing delegated grants from other assigner
         registries (and mirrored peer grants) is intentionally deferred.
         Package suite and full Dagger integration suite are green.
-  - [ ] Step 5: disable `.lws` access stores/readers; replace the CSS describer.
+  - [x] Step 5: disable `.lws` access stores/readers; replace the CSS describer.
+        SAI data/registry servers now use `sai:config/ldp/handler/lws.json`,
+        which drops the `.lws` access initializer, `AccessGrantIndex/Reader`,
+        and `AccessDocumentOperationHandler` while keeping LWS storage
+        description, token exchange, containment, and notifications.
+        `SaiAccessServiceDescriber` advertises the owner-scoped access request
+        and grant services in the storage description; `.lws/grants/` and
+        `.lws/requests/` are no longer created or read. Package suite and full
+        Dagger integration suite are green.
   - [ ] Step 6: CID/discovery (`application/cid`, access request/grant services).
   - [ ] Step 7: cleanup (`issuanceUrl`, old guards/routes/types, docs).
 

@@ -61,6 +61,7 @@ import {
   storeGrantReplica,
 } from '../../services/GrantReplica.js'
 import { mirroredGrants } from '../../services/ReciprocalMirror.js'
+import { accessRequestsUrl } from '../../util/uriTemplates.js'
 import { delegatedGrantTrees, grantTrees, pairTrees } from './check-equivalence.js'
 
 export interface FindAffectedAuthorizationsInput {
@@ -785,9 +786,9 @@ export interface RequestDelegationsInput {
 /**
  * Request delegated grants from the data owner in **one** call: grants for a
  * single `dataOwner` travel in one `interop:AccessRequest` envelope (the
- * issuance endpoint already validates a single data owner and materializes the
- * whole batch), so endpoint discovery and the POST happen once instead of once
- * per grant.
+ * owner-scoped access request endpoint validates a single data owner and
+ * materializes the whole batch), so the POST happens once instead of once per
+ * grant. Discovery moves to the access-request service in Phase 2 Step 6.
  */
 export async function requestDelegations(payload: RequestDelegationsInput): Promise<GrantId[]> {
   if (payload.grants.length === 0) return []
@@ -799,7 +800,7 @@ export async function requestDelegations(payload: RequestDelegationsInput): Prom
   const manager = buildSessionManager()
   const session = await manager.getSession(payload.webId.id)
 
-  const endpoint = await discoverDelegationIssuanceEndpoint(dataOwner, session.fetch)
+  const endpoint = accessRequestsUrl(dataOwner)
   const wireContext = [
     'https://www.w3.org/ns/lws/v1',
     'http://www.w3.org/ns/odrl.jsonld',

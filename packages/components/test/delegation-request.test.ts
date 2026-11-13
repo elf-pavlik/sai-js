@@ -3,9 +3,9 @@ import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ──────────────────────────
-// T7: the delegation request is batched per data owner — one endpoint discovery
-// and one POST for the whole group, because the issuance endpoint already
-// requires a single dataOwner and materializes the batch.
+// T7: the delegation request is batched per data owner — one POST for the whole
+// group, because the owner-scoped access request endpoint already requires a
+// single dataOwner and materializes the batch.
 //
 // Step 4: the endpoint echoes the FINALISED grants (not bare ids), and the
 // grantor stores them as the issuer-side replica that `checkEquivalence` reads.
@@ -40,12 +40,10 @@ vi.mock('../src/builders/sessionManager.js', () => ({
   buildSessionManager: () => ({ getSession: async () => session }),
 }))
 
-vi.mock('@janeirodigital/interop-utils', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@janeirodigital/interop-utils')>()),
-  discoverDelegationIssuanceEndpoint: async () => 'https://data/alice.example/.sai/delegation',
-}))
-
 import { requestDelegations } from '../src/temporal/activities/grants.js'
+import { accessRequestsUrl } from '../src/util/uriTemplates.js'
+
+process.env.CSS_BASE_URL = 'https://auth/'
 
 const SOCIAL_AGENT_TYPE = 'http://www.w3.org/ns/solid/interop#SocialAgent'
 const ENDPOINT = 'https://registry/acme/sparql'
@@ -121,7 +119,7 @@ describe('requestDelegations — one request per data owner (T7)', () => {
     ])
     expect(h.fetch).toHaveBeenCalledTimes(1)
     const [endpoint, init] = h.fetch.mock.calls[0] as [string, { body: string; method: string }]
-    expect(endpoint).toBe('https://data/alice.example/.sai/delegation')
+    expect(endpoint).toBe(accessRequestsUrl('https://id/alice'))
     expect(init.method).toBe('POST')
     const message = JSON.parse(init.body)
     expect(message).toHaveLength(2)

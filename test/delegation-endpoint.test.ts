@@ -1,4 +1,9 @@
-import { buildOidcSession, buildSessionManager, issuanceUrl } from '@elfpavlik/sai-components'
+import {
+  accessRequestsUrl,
+  buildOidcSession,
+  buildSessionManager,
+  issuanceUrl,
+} from '@elfpavlik/sai-components'
 import { type GrantData, grantAccess } from '@janeirodigital/interop-data-model'
 import { ACCESS_ACTIONS, INTEROP, LWS } from '@janeirodigital/interop-utils'
 import { afterEach, describe, expect, test } from 'vitest'
@@ -125,7 +130,7 @@ const revocationPayload = (grants: string[]): string =>
 
 async function issueProjectsGrant(): Promise<string[]> {
   const session = await buildOidcSession(bobId)
-  const response = await session.authFetch(issuanceUrl(acmeId), {
+  const response = await session.authFetch(accessRequestsUrl(acmeId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/ld+json' },
     body: issuancePayload([projectsGrantData]),
@@ -273,7 +278,7 @@ describe('DelegationRevocationEndpoint', () => {
   test('multi-hop chain: revoking the entry point removes the downstream grant (C1)', async () => {
     const issueHop = async (grantedBy: string, grantee: string): Promise<string> => {
       const session = await buildOidcSession(grantedBy)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
@@ -315,10 +320,21 @@ describe('DelegationRevocationEndpoint', () => {
 })
 
 describe('DelegationIssuanceEndpoint', () => {
+  test('the legacy .sai/grants endpoint no longer accepts delegation', async (): Promise<void> => {
+    const session = await buildOidcSession(bobId)
+    const response = await session.authFetch(issuanceUrl(acmeId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/ld+json' },
+      body: issuancePayload([projectsGrantData]),
+    })
+    expect(response.status).toBe(400)
+    expect(await countGrants()).toBe(seededGrantCount)
+  })
+
   describe('agent delegates to application', (): void => {
     test('happy path', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData]),
@@ -341,7 +357,7 @@ describe('DelegationIssuanceEndpoint', () => {
     })
     test('multiple grants are issued all-or-nothing', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData, hrProjectsGrantData]),
@@ -362,7 +378,7 @@ describe('DelegationIssuanceEndpoint', () => {
     })
     test('invalid grantedBy fails and nothing is created', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
@@ -379,7 +395,7 @@ describe('DelegationIssuanceEndpoint', () => {
     })
     test('no covering upstream grant fails and nothing is created (C1)', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
@@ -395,7 +411,7 @@ describe('DelegationIssuanceEndpoint', () => {
     })
     test('different dataOwner fails all grants and nothing is created', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([
@@ -413,7 +429,7 @@ describe('DelegationIssuanceEndpoint', () => {
     })
     test('empty grants fails', async (): Promise<void> => {
       const session = await buildOidcSession(bobId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([]),
@@ -423,7 +439,7 @@ describe('DelegationIssuanceEndpoint', () => {
     test('wrong client', async (): Promise<void> => {
       const clientId = 'https://data/test-client/public/id'
       const session = await buildOidcSession(bobId, clientId)
-      const response = await session.authFetch(issuanceUrl(acmeId), {
+      const response = await session.authFetch(accessRequestsUrl(acmeId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/ld+json' },
         body: issuancePayload([projectsGrantData]),

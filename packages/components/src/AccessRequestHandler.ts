@@ -16,7 +16,8 @@ import {
 import type { CredentialsExtractor, OperationHttpHandlerInput } from '@solid/community-server'
 import { getLoggerFor } from 'global-logger-factory'
 
-import { isNeedBasedAccessRequestMessage } from './messages.js'
+import { issueDelegationRequest, issueLegacyDelegationRequest } from './delegation-request.js'
+import { isAccessRequestMessage, isNeedBasedAccessRequestMessage } from './messages.js'
 import {
   acceptNeedBasedAccessRequest,
   isOdrlNeedBasedAccessRequest,
@@ -46,9 +47,8 @@ const FORWARDED_HEADERS = [
  * Owner-scoped access request endpoint:
  * `/.sai/access-requests/<base64url(owner)>`.
  *
- * `POST` currently accepts needs requests only, using the frozen ODRL needs
- * payload. Delegation and revocation stay on the legacy `.sai/grants` route
- * until their Phase 2 steps.
+ * `POST` accepts needs requests and the frozen top-level delegation array.
+ * Revocation stays on the legacy `.sai/grants` route until its Phase 2 step.
  *
  * `GET`/`HEAD` are a facade over the owner's `AccessRequestRegistry`: the
  * owner's credentials are checked, then the endpoint target is rewritten to
@@ -100,6 +100,24 @@ export class AccessRequestHandler extends OperationHttpHandler {
     }
 
     const message = await this.parseMessage(operation)
+    if (Array.isArray(message)) {
+      return issueDelegationRequest({
+        sessionManager: this.sessionManager,
+        envelopes: message,
+        requesterWebId: credentials.agent.webId,
+        expectedDataOwner: owner,
+        operation,
+      })
+    }
+    if (isAccessRequestMessage(message)) {
+      return issueLegacyDelegationRequest({
+        sessionManager: this.sessionManager,
+        message,
+        requesterWebId: credentials.agent.webId,
+        expectedDataOwner: owner,
+        operation,
+      })
+    }
     if (isOdrlNeedBasedAccessRequest(message)) {
       return acceptNeedBasedAccessRequest(
         this.sessionManager,
@@ -118,7 +136,7 @@ export class AccessRequestHandler extends OperationHttpHandler {
         owner
       )
     }
-    throw new BadRequestHttpError('expected a need-based access request')
+    throw new BadRequestHttpError('expected a needs or delegation access request')
   }
 
   private async readRegistry(

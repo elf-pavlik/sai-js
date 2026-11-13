@@ -821,8 +821,8 @@ export async function reconcileGrantsForGrantee(
     newGrantIds.push({ id: grant.id, type: grant.type })
   }
 
-  // one delegation request per data owner (the issuance endpoint accepts a
-  // single dataOwner batch)
+  // one delegation request per data owner (the access request endpoint accepts
+  // a single dataOwner batch)
   const delegatedByOwner = new Map<string, GrantData[]>()
   for (const [index, grant] of generated.delegatedGrants.entries()) {
     if (reusedDelegated.has(index)) continue

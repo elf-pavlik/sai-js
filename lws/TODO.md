@@ -28,7 +28,15 @@ in [`phase-0-wire-contract.md`](./phase-0-wire-contract.md).
         paths). Delegation and revocation remain on the legacy `.sai/grants`
         route for Steps 2–3. Package suite and full Dagger integration suite
         are green.
-  - [ ] Step 2: move delegation issuance to the access request endpoint.
+  - [x] Step 2: move delegation issuance to the access request endpoint.
+        The frozen top-level delegation array (and the temporary legacy
+        `grants` fallback) now POST to
+        `/.sai/access-requests/<owner>`; the URL owner must match the payload
+        `assigner`. `requestDelegations` targets the new endpoint directly
+        while discovery/WebID still advertise the legacy route for revocation
+        until Steps 3/6. The old `.sai/grants` POST now rejects delegation;
+        chain validation and the synchronous issued-grants response are
+        unchanged. Package suite and full Dagger integration suite are green.
   - [ ] Step 3: move revocation to the access request endpoint.
   - [ ] Step 4: `/.sai/grants/<owner>` becomes the read-only grant view.
   - [ ] Step 5: disable `.lws` access stores/readers; replace the CSS describer.

@@ -1,16 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-  type Container,
-  type Directory,
-  type File,
-  type Secret,
-  type Service,
-  argument,
-  dag,
-  func,
-  object,
-} from '@dagger.io/dagger'
+import { argument, dag, func, object } from '@dagger.io/dagger'
+import type { Container, Directory, File, Secret, Service } from '@dagger.io/dagger'
 
 const CSS_BASE_URL = 'https://auth/'
 const CSS_ID_ORIGIN = 'id'

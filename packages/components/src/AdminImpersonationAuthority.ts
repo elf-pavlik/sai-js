@@ -139,7 +139,7 @@ export class AdminImpersonationAuthority implements AdminImpersonationRequestAut
   ): Promise<boolean> {
     const key = `${org}\n${subject}`
     const cached = this.adminChecks.get(key)
-    if (cached) {
+    if (cached !== undefined) {
       return cached
     }
     const check = (async (): Promise<boolean> => {
@@ -174,7 +174,7 @@ export class AdminImpersonationAuthority implements AdminImpersonationRequestAut
 
   private agentOf(subject: string): Promise<string | undefined> {
     const cached = this.agents.get(subject)
-    if (cached) {
+    if (cached !== undefined) {
       return cached
     }
     const discovery = this.discoverAgent(subject).catch(() => undefined)

@@ -59,14 +59,21 @@ function mostSpecificGrantEdge(grants: GrantData[]): GrantData[] {
   const byAssigner = new Map<string, GrantData[]>()
   for (const grant of grants) {
     const bucket = byAssigner.get(grant.grantedBy)
-    if (bucket) bucket.push(grant)
-    else byAssigner.set(grant.grantedBy, [grant])
+    if (bucket) {
+      bucket.push(grant)
+    } else {
+      byAssigner.set(grant.grantedBy, [grant])
+    }
   }
   const [best] = [...byAssigner.entries()].toSorted(([assignerA, batchA], [assignerB, batchB]) => {
     const byRank = grantEdgeRank(batchB) - grantEdgeRank(batchA)
-    if (byRank !== 0) return byRank
+    if (byRank !== 0) {
+      return byRank
+    }
     const bySize = batchB.length - batchA.length
-    if (bySize !== 0) return bySize
+    if (bySize !== 0) {
+      return bySize
+    }
     return assignerA.localeCompare(assignerB)
   })
   return best ? best[1] : []
@@ -111,11 +118,15 @@ function matchingAssigners(
         .filter((grant) => grantCoversClaim(grant, policy, { assignees }))
         .map((grant) => grant.grantedBy)
     )
-    if (assigners.size === 0) return new Set()
+    if (assigners.size === 0) {
+      return new Set()
+    }
     matches = matches
       ? new Set([...matches].filter((assigner) => assigners.has(assigner)))
       : assigners
-    if (matches.size === 0) return matches
+    if (matches.size === 0) {
+      return matches
+    }
   }
   return matches ?? new Set()
 }
@@ -150,7 +161,9 @@ export class DelegatedAccessClaimValidator implements AccessClaimValidator {
     // app-specific grant if there is one, otherwise the narrowest delegation.
     const received = relevant.filter((grant) => grantGrantee(grant) === input.subject)
     const selected = appSpecific.length > 0 ? appSpecific : mostSpecificGrantEdge(received)
-    if (selected.length === 0) return undefined
+    if (selected.length === 0) {
+      return undefined
+    }
 
     // The claim must preserve the parent/child relation between selected
     // grants: the policy engine evaluates inheritance from the claim alone.
@@ -206,7 +219,9 @@ export class DelegatedAccessClaimValidator implements AccessClaimValidator {
 
     for (const { assigner } of candidates) {
       const grants = await this.assignerGrants(assigner)
-      if (matchingAssigners(input.access, grants, assignees).has(assigner)) return assigner
+      if (matchingAssigners(input.access, grants, assignees).has(assigner)) {
+        return assigner
+      }
     }
     throw new Error('no grant in the assigner registry covers the delegated claim')
   }

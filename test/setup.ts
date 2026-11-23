@@ -41,7 +41,9 @@ function attachContext(ctx: Context): Scope | undefined {
 }
 
 function detachContext(scope: Scope | undefined): void {
-  if (scope === undefined) return
+  if (scope === undefined) {
+    return
+  }
   const manager = (
     context as unknown as { _getContextManager(): { detach(s: Scope): void } | undefined }
   )._getContextManager?.()
@@ -77,7 +79,9 @@ const datasetData = await readFile(datasetPath, 'utf8')
 // stage 3: one Fuseki dataset per pod. The fixture's registry origin is the
 // raw `https://registry/` in the dagger environment.
 const accounts = Object.values(kvData).flatMap((value: any) => {
-  if (!value || !value['**pod**']) return []
+  if (!value || !value['**pod**']) {
+    return []
+  }
   return [
     {
       webId: (Object.values(value['**webIdLink**'])[0] as any).webId,
@@ -101,8 +105,9 @@ const objectEndpoints = await seedObjectEndpoints(kvData, {
   s3Endpoint,
 })
 const testClientCredentials = objectEndpoints.get('https://data/test-client/')
-if (!testClientCredentials)
+if (!testClientCredentials) {
   throw new Error('seed did not provision the test-client object endpoint')
+}
 
 const pg = new Postgres(connectionString, 'key_value')
 

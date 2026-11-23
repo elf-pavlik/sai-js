@@ -307,11 +307,11 @@ export class IdJagTokenHandler extends HttpHandler {
       const org = this.impersonationOrg(params)
       let claim: VerifiedAccessClaim
       try {
-        claim = await this.adminImpersonationAuthority!.authorize({
+        claim = await this.adminImpersonationAuthority.authorize({
           org,
           subject: subject.subject,
           client: subject.client,
-          storage: resource!,
+          storage: resource,
         })
       } catch (error: unknown) {
         if (AdminImpersonationDenied.isInstance(error)) {
@@ -554,7 +554,7 @@ export class IdJagTokenHandler extends HttpHandler {
     }
     const assigner = claim.assigners[0]
     try {
-      const validated = await this.claimValidator!.validate({
+      const validated = await this.claimValidator.validate({
         ...(assigner ? { assigner } : {}),
         subject,
         client,

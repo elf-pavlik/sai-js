@@ -133,8 +133,8 @@ afterAll(async () => {
   // a root span.
   try {
     await otelSdk?.shutdown()
-  } catch (err) {
-    console.warn('[otel] runner shutdown error:', err)
+  } catch (error) {
+    console.warn('[otel] runner shutdown error:', error)
   }
 })
 beforeEach(async () => {
